@@ -7,9 +7,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 const PRODUCTS = [
   { id: 1, icon: "💰", name: "Finzo App", desc: "Plataforma de gestão financeira inteligente que conecta contas, organiza movimentações e transforma dados em análises claras sobre gastos, rendimento e oportunidades de economia.", tags: ["FinTech", "Analytics", "Open Finance"], color: "#c8ff00", featured: true },
-  { id: 2, icon: "💬", name: "WhatsApp Bot", desc: "Sistema de atendimento via WhatsApp que categoriza conversas, realiza o pré-atendimento e organiza o fluxo antes da interação humana.", tags: ["Chatbot", "WhatsApp API", "NLP"], color: "#25D366" },
-  { id: 3, icon: "⚙️", name: "Autonomy", desc: "Plataforma de automação empresarial com 12 sistemas integrados para áreas contábil, financeira, gestão, pessoal e legal.", tags: ["RPA", "Automação", "ERP"], color: "#4d9fff" },
-  { id: 4, icon: "🌐", name: "Sites para Empresas", desc: "Criação de sites profissionais com IA, adaptados ao modelo e necessidade de cada cliente. Design moderno, responsivo e otimizado para conversão.", tags: ["Web Design", "IA", "SEO"], color: "#ff6b9d" },
+  { id: 2, icon: "💬", name: "WhatsApp Bot", desc: "Sistema de atendimento via WhatsApp que categoriza conversas, realiza o pré-atendimento e organiza o fluxo antes da interação humana.", tags: ["Chatbot", "WhatsApp API", "NLP"], color: "#25D366", featured: true },
+  { id: 3, icon: "⚙️", name: "Autonomy", desc: "Plataforma de automação empresarial com 12 sistemas integrados para áreas contábil, financeira, gestão, pessoal e legal.", tags: ["RPA", "Automação", "ERP"], color: "#4d9fff", featured: true },
+  { id: 4, icon: "🌐", name: "Sites para Empresas", desc: "Criação de sites profissionais com IA, adaptados ao modelo e necessidade de cada cliente. Design moderno, responsivo e otimizado para conversão.", tags: ["Web Design", "IA", "SEO"], color: "#ff6b9d", featured: true },
 ];
 
 const STARTUPS = [
@@ -445,9 +445,9 @@ export default function App() {
         </Reveal>
 
         {/* Bento Grid */}
-        <div className="products-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+        <div className="products-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
           {PRODUCTS.map((p, i) => (
-            <Reveal key={p.id} type={i % 2 === 0 ? "up" : "scale"} delay={i * 0.08} className={p.featured ? "featured-span" : ""} style={p.featured ? { gridColumn: "span 2" } : {}}>
+            <Reveal key={p.id} type={i % 2 === 0 ? "up" : "scale"} delay={i * 0.08}>
               <div className={`product-card ${p.featured ? "featured-inner" : ""}`}
                 onMouseEnter={() => setHoveredProduct(p.id)}
                 onMouseLeave={() => setHoveredProduct(null)}
@@ -480,38 +480,159 @@ export default function App() {
                     <div className="featured-code" style={{ background: "#0c0c0e", borderLeft: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden", borderRadius: "0 18px 18px 0" }}>
                       <div style={{ position: "absolute", width: 120, height: 120, borderRadius: "50%", background: `${p.color}15`, filter: "blur(40px)", top: "20%", left: "30%", animation: "float1 6s ease-in-out infinite" }} />
                       <div style={{ position: "absolute", width: 90, height: 90, borderRadius: "50%", background: "rgba(77,159,255,0.1)", filter: "blur(40px)", bottom: "20%", right: "25%", animation: "float2 8s ease-in-out infinite" }} />
-                      <div style={{ zIndex: 1, padding: 24, width: "100%", maxWidth: 260, display: "flex", flexDirection: "column", gap: 12 }}>
-                        <div style={{ fontSize: "0.7rem", fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 4, fontFamily: "'JetBrains Mono', monospace" }}>Contas conectadas</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
-                            <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #820ad1, #9b30ff)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 700, color: "#fff" }}>Nu</div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>Nubank</div>
-                              <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)" }}>Conta corrente</div>
+
+                      {/* Finzo App */}
+                      {p.id === 1 && (
+                        <div style={{ zIndex: 1, padding: 24, width: "100%", maxWidth: 260, display: "flex", flexDirection: "column", gap: 12 }}>
+                          <div style={{ fontSize: "0.7rem", fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 4, fontFamily: "'JetBrains Mono', monospace" }}>Contas conectadas</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
+                              <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #820ad1, #9b30ff)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 700, color: "#fff" }}>Nu</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>Nubank</div>
+                                <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)" }}>Conta corrente</div>
+                              </div>
+                              <div style={{ width: 18, height: 18, borderRadius: "50%", background: "rgba(76,217,100,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.55rem", color: "#4cd964" }}>✓</div>
                             </div>
-                            <div style={{ width: 18, height: 18, borderRadius: "50%", background: "rgba(76,217,100,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.55rem", color: "#4cd964" }}>✓</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
+                              <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #ff7a00, #ff9533)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: 700, color: "#fff" }}>Inter</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>Inter</div>
+                                <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)" }}>Conta corrente</div>
+                              </div>
+                              <div style={{ width: 18, height: 18, borderRadius: "50%", background: "rgba(76,217,100,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.55rem", color: "#4cd964" }}>✓</div>
+                            </div>
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
-                            <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #ff7a00, #ff9533)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: 700, color: "#fff" }}>Inter</div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>Inter</div>
-                              <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)" }}>Conta corrente</div>
+                          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                            <div style={{ flex: 1, padding: "10px 12px", background: "rgba(200,255,0,0.05)", border: "1px solid rgba(200,255,0,0.1)", borderRadius: 10 }}>
+                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Economia</div>
+                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#c8ff00" }}>+12%</div>
                             </div>
-                            <div style={{ width: 18, height: 18, borderRadius: "50%", background: "rgba(76,217,100,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.55rem", color: "#4cd964" }}>✓</div>
+                            <div style={{ flex: 1, padding: "10px 12px", background: "rgba(77,159,255,0.05)", border: "1px solid rgba(77,159,255,0.1)", borderRadius: 10 }}>
+                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Gastos</div>
+                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#4d9fff" }}>R$ 2.4k</div>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: "0.58rem", color: "rgba(76,217,100,0.6)", fontFamily: "'JetBrains Mono', monospace", textAlign: "center", marginTop: 2 }}>● Sincronizado em tempo real</div>
+                        </div>
+                      )}
+
+                      {/* WhatsApp Bot */}
+                      {p.id === 2 && (
+                        <div style={{ zIndex: 1, padding: 24, width: "100%", maxWidth: 260, display: "flex", flexDirection: "column", gap: 10 }}>
+                          <div style={{ fontSize: "0.7rem", fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 4, fontFamily: "'JetBrains Mono', monospace" }}>Conversas recentes</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            <div style={{ padding: "10px 14px", background: "rgba(37,211,102,0.06)", border: "1px solid rgba(37,211,102,0.12)", borderRadius: 12 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                                <div style={{ fontSize: "0.7rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>Maria Silva</div>
+                                <span style={{ padding: "2px 8px", background: "rgba(37,211,102,0.15)", borderRadius: 100, fontSize: "0.5rem", fontWeight: 600, color: "#25D366" }}>Resolvido</span>
+                              </div>
+                              <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)" }}>Agendamento confirmado automaticamente</div>
+                            </div>
+                            <div style={{ padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                                <div style={{ fontSize: "0.7rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>João Santos</div>
+                                <span style={{ padding: "2px 8px", background: "rgba(255,180,0,0.15)", borderRadius: 100, fontSize: "0.5rem", fontWeight: 600, color: "#ffb400" }}>Pré-atendimento</span>
+                              </div>
+                              <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)" }}>Coletando informações do cliente...</div>
+                            </div>
+                            <div style={{ padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                                <div style={{ fontSize: "0.7rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>Ana Costa</div>
+                                <span style={{ padding: "2px 8px", background: "rgba(77,159,255,0.15)", borderRadius: 100, fontSize: "0.5rem", fontWeight: 600, color: "#4d9fff" }}>Encaminhado</span>
+                              </div>
+                              <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)" }}>Transferido para atendente humano</div>
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                            <div style={{ flex: 1, padding: "8px 12px", background: "rgba(37,211,102,0.05)", border: "1px solid rgba(37,211,102,0.1)", borderRadius: 10, textAlign: "center" }}>
+                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Filtradas</div>
+                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#25D366" }}>70%</div>
+                            </div>
+                            <div style={{ flex: 1, padding: "8px 12px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, textAlign: "center" }}>
+                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Tempo médio</div>
+                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.6)" }}>8s</div>
+                            </div>
                           </div>
                         </div>
-                        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                          <div style={{ flex: 1, padding: "10px 12px", background: "rgba(200,255,0,0.05)", border: "1px solid rgba(200,255,0,0.1)", borderRadius: 10 }}>
-                            <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Economia</div>
-                            <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#c8ff00" }}>+12%</div>
+                      )}
+
+                      {/* Autonomy */}
+                      {p.id === 3 && (
+                        <div style={{ zIndex: 1, padding: 24, width: "100%", maxWidth: 260, display: "flex", flexDirection: "column", gap: 10 }}>
+                          <div style={{ fontSize: "0.7rem", fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 4, fontFamily: "'JetBrains Mono', monospace" }}>Módulos ativos</div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                            {[
+                              { icon: "📊", name: "Contábil", status: true },
+                              { icon: "💰", name: "Financeiro", status: true },
+                              { icon: "📋", name: "Fiscal", status: true },
+                              { icon: "👥", name: "Pessoal", status: true },
+                              { icon: "⚖️", name: "Legal", status: true },
+                              { icon: "📦", name: "Estoque", status: true },
+                            ].map((m, idx) => (
+                              <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10 }}>
+                                <span style={{ fontSize: "0.75rem" }}>{m.icon}</span>
+                                <span style={{ fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.6)", flex: 1 }}>{m.name}</span>
+                                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#4cd964" }} />
+                              </div>
+                            ))}
                           </div>
-                          <div style={{ flex: 1, padding: "10px 12px", background: "rgba(77,159,255,0.05)", border: "1px solid rgba(77,159,255,0.1)", borderRadius: 10 }}>
-                            <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Gastos</div>
-                            <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#4d9fff" }}>R$ 2.4k</div>
+                          <div style={{ padding: "10px 14px", background: "rgba(77,159,255,0.05)", border: "1px solid rgba(77,159,255,0.1)", borderRadius: 10, marginTop: 4 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div>
+                                <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Rotinas automatizadas</div>
+                                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#4d9fff" }}>80%</div>
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Módulos</div>
+                                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.6)" }}>12</div>
+                              </div>
+                            </div>
                           </div>
+                          <div style={{ fontSize: "0.58rem", color: "rgba(77,159,255,0.6)", fontFamily: "'JetBrains Mono', monospace", textAlign: "center", marginTop: 2 }}>● Todos os módulos operacionais</div>
                         </div>
-                        <div style={{ fontSize: "0.58rem", color: "rgba(76,217,100,0.6)", fontFamily: "'JetBrains Mono', monospace", textAlign: "center", marginTop: 2 }}>● Sincronizado em tempo real</div>
-                      </div>
+                      )}
+
+                      {/* Sites para Empresas */}
+                      {p.id === 4 && (
+                        <div style={{ zIndex: 1, padding: 24, width: "100%", maxWidth: 260, display: "flex", flexDirection: "column", gap: 10 }}>
+                          <div style={{ fontSize: "0.7rem", fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 4, fontFamily: "'JetBrains Mono', monospace" }}>Projeto em andamento</div>
+                          <div style={{ padding: "12px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                              <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #ff6b9d, #ff8fb5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", color: "#fff" }}>🏪</div>
+                              <div>
+                                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>Loja Bella</div>
+                                <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)" }}>E-commerce · Moda</div>
+                              </div>
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              {[
+                                { label: "Design com IA", done: true },
+                                { label: "Layout responsivo", done: true },
+                                { label: "SEO otimizado", done: true },
+                                { label: "Integração pagamento", done: false },
+                              ].map((step, idx) => (
+                                <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <div style={{ width: 16, height: 16, borderRadius: "50%", background: step.done ? "rgba(76,217,100,0.15)" : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.5rem", color: step.done ? "#4cd964" : "rgba(255,255,255,0.2)" }}>{step.done ? "✓" : ""}</div>
+                                  <span style={{ fontSize: "0.62rem", color: step.done ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.3)", textDecoration: step.done ? "none" : "none" }}>{step.label}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                            <div style={{ flex: 1, padding: "8px 12px", background: "rgba(255,107,157,0.05)", border: "1px solid rgba(255,107,157,0.1)", borderRadius: 10, textAlign: "center" }}>
+                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Progresso</div>
+                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#ff6b9d" }}>75%</div>
+                            </div>
+                            <div style={{ flex: 1, padding: "8px 12px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, textAlign: "center" }}>
+                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Entrega</div>
+                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.6)" }}>5 dias</div>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: "0.58rem", color: "rgba(255,107,157,0.6)", fontFamily: "'JetBrains Mono', monospace", textAlign: "center", marginTop: 2 }}>● Design gerado por IA</div>
+                        </div>
+                      )}
+
                     </div>
                   </>
                 ) : (
