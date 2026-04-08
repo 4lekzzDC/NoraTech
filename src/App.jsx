@@ -112,6 +112,7 @@ export default function App() {
   const [openFaq, setOpenFaq] = useState(null);
   const [formStep, setFormStep] = useState(0);
   const [hoveredProduct, setHoveredProduct] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => { setScrollY(window.scrollY); setNavScrolled(window.scrollY > 60); };
@@ -153,6 +154,90 @@ export default function App() {
         .form-option { transition: all 0.3s; cursor: pointer; }
         .form-option:hover { border-color: rgba(200,255,0,0.4) !important; background: rgba(200,255,0,0.04) !important; }
         a { text-decoration: none; color: inherit; }
+
+        /* ═══ MOBILE RESPONSIVE ═══ */
+        @media (max-width: 768px) {
+          .nav-links { display: none !important; }
+          .nav-cta-desktop { display: none !important; }
+          .hamburger { display: flex !important; }
+
+          .mobile-menu {
+            display: flex !important;
+            position: fixed;
+            inset: 0;
+            z-index: 999;
+            background: rgba(8,8,10,0.98);
+            backdrop-filter: blur(24px);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+          }
+          .mobile-menu a {
+            font-size: 1.1rem !important;
+            padding: 14px 32px !important;
+            color: rgba(255,255,255,0.7) !important;
+            border-radius: 12px !important;
+            width: 240px;
+            text-align: center;
+          }
+          .mobile-menu a:hover { background: rgba(255,255,255,0.06); color: #eeede9 !important; }
+          .mobile-menu .mobile-cta {
+            margin-top: 16px;
+            background: #c8ff00 !important;
+            color: #08080a !important;
+            font-weight: 700 !important;
+          }
+
+          .hero-section {
+            grid-template-columns: 1fr !important;
+            padding: 100px 20px 60px !important;
+            min-height: auto !important;
+            gap: 0px !important;
+          }
+          .hero-windows { display: none !important; }
+          .hero-stats {
+            flex-wrap: wrap !important;
+            gap: 20px !important;
+          }
+          .hero-stats > div { min-width: calc(50% - 20px); }
+          .hero-buttons { flex-wrap: wrap !important; }
+          .hero-buttons a { flex: 1; text-align: center; justify-content: center; min-width: 140px; }
+
+          .section-padding { padding: 80px 20px !important; }
+
+          .products-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .featured-span { grid-column: span 1 !important; }
+          .featured-inner {
+            grid-template-columns: 1fr !important;
+          }
+          .featured-code {
+            border-left: none !important;
+            border-top: 1px solid rgba(255,255,255,0.06) !important;
+            border-radius: 0 0 18px 18px !important;
+          }
+
+          .startups-grid { grid-template-columns: 1fr !important; }
+
+          .process-grid { grid-template-columns: 1fr 1fr !important; }
+
+          .footer-grid { grid-template-columns: 1fr 1fr !important; gap: 32px !important; }
+          .footer-bottom { flex-direction: column !important; gap: 12px !important; align-items: flex-start !important; }
+
+          .cta-buttons { flex-direction: column !important; align-items: center !important; width: 100%; }
+          .cta-buttons a { width: 100%; max-width: 280px; justify-content: center; text-align: center; }
+
+          .cta-section { padding: 80px 20px 100px !important; }
+          .footer-section { padding: 40px 20px !important; }
+        }
+
+        @media (max-width: 480px) {
+          .process-grid { grid-template-columns: 1fr !important; }
+          .footer-grid { grid-template-columns: 1fr !important; }
+          .hero-stats { gap: 16px !important; }
+        }
       `}</style>
 
       {/* ═══ ATMOSPHERE ═══ */}
@@ -173,7 +258,7 @@ export default function App() {
       </div>
 
       {/* ═══ NAV ═══ */}
-      <div style={{ position: "fixed", top: 14, left: "50%", transform: "translateX(-50%)", zIndex: 1000 }}>
+      <div style={{ position: "fixed", top: 14, left: "50%", transform: "translateX(-50%)", zIndex: 1000, width: "auto", maxWidth: "calc(100% - 28px)" }}>
         <nav style={{
           display: "flex", alignItems: "center", gap: 4, padding: "5px 5px 5px 20px",
           background: navScrolled ? "rgba(12,12,14,0.95)" : "rgba(16,16,18,0.8)",
@@ -181,17 +266,40 @@ export default function App() {
           borderRadius: 100, transition: "all 0.5s cubic-bezier(0.16,1,0.3,1)",
           boxShadow: navScrolled ? "0 8px 40px rgba(0,0,0,0.5)" : "none"
         }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5 }}>NEXUS<span style={{ color: "rgba(255,255,255,0.25)" }}>.ai</span></span>
-          <a href="#produtos" className="nav-link">Produtos</a>
-          <a href="#startups" className="nav-link">Startups</a>
-          <a href="#processo" className="nav-link">Processo</a>
-          <a href="#depoimentos" className="nav-link">Clientes</a>
-          <a href="#contato" className="nav-link" style={{ padding: "8px 18px", background: "#c8ff00", color: "#08080a", fontWeight: 700, borderRadius: 100 }}>Contato</a>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5, whiteSpace: "nowrap" }}>NEXUS<span style={{ color: "rgba(255,255,255,0.25)" }}>.ai</span></span>
+          <a href="#produtos" className="nav-link nav-links">Produtos</a>
+          <a href="#startups" className="nav-link nav-links">Startups</a>
+          <a href="#processo" className="nav-link nav-links">Processo</a>
+          <a href="#depoimentos" className="nav-link nav-links">Clientes</a>
+          <a href="#contato" className="nav-link nav-cta-desktop" style={{ padding: "8px 18px", background: "#c8ff00", color: "#08080a", fontWeight: 700, borderRadius: 100 }}>Contato</a>
+          {/* Hamburger — hidden on desktop */}
+          <button className="hamburger" onClick={() => setMenuOpen(!menuOpen)} style={{
+            display: "none", alignItems: "center", justifyContent: "center",
+            width: 36, height: 36, background: "rgba(255,255,255,0.06)", border: "none",
+            borderRadius: "50%", cursor: "pointer", flexShrink: 0
+          }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: menuOpen ? 0 : 4, alignItems: "center" }}>
+              <span style={{ display: "block", width: 16, height: 2, background: "#eeede9", borderRadius: 2, transition: "all 0.3s", transform: menuOpen ? "rotate(45deg) translateY(1px)" : "none" }} />
+              {!menuOpen && <span style={{ display: "block", width: 16, height: 2, background: "#eeede9", borderRadius: 2, transition: "all 0.3s" }} />}
+              <span style={{ display: "block", width: 16, height: 2, background: "#eeede9", borderRadius: 2, transition: "all 0.3s", transform: menuOpen ? "rotate(-45deg) translateY(-1px)" : "none" }} />
+            </div>
+          </button>
         </nav>
       </div>
 
+      {/* ═══ MOBILE MENU OVERLAY ═══ */}
+      {menuOpen && (
+        <div className="mobile-menu" style={{ display: "none" }}>
+          <a href="#produtos" className="nav-link" onClick={() => setMenuOpen(false)}>Produtos</a>
+          <a href="#startups" className="nav-link" onClick={() => setMenuOpen(false)}>Startups</a>
+          <a href="#processo" className="nav-link" onClick={() => setMenuOpen(false)}>Processo</a>
+          <a href="#depoimentos" className="nav-link" onClick={() => setMenuOpen(false)}>Clientes</a>
+          <a href="#contato" className="nav-link mobile-cta" onClick={() => setMenuOpen(false)}>Contato</a>
+        </div>
+      )}
+
       {/* ═══ HERO ═══ */}
-      <section style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "1.1fr 0.9fr", alignItems: "center", padding: "120px 60px 80px", gap: 60, maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
+      <section className="hero-section" style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "1.1fr 0.9fr", alignItems: "center", padding: "120px 60px 80px", gap: 60, maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <div>
           <Reveal delay={0.1}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 16px 6px 10px", background: "rgba(200,255,0,0.08)", border: "1px solid rgba(200,255,0,0.12)", borderRadius: 100, marginBottom: 28 }}>
@@ -219,7 +327,7 @@ export default function App() {
           </Reveal>
 
           <Reveal delay={0.55}>
-            <div style={{ display: "flex", gap: 12 }}>
+            <div className="hero-buttons" style={{ display: "flex", gap: 12 }}>
               <a href="#produtos" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 30px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", transition: "all 0.3s" }}>
                 Explorar Produtos <span style={{ fontSize: "1.1rem" }}>↗</span>
               </a>
@@ -231,7 +339,7 @@ export default function App() {
 
           {/* Stats row */}
           <Reveal delay={0.7}>
-            <div style={{ display: "flex", gap: 40, marginTop: 56, paddingTop: 32, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="hero-stats" style={{ display: "flex", gap: 40, marginTop: 56, paddingTop: 32, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
               {[["4", "Projetos"], ["50+", "Clientes"], ["200+", "Automações"], ["100%", "Dedicação"]].map(([val, label], i) => (
                 <div key={i}>
                   <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "1.5rem", fontWeight: 700, color: "#c8ff00" }}>{val}</div>
@@ -243,7 +351,7 @@ export default function App() {
         </div>
 
         {/* Hero right — floating windows with mouse parallax */}
-        <div style={{ position: "relative", height: 520, perspective: 1200 }}>
+        <div className="hero-windows" style={{ position: "relative", height: 520, perspective: 1200 }}>
           {/* Terminal window */}
           <div style={{
             position: "absolute", width: 340, top: 0, left: 0, background: "#141416", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, overflow: "hidden",
@@ -318,7 +426,7 @@ export default function App() {
       </div>
 
       {/* ═══ AI PRODUCTS ═══ */}
-      <section id="produtos" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
+      <section id="produtos" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <Reveal>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <Star size={12} color="#c8ff00" />
@@ -337,10 +445,10 @@ export default function App() {
         </Reveal>
 
         {/* Bento Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+        <div className="products-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
           {PRODUCTS.map((p, i) => (
-            <Reveal key={p.id} type={i % 2 === 0 ? "up" : "scale"} delay={i * 0.08} style={p.featured ? { gridColumn: "span 2" } : {}}>
-              <div className="product-card"
+            <Reveal key={p.id} type={i % 2 === 0 ? "up" : "scale"} delay={i * 0.08} className={p.featured ? "featured-span" : ""} style={p.featured ? { gridColumn: "span 2" } : {}}>
+              <div className={`product-card ${p.featured ? "featured-inner" : ""}`}
                 onMouseEnter={() => setHoveredProduct(p.id)}
                 onMouseLeave={() => setHoveredProduct(null)}
                 style={{
@@ -369,7 +477,7 @@ export default function App() {
                         {p.tags.map(t => <span key={t} style={{ padding: "3px 9px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 100, fontSize: "0.65rem", fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: "rgba(255,255,255,0.4)" }}>{t}</span>)}
                       </div>
                     </div>
-                    <div style={{ background: "#0c0c0e", borderLeft: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden", borderRadius: "0 18px 18px 0" }}>
+                    <div className="featured-code" style={{ background: "#0c0c0e", borderLeft: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden", borderRadius: "0 18px 18px 0" }}>
                       <div style={{ position: "absolute", width: 120, height: 120, borderRadius: "50%", background: `${p.color}15`, filter: "blur(40px)", top: "20%", left: "30%", animation: "float1 6s ease-in-out infinite" }} />
                       <div style={{ position: "absolute", width: 90, height: 90, borderRadius: "50%", background: "rgba(77,159,255,0.1)", filter: "blur(40px)", bottom: "20%", right: "25%", animation: "float2 8s ease-in-out infinite" }} />
                       <pre style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.66rem", color: "rgba(255,255,255,0.35)", lineHeight: 1.9, zIndex: 1, padding: 24 }}>
@@ -402,7 +510,7 @@ export default function App() {
       </section>
 
       {/* ═══ STARTUPS ═══ */}
-      <section id="startups" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
+      <section id="startups" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <Reveal>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <Star size={12} color="#4d9fff" />
@@ -420,7 +528,7 @@ export default function App() {
           </p>
         </Reveal>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div className="startups-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           {STARTUPS.map((s, i) => (
             <Reveal key={s.id} type={i % 2 === 0 ? "rotateL" : "rotateR"} delay={i * 0.1}>
               <div className="startup-card" style={{
@@ -456,7 +564,7 @@ export default function App() {
       </section>
 
       {/* ═══ PROCESS — hen-ry editorial style ═══ */}
-      <section id="processo" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
+      <section id="processo" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <Reveal>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <Star size={12} color="#ff6b9d" />
@@ -469,7 +577,7 @@ export default function App() {
           </h2>
         </Reveal>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 2, borderRadius: 18, overflow: "hidden" }}>
+        <div className="process-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 2, borderRadius: 18, overflow: "hidden" }}>
           {[
             { num: "01", icon: "🔍", title: "Diagnóstico", desc: "Mapeamos gargalos e identificamos onde a IA gera mais impacto no seu negócio." },
             { num: "02", icon: "🔧", title: "Arquitetura", desc: "Stack, modelos e integrações. Protótipo funcional em 2 semanas." },
@@ -495,7 +603,7 @@ export default function App() {
       </section>
 
       {/* ═══ TESTIMONIALS — iMessage window ═══ */}
-      <section id="depoimentos" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
+      <section id="depoimentos" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <Reveal>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <Star size={12} color="#00d48a" />
@@ -539,7 +647,7 @@ export default function App() {
       </section>
 
       {/* ═══ FAQ — Tabbed (hen-ry style) ═══ */}
-      <section style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
+      <section className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <Reveal>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <Star size={12} color="#ff8a3d" />
@@ -593,7 +701,7 @@ export default function App() {
       </section>
 
       {/* ═══ CTA — Big editorial statement ═══ */}
-      <section id="contato" style={{ padding: "100px 60px 160px", maxWidth: 1440, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
+      <section id="contato" className="cta-section" style={{ padding: "100px 60px 160px", maxWidth: 1440, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
         {/* Decorative elements — hen-ry style */}
         <div style={{ position: "absolute", top: "40%", left: "50%", transform: "translate(-50%, -50%)", width: 400, height: 400, background: "radial-gradient(circle, rgba(200,255,0,0.04) 0%, transparent 55%)", filter: "blur(40px)", pointerEvents: "none" }} />
 
@@ -611,7 +719,7 @@ export default function App() {
             <p style={{ fontSize: "1.08rem", color: "rgba(255,255,255,0.4)", maxWidth: 460, margin: "0 auto 44px", lineHeight: 1.6 }}>
               Agende uma conversa sem compromisso e descubra como IA pode acelerar seus resultados.
             </p>
-            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+            <div className="cta-buttons" style={{ display: "flex", gap: 12, justifyContent: "center" }}>
               <a href="#" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "16px 36px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.95rem" }}>
                 Agendar Reunião <span>↗</span>
               </a>
@@ -624,8 +732,8 @@ export default function App() {
       </section>
 
       {/* ═══ FOOTER ═══ */}
-      <footer style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 48, marginBottom: 48 }}>
+      <footer className="footer-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
+        <div className="footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 48, marginBottom: 48 }}>
           <div>
             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.9rem", color: "#c8ff00" }}>NEXUS<span style={{ color: "rgba(255,255,255,0.2)" }}>.ai</span></span>
             <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.3)", lineHeight: 1.6, maxWidth: 300, marginTop: 12 }}>Criando soluções inteligentes que resolvem problemas reais. Do código ao produto.</p>
@@ -654,7 +762,7 @@ export default function App() {
             </div>
           ))}
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 32, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="footer-bottom" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 32, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
           <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)" }}>© 2026 NEXUS.ai — Todos os direitos reservados</span>
           <div style={{ display: "flex", gap: 16 }}>
             <a href="#" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Privacidade</a>
