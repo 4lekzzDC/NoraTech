@@ -615,7 +615,7 @@ export default function App() {
               <a href="#" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "16px 36px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.95rem" }}>
                 Agendar Reunião <span>↗</span>
               </a>
-              <a href="#" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "16px 30px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, fontWeight: 600, fontSize: "0.95rem" }}>
+              <a href="https://wa.me/5511932227752" target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "16px 30px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, fontWeight: 600, fontSize: "0.95rem" }}>
                 WhatsApp
               </a>
             </div>
@@ -637,7 +637,20 @@ export default function App() {
           ].map((col, i) => (
             <div key={i}>
               <h5 style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, color: "rgba(255,255,255,0.2)", marginBottom: 16 }}>{col.title}</h5>
-              {col.links.map(link => <a key={link} href="#" style={{ display: "block", color: "rgba(255,255,255,0.35)", fontSize: "0.86rem", padding: "3px 0", transition: "color 0.2s" }}>{link}</a>)}
+              {col.links.map(link => {
+                const isWhatsappLink = link === "WhatsApp";
+                return (
+                  <a
+                    key={link}
+                    href={isWhatsappLink ? "https://wa.me/5511932227752" : "#"}
+                    target={isWhatsappLink ? "_blank" : undefined}
+                    rel={isWhatsappLink ? "noopener noreferrer" : undefined}
+                    style={{ display: "block", color: "rgba(255,255,255,0.35)", fontSize: "0.86rem", padding: "3px 0", transition: "color 0.2s" }}
+                  >
+                    {link}
+                  </a>
+                );
+              })}
             </div>
           ))}
         </div>
