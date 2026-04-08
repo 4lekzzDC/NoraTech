@@ -480,17 +480,38 @@ export default function App() {
                     <div className="featured-code" style={{ background: "#0c0c0e", borderLeft: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden", borderRadius: "0 18px 18px 0" }}>
                       <div style={{ position: "absolute", width: 120, height: 120, borderRadius: "50%", background: `${p.color}15`, filter: "blur(40px)", top: "20%", left: "30%", animation: "float1 6s ease-in-out infinite" }} />
                       <div style={{ position: "absolute", width: 90, height: 90, borderRadius: "50%", background: "rgba(77,159,255,0.1)", filter: "blur(40px)", bottom: "20%", right: "25%", animation: "float2 8s ease-in-out infinite" }} />
-                      <pre style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.66rem", color: "rgba(255,255,255,0.35)", lineHeight: 1.9, zIndex: 1, padding: 24 }}>
-{`// conectar contas bancárias
-`}<span style={{ color: "#ff6b9d" }}>const</span>{` finzo = `}<span style={{ color: "#ff6b9d" }}>new</span>{` `}<span style={{ color: "#4d9fff" }}>Finzo</span>{`({
-  openFinance: `}<span style={{ color: "#c8ff00" }}>true</span>{`,
-  contas: `}<span style={{ color: "#c8ff00" }}>["nubank", "inter"]</span>{`,
-  analytics: `}<span style={{ color: "#c8ff00" }}>"smart"</span>{`
-});
-
-`}<span style={{ color: "#ff6b9d" }}>await</span>{` finzo.`}<span style={{ color: "#4d9fff" }}>sync</span>{`();
-`}<span style={{ color: "rgba(255,255,255,0.2)" }}>// ✓ 2 contas conectadas</span>
-                      </pre>
+                      <div style={{ zIndex: 1, padding: 24, width: "100%", maxWidth: 260, display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div style={{ fontSize: "0.7rem", fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 4, fontFamily: "'JetBrains Mono', monospace" }}>Contas conectadas</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
+                            <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #820ad1, #9b30ff)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 700, color: "#fff" }}>Nu</div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>Nubank</div>
+                              <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)" }}>Conta corrente</div>
+                            </div>
+                            <div style={{ width: 18, height: 18, borderRadius: "50%", background: "rgba(76,217,100,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.55rem", color: "#4cd964" }}>✓</div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
+                            <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #ff7a00, #ff9533)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: 700, color: "#fff" }}>Inter</div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>Inter</div>
+                              <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)" }}>Conta corrente</div>
+                            </div>
+                            <div style={{ width: 18, height: 18, borderRadius: "50%", background: "rgba(76,217,100,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.55rem", color: "#4cd964" }}>✓</div>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                          <div style={{ flex: 1, padding: "10px 12px", background: "rgba(200,255,0,0.05)", border: "1px solid rgba(200,255,0,0.1)", borderRadius: 10 }}>
+                            <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Economia</div>
+                            <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#c8ff00" }}>+12%</div>
+                          </div>
+                          <div style={{ flex: 1, padding: "10px 12px", background: "rgba(77,159,255,0.05)", border: "1px solid rgba(77,159,255,0.1)", borderRadius: 10 }}>
+                            <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Gastos</div>
+                            <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#4d9fff" }}>R$ 2.4k</div>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: "0.58rem", color: "rgba(76,217,100,0.6)", fontFamily: "'JetBrains Mono', monospace", textAlign: "center", marginTop: 2 }}>● Sincronizado em tempo real</div>
+                      </div>
                     </div>
                   </>
                 ) : (
