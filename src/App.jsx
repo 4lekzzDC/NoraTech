@@ -266,7 +266,7 @@ export default function App() {
           borderRadius: 100, transition: "all 0.5s cubic-bezier(0.16,1,0.3,1)",
           boxShadow: navScrolled ? "0 8px 40px rgba(0,0,0,0.5)" : "none"
         }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5, whiteSpace: "nowrap" }}>4lekzz</span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5, whiteSpace: "nowrap" }}>4lekzz portifólio</span>
           <a href="#produtos" className="nav-link nav-links">Produtos</a>
           <a href="#startups" className="nav-link nav-links">Startups</a>
           <a href="#processo" className="nav-link nav-links">Processo</a>
@@ -756,7 +756,7 @@ export default function App() {
       <footer className="footer-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <div className="footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 48, marginBottom: 48 }}>
           <div>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.9rem", color: "#c8ff00" }}>4lekzz</span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.9rem", color: "#c8ff00" }}>4lekzz portifólio</span>
             <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.3)", lineHeight: 1.6, maxWidth: 300, marginTop: 12 }}>Criando soluções que resolvem problemas reais. Do código ao produto.</p>
           </div>
           {[
