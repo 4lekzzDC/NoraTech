@@ -1,22 +1,22 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
 // ═══════════════════════════════════════════════════════════════
-// NEXUS.ai — Immersive AI & Startups Portfolio
+// 4lekzz — Immersive Startups Portfolio
 // Fusion: ssscript.app (OS UI) + hen-ry.com (editorial luxury)
 // ═══════════════════════════════════════════════════════════════
 
 const PRODUCTS = [
-  { id: 1, icon: "💰", name: "Finzo App", desc: "Plataforma de gestão financeira inteligente que conecta contas, organiza movimentações e transforma dados em análises claras sobre gastos, rendimento e oportunidades de economia.", tags: ["FinTech", "Analytics", "Open Finance"], color: "#c8ff00", featured: true },
+  { id: 1, icon: "💰", name: "Finzo App", desc: "Plataforma de gestão financeira que conecta contas, organiza movimentações e transforma dados em análises claras sobre gastos, rendimento e oportunidades de economia.", tags: ["FinTech", "Analytics", "Open Finance"], color: "#c8ff00", featured: true },
   { id: 2, icon: "💬", name: "WhatsApp Bot", desc: "Sistema de atendimento via WhatsApp que categoriza conversas, realiza o pré-atendimento e organiza o fluxo antes da interação humana.", tags: ["Chatbot", "WhatsApp API", "NLP"], color: "#25D366" },
   { id: 3, icon: "⚙️", name: "Autonomy", desc: "Plataforma de automação empresarial com 12 sistemas integrados para áreas contábil, financeira, gestão, pessoal e legal.", tags: ["RPA", "Automação", "ERP"], color: "#4d9fff" },
-  { id: 4, icon: "🌐", name: "Sites para Empresas", desc: "Criação de sites profissionais com IA, adaptados ao modelo e necessidade de cada cliente. Design moderno, responsivo e otimizado para conversão.", tags: ["Web Design", "IA", "SEO"], color: "#ff6b9d" },
+  { id: 4, icon: "🌐", name: "Sites para Empresas", desc: "Criação de sites profissionais adaptados ao modelo e necessidade de cada cliente. Design moderno, responsivo e otimizado para conversão.", tags: ["Web Design", "Responsivo", "SEO"], color: "#ff6b9d" },
 ];
 
 const STARTUPS = [
-  { id: 1, name: "Finzo App", desc: "Gestão financeira inteligente — conecta contas bancárias, organiza movimentações e gera análises claras sobre gastos, rendimento e economia.", status: "dev", category: "FinTech · B2C", year: "2025", color: "#c8ff00", file: "finzo.app" },
-  { id: 2, name: "WhatsApp Bot", desc: "Atendimento automatizado via WhatsApp com categorização de conversas, pré-atendimento inteligente e organização do fluxo.", status: "live", category: "SaaS · Atendimento", year: "2024", color: "#25D366", file: "whatsbot.service" },
+  { id: 1, name: "Finzo App", desc: "Gestão financeira — conecta contas bancárias, organiza movimentações e gera análises claras sobre gastos, rendimento e economia.", status: "dev", category: "FinTech · B2C", year: "2025", color: "#c8ff00", file: "finzo.app" },
+  { id: 2, name: "WhatsApp Bot", desc: "Atendimento automatizado via WhatsApp com categorização de conversas, pré-atendimento e organização do fluxo.", status: "live", category: "SaaS · Atendimento", year: "2024", color: "#25D366", file: "whatsbot.service" },
   { id: 3, name: "Autonomy", desc: "Plataforma de automação empresarial completa com 12 sistemas integrados — contábil, financeiro, gestão, pessoal e legal.", status: "live", category: "ERP · Automação", year: "2024", color: "#4d9fff", file: "autonomy.platform" },
-  { id: 4, name: "Sites para Empresas", desc: "Criação de sites profissionais com IA, adaptados ao modelo e necessidade de cada cliente pequeno ou médio.", status: "live", category: "Web · Design", year: "2024", color: "#ff6b9d", file: "sites.service" },
+  { id: 4, name: "Sites para Empresas", desc: "Criação de sites profissionais adaptados ao modelo e necessidade de cada cliente pequeno ou médio.", status: "live", category: "Web · Design", year: "2024", color: "#ff6b9d", file: "sites.service" },
 ];
 
 const TESTIMONIALS = [
@@ -31,7 +31,7 @@ const FAQS = [
   { q: "Como funciona o Finzo App?", a: "O Finzo conecta suas contas bancárias via Open Finance, organiza todas as movimentações automaticamente e gera análises visuais sobre seus gastos, rendimento e oportunidades de economia." },
   { q: "O WhatsApp Bot precisa de número comercial?", a: "Sim, utilizamos a API oficial do WhatsApp Business. Configuramos tudo para você — desde a categorização automática de conversas até o fluxo de pré-atendimento antes da interação humana." },
   { q: "Quais módulos o Autonomy inclui?", a: "São 12 sistemas integrados cobrindo: contabilidade, fiscal, financeiro, folha de pagamento, gestão de pessoal, contratos, obrigações legais, relatórios gerenciais, conciliação, faturamento, controle de estoque e dashboard executivo." },
-  { q: "Quanto tempo leva para criar um site?", a: "Sites profissionais ficam prontos em 1 a 3 semanas dependendo da complexidade. Usamos IA para acelerar o processo sem perder qualidade — cada site é adaptado ao negócio do cliente." },
+  { q: "Quanto tempo leva para criar um site?", a: "Sites profissionais ficam prontos em 1 a 3 semanas dependendo da complexidade. Cada site é adaptado ao negócio do cliente com design moderno e otimizado." },
   { q: "Posso testar antes de contratar?", a: "O Finzo terá período de teste gratuito. Para os demais serviços, fazemos uma demonstração personalizada sem compromisso para você ver o potencial antes de decidir." },
   { q: "Os projetos são customizáveis?", a: "Totalmente. O Autonomy pode ser configurado por módulos, o WhatsApp Bot é treinado com o fluxo da sua empresa, e os sites são 100% personalizados para cada cliente." },
 ];
@@ -266,7 +266,7 @@ export default function App() {
           borderRadius: 100, transition: "all 0.5s cubic-bezier(0.16,1,0.3,1)",
           boxShadow: navScrolled ? "0 8px 40px rgba(0,0,0,0.5)" : "none"
         }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5, whiteSpace: "nowrap" }}>NEXUS<span style={{ color: "rgba(255,255,255,0.25)" }}>.ai</span></span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5, whiteSpace: "nowrap" }}>4lekzz</span>
           <a href="#produtos" className="nav-link nav-links">Produtos</a>
           <a href="#startups" className="nav-link nav-links">Startups</a>
           <a href="#processo" className="nav-link nav-links">Processo</a>
@@ -314,14 +314,14 @@ export default function App() {
           <Reveal delay={0.25}>
             <h1 style={{ fontSize: "clamp(2.8rem, 5.2vw, 4.8rem)", fontWeight: 800, lineHeight: 1.05, letterSpacing: -2.5, marginBottom: 24 }}>
               Construo{" "}
-              <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#c8ff00" }}>inteligências</span>
+              <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#c8ff00" }}>soluções</span>
               <br />que escalam negócios
             </h1>
           </Reveal>
 
           <Reveal delay={0.4}>
             <p style={{ fontSize: "1.08rem", lineHeight: 1.7, color: "rgba(255,255,255,0.45)", maxWidth: 460, marginBottom: 40 }}>
-              Desenvolvo soluções com IA para gestão financeira, atendimento automatizado, 
+              Desenvolvo soluções para gestão financeira, atendimento automatizado,
               automação empresarial e presença digital. Conheça meu ecossistema.
             </p>
           </Reveal>
@@ -358,7 +358,7 @@ export default function App() {
             boxShadow: "0 25px 80px rgba(0,0,0,0.5)", zIndex: 3, animation: "float1 8s ease-in-out infinite",
             transform: `translate(${(mousePos.x - 0.5) * 15}px, ${(mousePos.y - 0.5) * 12}px)`
           }}>
-            <WinBar title="terminal — nexus" />
+            <WinBar title="terminal — 4lekzz" />
             <div style={{ padding: 16, fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", lineHeight: 2 }}>
               <div><span style={{ color: "#c8ff00" }}>▸</span> <span style={{ color: "#eeede9" }}>autonomy start</span> <span style={{ color: "#4d9fff" }}>--all-modules</span></div>
               <div style={{ color: "#00d48a" }}>✓ 12 sistemas carregados</div>
@@ -370,13 +370,13 @@ export default function App() {
             </div>
           </div>
 
-          {/* AI Store window */}
+          {/* Store window */}
           <div style={{
             position: "absolute", width: 260, top: 50, right: 0, background: "#141416", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, overflow: "hidden",
             boxShadow: "0 25px 80px rgba(0,0,0,0.5)", zIndex: 2, animation: "float2 10s ease-in-out infinite",
             transform: `translate(${(mousePos.x - 0.5) * -10}px, ${(mousePos.y - 0.5) * 8}px)`
           }}>
-            <WinBar title="ai-store.app" />
+            <WinBar title="store.app" />
             <div style={{ padding: 10 }}>
               {PRODUCTS.slice(0, 3).map(p => (
                 <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 12, marginBottom: 4, border: "1px solid rgba(255,255,255,0.04)", transition: "all 0.3s" }}>
@@ -416,7 +416,7 @@ export default function App() {
       <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "20px 0", overflow: "hidden", position: "relative", zIndex: 1 }}>
         <div style={{ display: "flex", gap: 48, animation: "marquee 30s linear infinite", width: "max-content" }}>
           {[...Array(2)].flatMap((_, ri) =>
-            ["💰 Gestão Financeira", "💬 WhatsApp Bot", "⚙️ Automação Empresarial", "🌐 Criação de Sites", "📊 Análise de Gastos", "🤖 Pré-Atendimento IA", "📋 12 Módulos ERP", "🎨 Design com IA", "🔗 Open Finance"].map((t, i) =>
+            ["💰 Gestão Financeira", "💬 WhatsApp Bot", "⚙️ Automação Empresarial", "🌐 Criação de Sites", "📊 Análise de Gastos", "🤖 Pré-Atendimento", "📋 12 Módulos ERP", "🎨 Design Profissional", "🔗 Open Finance"].map((t, i) =>
               <span key={`${ri}-${i}`} style={{ fontSize: "0.82rem", fontWeight: 500, color: "rgba(255,255,255,0.2)", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
                 <Diamond size={5} color="rgba(200,255,0,0.3)" /> {t}
               </span>
@@ -425,7 +425,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* ═══ AI PRODUCTS ═══ */}
+      {/* ═══ PRODUCTS ═══ */}
       <section id="produtos" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <Reveal>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
@@ -435,7 +435,7 @@ export default function App() {
         </Reveal>
         <Reveal delay={0.1}>
           <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 14 }}>
-            IAs prontas para <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>escalar</span>
+            Sistemas prontos para <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>escalar</span>
           </h2>
         </Reveal>
         <Reveal delay={0.15}>
@@ -545,7 +545,7 @@ export default function App() {
         </Reveal>
         <Reveal delay={0.15}>
           <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 500, lineHeight: 1.6, marginBottom: 64 }}>
-            Soluções criadas do zero — cada uma focada em resolver um problema real com tecnologia e IA.
+            Soluções criadas do zero — cada uma focada em resolver um problema real com tecnologia.
           </p>
         </Reveal>
 
@@ -600,9 +600,9 @@ export default function App() {
 
         <div className="process-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 2, borderRadius: 18, overflow: "hidden" }}>
           {[
-            { num: "01", icon: "🔍", title: "Diagnóstico", desc: "Mapeamos gargalos e identificamos onde a IA gera mais impacto no seu negócio." },
-            { num: "02", icon: "🔧", title: "Arquitetura", desc: "Stack, modelos e integrações. Protótipo funcional em 2 semanas." },
-            { num: "03", icon: "🧪", title: "Treinamento", desc: "IA treinada com seus dados, fluxos e regras. Refinamento até 95%+ accuracy." },
+            { num: "01", icon: "🔍", title: "Diagnóstico", desc: "Mapeamos gargalos e identificamos onde a tecnologia gera mais impacto no seu negócio." },
+            { num: "02", icon: "🔧", title: "Arquitetura", desc: "Stack, módulos e integrações. Protótipo funcional em 2 semanas." },
+            { num: "03", icon: "🧪", title: "Configuração", desc: "Sistema configurado com seus dados, fluxos e regras. Refinamento até a performance ideal." },
             { num: "04", icon: "🚀", title: "Deploy", desc: "Produção com monitoramento 24/7, suporte dedicado e otimização contínua." },
           ].map((step, i) => (
             <Reveal key={i} type="up" delay={i * 0.1}>
@@ -738,7 +738,7 @@ export default function App() {
               Pronto pra construir<br />algo <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#c8ff00" }}>extraordinário</span>?
             </h2>
             <p style={{ fontSize: "1.08rem", color: "rgba(255,255,255,0.4)", maxWidth: 460, margin: "0 auto 44px", lineHeight: 1.6 }}>
-              Agende uma conversa sem compromisso e descubra como IA pode acelerar seus resultados.
+              Agende uma conversa sem compromisso e descubra como tecnologia pode acelerar seus resultados.
             </p>
             <div className="cta-buttons" style={{ display: "flex", gap: 12, justifyContent: "center" }}>
               <a href="#" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "16px 36px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.95rem" }}>
@@ -756,13 +756,13 @@ export default function App() {
       <footer className="footer-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <div className="footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 48, marginBottom: 48 }}>
           <div>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.9rem", color: "#c8ff00" }}>NEXUS<span style={{ color: "rgba(255,255,255,0.2)" }}>.ai</span></span>
-            <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.3)", lineHeight: 1.6, maxWidth: 300, marginTop: 12 }}>Criando soluções inteligentes que resolvem problemas reais. Do código ao produto.</p>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.9rem", color: "#c8ff00" }}>4lekzz</span>
+            <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.3)", lineHeight: 1.6, maxWidth: 300, marginTop: 12 }}>Criando soluções que resolvem problemas reais. Do código ao produto.</p>
           </div>
           {[
             { title: "Produtos", links: ["Finzo App", "WhatsApp Bot", "Autonomy", "Sites para Empresas"] },
-            { title: "Serviços", links: ["Automação", "Atendimento IA", "Gestão Financeira", "Web Design"] },
-            { title: "Contato", links: ["contato@nexus.ai", "LinkedIn", "GitHub", "WhatsApp"] },
+            { title: "Serviços", links: ["Automação", "Atendimento", "Gestão Financeira", "Web Design"] },
+            { title: "Contato", links: ["contato@4lekzz.com", "LinkedIn", "GitHub", "WhatsApp"] },
           ].map((col, i) => (
             <div key={i}>
               <h5 style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, color: "rgba(255,255,255,0.2)", marginBottom: 16 }}>{col.title}</h5>
@@ -784,7 +784,7 @@ export default function App() {
           ))}
         </div>
         <div className="footer-bottom" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 32, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)" }}>© 2026 NEXUS.ai — Todos os direitos reservados</span>
+          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)" }}>© 2026 4lekzz — Todos os direitos reservados</span>
           <div style={{ display: "flex", gap: 16 }}>
             <a href="#" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Privacidade</a>
             <a href="#" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Termos</a>
