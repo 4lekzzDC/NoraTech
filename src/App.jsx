@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Link } from "react-router-dom";
 import MeetingScheduler from "./components/MeetingScheduler";
 
 // ═══════════════════════════════════════════════════════════════
@@ -968,8 +969,8 @@ export default function App() {
         <div className="footer-bottom" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 32, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
           <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)" }}>© 2026 4lekzz — Todos os direitos reservados</span>
           <div style={{ display: "flex", gap: 16 }}>
-            <a href="#" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Privacidade</a>
-            <a href="#" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Termos</a>
+            <Link to="/privacidade" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Privacidade</Link>
+            <Link to="/termos" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Termos</Link>
           </div>
         </div>
       </footer>
