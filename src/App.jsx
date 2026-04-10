@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import MeetingScheduler from "./components/MeetingScheduler";
 
 // ═══════════════════════════════════════════════════════════════
 // 4lekzz — Immersive Startups Portfolio
@@ -106,6 +107,7 @@ export default function App() {
   const [formStep, setFormStep] = useState(0);
   const [hoveredProduct, setHoveredProduct] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [schedulerOpen, setSchedulerOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => { setScrollY(window.scrollY); setNavScrolled(window.scrollY > 60); };
@@ -904,7 +906,7 @@ export default function App() {
               Agende uma conversa sem compromisso e descubra como tecnologia pode acelerar seus resultados.
             </p>
             <div className="cta-buttons" style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-              <a href="#" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "16px 36px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.95rem" }}>
+              <a href="#" onClick={(e) => { e.preventDefault(); setSchedulerOpen(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "16px 36px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.95rem", cursor: "pointer" }}>
                 Agendar Reunião <span>↗</span>
               </a>
               <a href="https://wa.me/5511932227752" target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "16px 30px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, fontWeight: 600, fontSize: "0.95rem" }}>
@@ -954,6 +956,9 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* ═══ MEETING SCHEDULER MODAL ═══ */}
+      <MeetingScheduler isOpen={schedulerOpen} onClose={() => setSchedulerOpen(false)} />
     </div>
   );
 }
