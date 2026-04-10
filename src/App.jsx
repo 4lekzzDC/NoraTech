@@ -21,14 +21,30 @@ const TESTIMONIALS = [
   { name: "Lucia Almeida", role: "Contadora — LA Assessoria", text: "Os 12 módulos do Autonomy cobrem tudo que preciso. Desde folha de pagamento até obrigações legais.", initials: "LA" },
 ];
 
-const FAQS = [
-  { q: "Como funciona o Finzo App?", a: "O Finzo conecta suas contas bancárias via Open Finance, organiza todas as movimentações automaticamente e gera análises visuais sobre seus gastos, rendimento e oportunidades de economia." },
-  { q: "O WhatsApp Bot precisa de número comercial?", a: "Sim, utilizamos a API oficial do WhatsApp Business. Configuramos tudo para você — desde a categorização automática de conversas até o fluxo de pré-atendimento antes da interação humana." },
-  { q: "Quais módulos o Autonomy inclui?", a: "São 12 sistemas integrados cobrindo: contabilidade, fiscal, financeiro, folha de pagamento, gestão de pessoal, contratos, obrigações legais, relatórios gerenciais, conciliação, faturamento, controle de estoque e dashboard executivo." },
-  { q: "Quanto tempo leva para criar um site?", a: "Sites profissionais ficam prontos em 1 a 3 semanas dependendo da complexidade. Cada site é adaptado ao negócio do cliente com design moderno e otimizado." },
-  { q: "Posso testar antes de contratar?", a: "O Finzo terá período de teste gratuito. Para os demais serviços, fazemos uma demonstração personalizada sem compromisso para você ver o potencial antes de decidir." },
-  { q: "Os projetos são customizáveis?", a: "Totalmente. O Autonomy pode ser configurado por módulos, o WhatsApp Bot é treinado com o fluxo da sua empresa, e os sites são 100% personalizados para cada cliente." },
-];
+const FAQS = {
+  "Finzo App": [
+    { q: "Como funciona o Finzo App?", a: "O Finzo conecta suas contas bancárias via Open Finance, organiza todas as movimentações automaticamente e gera análises visuais sobre seus gastos, rendimento e oportunidades de economia." },
+    { q: "O Finzo é seguro para conectar minhas contas?", a: "Sim. A conexão é feita via Open Finance, regulamentado pelo Banco Central. O Finzo não armazena senhas bancárias e todos os dados são criptografados de ponta a ponta." },
+    { q: "Posso testar o Finzo gratuitamente?", a: "Sim, o Finzo terá um período de teste gratuito para novos usuários. Você poderá explorar todas as funcionalidades — integração bancária, categorização automática e insights com IA — sem compromisso." },
+    { q: "Quais bancos são compatíveis com o Finzo?", a: "O Finzo se integra com todas as instituições participantes do Open Finance no Brasil, incluindo os principais bancos e fintechs. A lista é atualizada automaticamente conforme novas instituições aderem." },
+  ],
+  "WhatsApp Bot": [
+    { q: "O WhatsApp Bot precisa de número comercial?", a: "Sim, utilizamos a API oficial do WhatsApp Business. Configuramos tudo para você — desde a categorização automática de conversas até o fluxo de pré-atendimento antes da interação humana." },
+    { q: "O bot consegue atender fora do horário comercial?", a: "Sim, o atendimento automatizado funciona 24/7. O bot realiza a triagem, responde dúvidas frequentes e coleta informações do cliente. Quando necessário, agenda o contato humano para o próximo horário disponível." },
+    { q: "É possível personalizar as respostas do bot?", a: "Totalmente. O bot é treinado com o fluxo e a linguagem da sua empresa. Você define os temas, respostas e regras de encaminhamento para que o atendimento reflita a identidade do seu negócio." },
+  ],
+  "Autonomy": [
+    { q: "Quais módulos o Autonomy inclui?", a: "São 12 sistemas integrados cobrindo: contabilidade, fiscal, financeiro, folha de pagamento, gestão de pessoal, contratos, obrigações legais, relatórios gerenciais, conciliação, faturamento, controle de estoque e dashboard executivo." },
+    { q: "Posso contratar apenas alguns módulos?", a: "Sim. O Autonomy é modular — você escolhe os sistemas que fazem sentido para o momento da sua empresa e pode ativar novos módulos conforme a necessidade, sem precisar migrar de plataforma." },
+    { q: "Como funciona a migração de dados?", a: "Nossa equipe cuida de toda a importação dos seus dados atuais para o Autonomy. O processo é assistido, com validação em cada etapa para garantir que nenhuma informação seja perdida." },
+    { q: "O Autonomy atende obrigações fiscais e legais?", a: "Sim. O sistema gera e envia automaticamente as obrigações acessórias, mantém o compliance atualizado com a legislação vigente e emite alertas sobre prazos e mudanças regulatórias." },
+  ],
+  "Sites": [
+    { q: "Quanto tempo leva para criar um site?", a: "Sites profissionais ficam prontos em 1 a 3 semanas dependendo da complexidade. Cada site é adaptado ao negócio do cliente com design moderno, responsivo e otimizado para conversão." },
+    { q: "O site é otimizado para celular e SEO?", a: "Sim. Todos os sites são 100% responsivos (mobile, tablet e desktop) e incluem SEO técnico desde o início — estrutura semântica, performance otimizada e boas práticas para ranqueamento no Google." },
+    { q: "O que está incluso após a entrega do site?", a: "O pacote inclui hospedagem, deploy e suporte contínuo. Também realizamos atualizações de conteúdo, monitoramento de performance e ajustes técnicos para manter seu site sempre no ar e atualizado." },
+  ],
+};
 
 // ═══ Intersection Observer Hook ═══
 function useInView(options = {}) {
@@ -117,8 +133,9 @@ export default function App() {
     return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("mousemove", onMouse); };
   }, []);
 
-  const faqTabs = ["Produtos", "Serviços", "Preços"];
-  const faqsByTab = [FAQS.slice(0, 2), FAQS.slice(2, 4), FAQS.slice(4, 6)];
+  const faqTabs = Object.keys(FAQS);
+  const faqsByTab = Object.values(FAQS);
+  const faqTabColors = ["#c8ff00", "#25D366", "#4d9fff", "#ff6b9d"];
 
   return (
     <div style={{ background: "#08080a", color: "#eeede9", fontFamily: "'Manrope', sans-serif", overflowX: "hidden", minHeight: "100vh" }}>
@@ -854,9 +871,9 @@ export default function App() {
                 <button key={i} onClick={() => { setActiveFaqTab(i); setOpenFaq(null); }} style={{
                   padding: "8px 20px", borderRadius: 100, border: "1px solid", cursor: "pointer",
                   fontFamily: "'Manrope', sans-serif", fontSize: "0.78rem", fontWeight: 600, transition: "all 0.3s",
-                  background: activeFaqTab === i ? "#c8ff00" : "transparent",
+                  background: activeFaqTab === i ? faqTabColors[i] : "transparent",
                   color: activeFaqTab === i ? "#08080a" : "rgba(255,255,255,0.4)",
-                  borderColor: activeFaqTab === i ? "#c8ff00" : "rgba(255,255,255,0.08)"
+                  borderColor: activeFaqTab === i ? faqTabColors[i] : "rgba(255,255,255,0.08)"
                 }}>{tab}</button>
               ))}
             </div>
