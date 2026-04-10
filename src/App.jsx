@@ -313,16 +313,14 @@ export default function App() {
 
           <Reveal delay={0.25}>
             <h1 style={{ fontSize: "clamp(2.8rem, 5.2vw, 4.8rem)", fontWeight: 800, lineHeight: 1.05, letterSpacing: -2.5, marginBottom: 24 }}>
-              Construo{" "}
-              <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#c8ff00" }}>soluções</span>
-              <br />que escalam negócios
+              Sistemas inteligentes para automatizar e escalar sua{" "}
+              <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#c8ff00" }}>operação.</span>
             </h1>
           </Reveal>
 
           <Reveal delay={0.4}>
             <p style={{ fontSize: "1.08rem", lineHeight: 1.7, color: "rgba(255,255,255,0.45)", maxWidth: 460, marginBottom: 40 }}>
-              Desenvolvo soluções para gestão financeira, atendimento automatizado,
-              automação empresarial e presença digital. Conheça meu ecossistema.
+              Transforme processos manuais em sistemas automatizados que economizam tempo, reduzem erros e aumentam seus lucros.
             </p>
           </Reveal>
 
@@ -939,7 +937,7 @@ export default function App() {
       <footer className="footer-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <div className="footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 48, marginBottom: 48 }}>
           <div>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.9rem", color: "#c8ff00" }}>4lekzz portifólio</span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.9rem", color: "#c8ff00" }}>Operação Inteligente</span>
             <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.3)", lineHeight: 1.6, maxWidth: 300, marginTop: 12 }}>Criando soluções que resolvem problemas reais. Do código ao produto.</p>
           </div>
           {[
