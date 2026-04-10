@@ -279,7 +279,7 @@ export default function App() {
           borderRadius: 100, transition: "all 0.5s cubic-bezier(0.16,1,0.3,1)",
           boxShadow: navScrolled ? "0 8px 40px rgba(0,0,0,0.5)" : "none"
         }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5 }}>NEXUS<span style={{ color: "rgba(255,255,255,0.25)" }}>.ai</span></span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5 }}>Operação Inteligente</span>
           <a href="#produtos" className="nav-link">Portifólio</a>
           <a href="#processo" className="nav-link">Processo</a>
           <a href="#depoimentos" className="nav-link">Clientes</a>
