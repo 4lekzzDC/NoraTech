@@ -6,17 +6,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // ═══════════════════════════════════════════════════════════════
 
 const PRODUCTS = [
-  { id: 1, icon: "💰", name: "Finzo App", desc: "Plataforma de gestão financeira inteligente que conecta contas, organiza movimentações e transforma dados em análises claras sobre gastos, rendimento e oportunidades de economia.", tags: ["FinTech", "Analytics", "Open Finance"], color: "#c8ff00", featured: true },
-  { id: 2, icon: "💬", name: "WhatsApp Bot", desc: "Sistema de atendimento via WhatsApp que categoriza conversas, realiza o pré-atendimento e organiza o fluxo antes da interação humana.", tags: ["Chatbot", "WhatsApp API", "NLP"], color: "#25D366" },
-  { id: 3, icon: "⚙️", name: "Autonomy", desc: "Plataforma de automação empresarial com 12 sistemas integrados para áreas contábil, financeira, gestão, pessoal e legal.", tags: ["RPA", "Automação", "ERP"], color: "#4d9fff" },
-  { id: 4, icon: "🌐", name: "Sites para Empresas", desc: "Criação de sites profissionais com IA, adaptados ao modelo e necessidade de cada cliente. Design moderno, responsivo e otimizado para conversão.", tags: ["Web Design", "IA", "SEO"], color: "#ff6b9d" },
-];
-
-const STARTUPS = [
-  { id: 1, name: "Finzo App", desc: "Gestão financeira inteligente — conecta contas bancárias, organiza movimentações e gera análises claras sobre gastos, rendimento e economia.", status: "dev", category: "FinTech · B2C", year: "2025", color: "#c8ff00", file: "finzo.app" },
-  { id: 2, name: "WhatsApp Bot", desc: "Atendimento automatizado via WhatsApp com categorização de conversas, pré-atendimento inteligente e organização do fluxo.", status: "live", category: "SaaS · Atendimento", year: "2024", color: "#25D366", file: "whatsbot.service" },
-  { id: 3, name: "Autonomy", desc: "Plataforma de automação empresarial completa com 12 sistemas integrados — contábil, financeiro, gestão, pessoal e legal.", status: "live", category: "ERP · Automação", year: "2024", color: "#4d9fff", file: "autonomy.platform" },
-  { id: 4, name: "Sites para Empresas", desc: "Criação de sites profissionais com IA, adaptados ao modelo e necessidade de cada cliente pequeno ou médio.", status: "live", category: "Web · Design", year: "2024", color: "#ff6b9d", file: "sites.service" },
+  { id: 1, icon: "💰", name: "Finzo App", desc: "Plataforma de gestão financeira inteligente que conecta contas, organiza movimentações e transforma dados em análises claras sobre gastos, rendimento e oportunidades de economia.", tags: ["FinTech", "Analytics", "Open Finance"], color: "#c8ff00", featured: true, features: ["Integração via Open Finance com bancos", "Categorização automática de transações", "Análises e insights com IA", "Metas de economia e alertas inteligentes", "Dashboard unificado em tempo real"] },
+  { id: 2, icon: "💬", name: "WhatsApp Bot", desc: "Sistema de atendimento via WhatsApp que categoriza conversas, realiza o pré-atendimento e organiza o fluxo antes da interação humana.", tags: ["Chatbot", "WhatsApp API", "NLP"], color: "#25D366", featured: true, features: ["Atendimento automatizado 24/7", "Categorização por intenção (NLP)", "Pré-atendimento e triagem inteligente", "Transferência fluida para humanos", "Relatórios de atendimento e métricas"] },
+  { id: 3, icon: "⚙️", name: "Autonomy", desc: "Plataforma de automação empresarial com 12 sistemas integrados para áreas contábil, financeira, gestão, pessoal e legal.", tags: ["RPA", "Automação", "ERP"], color: "#4d9fff", featured: true, features: ["12 módulos integrados em uma plataforma", "Automação de rotinas fiscais e contábeis", "Gestão centralizada e permissões", "Relatórios gerenciais em tempo real", "Compliance e obrigações legais automáticas"] },
+  { id: 4, icon: "🌐", name: "Sites para Empresas", desc: "Criação de sites profissionais com IA, adaptados ao modelo e necessidade de cada cliente. Design moderno, responsivo e otimizado para conversão.", tags: ["Web Design", "IA", "SEO"], color: "#ff6b9d", featured: true, features: ["Design personalizado gerado com IA", "Layout 100% responsivo (mobile/tablet/desktop)", "SEO técnico e performance otimizada", "Integrações (pagamento, CRM, analytics)", "Hospedagem, deploy e suporte contínuo"] },
 ];
 
 const TESTIMONIALS = [
@@ -182,8 +175,7 @@ export default function App() {
           boxShadow: navScrolled ? "0 8px 40px rgba(0,0,0,0.5)" : "none"
         }}>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5 }}>NEXUS<span style={{ color: "rgba(255,255,255,0.25)" }}>.ai</span></span>
-          <a href="#produtos" className="nav-link">Produtos</a>
-          <a href="#startups" className="nav-link">Startups</a>
+          <a href="#produtos" className="nav-link">Portifólio</a>
           <a href="#processo" className="nav-link">Processo</a>
           <a href="#depoimentos" className="nav-link">Clientes</a>
           <a href="#contato" className="nav-link" style={{ padding: "8px 18px", background: "#c8ff00", color: "#08080a", fontWeight: 700, borderRadius: 100 }}>Contato</a>
@@ -221,10 +213,10 @@ export default function App() {
           <Reveal delay={0.55}>
             <div style={{ display: "flex", gap: 12 }}>
               <a href="#produtos" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 30px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", transition: "all 0.3s" }}>
-                Explorar Produtos <span style={{ fontSize: "1.1rem" }}>↗</span>
+                Explorar Portifólio <span style={{ fontSize: "1.1rem" }}>↗</span>
               </a>
-              <a href="#startups" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 28px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, fontWeight: 600, fontSize: "0.92rem", transition: "all 0.3s" }}>
-                Ver Startups
+              <a href="#contato" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 28px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, fontWeight: 600, fontSize: "0.92rem", transition: "all 0.3s" }}>
+                Entrar em contato
               </a>
             </div>
           </Reveal>
@@ -322,12 +314,12 @@ export default function App() {
         <Reveal>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <Star size={12} color="#c8ff00" />
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 3 }}>Produtos</span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 3 }}>Portifólio</span>
           </div>
         </Reveal>
         <Reveal delay={0.1}>
           <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 14 }}>
-            IAs prontas para <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>escalar</span>
+            Projetos em <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>atividade</span>
           </h2>
         </Reveal>
         <Reveal delay={0.15}>
@@ -337,9 +329,9 @@ export default function App() {
         </Reveal>
 
         {/* Bento Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14 }}>
           {PRODUCTS.map((p, i) => (
-            <Reveal key={p.id} type={i % 2 === 0 ? "up" : "scale"} delay={i * 0.08} style={p.featured ? { gridColumn: "span 2" } : {}}>
+            <Reveal key={p.id} type={i % 2 === 0 ? "up" : "scale"} delay={i * 0.08}>
               <div className="product-card"
                 onMouseEnter={() => setHoveredProduct(p.id)}
                 onMouseLeave={() => setHoveredProduct(null)}
@@ -361,28 +353,286 @@ export default function App() {
 
                 {p.featured ? (
                   <>
-                    <div style={{ padding: 32 }}>
+                    <div style={{ padding: 36, display: "flex", flexDirection: "column", justifyContent: "center" }}>
                       <div style={{ width: 44, height: 44, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem", background: `${p.color}12`, border: `1px solid ${p.color}18`, marginBottom: 18 }}>{p.icon}</div>
-                      <h3 style={{ fontSize: "1.3rem", fontWeight: 700, marginBottom: 10, letterSpacing: -0.5 }}>{p.name}</h3>
-                      <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.4)", lineHeight: 1.6, marginBottom: 16 }}>{p.desc}</p>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                        {p.tags.map(t => <span key={t} style={{ padding: "3px 9px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 100, fontSize: "0.65rem", fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: "rgba(255,255,255,0.4)" }}>{t}</span>)}
+                      <h3 style={{ fontSize: "1.55rem", fontWeight: 700, marginBottom: 12, letterSpacing: -0.5 }}>{p.name}</h3>
+                      <p style={{ fontSize: "0.9rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.65, marginBottom: 20 }}>{p.desc}</p>
+                      {p.features && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 22 }}>
+                          {p.features.map((f, idx) => (
+                            <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                              <div style={{ width: 18, height: 18, borderRadius: "50%", background: `${p.color}15`, border: `1px solid ${p.color}30`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                                <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke={p.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                              </div>
+                              <span style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.65)", lineHeight: 1.5 }}>{f}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {p.tags.map(t => <span key={t} style={{ padding: "4px 10px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 100, fontSize: "0.68rem", fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: "rgba(255,255,255,0.45)" }}>{t}</span>)}
                       </div>
                     </div>
                     <div style={{ background: "#0c0c0e", borderLeft: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden", borderRadius: "0 18px 18px 0" }}>
                       <div style={{ position: "absolute", width: 120, height: 120, borderRadius: "50%", background: `${p.color}15`, filter: "blur(40px)", top: "20%", left: "30%", animation: "float1 6s ease-in-out infinite" }} />
                       <div style={{ position: "absolute", width: 90, height: 90, borderRadius: "50%", background: "rgba(77,159,255,0.1)", filter: "blur(40px)", bottom: "20%", right: "25%", animation: "float2 8s ease-in-out infinite" }} />
-                      <pre style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.66rem", color: "rgba(255,255,255,0.35)", lineHeight: 1.9, zIndex: 1, padding: 24 }}>
-{`// conectar contas bancárias
-`}<span style={{ color: "#ff6b9d" }}>const</span>{` finzo = `}<span style={{ color: "#ff6b9d" }}>new</span>{` `}<span style={{ color: "#4d9fff" }}>Finzo</span>{`({
-  openFinance: `}<span style={{ color: "#c8ff00" }}>true</span>{`,
-  contas: `}<span style={{ color: "#c8ff00" }}>["nubank", "inter"]</span>{`,
-  analytics: `}<span style={{ color: "#c8ff00" }}>"smart"</span>{`
-});
 
-`}<span style={{ color: "#ff6b9d" }}>await</span>{` finzo.`}<span style={{ color: "#4d9fff" }}>sync</span>{`();
-`}<span style={{ color: "rgba(255,255,255,0.2)" }}>// ✓ 2 contas conectadas</span>
-                      </pre>
+                      {/* Finzo App */}
+                      {p.id === 1 && (
+                        <div style={{ zIndex: 1, padding: 28, width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 14 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.55)", fontFamily: "'JetBrains Mono', monospace" }}>Contas conectadas</div>
+                            <div style={{ fontSize: "0.58rem", color: "rgba(76,217,100,0.7)", fontFamily: "'JetBrains Mono', monospace" }}>● 3 ativas</div>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
+                              <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #820ad1, #9b30ff)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 700, color: "#fff" }}>Nu</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: "0.74rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>Nubank</div>
+                                <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)" }}>Conta corrente</div>
+                              </div>
+                              <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>R$ 4.8k</div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
+                              <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #ff7a00, #ff9533)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: 700, color: "#fff" }}>Inter</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: "0.74rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>Inter</div>
+                                <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)" }}>Poupança</div>
+                              </div>
+                              <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>R$ 12.3k</div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
+                              <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #ec1c2e, #ff3b4f)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.58rem", fontWeight: 700, color: "#fff" }}>Itaú</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: "0.74rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>Itaú</div>
+                                <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)" }}>Investimentos</div>
+                              </div>
+                              <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>R$ 28.6k</div>
+                            </div>
+                          </div>
+                          <div style={{ padding: "12px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12 }}>
+                            <div style={{ fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 10, fontFamily: "'JetBrains Mono', monospace" }}>Categorias do mês</div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                              {[
+                                { name: "Alimentação", value: "R$ 840", pct: 85, color: "#c8ff00" },
+                                { name: "Transporte", value: "R$ 420", pct: 55, color: "#4d9fff" },
+                                { name: "Lazer", value: "R$ 310", pct: 38, color: "#ff6b9d" },
+                              ].map((c, idx) => (
+                                <div key={idx}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                                    <span style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.55)" }}>{c.name}</span>
+                                    <span style={{ fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>{c.value}</span>
+                                  </div>
+                                  <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 100, overflow: "hidden" }}>
+                                    <div style={{ height: "100%", width: `${c.pct}%`, background: c.color, borderRadius: 100 }} />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <div style={{ flex: 1, padding: "10px 12px", background: "rgba(200,255,0,0.05)", border: "1px solid rgba(200,255,0,0.1)", borderRadius: 10 }}>
+                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Economia</div>
+                              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#c8ff00" }}>+12%</div>
+                            </div>
+                            <div style={{ flex: 1, padding: "10px 12px", background: "rgba(77,159,255,0.05)", border: "1px solid rgba(77,159,255,0.1)", borderRadius: 10 }}>
+                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Gastos</div>
+                              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#4d9fff" }}>R$ 2.4k</div>
+                            </div>
+                            <div style={{ flex: 1, padding: "10px 12px", background: "rgba(255,107,157,0.05)", border: "1px solid rgba(255,107,157,0.1)", borderRadius: 10 }}>
+                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Investido</div>
+                              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#ff6b9d" }}>R$ 800</div>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: "0.6rem", color: "rgba(76,217,100,0.65)", fontFamily: "'JetBrains Mono', monospace", textAlign: "center" }}>● Sincronizado em tempo real</div>
+                        </div>
+                      )}
+
+                      {/* WhatsApp Bot */}
+                      {p.id === 2 && (
+                        <div style={{ zIndex: 1, padding: 28, width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 12 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.55)", fontFamily: "'JetBrains Mono', monospace" }}>Conversas recentes</div>
+                            <div style={{ fontSize: "0.58rem", color: "rgba(37,211,102,0.8)", fontFamily: "'JetBrains Mono', monospace" }}>● Online 24/7</div>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            <div style={{ padding: "10px 14px", background: "rgba(37,211,102,0.06)", border: "1px solid rgba(37,211,102,0.12)", borderRadius: 12 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>Maria Silva</div>
+                                <span style={{ padding: "2px 8px", background: "rgba(37,211,102,0.15)", borderRadius: 100, fontSize: "0.52rem", fontWeight: 600, color: "#25D366" }}>Resolvido</span>
+                              </div>
+                              <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.35)" }}>Agendamento confirmado automaticamente</div>
+                            </div>
+                            <div style={{ padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>João Santos</div>
+                                <span style={{ padding: "2px 8px", background: "rgba(255,180,0,0.15)", borderRadius: 100, fontSize: "0.52rem", fontWeight: 600, color: "#ffb400" }}>Pré-atendimento</span>
+                              </div>
+                              <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.35)" }}>Coletando informações do cliente...</div>
+                            </div>
+                            <div style={{ padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>Ana Costa</div>
+                                <span style={{ padding: "2px 8px", background: "rgba(77,159,255,0.15)", borderRadius: 100, fontSize: "0.52rem", fontWeight: 600, color: "#4d9fff" }}>Encaminhado</span>
+                              </div>
+                              <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.35)" }}>Transferido para atendente humano</div>
+                            </div>
+                          </div>
+                          <div style={{ padding: "12px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12 }}>
+                            <div style={{ fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 10, fontFamily: "'JetBrains Mono', monospace" }}>Intenções detectadas (NLP)</div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                              {[
+                                { name: "Agendamento", pct: 42, color: "#25D366" },
+                                { name: "Dúvidas / Suporte", pct: 30, color: "#4d9fff" },
+                                { name: "Vendas", pct: 18, color: "#ffb400" },
+                                { name: "Outros", pct: 10, color: "#ff6b9d" },
+                              ].map((c, idx) => (
+                                <div key={idx}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                                    <span style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.55)" }}>{c.name}</span>
+                                    <span style={{ fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>{c.pct}%</span>
+                                  </div>
+                                  <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 100, overflow: "hidden" }}>
+                                    <div style={{ height: "100%", width: `${c.pct}%`, background: c.color, borderRadius: 100 }} />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
+                            <div style={{ padding: "8px 10px", background: "rgba(37,211,102,0.05)", border: "1px solid rgba(37,211,102,0.1)", borderRadius: 10, textAlign: "center" }}>
+                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Filtradas</div>
+                              <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#25D366" }}>70%</div>
+                            </div>
+                            <div style={{ padding: "8px 10px", background: "rgba(77,159,255,0.05)", border: "1px solid rgba(77,159,255,0.1)", borderRadius: 10, textAlign: "center" }}>
+                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Resolução</div>
+                              <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#4d9fff" }}>92%</div>
+                            </div>
+                            <div style={{ padding: "8px 10px", background: "rgba(255,180,0,0.05)", border: "1px solid rgba(255,180,0,0.1)", borderRadius: 10, textAlign: "center" }}>
+                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Hoje</div>
+                              <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#ffb400" }}>247</div>
+                            </div>
+                            <div style={{ padding: "8px 10px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, textAlign: "center" }}>
+                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Tempo</div>
+                              <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "rgba(255,255,255,0.65)" }}>8s</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Autonomy */}
+                      {p.id === 3 && (
+                        <div style={{ zIndex: 1, padding: 28, width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 12 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.55)", fontFamily: "'JetBrains Mono', monospace" }}>Módulos integrados</div>
+                            <div style={{ fontSize: "0.58rem", color: "rgba(77,159,255,0.8)", fontFamily: "'JetBrains Mono', monospace" }}>● 12 / 12 ativos</div>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                            {[
+                              { icon: "📊", name: "Contábil" },
+                              { icon: "💰", name: "Financeiro" },
+                              { icon: "📋", name: "Fiscal" },
+                              { icon: "👥", name: "Pessoal" },
+                              { icon: "⚖️", name: "Legal" },
+                              { icon: "📑", name: "Contratos" },
+                              { icon: "📈", name: "Relatórios" },
+                              { icon: "🧾", name: "Faturamento" },
+                            ].map((m, idx) => (
+                              <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10 }}>
+                                <span style={{ fontSize: "0.78rem" }}>{m.icon}</span>
+                                <span style={{ fontSize: "0.64rem", fontWeight: 600, color: "rgba(255,255,255,0.65)", flex: 1 }}>{m.name}</span>
+                                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#4cd964" }} />
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ padding: "12px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12 }}>
+                            <div style={{ fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 8, fontFamily: "'JetBrains Mono', monospace" }}>Automações executadas hoje</div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              {[
+                                { label: "Conciliação bancária", time: "09:00" },
+                                { label: "Apuração fiscal mensal", time: "10:30" },
+                                { label: "Folha de pagamento", time: "14:15" },
+                              ].map((t, idx) => (
+                                <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <div style={{ width: 14, height: 14, borderRadius: "50%", background: "rgba(76,217,100,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.5rem", color: "#4cd964" }}>✓</div>
+                                  <span style={{ fontSize: "0.64rem", color: "rgba(255,255,255,0.55)", flex: 1 }}>{t.label}</span>
+                                  <span style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", fontFamily: "'JetBrains Mono', monospace" }}>{t.time}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                            <div style={{ padding: "8px 10px", background: "rgba(77,159,255,0.05)", border: "1px solid rgba(77,159,255,0.1)", borderRadius: 10, textAlign: "center" }}>
+                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Rotinas</div>
+                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#4d9fff" }}>80%</div>
+                            </div>
+                            <div style={{ padding: "8px 10px", background: "rgba(200,255,0,0.05)", border: "1px solid rgba(200,255,0,0.1)", borderRadius: 10, textAlign: "center" }}>
+                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Horas/mês</div>
+                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#c8ff00" }}>120h</div>
+                            </div>
+                            <div style={{ padding: "8px 10px", background: "rgba(255,107,157,0.05)", border: "1px solid rgba(255,107,157,0.1)", borderRadius: 10, textAlign: "center" }}>
+                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Compliance</div>
+                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#ff6b9d" }}>100%</div>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: "0.6rem", color: "rgba(77,159,255,0.65)", fontFamily: "'JetBrains Mono', monospace", textAlign: "center" }}>● Todos os módulos operacionais</div>
+                        </div>
+                      )}
+
+                      {/* Sites para Empresas */}
+                      {p.id === 4 && (
+                        <div style={{ zIndex: 1, padding: 28, width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 12 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.55)", fontFamily: "'JetBrains Mono', monospace" }}>Projeto em andamento</div>
+                            <div style={{ fontSize: "0.58rem", color: "rgba(255,107,157,0.8)", fontFamily: "'JetBrains Mono', monospace" }}>● Sprint 3/4</div>
+                          </div>
+                          <div style={{ padding: "14px 16px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                              <div style={{ width: 36, height: 36, borderRadius: 9, background: "linear-gradient(135deg, #ff6b9d, #ff8fb5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", color: "#fff" }}>🏪</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>Loja Bella</div>
+                                <div style={{ fontSize: "0.58rem", color: "rgba(255,255,255,0.35)" }}>E-commerce · Moda feminina</div>
+                              </div>
+                              <span style={{ padding: "3px 8px", background: "rgba(255,107,157,0.15)", borderRadius: 100, fontSize: "0.52rem", fontWeight: 600, color: "#ff6b9d" }}>Em produção</span>
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                              {[
+                                { label: "Briefing e identidade visual", done: true },
+                                { label: "Design personalizado com IA", done: true },
+                                { label: "Layout responsivo (mobile/desktop)", done: true },
+                                { label: "SEO técnico e performance", done: true },
+                                { label: "Integração pagamento e CRM", done: false },
+                                { label: "Deploy e domínio", done: false },
+                              ].map((step, idx) => (
+                                <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <div style={{ width: 16, height: 16, borderRadius: "50%", background: step.done ? "rgba(76,217,100,0.15)" : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.52rem", color: step.done ? "#4cd964" : "rgba(255,255,255,0.25)" }}>{step.done ? "✓" : "○"}</div>
+                                  <span style={{ fontSize: "0.64rem", color: step.done ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.3)" }}>{step.label}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                            {["Next.js", "Tailwind", "Stripe", "Analytics", "CDN"].map(t => (
+                              <span key={t} style={{ padding: "3px 9px", background: "rgba(255,107,157,0.06)", border: "1px solid rgba(255,107,157,0.15)", borderRadius: 100, fontSize: "0.56rem", fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: "rgba(255,107,157,0.8)" }}>{t}</span>
+                            ))}
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                            <div style={{ padding: "8px 10px", background: "rgba(255,107,157,0.05)", border: "1px solid rgba(255,107,157,0.1)", borderRadius: 10, textAlign: "center" }}>
+                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Progresso</div>
+                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#ff6b9d" }}>75%</div>
+                            </div>
+                            <div style={{ padding: "8px 10px", background: "rgba(200,255,0,0.05)", border: "1px solid rgba(200,255,0,0.1)", borderRadius: 10, textAlign: "center" }}>
+                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Performance</div>
+                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#c8ff00" }}>98</div>
+                            </div>
+                            <div style={{ padding: "8px 10px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, textAlign: "center" }}>
+                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Entrega</div>
+                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.65)" }}>5 dias</div>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: "0.6rem", color: "rgba(255,107,157,0.65)", fontFamily: "'JetBrains Mono', monospace", textAlign: "center" }}>● Design gerado por IA</div>
+                        </div>
+                      )}
                     </div>
                   </>
                 ) : (
@@ -395,60 +645,6 @@ export default function App() {
                     </div>
                   </>
                 )}
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
-      {/* ═══ STARTUPS ═══ */}
-      <section id="startups" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
-        <Reveal>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <Star size={12} color="#4d9fff" />
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#4d9fff", textTransform: "uppercase", letterSpacing: 3 }}>Portfolio</span>
-          </div>
-        </Reveal>
-        <Reveal delay={0.1}>
-          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 14 }}>
-            Projetos que <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>construí</span>
-          </h2>
-        </Reveal>
-        <Reveal delay={0.15}>
-          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 500, lineHeight: 1.6, marginBottom: 64 }}>
-            Soluções criadas do zero — cada uma focada em resolver um problema real com tecnologia e IA.
-          </p>
-        </Reveal>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          {STARTUPS.map((s, i) => (
-            <Reveal key={s.id} type={i % 2 === 0 ? "rotateL" : "rotateR"} delay={i * 0.1}>
-              <div className="startup-card" style={{
-                background: "#111114", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 18, overflow: "hidden", position: "relative"
-              }}>
-                {/* Top accent line */}
-                <div style={{ height: 2, background: `linear-gradient(to right, ${s.color}, transparent)` }} />
-
-                {/* File header — OS style */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 7, background: `${s.color}12`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <Diamond size={8} color={s.color} />
-                    </div>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.68rem", color: "rgba(255,255,255,0.25)" }}>{s.file}</span>
-                  </div>
-                  <StatusBadge status={s.status} />
-                </div>
-
-                <div style={{ padding: "24px 20px" }}>
-                  <h3 style={{ fontSize: "1.35rem", fontWeight: 800, letterSpacing: -0.5, marginBottom: 10 }}>{s.name}</h3>
-                  <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.4)", lineHeight: 1.6, marginBottom: 16 }}>{s.desc}</p>
-                  <div style={{ display: "flex", gap: 12, fontSize: "0.7rem", color: "rgba(255,255,255,0.25)" }}>
-                    <span>{s.category}</span>
-                    <span>·</span>
-                    <span>{s.year}</span>
-                  </div>
-                </div>
               </div>
             </Reveal>
           ))}
