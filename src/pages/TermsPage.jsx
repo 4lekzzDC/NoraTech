@@ -56,7 +56,7 @@ export default function TermsPage() {
           <section style={sectionStyle}>
             <h2 style={h2Style}>1. Aceitacao dos Termos</h2>
             <p style={pStyle}>
-              Ao acessar e utilizar os servicos oferecidos pela 4lekzz ("nos", "nosso" ou "empresa"), incluindo Finzo App, WhatsApp Bot, Autonomy e Sites para Empresas, voce concorda integralmente com estes Termos de Uso. Caso nao concorde com alguma disposicao, recomendamos que nao utilize nossos servicos.
+              Ao acessar e utilizar os servicos oferecidos pela 4lekzz ("nos", "nosso" ou "empresa"), incluindo Finzo App, WhatsApp Bot e Sites para Empresas, voce concorda integralmente com estes Termos de Uso. Caso nao concorde com alguma disposicao, recomendamos que nao utilize nossos servicos.
             </p>
           </section>
 
@@ -66,7 +66,6 @@ export default function TermsPage() {
             <ul style={listStyle}>
               <li><strong style={{ color: "rgba(255,255,255,0.65)" }}>Finzo App:</strong> plataforma de gestao financeira com integracao via Open Finance</li>
               <li><strong style={{ color: "rgba(255,255,255,0.65)" }}>WhatsApp Bot:</strong> sistema de atendimento automatizado via WhatsApp Business API</li>
-              <li><strong style={{ color: "rgba(255,255,255,0.65)" }}>Autonomy:</strong> plataforma de automacao empresarial com modulos integrados</li>
               <li><strong style={{ color: "rgba(255,255,255,0.65)" }}>Sites para Empresas:</strong> criacao de sites profissionais com design personalizado</li>
             </ul>
             <p style={pStyle}>
