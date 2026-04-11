@@ -10,16 +10,13 @@ import MeetingScheduler from "./components/MeetingScheduler";
 const PRODUCTS = [
   { id: 1, icon: "💰", name: "Finzo App", desc: "Plataforma de gestão financeira inteligente que conecta contas, organiza movimentações e transforma dados em análises claras sobre gastos, rendimento e oportunidades de economia.", tags: ["FinTech", "Analytics", "Open Finance"], color: "#c8ff00", featured: true, features: ["Integração via Open Finance com bancos", "Categorização automática de transações", "Análises e insights com IA", "Metas de economia e alertas inteligentes", "Dashboard unificado em tempo real"] },
   { id: 2, icon: "💬", name: "WhatsApp Bot", desc: "Sistema de atendimento via WhatsApp que categoriza conversas, realiza o pré-atendimento e organiza o fluxo antes da interação humana.", tags: ["Chatbot", "WhatsApp API", "NLP"], color: "#25D366", featured: true, features: ["Atendimento automatizado 24/7", "Categorização por intenção (NLP)", "Pré-atendimento e triagem inteligente", "Transferência fluida para humanos", "Relatórios de atendimento e métricas"] },
-  { id: 3, icon: "⚙️", name: "Autonomy", desc: "Plataforma de automação empresarial com 12 sistemas integrados para áreas contábil, financeira, gestão, pessoal e legal.", tags: ["RPA", "Automação", "ERP"], color: "#4d9fff", featured: true, features: ["12 módulos integrados em uma plataforma", "Automação de rotinas fiscais e contábeis", "Gestão centralizada e permissões", "Relatórios gerenciais em tempo real", "Compliance e obrigações legais automáticas"] },
   { id: 4, icon: "🌐", name: "Sites para Empresas", desc: "Criação de sites profissionais com IA, adaptados ao modelo e necessidade de cada cliente. Design moderno, responsivo e otimizado para conversão.", tags: ["Web Design", "IA", "SEO"], color: "#ff6b9d", featured: true, features: ["Design personalizado gerado com IA", "Layout 100% responsivo (mobile/tablet/desktop)", "SEO técnico e performance otimizada", "Integrações (pagamento, CRM, analytics)", "Hospedagem, deploy e suporte contínuo"] },
 ];
 
 const TESTIMONIALS = [
   { name: "Juliana Martins", role: "Empresária — Studio JM", text: "O site que criaram para minha empresa triplicou os contatos pelo WhatsApp no primeiro mês. Design incrível.", initials: "JM" },
-  { name: "Ricardo Santos", role: "Sócio — Contábil Vanguarda", text: "O Autonomy automatizou 80% das nossas rotinas fiscais. A equipe agora foca em consultoria, não em burocracia.", initials: "RS" },
   { name: "Ana Ferreira", role: "Gerente — Clínica Vitale", text: "O WhatsApp Bot organiza todo nosso atendimento. O pré-atendimento filtra 70% das dúvidas antes de chegar na recepção.", initials: "AF" },
   { name: "Carlos Mendes", role: "CFO — Grupo Orion", text: "Estou testando o Finzo e a visão que ele dá sobre gastos e rendimentos é algo que nenhum app de banco oferece.", initials: "CM" },
-  { name: "Lucia Almeida", role: "Contadora — LA Assessoria", text: "Os 12 módulos do Autonomy cobrem tudo que preciso. Desde folha de pagamento até obrigações legais.", initials: "LA" },
 ];
 
 const FAQS = {
@@ -33,12 +30,6 @@ const FAQS = {
     { q: "O WhatsApp Bot precisa de número comercial?", a: "Sim, utilizamos a API oficial do WhatsApp Business. Configuramos tudo para você — desde a categorização automática de conversas até o fluxo de pré-atendimento antes da interação humana." },
     { q: "O bot consegue atender fora do horário comercial?", a: "Sim, o atendimento automatizado funciona 24/7. O bot realiza a triagem, responde dúvidas frequentes e coleta informações do cliente. Quando necessário, agenda o contato humano para o próximo horário disponível." },
     { q: "É possível personalizar as respostas do bot?", a: "Totalmente. O bot é treinado com o fluxo e a linguagem da sua empresa. Você define os temas, respostas e regras de encaminhamento para que o atendimento reflita a identidade do seu negócio." },
-  ],
-  "Autonomy": [
-    { q: "Quais módulos o Autonomy inclui?", a: "São 12 sistemas integrados cobrindo: contabilidade, fiscal, financeiro, folha de pagamento, gestão de pessoal, contratos, obrigações legais, relatórios gerenciais, conciliação, faturamento, controle de estoque e dashboard executivo." },
-    { q: "Posso contratar apenas alguns módulos?", a: "Sim. O Autonomy é modular — você escolhe os sistemas que fazem sentido para o momento da sua empresa e pode ativar novos módulos conforme a necessidade, sem precisar migrar de plataforma." },
-    { q: "Como funciona a migração de dados?", a: "Nossa equipe cuida de toda a importação dos seus dados atuais para o Autonomy. O processo é assistido, com validação em cada etapa para garantir que nenhuma informação seja perdida." },
-    { q: "O Autonomy atende obrigações fiscais e legais?", a: "Sim. O sistema gera e envia automaticamente as obrigações acessórias, mantém o compliance atualizado com a legislação vigente e emite alertas sobre prazos e mudanças regulatórias." },
   ],
   "Sites": [
     { q: "Quanto tempo leva para criar um site?", a: "Sites profissionais ficam prontos em 1 a 3 semanas dependendo da complexidade. Cada site é adaptado ao negócio do cliente com design moderno, responsivo e otimizado para conversão." },
@@ -358,10 +349,10 @@ export default function App() {
           }}>
             <WinBar title="terminal — 4lekzz" />
             <div style={{ padding: 16, fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", lineHeight: 2 }}>
-              <div><span style={{ color: "#c8ff00" }}>▸</span> <span style={{ color: "#eeede9" }}>autonomy start</span> <span style={{ color: "#4d9fff" }}>--all-modules</span></div>
-              <div style={{ color: "#00d48a" }}>✓ 12 sistemas carregados</div>
+              <div><span style={{ color: "#c8ff00" }}>▸</span> <span style={{ color: "#eeede9" }}>4lekzz deploy</span> <span style={{ color: "#25D366" }}>--production</span></div>
               <div style={{ color: "#00d48a" }}>✓ WhatsApp Bot conectado</div>
               <div style={{ color: "#00d48a" }}>✓ Finzo sync — 3 contas ativas</div>
+              <div style={{ color: "#00d48a" }}>✓ Sites publicados com sucesso</div>
               <div><span style={{ color: "#c8ff00" }}>▸</span> <span style={{ color: "#eeede9" }}>status</span></div>
               <div style={{ color: "#00d48a" }}>● Todos os serviços online</div>
               <div><span style={{ color: "#c8ff00" }}>▸</span> <span style={{ display: "inline-block", width: 7, height: 14, background: "#c8ff00", animation: "blink 1s step-end infinite", verticalAlign: "middle" }} /></div>
@@ -414,7 +405,7 @@ export default function App() {
       <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "20px 0", overflow: "hidden", position: "relative", zIndex: 1 }}>
         <div style={{ display: "flex", gap: 48, animation: "marquee 30s linear infinite", width: "max-content" }}>
           {[...Array(2)].flatMap((_, ri) =>
-            ["💰 Gestão Financeira", "💬 WhatsApp Bot", "⚙️ Automação Empresarial", "🌐 Criação de Sites", "📊 Análise de Gastos", "🤖 Pré-Atendimento", "📋 12 Módulos ERP", "🎨 Design Profissional", "🔗 Open Finance"].map((t, i) =>
+            ["💰 Gestão Financeira", "💬 WhatsApp Bot", "🌐 Criação de Sites", "📊 Análise de Gastos", "🤖 Pré-Atendimento", "🎨 Design Profissional", "🔗 Open Finance"].map((t, i) =>
               <span key={`${ri}-${i}`} style={{ fontSize: "0.82rem", fontWeight: 500, color: "rgba(255,255,255,0.2)", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
                 <Diamond size={5} color="rgba(200,255,0,0.3)" /> {t}
               </span>
@@ -631,65 +622,6 @@ export default function App() {
                               <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "rgba(255,255,255,0.65)" }}>8s</div>
                             </div>
                           </div>
-                        </div>
-                      )}
-
-                      {/* Autonomy */}
-                      {p.id === 3 && (
-                        <div style={{ zIndex: 1, padding: 28, width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 12 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.55)", fontFamily: "'JetBrains Mono', monospace" }}>Módulos integrados</div>
-                            <div style={{ fontSize: "0.58rem", color: "rgba(77,159,255,0.8)", fontFamily: "'JetBrains Mono', monospace" }}>● 12 / 12 ativos</div>
-                          </div>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                            {[
-                              { icon: "📊", name: "Contábil" },
-                              { icon: "💰", name: "Financeiro" },
-                              { icon: "📋", name: "Fiscal" },
-                              { icon: "👥", name: "Pessoal" },
-                              { icon: "⚖️", name: "Legal" },
-                              { icon: "📑", name: "Contratos" },
-                              { icon: "📈", name: "Relatórios" },
-                              { icon: "🧾", name: "Faturamento" },
-                            ].map((m, idx) => (
-                              <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10 }}>
-                                <span style={{ fontSize: "0.78rem" }}>{m.icon}</span>
-                                <span style={{ fontSize: "0.64rem", fontWeight: 600, color: "rgba(255,255,255,0.65)", flex: 1 }}>{m.name}</span>
-                                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#4cd964" }} />
-                              </div>
-                            ))}
-                          </div>
-                          <div style={{ padding: "12px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12 }}>
-                            <div style={{ fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 8, fontFamily: "'JetBrains Mono', monospace" }}>Automações executadas hoje</div>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                              {[
-                                { label: "Conciliação bancária", time: "09:00" },
-                                { label: "Apuração fiscal mensal", time: "10:30" },
-                                { label: "Folha de pagamento", time: "14:15" },
-                              ].map((t, idx) => (
-                                <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                  <div style={{ width: 14, height: 14, borderRadius: "50%", background: "rgba(76,217,100,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.5rem", color: "#4cd964" }}>✓</div>
-                                  <span style={{ fontSize: "0.64rem", color: "rgba(255,255,255,0.55)", flex: 1 }}>{t.label}</span>
-                                  <span style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", fontFamily: "'JetBrains Mono', monospace" }}>{t.time}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
-                            <div style={{ padding: "8px 10px", background: "rgba(77,159,255,0.05)", border: "1px solid rgba(77,159,255,0.1)", borderRadius: 10, textAlign: "center" }}>
-                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Rotinas</div>
-                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#4d9fff" }}>80%</div>
-                            </div>
-                            <div style={{ padding: "8px 10px", background: "rgba(200,255,0,0.05)", border: "1px solid rgba(200,255,0,0.1)", borderRadius: 10, textAlign: "center" }}>
-                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Horas/mês</div>
-                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#c8ff00" }}>120h</div>
-                            </div>
-                            <div style={{ padding: "8px 10px", background: "rgba(255,107,157,0.05)", border: "1px solid rgba(255,107,157,0.1)", borderRadius: 10, textAlign: "center" }}>
-                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Compliance</div>
-                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#ff6b9d" }}>100%</div>
-                            </div>
-                          </div>
-                          <div style={{ fontSize: "0.6rem", color: "rgba(77,159,255,0.65)", fontFamily: "'JetBrains Mono', monospace", textAlign: "center" }}>● Todos os módulos operacionais</div>
                         </div>
                       )}
 
@@ -941,7 +873,7 @@ export default function App() {
             <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.3)", lineHeight: 1.6, maxWidth: 300, marginTop: 12 }}>Criando soluções que resolvem problemas reais. Do código ao produto.</p>
           </div>
           {[
-            { title: "Produtos", links: ["Finzo App", "WhatsApp Bot", "Autonomy", "Sites para Empresas"] },
+            { title: "Produtos", links: ["Finzo App", "WhatsApp Bot", "Sites para Empresas"] },
             { title: "Serviços", links: ["Automação", "Atendimento", "Gestão Financeira", "Web Design"] },
             { title: "Contato", links: ["contato@4lekzz.com", "LinkedIn", "GitHub", "WhatsApp"] },
           ].map((col, i) => (

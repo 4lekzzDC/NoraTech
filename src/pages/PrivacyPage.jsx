@@ -56,7 +56,7 @@ export default function PrivacyPage() {
           <section style={sectionStyle}>
             <h2 style={h2Style}>1. Introducao</h2>
             <p style={pStyle}>
-              A 4lekzz ("nos", "nosso" ou "empresa") valoriza a privacidade dos usuarios de nossos produtos e servicos. Esta Politica de Privacidade descreve como coletamos, usamos, armazenamos e protegemos suas informacoes pessoais ao utilizar nossos produtos, incluindo Finzo App, WhatsApp Bot, Autonomy e Sites para Empresas.
+              A 4lekzz ("nos", "nosso" ou "empresa") valoriza a privacidade dos usuarios de nossos produtos e servicos. Esta Politica de Privacidade descreve como coletamos, usamos, armazenamos e protegemos suas informacoes pessoais ao utilizar nossos produtos, incluindo Finzo App, WhatsApp Bot e Sites para Empresas.
             </p>
             <p style={pStyle}>
               Ao acessar ou utilizar nossos servicos, voce concorda com as praticas descritas nesta politica. Recomendamos a leitura atenta deste documento.
