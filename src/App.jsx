@@ -298,30 +298,31 @@ export default function App() {
                 <div style={{ width: 8, height: 8, background: "#c8ff00", borderRadius: "50%" }} />
                 <div style={{ position: "absolute", inset: -4, borderRadius: "50%", border: "1px solid #c8ff00", animation: "pulse-ring 2s cubic-bezier(0,0,0.2,1) infinite" }} />
               </div>
-              <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 2 }}>Disponível para projetos</span>
+              <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 2 }}>Noratech · Software sob medida</span>
             </div>
           </Reveal>
 
           <Reveal delay={0.25}>
             <h1 style={{ fontSize: "clamp(2.8rem, 5.2vw, 4.8rem)", fontWeight: 800, lineHeight: 1.05, letterSpacing: -2.5, marginBottom: 24 }}>
-              Sistemas inteligentes para automatizar e escalar sua{" "}
-              <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#c8ff00" }}>operação.</span>
+              Automação e software sob medida para{" "}
+              <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#c8ff00" }}>escalar</span>{" "}
+              sua operação.
             </h1>
           </Reveal>
 
           <Reveal delay={0.4}>
-            <p style={{ fontSize: "1.08rem", lineHeight: 1.7, color: "rgba(255,255,255,0.45)", maxWidth: 460, marginBottom: 40 }}>
-              Transforme processos manuais em sistemas automatizados que economizam tempo, reduzem erros e aumentam seus lucros.
+            <p style={{ fontSize: "1.08rem", lineHeight: 1.7, color: "rgba(255,255,255,0.45)", maxWidth: 480, marginBottom: 40 }}>
+              Desenvolvemos sistemas, bots de atendimento e integrações que eliminam retrabalho, reduzem custos operacionais e liberam seu time para focar no que gera receita.
             </p>
           </Reveal>
 
           <Reveal delay={0.55}>
             <div className="hero-buttons" style={{ display: "flex", gap: 12 }}>
-              <a href="#produtos" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 30px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", transition: "all 0.3s" }}>
-                Explorar Portifólio <span style={{ fontSize: "1.1rem" }}>↗</span>
+              <a href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20solicitar%20um%20or%C3%A7amento%20com%20a%20Noratech." target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 30px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", transition: "all 0.3s" }}>
+                Solicitar orçamento <span style={{ fontSize: "1.1rem" }}>↗</span>
               </a>
-              <a href="#contato" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 28px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, fontWeight: 600, fontSize: "0.92rem", transition: "all 0.3s" }}>
-                Entrar em contato
+              <a href="#produtos" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 28px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, fontWeight: 600, fontSize: "0.92rem", transition: "all 0.3s" }}>
+                Conhecer soluções
               </a>
             </div>
           </Reveal>
@@ -329,7 +330,7 @@ export default function App() {
           {/* Stats row */}
           <Reveal delay={0.7}>
             <div className="hero-stats" style={{ display: "flex", gap: 40, marginTop: 56, paddingTop: 32, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-              {[["4", "Projetos"], ["50+", "Clientes"], ["200+", "Automações"], ["100%", "Dedicação"]].map(([val, label], i) => (
+              {[["50+", "Clientes"], ["200+", "Automações"], ["99.9%", "Uptime"], ["24/7", "Suporte"]].map(([val, label], i) => (
                 <div key={i}>
                   <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "1.5rem", fontWeight: 700, color: "#c8ff00" }}>{val}</div>
                   <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: 1, marginTop: 2 }}>{label}</div>
