@@ -294,6 +294,10 @@ export default function App() {
           .differentials-grid { grid-template-columns: 1fr !important; }
           .differentials-grid > div > div { border-right: none !important; }
           .differentials-header { grid-template-columns: 1fr !important; gap: 20px !important; align-items: start !important; }
+          .about-grid { grid-template-columns: 1fr !important; gap: 32px !important; }
+          .about-pillars { grid-template-columns: 1fr !important; }
+          .about-pillars > div { border-right: none !important; border-bottom: 1px solid rgba(255,255,255,0.08) !important; }
+          .about-pillars > div:last-child { border-bottom: none !important; }
 
           .footer-grid { grid-template-columns: 1fr 1fr !important; gap: 32px !important; }
           .footer-bottom { flex-direction: column !important; gap: 12px !important; align-items: flex-start !important; }
@@ -339,6 +343,7 @@ export default function App() {
           boxShadow: navScrolled ? "0 8px 40px rgba(0,0,0,0.5)" : "none"
         }}>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5 }}>NORA<span style={{ color: "rgba(255,255,255,0.25)" }}>.tech</span></span>
+          <a href="#sobre" className="nav-link">Sobre</a>
           <a href="#servicos" className="nav-link">Serviços</a>
           <a href="#produtos" className="nav-link">Portifólio</a>
           <a href="#processo" className="nav-link">Processo</a>
@@ -350,6 +355,7 @@ export default function App() {
       {/* ═══ MOBILE MENU OVERLAY ═══ */}
       {menuOpen && (
         <div className="mobile-menu" style={{ display: "none" }}>
+          <a href="#sobre" className="nav-link" onClick={() => setMenuOpen(false)}>Sobre</a>
           <a href="#servicos" className="nav-link" onClick={() => setMenuOpen(false)}>Serviços</a>
           <a href="#produtos" className="nav-link" onClick={() => setMenuOpen(false)}>Produtos</a>
           <a href="#startups" className="nav-link" onClick={() => setMenuOpen(false)}>Startups</a>
@@ -484,6 +490,115 @@ export default function App() {
           )}
         </div>
       </div>
+
+      {/* ═══ ABOUT — institutional editorial ═══ */}
+      <section id="sobre" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
+        <Reveal>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <Star size={12} color="#eeede9" />
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#eeede9", textTransform: "uppercase", letterSpacing: 3 }}>Sobre a Noratech</span>
+          </div>
+        </Reveal>
+
+        <Reveal delay={0.1}>
+          <h2 style={{ fontSize: "clamp(2.2rem, 4vw, 3.6rem)", fontWeight: 800, letterSpacing: -1.8, lineHeight: 1.05, marginBottom: 56, maxWidth: 1000 }}>
+            Engenharia de software a serviço da{" "}
+            <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>operação</span>.
+          </h2>
+        </Reveal>
+
+        <div className="about-grid" style={{ display: "grid", gridTemplateColumns: "1.35fr 1fr", gap: 64, alignItems: "start", marginBottom: 72 }}>
+          {/* Narrative */}
+          <Reveal delay={0.15}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <p style={{ fontSize: "1.12rem", lineHeight: 1.65, color: "rgba(255,255,255,0.78)", fontWeight: 400 }}>
+                A <strong style={{ color: "#eeede9", fontWeight: 700 }}>Noratech</strong> é uma empresa brasileira de engenharia de software especializada em <strong style={{ color: "#eeede9", fontWeight: 600 }}>automação, sistemas sob medida e integrações</strong> para operações corporativas. Atendemos empresas que precisam escalar sem, na mesma proporção, escalar custo, equipe e complexidade interna.
+              </p>
+              <p style={{ fontSize: "1rem", lineHeight: 1.7, color: "rgba(255,255,255,0.5)" }}>
+                Não entregamos ferramentas soltas — entregamos operação estruturada. Cada projeto começa por um diagnóstico técnico do processo atual, passa por arquitetura e desenvolvimento com a nossa equipe, e termina em produção com monitoramento ativo, relatórios mensais e evolução contínua.
+              </p>
+              <p style={{ fontSize: "1rem", lineHeight: 1.7, color: "rgba(255,255,255,0.5)" }}>
+                Trabalhamos com código proprietário e arquitetura auditável. O cliente conhece o escopo, acompanha a execução e recebe o sistema com autonomia técnica sobre a própria solução.
+              </p>
+            </div>
+          </Reveal>
+
+          {/* Editorial pull-quote card */}
+          <Reveal delay={0.3} type="scale">
+            <div style={{
+              position: "relative", padding: "40px 36px", background: "#0e0e10",
+              border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, overflow: "hidden"
+            }}>
+              {/* subtle grain / corner accent */}
+              <div style={{
+                position: "absolute", top: 20, right: 20,
+                fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic",
+                fontSize: "4rem", lineHeight: 0.8, color: "rgba(238,237,233,0.08)"
+              }}>
+                "
+              </div>
+
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", fontWeight: 700, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 2, marginBottom: 18 }}>
+                Princípio de engenharia
+              </div>
+
+              <p style={{
+                fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic",
+                fontSize: "1.45rem", fontWeight: 500, lineHeight: 1.35,
+                color: "#eeede9", letterSpacing: -0.3, marginBottom: 24, position: "relative"
+              }}>
+                Boa tecnologia não deve ser notada. Ela devolve tempo, reduz fricção e transforma decisão operacional em dado.
+              </p>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 28, height: 1, background: "rgba(200,255,0,0.6)" }} />
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", color: "rgba(255,255,255,0.45)", letterSpacing: 1 }}>
+                  Noratech — Engenharia de Operação
+                </span>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+
+        {/* Institutional pillars — 3 columns */}
+        <Reveal delay={0.2}>
+          <div className="about-pillars" style={{
+            display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0,
+            borderTop: "1px solid rgba(255,255,255,0.1)",
+            borderBottom: "1px solid rgba(255,255,255,0.1)"
+          }}>
+            {[
+              {
+                label: "O que fazemos",
+                body: "Sistemas personalizados, automações de processo, dashboards operacionais e integrações entre ferramentas. Do diagnóstico ao deploy, com uma equipe só.",
+              },
+              {
+                label: "Para quem",
+                body: "Pequenas e médias empresas que operam com processos manuais, planilhas paralelas ou ferramentas que não conversam — e que não podem mais pagar por isso.",
+              },
+              {
+                label: "Compromisso",
+                body: "Escopo definido, contrato transparente, código entregue ao cliente e SLA ativo após o deploy. Sem letra miúda, sem dependência permanente de fornecedor.",
+              },
+            ].map((p, i) => (
+              <div key={i} style={{
+                padding: "36px 28px",
+                borderRight: i < 2 ? "1px solid rgba(255,255,255,0.08)" : "none"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                  <Diamond size={6} color="#c8ff00" />
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.68rem", fontWeight: 700, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 2 }}>
+                    {p.label}
+                  </span>
+                </div>
+                <p style={{ fontSize: "0.92rem", lineHeight: 1.65, color: "rgba(255,255,255,0.55)" }}>
+                  {p.body}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Reveal>
+      </section>
 
       {/* ═══ SERVICES ═══ */}
       <section id="servicos" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
