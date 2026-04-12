@@ -7,6 +7,37 @@ import MeetingScheduler from "./components/MeetingScheduler";
 // Fusion: ssscript.app (OS UI) + hen-ry.com (editorial luxury)
 // ═══════════════════════════════════════════════════════════════
 
+const SERVICES = [
+  {
+    num: "S.01",
+    icon: "🛠️",
+    title: "Desenvolvimento de sistemas personalizados",
+    desc: "Aplicações web e mobile construídas sob medida para o fluxo da sua empresa — com arquitetura escalável, código proprietário e manutenção contínua pela nossa equipe.",
+    tags: ["Web & Mobile", "API & Backend", "Arquitetura escalável"],
+  },
+  {
+    num: "S.02",
+    icon: "⚙️",
+    title: "Automação de processos",
+    desc: "Transformamos tarefas manuais e repetitivas em fluxos automáticos — operações internas, atendimento, notificações e aprovações — reduzindo custo operacional e erro humano.",
+    tags: ["Workflows", "RPA", "Triggers & eventos"],
+  },
+  {
+    num: "S.03",
+    icon: "📊",
+    title: "Dashboards e indicadores",
+    desc: "Painéis em tempo real que consolidam dados de vendas, finanças e operação em KPIs claros — para decisões rápidas, baseadas em fato e não em planilha desatualizada.",
+    tags: ["BI & Analytics", "KPIs em tempo real", "Relatórios automáticos"],
+  },
+  {
+    num: "S.04",
+    icon: "🔗",
+    title: "Integração entre sistemas",
+    desc: "Conectamos ERP, CRM, WhatsApp, gateways de pagamento e APIs externas em um fluxo único — eliminando planilhas intermediárias e retrabalho entre áreas.",
+    tags: ["APIs & Webhooks", "ERP / CRM", "Migração de dados"],
+  },
+];
+
 const PRODUCTS = [
   { id: 1, icon: "💰", name: "Finzo App", desc: "Plataforma de gestão financeira inteligente que conecta contas, organiza movimentações e transforma dados em análises claras sobre gastos, rendimento e oportunidades de economia.", tags: ["FinTech", "Analytics", "Open Finance"], color: "#c8ff00", featured: true, features: ["Integração via Open Finance com bancos", "Categorização automática de transações", "Análises e insights com IA", "Metas de economia e alertas inteligentes", "Dashboard unificado em tempo real"] },
   { id: 2, icon: "💬", name: "WhatsApp Bot", desc: "Sistema de atendimento via WhatsApp que categoriza conversas, realiza o pré-atendimento e organiza o fluxo antes da interação humana.", tags: ["Chatbot", "WhatsApp API", "NLP"], color: "#25D366", featured: true, features: ["Atendimento automatizado 24/7", "Categorização por intenção (NLP)", "Pré-atendimento e triagem inteligente", "Transferência fluida para humanos", "Relatórios de atendimento e métricas"] },
@@ -226,6 +257,7 @@ export default function App() {
           .startups-grid { grid-template-columns: 1fr !important; }
 
           .process-grid { grid-template-columns: 1fr 1fr !important; }
+          .services-grid { grid-template-columns: 1fr !important; }
 
           .footer-grid { grid-template-columns: 1fr 1fr !important; gap: 32px !important; }
           .footer-bottom { flex-direction: column !important; gap: 12px !important; align-items: flex-start !important; }
@@ -271,6 +303,7 @@ export default function App() {
           boxShadow: navScrolled ? "0 8px 40px rgba(0,0,0,0.5)" : "none"
         }}>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5 }}>NORA<span style={{ color: "rgba(255,255,255,0.25)" }}>.tech</span></span>
+          <a href="#servicos" className="nav-link">Serviços</a>
           <a href="#produtos" className="nav-link">Portifólio</a>
           <a href="#processo" className="nav-link">Processo</a>
           <a href="#depoimentos" className="nav-link">Clientes</a>
@@ -281,6 +314,7 @@ export default function App() {
       {/* ═══ MOBILE MENU OVERLAY ═══ */}
       {menuOpen && (
         <div className="mobile-menu" style={{ display: "none" }}>
+          <a href="#servicos" className="nav-link" onClick={() => setMenuOpen(false)}>Serviços</a>
           <a href="#produtos" className="nav-link" onClick={() => setMenuOpen(false)}>Produtos</a>
           <a href="#startups" className="nav-link" onClick={() => setMenuOpen(false)}>Startups</a>
           <a href="#processo" className="nav-link" onClick={() => setMenuOpen(false)}>Processo</a>
@@ -414,6 +448,101 @@ export default function App() {
           )}
         </div>
       </div>
+
+      {/* ═══ SERVICES ═══ */}
+      <section id="servicos" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
+        <Reveal>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <Star size={12} color="#4d9fff" />
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#4d9fff", textTransform: "uppercase", letterSpacing: 3 }}>Serviços</span>
+          </div>
+        </Reveal>
+        <Reveal delay={0.1}>
+          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 14 }}>
+            Tecnologia que resolve <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>problemas reais</span>
+          </h2>
+        </Reveal>
+        <Reveal delay={0.15}>
+          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 560, lineHeight: 1.6, marginBottom: 64 }}>
+            Quatro frentes de atuação que a Noratech entrega de ponta a ponta — do levantamento técnico ao deploy em produção, com suporte contínuo.
+          </p>
+        </Reveal>
+
+        <div className="services-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
+          {SERVICES.map((s, i) => (
+            <Reveal key={s.num} type={i % 2 === 0 ? "up" : "scale"} delay={i * 0.08}>
+              <div style={{
+                position: "relative", height: "100%", background: "#111114",
+                border: "1px solid rgba(255,255,255,0.06)", borderRadius: 18,
+                padding: 32, overflow: "hidden", transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)"
+              }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(77,159,255,0.22)"; e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(77,159,255,0.12)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+              >
+                {/* Decorative glow */}
+                <div style={{
+                  position: "absolute", width: 220, height: 220, borderRadius: "50%",
+                  background: "radial-gradient(circle, rgba(77,159,255,0.10) 0%, transparent 60%)",
+                  top: -80, right: -60, filter: "blur(40px)", pointerEvents: "none"
+                }} />
+
+                {/* Number + divider */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 22, position: "relative" }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", color: "#4d9fff", fontWeight: 700, letterSpacing: 2 }}>{s.num}</span>
+                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.05)" }} />
+                  <Star size={8} color="rgba(77,159,255,0.25)" />
+                </div>
+
+                <div style={{ fontSize: "2.1rem", marginBottom: 16, position: "relative" }}>{s.icon}</div>
+
+                <h3 style={{ fontSize: "1.2rem", fontWeight: 700, lineHeight: 1.3, letterSpacing: -0.3, marginBottom: 12, position: "relative" }}>
+                  {s.title}
+                </h3>
+
+                <p style={{ fontSize: "0.9rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.65, marginBottom: 22, position: "relative" }}>
+                  {s.desc}
+                </p>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, position: "relative" }}>
+                  {s.tags.map(t => (
+                    <span key={t} style={{
+                      padding: "4px 10px", background: "rgba(77,159,255,0.06)",
+                      border: "1px solid rgba(77,159,255,0.14)", borderRadius: 100,
+                      fontSize: "0.66rem", fontWeight: 600, fontFamily: "'JetBrains Mono', monospace",
+                      color: "rgba(200,220,255,0.7)"
+                    }}>{t}</span>
+                  ))}
+                </div>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+
+        {/* Inline CTA strip */}
+        <Reveal delay={0.3}>
+          <div style={{
+            marginTop: 28, padding: "22px 28px",
+            background: "linear-gradient(135deg, rgba(77,159,255,0.06), rgba(77,159,255,0.02))",
+            border: "1px solid rgba(77,159,255,0.14)", borderRadius: 18,
+            display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(77,159,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>✦</div>
+              <div>
+                <div style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: 2 }}>Precisa de um escopo específico?</div>
+                <div style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.4)" }}>Conte o desafio e montamos uma proposta técnica sob medida.</div>
+              </div>
+            </div>
+            <a href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20conversar%20sobre%20um%20projeto%20com%20a%20Noratech." target="_blank" rel="noopener noreferrer" style={{
+              display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 22px",
+              background: "#4d9fff", color: "#08080a", borderRadius: 100,
+              fontWeight: 700, fontSize: "0.86rem", whiteSpace: "nowrap"
+            }}>
+              Falar com especialista <span style={{ fontSize: "1rem" }}>↗</span>
+            </a>
+          </div>
+        </Reveal>
+      </section>
 
       {/* ═══ PRODUCTS ═══ */}
       <section id="produtos" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
