@@ -38,6 +38,39 @@ const SERVICES = [
   },
 ];
 
+const DIFFERENTIALS = [
+  {
+    num: "01",
+    title: "Foco em resultado, não em hora trabalhada",
+    desc: "Contratamos por escopo e impacto. Medimos sucesso em processos automatizados, horas economizadas e redução de custo operacional — não em relatório de horas cobradas.",
+  },
+  {
+    num: "02",
+    title: "Sob medida, nunca template",
+    desc: "Cada sistema nasce do fluxo real da sua empresa. Código proprietário, arquitetura auditável e evolução guiada pelo seu negócio — sem amarração a ferramentas de terceiros.",
+  },
+  {
+    num: "03",
+    title: "Estratégia e execução no mesmo time",
+    desc: "Diagnóstico, arquitetura, desenvolvimento e operação conduzidos por uma equipe única. Sem repasse entre fornecedores, sem perda de contexto entre as fases do projeto.",
+  },
+  {
+    num: "04",
+    title: "Automação como princípio, não como plugin",
+    desc: "Antes de escrever uma linha de código, mapeamos e organizamos o processo. Automatizar o caos só gera caos mais rápido — entregamos fluxo simples antes de virar software.",
+  },
+  {
+    num: "05",
+    title: "Engenharia responsável, stack moderno",
+    desc: "Tecnologias atuais aplicadas com critério — priorizamos performance, segurança e custo operacional previsível. Nada de stack da moda sem justificativa técnica para o seu caso.",
+  },
+  {
+    num: "06",
+    title: "Suporte contínuo e SLA transparente",
+    desc: "Após o deploy, o sistema segue sob nosso monitoramento 24/7. SLA definido em contrato, relatórios mensais de saúde da operação e roadmap de melhorias compartilhado com o cliente.",
+  },
+];
+
 const PRODUCTS = [
   { id: 1, icon: "💰", name: "Finzo App", desc: "Plataforma de gestão financeira inteligente que conecta contas, organiza movimentações e transforma dados em análises claras sobre gastos, rendimento e oportunidades de economia.", tags: ["FinTech", "Analytics", "Open Finance"], color: "#c8ff00", featured: true, features: ["Integração via Open Finance com bancos", "Categorização automática de transações", "Análises e insights com IA", "Metas de economia e alertas inteligentes", "Dashboard unificado em tempo real"] },
   { id: 2, icon: "💬", name: "WhatsApp Bot", desc: "Sistema de atendimento via WhatsApp que categoriza conversas, realiza o pré-atendimento e organiza o fluxo antes da interação humana.", tags: ["Chatbot", "WhatsApp API", "NLP"], color: "#25D366", featured: true, features: ["Atendimento automatizado 24/7", "Categorização por intenção (NLP)", "Pré-atendimento e triagem inteligente", "Transferência fluida para humanos", "Relatórios de atendimento e métricas"] },
@@ -258,6 +291,9 @@ export default function App() {
 
           .process-grid { grid-template-columns: 1fr 1fr !important; }
           .services-grid { grid-template-columns: 1fr !important; }
+          .differentials-grid { grid-template-columns: 1fr !important; }
+          .differentials-grid > div > div { border-right: none !important; }
+          .differentials-header { grid-template-columns: 1fr !important; gap: 20px !important; align-items: start !important; }
 
           .footer-grid { grid-template-columns: 1fr 1fr !important; gap: 32px !important; }
           .footer-bottom { flex-direction: column !important; gap: 12px !important; align-items: flex-start !important; }
@@ -540,6 +576,95 @@ export default function App() {
             }}>
               Falar com especialista <span style={{ fontSize: "1rem" }}>↗</span>
             </a>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ═══ DIFFERENTIALS — editorial manifesto style ═══ */}
+      <section id="diferenciais" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
+        <Reveal>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <Star size={12} color="#b684ff" />
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#b684ff", textTransform: "uppercase", letterSpacing: 3 }}>Diferenciais</span>
+          </div>
+        </Reveal>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 48, alignItems: "end", marginBottom: 72 }} className="differentials-header">
+          <Reveal delay={0.1}>
+            <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, lineHeight: 1.08 }}>
+              Por que escolher a <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#b684ff" }}>Noratech</span>?
+            </h2>
+          </Reveal>
+          <Reveal delay={0.2}>
+            <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.7, maxWidth: 440 }}>
+              Somos uma empresa de engenharia de software focada em eficiência operacional. Construímos sistemas que devolvem tempo, clareza e previsibilidade para quem decide.
+            </p>
+          </Reveal>
+        </div>
+
+        <div className="differentials-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+          {DIFFERENTIALS.map((d, i) => (
+            <Reveal key={d.num} type="up" delay={(i % 3) * 0.08}>
+              <div style={{
+                position: "relative", height: "100%", padding: "40px 28px 36px",
+                borderRight: (i % 3 !== 2) ? "1px solid rgba(255,255,255,0.06)" : "none",
+                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                transition: "background 0.4s ease",
+              }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(182,132,255,0.03)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+              >
+                {/* Large editorial number */}
+                <div style={{
+                  fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600,
+                  fontSize: "3.6rem", lineHeight: 1, color: "#b684ff", marginBottom: 20,
+                  letterSpacing: -2,
+                }}>
+                  {d.num}<span style={{ color: "rgba(182,132,255,0.35)" }}>.</span>
+                </div>
+
+                <h3 style={{
+                  fontSize: "1.08rem", fontWeight: 700, lineHeight: 1.35,
+                  letterSpacing: -0.3, marginBottom: 12, color: "#eeede9"
+                }}>
+                  {d.title}
+                </h3>
+
+                <p style={{
+                  fontSize: "0.88rem", color: "rgba(255,255,255,0.42)",
+                  lineHeight: 1.7, marginBottom: 0
+                }}>
+                  {d.desc}
+                </p>
+
+                {/* Corner accent on hover target */}
+                <Star size={7} color="rgba(182,132,255,0.2)" style={{ position: "absolute", top: 24, right: 24 }} />
+              </div>
+            </Reveal>
+          ))}
+        </div>
+
+        {/* Positioning statement */}
+        <Reveal delay={0.2}>
+          <div style={{
+            marginTop: 56, padding: "28px 32px",
+            background: "rgba(182,132,255,0.04)",
+            border: "1px solid rgba(182,132,255,0.12)", borderRadius: 18,
+            display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap"
+          }}>
+            <div style={{
+              fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600,
+              fontSize: "2.2rem", color: "#b684ff", lineHeight: 1, letterSpacing: -1
+            }}>
+              ✦
+            </div>
+            <p style={{
+              flex: 1, minWidth: 280, fontFamily: "'Cormorant Garamond', serif",
+              fontStyle: "italic", fontSize: "1.25rem", fontWeight: 500,
+              color: "rgba(255,255,255,0.78)", lineHeight: 1.45, letterSpacing: -0.2
+            }}>
+              "Tecnologia bem feita é aquela que deixa de aparecer. A Noratech existe para essa engenharia — a que sustenta a operação em silêncio e entrega resultado todo dia."
+            </p>
           </div>
         </Reveal>
       </section>
