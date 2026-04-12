@@ -287,8 +287,6 @@ export default function App() {
             border-radius: 0 0 18px 18px !important;
           }
 
-          .startups-grid { grid-template-columns: 1fr !important; }
-
           .process-grid { grid-template-columns: 1fr 1fr !important; }
           .services-grid { grid-template-columns: 1fr !important; }
           .differentials-grid { grid-template-columns: 1fr !important; }
@@ -500,10 +498,15 @@ export default function App() {
         </Reveal>
 
         <Reveal delay={0.1}>
-          <h2 style={{ fontSize: "clamp(2.2rem, 4vw, 3.6rem)", fontWeight: 800, letterSpacing: -1.8, lineHeight: 1.05, marginBottom: 56, maxWidth: 1000 }}>
+          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, lineHeight: 1.08, marginBottom: 14 }}>
             Engenharia de software a serviço da{" "}
             <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>operação</span>.
           </h2>
+        </Reveal>
+        <Reveal delay={0.15}>
+          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 560, lineHeight: 1.6, marginBottom: 64 }}>
+            Empresa brasileira de engenharia aplicada — construímos sistemas sob medida, automações e integrações que sustentam operações corporativas em produção.
+          </p>
         </Reveal>
 
         <div className="about-grid" style={{ display: "grid", gridTemplateColumns: "1.35fr 1fr", gap: 64, alignItems: "start", marginBottom: 72 }}>
@@ -797,7 +800,7 @@ export default function App() {
           </h2>
         </Reveal>
         <Reveal delay={0.15}>
-          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 500, lineHeight: 1.6, marginBottom: 64 }}>
+          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 560, lineHeight: 1.6, marginBottom: 64 }}>
             Cada projeto resolve um problema real — gestão financeira, atendimento, automação e presença digital.
           </p>
         </Reveal>
@@ -1075,9 +1078,14 @@ export default function App() {
           </div>
         </Reveal>
         <Reveal delay={0.1}>
-          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 64 }}>
+          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 14 }}>
             Do briefing ao <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>deploy</span>
           </h2>
+        </Reveal>
+        <Reveal delay={0.15}>
+          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 560, lineHeight: 1.6, marginBottom: 64 }}>
+            Metodologia aplicada a cada projeto — quatro etapas com entregáveis definidos, prazo acordado e transparência total de escopo.
+          </p>
         </Reveal>
 
         <div className="process-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 2, borderRadius: 18, overflow: "hidden" }}>
@@ -1119,7 +1127,7 @@ export default function App() {
           </h2>
         </Reveal>
         <Reveal delay={0.15}>
-          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 500, lineHeight: 1.6, marginBottom: 64 }}>
+          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 560, lineHeight: 1.6, marginBottom: 64 }}>
             Resultados reais de empresas que colocaram a Noratech dentro da operação.
           </p>
         </Reveal>
@@ -1158,9 +1166,14 @@ export default function App() {
           </div>
         </Reveal>
         <Reveal delay={0.1}>
-          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 40 }}>
+          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 14 }}>
             Perguntas <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>frequentes</span>
           </h2>
+        </Reveal>
+        <Reveal delay={0.15}>
+          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 560, lineHeight: 1.6, marginBottom: 64 }}>
+            Respostas objetivas sobre contratação, entrega e operação dos nossos produtos.
+          </p>
         </Reveal>
 
         <Reveal delay={0.2}>
@@ -1182,7 +1195,7 @@ export default function App() {
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {faqsByTab[activeFaqTab].map((faq, i) => (
                 <div key={`${activeFaqTab}-${i}`} className="faq-item" onClick={() => setOpenFaq(openFaq === i ? null : i)} style={{
-                  background: "#111114", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: "18px 22px",
+                  background: "#111114", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 18, padding: "18px 22px",
                   cursor: "pointer"
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1204,7 +1217,7 @@ export default function App() {
       </section>
 
       {/* ═══ CTA — Big editorial statement ═══ */}
-      <section id="contato" className="cta-section" style={{ padding: "100px 60px 160px", maxWidth: 1440, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
+      <section id="contato" className="cta-section" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
         {/* Decorative elements — hen-ry style */}
         <div style={{ position: "absolute", top: "40%", left: "50%", transform: "translate(-50%, -50%)", width: 400, height: 400, background: "radial-gradient(circle, rgba(200,255,0,0.04) 0%, transparent 55%)", filter: "blur(40px)", pointerEvents: "none" }} />
 
@@ -1216,18 +1229,19 @@ export default function App() {
               <Star size={14} color="#ff6b9d" style={{ animation: "float3 6s ease-in-out infinite" }} />
             </div>
 
-            <h2 style={{ fontSize: "clamp(2.5rem, 5vw, 4.5rem)", fontWeight: 800, letterSpacing: -2.5, lineHeight: 1.05, marginBottom: 20 }}>
-              Pronto pra construir<br />algo <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#c8ff00" }}>extraordinário</span>?
+            <h2 style={{ fontSize: "clamp(2.5rem, 5vw, 4.5rem)", fontWeight: 800, letterSpacing: -2.5, lineHeight: 1.05, marginBottom: 20, maxWidth: 820, margin: "0 auto 20px" }}>
+              Pronto para construir a próxima fase da sua{" "}
+              <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#c8ff00" }}>operação</span>?
             </h2>
-            <p style={{ fontSize: "1.08rem", color: "rgba(255,255,255,0.4)", maxWidth: 460, margin: "0 auto 44px", lineHeight: 1.6 }}>
-              Agende uma conversa sem compromisso e descubra como tecnologia pode acelerar seus resultados.
+            <p style={{ fontSize: "1.08rem", color: "rgba(255,255,255,0.45)", maxWidth: 520, margin: "0 auto 44px", lineHeight: 1.6 }}>
+              Agende uma conversa sem compromisso. Em 30 minutos mapeamos onde a Noratech pode gerar mais impacto na sua operação.
             </p>
             <div className="cta-buttons" style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-              <a href="#" onClick={(e) => { e.preventDefault(); setSchedulerOpen(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "16px 36px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.95rem", cursor: "pointer" }}>
-                Agendar Reunião <span>↗</span>
+              <a href="#" onClick={(e) => { e.preventDefault(); setSchedulerOpen(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 30px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", cursor: "pointer", transition: "all 0.3s" }}>
+                Agendar reunião <span style={{ fontSize: "1.1rem" }}>↗</span>
               </a>
-              <a href="https://wa.me/5511932227752" target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "16px 30px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, fontWeight: 600, fontSize: "0.95rem" }}>
-                WhatsApp
+              <a href="https://wa.me/5511932227752" target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 28px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", transition: "all 0.3s" }}>
+                Falar no WhatsApp
               </a>
             </div>
           </div>
@@ -1235,7 +1249,7 @@ export default function App() {
       </section>
 
       {/* ═══ FOOTER ═══ */}
-      <footer className="footer-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
+      <footer className="footer-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "80px 60px 48px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <div className="footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 48, marginBottom: 48 }}>
           <div>
             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: "0.9rem", color: "#c8ff00" }}>NORA<span style={{ color: "rgba(255,255,255,0.3)" }}>TECH</span></span>
