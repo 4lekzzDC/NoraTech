@@ -56,7 +56,7 @@ export default function PrivacyPage() {
           <section style={sectionStyle}>
             <h2 style={h2Style}>1. Introducao</h2>
             <p style={pStyle}>
-              A Nora Tech ("nos", "nosso" ou "empresa") valoriza a privacidade dos usuarios de nossos produtos e servicos. Esta Politica de Privacidade descreve como coletamos, usamos, armazenamos e protegemos suas informacoes pessoais ao utilizar nossos produtos, incluindo Finzo App, WhatsApp Bot e Sites para Empresas.
+              A Noratech ("nos", "nosso" ou "empresa") valoriza a privacidade dos usuarios de nossos produtos e servicos. Esta Politica de Privacidade descreve como coletamos, usamos, armazenamos e protegemos suas informacoes pessoais ao utilizar nossos produtos, incluindo Finzo App, WhatsApp Bot e Sites para Empresas.
             </p>
             <p style={pStyle}>
               Ao acessar ou utilizar nossos servicos, voce concorda com as praticas descritas nesta politica. Recomendamos a leitura atenta deste documento.
@@ -128,7 +128,7 @@ export default function PrivacyPage() {
             </ul>
             <p style={pStyle}>
               Para exercer seus direitos, entre em contato pelo e-mail{" "}
-              <a href="mailto:contato@4lekzz.com" style={{ color: "#c8ff00", borderBottom: "1px solid rgba(200,255,0,0.3)" }}>contato@4lekzz.com</a>.
+              <a href="mailto:contato@noratech.com.br" style={{ color: "#c8ff00", borderBottom: "1px solid rgba(200,255,0,0.3)" }}>contato@noratech.com.br</a>.
             </p>
           </section>
 
@@ -152,8 +152,8 @@ export default function PrivacyPage() {
               Em caso de duvidas sobre esta Politica de Privacidade ou sobre o tratamento de seus dados, entre em contato:
             </p>
             <div style={{ padding: 24, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 16, marginTop: 8 }}>
-              <p style={{ ...pStyle, marginBottom: 4 }}><strong style={{ color: "rgba(255,255,255,0.65)" }}>Nora Tech</strong></p>
-              <p style={{ ...pStyle, marginBottom: 4 }}>E-mail: <a href="mailto:contato@4lekzz.com" style={{ color: "#c8ff00" }}>contato@4lekzz.com</a></p>
+              <p style={{ ...pStyle, marginBottom: 4 }}><strong style={{ color: "rgba(255,255,255,0.65)" }}>Noratech</strong></p>
+              <p style={{ ...pStyle, marginBottom: 4 }}>E-mail: <a href="mailto:contato@noratech.com.br" style={{ color: "#c8ff00" }}>contato@noratech.com.br</a></p>
               <p style={{ ...pStyle, marginBottom: 0 }}>WhatsApp: <a href="https://wa.me/5511932227752" target="_blank" rel="noopener noreferrer" style={{ color: "#c8ff00" }}>(11) 93222-7752</a></p>
             </div>
           </section>
@@ -163,7 +163,7 @@ export default function PrivacyPage() {
       {/* Footer */}
       <footer style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "32px 60px", position: "relative", zIndex: 1 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: 780, margin: "0 auto" }}>
-          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)" }}>&copy; 2026 Nora Tech &mdash; Todos os direitos reservados</span>
+          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)" }}>&copy; 2026 Noratech &mdash; Todos os direitos reservados</span>
           <div style={{ display: "flex", gap: 16 }}>
             <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", borderBottom: "1px solid rgba(200,255,0,0.2)" }}>Privacidade</span>
             <Link to="/termos" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Termos</Link>

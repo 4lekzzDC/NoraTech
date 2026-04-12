@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import MeetingScheduler from "./components/MeetingScheduler";
 
 // ═══════════════════════════════════════════════════════════════
-// Nora Tech — Immersive Startups Portfolio
-// Fusion: ssscript.app (OS UI) + hen-ry.com (editorial luxury)
+// Noratech — Institutional website
+// Engenharia de software, automação e integrações para empresas.
 // ═══════════════════════════════════════════════════════════════
 
 const SERVICES = [
@@ -342,10 +342,10 @@ export default function App() {
           borderRadius: 100, transition: "all 0.5s cubic-bezier(0.16,1,0.3,1)",
           boxShadow: navScrolled ? "0 8px 40px rgba(0,0,0,0.5)" : "none"
         }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5 }}>NORA<span style={{ color: "rgba(255,255,255,0.25)" }}>.tech</span></span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5 }}>NORA<span style={{ color: "rgba(255,255,255,0.3)" }}>TECH</span></span>
           <a href="#sobre" className="nav-link">Sobre</a>
           <a href="#servicos" className="nav-link">Serviços</a>
-          <a href="#produtos" className="nav-link">Portifólio</a>
+          <a href="#produtos" className="nav-link">Projetos</a>
           <a href="#processo" className="nav-link">Processo</a>
           <a href="#depoimentos" className="nav-link">Clientes</a>
           <a href="#contato" className="nav-link" style={{ padding: "8px 18px", background: "#c8ff00", color: "#08080a", fontWeight: 700, borderRadius: 100 }}>Contato</a>
@@ -357,8 +357,7 @@ export default function App() {
         <div className="mobile-menu" style={{ display: "none" }}>
           <a href="#sobre" className="nav-link" onClick={() => setMenuOpen(false)}>Sobre</a>
           <a href="#servicos" className="nav-link" onClick={() => setMenuOpen(false)}>Serviços</a>
-          <a href="#produtos" className="nav-link" onClick={() => setMenuOpen(false)}>Produtos</a>
-          <a href="#startups" className="nav-link" onClick={() => setMenuOpen(false)}>Startups</a>
+          <a href="#produtos" className="nav-link" onClick={() => setMenuOpen(false)}>Projetos</a>
           <a href="#processo" className="nav-link" onClick={() => setMenuOpen(false)}>Processo</a>
           <a href="#depoimentos" className="nav-link" onClick={() => setMenuOpen(false)}>Clientes</a>
           <a href="#contato" className="nav-link mobile-cta" onClick={() => setMenuOpen(false)}>Contato</a>
@@ -789,7 +788,7 @@ export default function App() {
         <Reveal>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <Star size={12} color="#c8ff00" />
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 3 }}>Portifólio</span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 3 }}>Projetos</span>
           </div>
         </Reveal>
         <Reveal delay={0.1}>
@@ -1121,7 +1120,7 @@ export default function App() {
         </Reveal>
         <Reveal delay={0.15}>
           <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 500, lineHeight: 1.6, marginBottom: 64 }}>
-            Resultados reais de quem confiou no meu trabalho.
+            Resultados reais de empresas que colocaram a Noratech dentro da operação.
           </p>
         </Reveal>
 
@@ -1239,13 +1238,13 @@ export default function App() {
       <footer className="footer-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <div className="footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 48, marginBottom: 48 }}>
           <div>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.9rem", color: "#c8ff00" }}>Nora Tech</span>
-            <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.3)", lineHeight: 1.6, maxWidth: 300, marginTop: 12 }}>Criando soluções que resolvem problemas reais. Do código ao produto.</p>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: "0.9rem", color: "#c8ff00" }}>NORA<span style={{ color: "rgba(255,255,255,0.3)" }}>TECH</span></span>
+            <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.3)", lineHeight: 1.6, maxWidth: 300, marginTop: 12 }}>Engenharia de software, automação e integrações para empresas que querem operar com eficiência.</p>
           </div>
           {[
             { title: "Produtos", links: ["Finzo App", "WhatsApp Bot", "Sites para Empresas"] },
-            { title: "Serviços", links: ["Automação", "Atendimento", "Gestão Financeira", "Web Design"] },
-            { title: "Contato", links: ["contato@4lekzz.com", "LinkedIn", "GitHub", "WhatsApp"] },
+            { title: "Serviços", links: ["Sistemas sob medida", "Automação de processos", "Dashboards & BI", "Integrações"] },
+            { title: "Contato", links: ["contato@noratech.com.br", "LinkedIn", "GitHub", "WhatsApp"] },
           ].map((col, i) => (
             <div key={i}>
               <h5 style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, color: "rgba(255,255,255,0.2)", marginBottom: 16 }}>{col.title}</h5>
@@ -1267,7 +1266,7 @@ export default function App() {
           ))}
         </div>
         <div className="footer-bottom" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 32, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)" }}>© 2026 Nora Tech — Todos os direitos reservados</span>
+          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)" }}>© 2026 Noratech — Todos os direitos reservados</span>
           <div style={{ display: "flex", gap: 16 }}>
             <Link to="/privacidade" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Privacidade</Link>
             <Link to="/termos" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Termos</Link>
