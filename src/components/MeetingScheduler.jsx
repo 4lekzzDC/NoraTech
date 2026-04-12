@@ -251,7 +251,7 @@ export default function MeetingScheduler({ isOpen, onClose }) {
 
     const eventTitle = encodeURIComponent(`Reunião — ${formData.name} (${formData.subject || "Sem assunto"})`);
     const eventDetails = encodeURIComponent(
-      `Nome: ${formData.name}\nEmail: ${formData.email}\nAssunto: ${formData.subject || "N/A"}\n\nAgendado via 4lekzz Portfolio`
+      `Nome: ${formData.name}\nEmail: ${formData.email}\nAssunto: ${formData.subject || "N/A"}\n\nAgendado via Nora Tech`
     );
 
     // If API is configured, try to create the event directly

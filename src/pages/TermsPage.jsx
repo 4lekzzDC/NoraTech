@@ -32,7 +32,7 @@ export default function TermsPage() {
       {/* Header */}
       <header style={{ position: "sticky", top: 0, zIndex: 100, padding: "20px 60px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(8,8,10,0.9)", backdropFilter: "blur(24px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <Link to="/" style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", letterSpacing: -0.5 }}>
-          NEXUS<span style={{ color: "rgba(255,255,255,0.25)" }}>.ai</span>
+          NORA<span style={{ color: "rgba(255,255,255,0.25)" }}>.tech</span>
         </Link>
         <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.82rem", color: "rgba(255,255,255,0.45)", padding: "7px 16px", borderRadius: 100, border: "1px solid rgba(255,255,255,0.08)", transition: "all 0.3s" }}>
           <span style={{ fontSize: "0.9rem" }}>&larr;</span> Voltar ao Inicio
@@ -56,13 +56,13 @@ export default function TermsPage() {
           <section style={sectionStyle}>
             <h2 style={h2Style}>1. Aceitacao dos Termos</h2>
             <p style={pStyle}>
-              Ao acessar e utilizar os servicos oferecidos pela 4lekzz ("nos", "nosso" ou "empresa"), incluindo Finzo App, WhatsApp Bot e Sites para Empresas, voce concorda integralmente com estes Termos de Uso. Caso nao concorde com alguma disposicao, recomendamos que nao utilize nossos servicos.
+              Ao acessar e utilizar os servicos oferecidos pela Nora Tech ("nos", "nosso" ou "empresa"), incluindo Finzo App, WhatsApp Bot e Sites para Empresas, voce concorda integralmente com estes Termos de Uso. Caso nao concorde com alguma disposicao, recomendamos que nao utilize nossos servicos.
             </p>
           </section>
 
           <section style={sectionStyle}>
             <h2 style={h2Style}>2. Descricao dos Servicos</h2>
-            <p style={pStyle}>A 4lekzz oferece os seguintes produtos e servicos:</p>
+            <p style={pStyle}>A Nora Tech oferece os seguintes produtos e servicos:</p>
             <ul style={listStyle}>
               <li><strong style={{ color: "rgba(255,255,255,0.65)" }}>Finzo App:</strong> plataforma de gestao financeira com integracao via Open Finance</li>
               <li><strong style={{ color: "rgba(255,255,255,0.65)" }}>WhatsApp Bot:</strong> sistema de atendimento automatizado via WhatsApp Business API</li>
@@ -102,7 +102,7 @@ export default function TermsPage() {
           <section style={sectionStyle}>
             <h2 style={h2Style}>5. Propriedade Intelectual</h2>
             <p style={pStyle}>
-              Todo o conteudo, design, codigo-fonte, marcas, logos e materiais presentes em nossos produtos e servicos sao de propriedade da 4lekzz ou de seus licenciadores, protegidos pelas leis de propriedade intelectual.
+              Todo o conteudo, design, codigo-fonte, marcas, logos e materiais presentes em nossos produtos e servicos sao de propriedade da Nora Tech ou de seus licenciadores, protegidos pelas leis de propriedade intelectual.
             </p>
             <p style={pStyle}>
               E concedida a voce uma licenca limitada, nao exclusiva e revogavel para usar nossos servicos conforme estes Termos. Essa licenca nao transfere nenhum direito de propriedade.
@@ -124,7 +124,7 @@ export default function TermsPage() {
           <section style={sectionStyle}>
             <h2 style={h2Style}>7. Limitacao de Responsabilidade</h2>
             <p style={pStyle}>
-              Nossos servicos sao fornecidos "como estao". Na extensao maxima permitida por lei, a 4lekzz nao sera responsavel por danos indiretos, incidentais, especiais ou consequenciais decorrentes do uso ou impossibilidade de uso dos servicos.
+              Nossos servicos sao fornecidos "como estao". Na extensao maxima permitida por lei, a Nora Tech nao sera responsavel por danos indiretos, incidentais, especiais ou consequenciais decorrentes do uso ou impossibilidade de uso dos servicos.
             </p>
             <p style={pStyle}>
               Nao nos responsabilizamos por interrupcoes temporarias causadas por manutencao, atualizacoes ou fatores fora do nosso controle.
@@ -159,7 +159,7 @@ export default function TermsPage() {
               Em caso de duvidas sobre estes Termos de Uso, entre em contato:
             </p>
             <div style={{ padding: 24, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 16, marginTop: 8 }}>
-              <p style={{ ...pStyle, marginBottom: 4 }}><strong style={{ color: "rgba(255,255,255,0.65)" }}>4lekzz</strong></p>
+              <p style={{ ...pStyle, marginBottom: 4 }}><strong style={{ color: "rgba(255,255,255,0.65)" }}>Nora Tech</strong></p>
               <p style={{ ...pStyle, marginBottom: 4 }}>E-mail: <a href="mailto:contato@4lekzz.com" style={{ color: "#c8ff00" }}>contato@4lekzz.com</a></p>
               <p style={{ ...pStyle, marginBottom: 0 }}>WhatsApp: <a href="https://wa.me/5511932227752" target="_blank" rel="noopener noreferrer" style={{ color: "#c8ff00" }}>(11) 93222-7752</a></p>
             </div>
@@ -170,7 +170,7 @@ export default function TermsPage() {
       {/* Footer */}
       <footer style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "32px 60px", position: "relative", zIndex: 1 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: 780, margin: "0 auto" }}>
-          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)" }}>&copy; 2026 4lekzz &mdash; Todos os direitos reservados</span>
+          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)" }}>&copy; 2026 Nora Tech &mdash; Todos os direitos reservados</span>
           <div style={{ display: "flex", gap: 16 }}>
             <Link to="/privacidade" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Privacidade</Link>
             <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", borderBottom: "1px solid rgba(200,255,0,0.2)" }}>Termos</span>

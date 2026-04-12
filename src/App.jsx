@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import MeetingScheduler from "./components/MeetingScheduler";
 
 // ═══════════════════════════════════════════════════════════════
-// 4lekzz — Immersive Startups Portfolio
+// Nora Tech — Immersive Startups Portfolio
 // Fusion: ssscript.app (OS UI) + hen-ry.com (editorial luxury)
 // ═══════════════════════════════════════════════════════════════
 
@@ -270,7 +270,7 @@ export default function App() {
           borderRadius: 100, transition: "all 0.5s cubic-bezier(0.16,1,0.3,1)",
           boxShadow: navScrolled ? "0 8px 40px rgba(0,0,0,0.5)" : "none"
         }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5 }}>NEXUS<span style={{ color: "rgba(255,255,255,0.25)" }}>.ai</span></span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5 }}>NORA<span style={{ color: "rgba(255,255,255,0.25)" }}>.tech</span></span>
           <a href="#produtos" className="nav-link">Portifólio</a>
           <a href="#processo" className="nav-link">Processo</a>
           <a href="#depoimentos" className="nav-link">Clientes</a>
@@ -347,9 +347,9 @@ export default function App() {
             boxShadow: "0 25px 80px rgba(0,0,0,0.5)", zIndex: 3, animation: "float1 8s ease-in-out infinite",
             transform: `translate(${(mousePos.x - 0.5) * 15}px, ${(mousePos.y - 0.5) * 12}px)`
           }}>
-            <WinBar title="terminal — 4lekzz" />
+            <WinBar title="terminal — noratech" />
             <div style={{ padding: 16, fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", lineHeight: 2 }}>
-              <div><span style={{ color: "#c8ff00" }}>▸</span> <span style={{ color: "#eeede9" }}>4lekzz deploy</span> <span style={{ color: "#25D366" }}>--production</span></div>
+              <div><span style={{ color: "#c8ff00" }}>▸</span> <span style={{ color: "#eeede9" }}>noratech deploy</span> <span style={{ color: "#25D366" }}>--production</span></div>
               <div style={{ color: "#00d48a" }}>✓ WhatsApp Bot conectado</div>
               <div style={{ color: "#00d48a" }}>✓ Finzo sync — 3 contas ativas</div>
               <div style={{ color: "#00d48a" }}>✓ Sites publicados com sucesso</div>
@@ -869,7 +869,7 @@ export default function App() {
       <footer className="footer-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <div className="footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 48, marginBottom: 48 }}>
           <div>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.9rem", color: "#c8ff00" }}>Operação Inteligente</span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.9rem", color: "#c8ff00" }}>Nora Tech</span>
             <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.3)", lineHeight: 1.6, maxWidth: 300, marginTop: 12 }}>Criando soluções que resolvem problemas reais. Do código ao produto.</p>
           </div>
           {[
@@ -897,7 +897,7 @@ export default function App() {
           ))}
         </div>
         <div className="footer-bottom" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 32, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)" }}>© 2026 4lekzz — Todos os direitos reservados</span>
+          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)" }}>© 2026 Nora Tech — Todos os direitos reservados</span>
           <div style={{ display: "flex", gap: 16 }}>
             <Link to="/privacidade" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Privacidade</Link>
             <Link to="/termos" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Termos</Link>
