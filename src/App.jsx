@@ -3,9 +3,73 @@ import { Link } from "react-router-dom";
 import MeetingScheduler from "./components/MeetingScheduler";
 
 // ═══════════════════════════════════════════════════════════════
-// Nora Tech — Immersive Startups Portfolio
-// Fusion: ssscript.app (OS UI) + hen-ry.com (editorial luxury)
+// Noratech — Institutional website
+// Engenharia de software, automação e integrações para empresas.
 // ═══════════════════════════════════════════════════════════════
+
+const SERVICES = [
+  {
+    num: "S.01",
+    icon: "🛠️",
+    title: "Desenvolvimento de sistemas personalizados",
+    desc: "Aplicações web e mobile construídas sob medida para o fluxo da sua empresa — com arquitetura escalável, código proprietário e manutenção contínua pela nossa equipe.",
+    tags: ["Web & Mobile", "API & Backend", "Arquitetura escalável"],
+  },
+  {
+    num: "S.02",
+    icon: "⚙️",
+    title: "Automação de processos",
+    desc: "Transformamos tarefas manuais e repetitivas em fluxos automáticos — operações internas, atendimento, notificações e aprovações — reduzindo custo operacional e erro humano.",
+    tags: ["Workflows", "RPA", "Triggers & eventos"],
+  },
+  {
+    num: "S.03",
+    icon: "📊",
+    title: "Dashboards e indicadores",
+    desc: "Painéis em tempo real que consolidam dados de vendas, finanças e operação em KPIs claros — para decisões rápidas, baseadas em fato e não em planilha desatualizada.",
+    tags: ["BI & Analytics", "KPIs em tempo real", "Relatórios automáticos"],
+  },
+  {
+    num: "S.04",
+    icon: "🔗",
+    title: "Integração entre sistemas",
+    desc: "Conectamos ERP, CRM, WhatsApp, gateways de pagamento e APIs externas em um fluxo único — eliminando planilhas intermediárias e retrabalho entre áreas.",
+    tags: ["APIs & Webhooks", "ERP / CRM", "Migração de dados"],
+  },
+];
+
+const DIFFERENTIALS = [
+  {
+    num: "01",
+    title: "Foco em resultado, não em hora trabalhada",
+    desc: "Contratamos por escopo e impacto. Medimos sucesso em processos automatizados, horas economizadas e redução de custo operacional — não em relatório de horas cobradas.",
+  },
+  {
+    num: "02",
+    title: "Sob medida, nunca template",
+    desc: "Cada sistema nasce do fluxo real da sua empresa. Código proprietário, arquitetura auditável e evolução guiada pelo seu negócio — sem amarração a ferramentas de terceiros.",
+  },
+  {
+    num: "03",
+    title: "Estratégia e execução no mesmo time",
+    desc: "Diagnóstico, arquitetura, desenvolvimento e operação conduzidos por uma equipe única. Sem repasse entre fornecedores, sem perda de contexto entre as fases do projeto.",
+  },
+  {
+    num: "04",
+    title: "Automação como princípio, não como plugin",
+    desc: "Antes de escrever uma linha de código, mapeamos e organizamos o processo. Automatizar o caos só gera caos mais rápido — entregamos fluxo simples antes de virar software.",
+  },
+  {
+    num: "05",
+    title: "Engenharia responsável, stack moderno",
+    desc: "Tecnologias atuais aplicadas com critério — priorizamos performance, segurança e custo operacional previsível. Nada de stack da moda sem justificativa técnica para o seu caso.",
+  },
+  {
+    num: "06",
+    title: "Suporte contínuo e SLA transparente",
+    desc: "Após o deploy, o sistema segue sob nosso monitoramento 24/7. SLA definido em contrato, relatórios mensais de saúde da operação e roadmap de melhorias compartilhado com o cliente.",
+  },
+];
 
 const PRODUCTS = [
   { id: 1, icon: "💰", name: "Finzo App", desc: "Plataforma de gestão financeira inteligente que conecta contas, organiza movimentações e transforma dados em análises claras sobre gastos, rendimento e oportunidades de economia.", tags: ["FinTech", "Analytics", "Open Finance"], color: "#c8ff00", featured: true, features: ["Integração via Open Finance com bancos", "Categorização automática de transações", "Análises e insights com IA", "Metas de economia e alertas inteligentes", "Dashboard unificado em tempo real"] },
@@ -223,9 +287,15 @@ export default function App() {
             border-radius: 0 0 18px 18px !important;
           }
 
-          .startups-grid { grid-template-columns: 1fr !important; }
-
           .process-grid { grid-template-columns: 1fr 1fr !important; }
+          .services-grid { grid-template-columns: 1fr !important; }
+          .differentials-grid { grid-template-columns: 1fr !important; }
+          .differentials-grid > div > div { border-right: none !important; }
+          .differentials-header { grid-template-columns: 1fr !important; gap: 20px !important; align-items: start !important; }
+          .about-grid { grid-template-columns: 1fr !important; gap: 32px !important; }
+          .about-pillars { grid-template-columns: 1fr !important; }
+          .about-pillars > div { border-right: none !important; border-bottom: 1px solid rgba(255,255,255,0.08) !important; }
+          .about-pillars > div:last-child { border-bottom: none !important; }
 
           .footer-grid { grid-template-columns: 1fr 1fr !important; gap: 32px !important; }
           .footer-bottom { flex-direction: column !important; gap: 12px !important; align-items: flex-start !important; }
@@ -270,8 +340,10 @@ export default function App() {
           borderRadius: 100, transition: "all 0.5s cubic-bezier(0.16,1,0.3,1)",
           boxShadow: navScrolled ? "0 8px 40px rgba(0,0,0,0.5)" : "none"
         }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5 }}>NORA<span style={{ color: "rgba(255,255,255,0.25)" }}>.tech</span></span>
-          <a href="#produtos" className="nav-link">Portifólio</a>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5 }}>NORA<span style={{ color: "rgba(255,255,255,0.3)" }}>TECH</span></span>
+          <a href="#sobre" className="nav-link">Sobre</a>
+          <a href="#servicos" className="nav-link">Serviços</a>
+          <a href="#produtos" className="nav-link">Projetos</a>
           <a href="#processo" className="nav-link">Processo</a>
           <a href="#depoimentos" className="nav-link">Clientes</a>
           <a href="#contato" className="nav-link" style={{ padding: "8px 18px", background: "#c8ff00", color: "#08080a", fontWeight: 700, borderRadius: 100 }}>Contato</a>
@@ -281,8 +353,9 @@ export default function App() {
       {/* ═══ MOBILE MENU OVERLAY ═══ */}
       {menuOpen && (
         <div className="mobile-menu" style={{ display: "none" }}>
-          <a href="#produtos" className="nav-link" onClick={() => setMenuOpen(false)}>Produtos</a>
-          <a href="#startups" className="nav-link" onClick={() => setMenuOpen(false)}>Startups</a>
+          <a href="#sobre" className="nav-link" onClick={() => setMenuOpen(false)}>Sobre</a>
+          <a href="#servicos" className="nav-link" onClick={() => setMenuOpen(false)}>Serviços</a>
+          <a href="#produtos" className="nav-link" onClick={() => setMenuOpen(false)}>Projetos</a>
           <a href="#processo" className="nav-link" onClick={() => setMenuOpen(false)}>Processo</a>
           <a href="#depoimentos" className="nav-link" onClick={() => setMenuOpen(false)}>Clientes</a>
           <a href="#contato" className="nav-link mobile-cta" onClick={() => setMenuOpen(false)}>Contato</a>
@@ -415,12 +488,310 @@ export default function App() {
         </div>
       </div>
 
+      {/* ═══ ABOUT — institutional editorial ═══ */}
+      <section id="sobre" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
+        <Reveal>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <Star size={12} color="#eeede9" />
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#eeede9", textTransform: "uppercase", letterSpacing: 3 }}>Sobre a Noratech</span>
+          </div>
+        </Reveal>
+
+        <Reveal delay={0.1}>
+          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, lineHeight: 1.08, marginBottom: 14 }}>
+            Engenharia de software a serviço da{" "}
+            <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>operação</span>.
+          </h2>
+        </Reveal>
+        <Reveal delay={0.15}>
+          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 560, lineHeight: 1.6, marginBottom: 64 }}>
+            Empresa brasileira de engenharia aplicada — construímos sistemas sob medida, automações e integrações que sustentam operações corporativas em produção.
+          </p>
+        </Reveal>
+
+        <div className="about-grid" style={{ display: "grid", gridTemplateColumns: "1.35fr 1fr", gap: 64, alignItems: "start", marginBottom: 72 }}>
+          {/* Narrative */}
+          <Reveal delay={0.15}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <p style={{ fontSize: "1.12rem", lineHeight: 1.65, color: "rgba(255,255,255,0.78)", fontWeight: 400 }}>
+                A <strong style={{ color: "#eeede9", fontWeight: 700 }}>Noratech</strong> é uma empresa brasileira de engenharia de software especializada em <strong style={{ color: "#eeede9", fontWeight: 600 }}>automação, sistemas sob medida e integrações</strong> para operações corporativas. Atendemos empresas que precisam escalar sem, na mesma proporção, escalar custo, equipe e complexidade interna.
+              </p>
+              <p style={{ fontSize: "1rem", lineHeight: 1.7, color: "rgba(255,255,255,0.5)" }}>
+                Não entregamos ferramentas soltas — entregamos operação estruturada. Cada projeto começa por um diagnóstico técnico do processo atual, passa por arquitetura e desenvolvimento com a nossa equipe, e termina em produção com monitoramento ativo, relatórios mensais e evolução contínua.
+              </p>
+              <p style={{ fontSize: "1rem", lineHeight: 1.7, color: "rgba(255,255,255,0.5)" }}>
+                Trabalhamos com código proprietário e arquitetura auditável. O cliente conhece o escopo, acompanha a execução e recebe o sistema com autonomia técnica sobre a própria solução.
+              </p>
+            </div>
+          </Reveal>
+
+          {/* Editorial pull-quote card */}
+          <Reveal delay={0.3} type="scale">
+            <div style={{
+              position: "relative", padding: "40px 36px", background: "#0e0e10",
+              border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, overflow: "hidden"
+            }}>
+              {/* subtle grain / corner accent */}
+              <div style={{
+                position: "absolute", top: 20, right: 20,
+                fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic",
+                fontSize: "4rem", lineHeight: 0.8, color: "rgba(238,237,233,0.08)"
+              }}>
+                "
+              </div>
+
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", fontWeight: 700, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 2, marginBottom: 18 }}>
+                Princípio de engenharia
+              </div>
+
+              <p style={{
+                fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic",
+                fontSize: "1.45rem", fontWeight: 500, lineHeight: 1.35,
+                color: "#eeede9", letterSpacing: -0.3, marginBottom: 24, position: "relative"
+              }}>
+                Boa tecnologia não deve ser notada. Ela devolve tempo, reduz fricção e transforma decisão operacional em dado.
+              </p>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 28, height: 1, background: "rgba(200,255,0,0.6)" }} />
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", color: "rgba(255,255,255,0.45)", letterSpacing: 1 }}>
+                  Noratech — Engenharia de Operação
+                </span>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+
+        {/* Institutional pillars — 3 columns */}
+        <Reveal delay={0.2}>
+          <div className="about-pillars" style={{
+            display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0,
+            borderTop: "1px solid rgba(255,255,255,0.1)",
+            borderBottom: "1px solid rgba(255,255,255,0.1)"
+          }}>
+            {[
+              {
+                label: "O que fazemos",
+                body: "Sistemas personalizados, automações de processo, dashboards operacionais e integrações entre ferramentas. Do diagnóstico ao deploy, com uma equipe só.",
+              },
+              {
+                label: "Para quem",
+                body: "Pequenas e médias empresas que operam com processos manuais, planilhas paralelas ou ferramentas que não conversam — e que não podem mais pagar por isso.",
+              },
+              {
+                label: "Compromisso",
+                body: "Escopo definido, contrato transparente, código entregue ao cliente e SLA ativo após o deploy. Sem letra miúda, sem dependência permanente de fornecedor.",
+              },
+            ].map((p, i) => (
+              <div key={i} style={{
+                padding: "36px 28px",
+                borderRight: i < 2 ? "1px solid rgba(255,255,255,0.08)" : "none"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                  <Diamond size={6} color="#c8ff00" />
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.68rem", fontWeight: 700, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 2 }}>
+                    {p.label}
+                  </span>
+                </div>
+                <p style={{ fontSize: "0.92rem", lineHeight: 1.65, color: "rgba(255,255,255,0.55)" }}>
+                  {p.body}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ═══ SERVICES ═══ */}
+      <section id="servicos" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
+        <Reveal>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <Star size={12} color="#4d9fff" />
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#4d9fff", textTransform: "uppercase", letterSpacing: 3 }}>Serviços</span>
+          </div>
+        </Reveal>
+        <Reveal delay={0.1}>
+          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 14 }}>
+            Tecnologia que resolve <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>problemas reais</span>
+          </h2>
+        </Reveal>
+        <Reveal delay={0.15}>
+          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 560, lineHeight: 1.6, marginBottom: 64 }}>
+            Quatro frentes de atuação que a Noratech entrega de ponta a ponta — do levantamento técnico ao deploy em produção, com suporte contínuo.
+          </p>
+        </Reveal>
+
+        <div className="services-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
+          {SERVICES.map((s, i) => (
+            <Reveal key={s.num} type={i % 2 === 0 ? "up" : "scale"} delay={i * 0.08}>
+              <div style={{
+                position: "relative", height: "100%", background: "#111114",
+                border: "1px solid rgba(255,255,255,0.06)", borderRadius: 18,
+                padding: 32, overflow: "hidden", transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)"
+              }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(77,159,255,0.22)"; e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(77,159,255,0.12)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+              >
+                {/* Decorative glow */}
+                <div style={{
+                  position: "absolute", width: 220, height: 220, borderRadius: "50%",
+                  background: "radial-gradient(circle, rgba(77,159,255,0.10) 0%, transparent 60%)",
+                  top: -80, right: -60, filter: "blur(40px)", pointerEvents: "none"
+                }} />
+
+                {/* Number + divider */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 22, position: "relative" }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", color: "#4d9fff", fontWeight: 700, letterSpacing: 2 }}>{s.num}</span>
+                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.05)" }} />
+                  <Star size={8} color="rgba(77,159,255,0.25)" />
+                </div>
+
+                <div style={{ fontSize: "2.1rem", marginBottom: 16, position: "relative" }}>{s.icon}</div>
+
+                <h3 style={{ fontSize: "1.2rem", fontWeight: 700, lineHeight: 1.3, letterSpacing: -0.3, marginBottom: 12, position: "relative" }}>
+                  {s.title}
+                </h3>
+
+                <p style={{ fontSize: "0.9rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.65, marginBottom: 22, position: "relative" }}>
+                  {s.desc}
+                </p>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, position: "relative" }}>
+                  {s.tags.map(t => (
+                    <span key={t} style={{
+                      padding: "4px 10px", background: "rgba(77,159,255,0.06)",
+                      border: "1px solid rgba(77,159,255,0.14)", borderRadius: 100,
+                      fontSize: "0.66rem", fontWeight: 600, fontFamily: "'JetBrains Mono', monospace",
+                      color: "rgba(200,220,255,0.7)"
+                    }}>{t}</span>
+                  ))}
+                </div>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+
+        {/* Inline CTA strip */}
+        <Reveal delay={0.3}>
+          <div style={{
+            marginTop: 28, padding: "22px 28px",
+            background: "linear-gradient(135deg, rgba(77,159,255,0.06), rgba(77,159,255,0.02))",
+            border: "1px solid rgba(77,159,255,0.14)", borderRadius: 18,
+            display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(77,159,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>✦</div>
+              <div>
+                <div style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: 2 }}>Precisa de um escopo específico?</div>
+                <div style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.4)" }}>Conte o desafio e montamos uma proposta técnica sob medida.</div>
+              </div>
+            </div>
+            <a href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20conversar%20sobre%20um%20projeto%20com%20a%20Noratech." target="_blank" rel="noopener noreferrer" style={{
+              display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 22px",
+              background: "#4d9fff", color: "#08080a", borderRadius: 100,
+              fontWeight: 700, fontSize: "0.86rem", whiteSpace: "nowrap"
+            }}>
+              Falar com especialista <span style={{ fontSize: "1rem" }}>↗</span>
+            </a>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ═══ DIFFERENTIALS — editorial manifesto style ═══ */}
+      <section id="diferenciais" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
+        <Reveal>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <Star size={12} color="#b684ff" />
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#b684ff", textTransform: "uppercase", letterSpacing: 3 }}>Diferenciais</span>
+          </div>
+        </Reveal>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 48, alignItems: "end", marginBottom: 72 }} className="differentials-header">
+          <Reveal delay={0.1}>
+            <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, lineHeight: 1.08 }}>
+              Por que escolher a <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#b684ff" }}>Noratech</span>?
+            </h2>
+          </Reveal>
+          <Reveal delay={0.2}>
+            <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.7, maxWidth: 440 }}>
+              Somos uma empresa de engenharia de software focada em eficiência operacional. Construímos sistemas que devolvem tempo, clareza e previsibilidade para quem decide.
+            </p>
+          </Reveal>
+        </div>
+
+        <div className="differentials-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+          {DIFFERENTIALS.map((d, i) => (
+            <Reveal key={d.num} type="up" delay={(i % 3) * 0.08}>
+              <div style={{
+                position: "relative", height: "100%", padding: "40px 28px 36px",
+                borderRight: (i % 3 !== 2) ? "1px solid rgba(255,255,255,0.06)" : "none",
+                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                transition: "background 0.4s ease",
+              }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(182,132,255,0.03)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+              >
+                {/* Large editorial number */}
+                <div style={{
+                  fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600,
+                  fontSize: "3.6rem", lineHeight: 1, color: "#b684ff", marginBottom: 20,
+                  letterSpacing: -2,
+                }}>
+                  {d.num}<span style={{ color: "rgba(182,132,255,0.35)" }}>.</span>
+                </div>
+
+                <h3 style={{
+                  fontSize: "1.08rem", fontWeight: 700, lineHeight: 1.35,
+                  letterSpacing: -0.3, marginBottom: 12, color: "#eeede9"
+                }}>
+                  {d.title}
+                </h3>
+
+                <p style={{
+                  fontSize: "0.88rem", color: "rgba(255,255,255,0.42)",
+                  lineHeight: 1.7, marginBottom: 0
+                }}>
+                  {d.desc}
+                </p>
+
+                {/* Corner accent on hover target */}
+                <Star size={7} color="rgba(182,132,255,0.2)" style={{ position: "absolute", top: 24, right: 24 }} />
+              </div>
+            </Reveal>
+          ))}
+        </div>
+
+        {/* Positioning statement */}
+        <Reveal delay={0.2}>
+          <div style={{
+            marginTop: 56, padding: "28px 32px",
+            background: "rgba(182,132,255,0.04)",
+            border: "1px solid rgba(182,132,255,0.12)", borderRadius: 18,
+            display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap"
+          }}>
+            <div style={{
+              fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600,
+              fontSize: "2.2rem", color: "#b684ff", lineHeight: 1, letterSpacing: -1
+            }}>
+              ✦
+            </div>
+            <p style={{
+              flex: 1, minWidth: 280, fontFamily: "'Cormorant Garamond', serif",
+              fontStyle: "italic", fontSize: "1.25rem", fontWeight: 500,
+              color: "rgba(255,255,255,0.78)", lineHeight: 1.45, letterSpacing: -0.2
+            }}>
+              "Tecnologia bem feita é aquela que deixa de aparecer. A Noratech existe para essa engenharia — a que sustenta a operação em silêncio e entrega resultado todo dia."
+            </p>
+          </div>
+        </Reveal>
+      </section>
+
       {/* ═══ PRODUCTS ═══ */}
       <section id="produtos" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <Reveal>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <Star size={12} color="#c8ff00" />
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 3 }}>Portifólio</span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 3 }}>Projetos</span>
           </div>
         </Reveal>
         <Reveal delay={0.1}>
@@ -429,7 +800,7 @@ export default function App() {
           </h2>
         </Reveal>
         <Reveal delay={0.15}>
-          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 500, lineHeight: 1.6, marginBottom: 64 }}>
+          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 560, lineHeight: 1.6, marginBottom: 64 }}>
             Cada projeto resolve um problema real — gestão financeira, atendimento, automação e presença digital.
           </p>
         </Reveal>
@@ -707,9 +1078,14 @@ export default function App() {
           </div>
         </Reveal>
         <Reveal delay={0.1}>
-          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 64 }}>
+          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 14 }}>
             Do briefing ao <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>deploy</span>
           </h2>
+        </Reveal>
+        <Reveal delay={0.15}>
+          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 560, lineHeight: 1.6, marginBottom: 64 }}>
+            Metodologia aplicada a cada projeto — quatro etapas com entregáveis definidos, prazo acordado e transparência total de escopo.
+          </p>
         </Reveal>
 
         <div className="process-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 2, borderRadius: 18, overflow: "hidden" }}>
@@ -751,8 +1127,8 @@ export default function App() {
           </h2>
         </Reveal>
         <Reveal delay={0.15}>
-          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 500, lineHeight: 1.6, marginBottom: 64 }}>
-            Resultados reais de quem confiou no meu trabalho.
+          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 560, lineHeight: 1.6, marginBottom: 64 }}>
+            Resultados reais de empresas que colocaram a Noratech dentro da operação.
           </p>
         </Reveal>
 
@@ -790,9 +1166,14 @@ export default function App() {
           </div>
         </Reveal>
         <Reveal delay={0.1}>
-          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 40 }}>
+          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 14 }}>
             Perguntas <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>frequentes</span>
           </h2>
+        </Reveal>
+        <Reveal delay={0.15}>
+          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 560, lineHeight: 1.6, marginBottom: 64 }}>
+            Respostas objetivas sobre contratação, entrega e operação dos nossos produtos.
+          </p>
         </Reveal>
 
         <Reveal delay={0.2}>
@@ -814,7 +1195,7 @@ export default function App() {
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {faqsByTab[activeFaqTab].map((faq, i) => (
                 <div key={`${activeFaqTab}-${i}`} className="faq-item" onClick={() => setOpenFaq(openFaq === i ? null : i)} style={{
-                  background: "#111114", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: "18px 22px",
+                  background: "#111114", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 18, padding: "18px 22px",
                   cursor: "pointer"
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -836,7 +1217,7 @@ export default function App() {
       </section>
 
       {/* ═══ CTA — Big editorial statement ═══ */}
-      <section id="contato" className="cta-section" style={{ padding: "100px 60px 160px", maxWidth: 1440, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
+      <section id="contato" className="cta-section" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
         {/* Decorative elements — hen-ry style */}
         <div style={{ position: "absolute", top: "40%", left: "50%", transform: "translate(-50%, -50%)", width: 400, height: 400, background: "radial-gradient(circle, rgba(200,255,0,0.04) 0%, transparent 55%)", filter: "blur(40px)", pointerEvents: "none" }} />
 
@@ -848,18 +1229,19 @@ export default function App() {
               <Star size={14} color="#ff6b9d" style={{ animation: "float3 6s ease-in-out infinite" }} />
             </div>
 
-            <h2 style={{ fontSize: "clamp(2.5rem, 5vw, 4.5rem)", fontWeight: 800, letterSpacing: -2.5, lineHeight: 1.05, marginBottom: 20 }}>
-              Pronto pra construir<br />algo <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#c8ff00" }}>extraordinário</span>?
+            <h2 style={{ fontSize: "clamp(2.5rem, 5vw, 4.5rem)", fontWeight: 800, letterSpacing: -2.5, lineHeight: 1.05, marginBottom: 20, maxWidth: 820, margin: "0 auto 20px" }}>
+              Pronto para construir a próxima fase da sua{" "}
+              <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#c8ff00" }}>operação</span>?
             </h2>
-            <p style={{ fontSize: "1.08rem", color: "rgba(255,255,255,0.4)", maxWidth: 460, margin: "0 auto 44px", lineHeight: 1.6 }}>
-              Agende uma conversa sem compromisso e descubra como tecnologia pode acelerar seus resultados.
+            <p style={{ fontSize: "1.08rem", color: "rgba(255,255,255,0.45)", maxWidth: 520, margin: "0 auto 44px", lineHeight: 1.6 }}>
+              Agende uma conversa sem compromisso. Em 30 minutos mapeamos onde a Noratech pode gerar mais impacto na sua operação.
             </p>
             <div className="cta-buttons" style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-              <a href="#" onClick={(e) => { e.preventDefault(); setSchedulerOpen(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "16px 36px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.95rem", cursor: "pointer" }}>
-                Agendar Reunião <span>↗</span>
+              <a href="#" onClick={(e) => { e.preventDefault(); setSchedulerOpen(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 30px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", cursor: "pointer", transition: "all 0.3s" }}>
+                Agendar reunião <span style={{ fontSize: "1.1rem" }}>↗</span>
               </a>
-              <a href="https://wa.me/5511932227752" target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "16px 30px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, fontWeight: 600, fontSize: "0.95rem" }}>
-                WhatsApp
+              <a href="https://wa.me/5511932227752" target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 28px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", transition: "all 0.3s" }}>
+                Falar no WhatsApp
               </a>
             </div>
           </div>
@@ -867,16 +1249,16 @@ export default function App() {
       </section>
 
       {/* ═══ FOOTER ═══ */}
-      <footer className="footer-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
+      <footer className="footer-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "80px 60px 48px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <div className="footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 48, marginBottom: 48 }}>
           <div>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.9rem", color: "#c8ff00" }}>Nora Tech</span>
-            <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.3)", lineHeight: 1.6, maxWidth: 300, marginTop: 12 }}>Criando soluções que resolvem problemas reais. Do código ao produto.</p>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: "0.9rem", color: "#c8ff00" }}>NORA<span style={{ color: "rgba(255,255,255,0.3)" }}>TECH</span></span>
+            <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.3)", lineHeight: 1.6, maxWidth: 300, marginTop: 12 }}>Engenharia de software, automação e integrações para empresas que querem operar com eficiência.</p>
           </div>
           {[
             { title: "Produtos", links: ["Finzo App", "WhatsApp Bot", "Sites para Empresas"] },
-            { title: "Serviços", links: ["Automação", "Atendimento", "Gestão Financeira", "Web Design"] },
-            { title: "Contato", links: ["contato@4lekzz.com", "LinkedIn", "GitHub", "WhatsApp"] },
+            { title: "Serviços", links: ["Sistemas sob medida", "Automação de processos", "Dashboards & BI", "Integrações"] },
+            { title: "Contato", links: ["contato@noratech.com.br", "LinkedIn", "GitHub", "WhatsApp"] },
           ].map((col, i) => (
             <div key={i}>
               <h5 style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, color: "rgba(255,255,255,0.2)", marginBottom: 16 }}>{col.title}</h5>
@@ -898,7 +1280,7 @@ export default function App() {
           ))}
         </div>
         <div className="footer-bottom" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 32, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)" }}>© 2026 Nora Tech — Todos os direitos reservados</span>
+          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)" }}>© 2026 Noratech — Todos os direitos reservados</span>
           <div style={{ display: "flex", gap: 16 }}>
             <Link to="/privacidade" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Privacidade</Link>
             <Link to="/termos" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Termos</Link>
