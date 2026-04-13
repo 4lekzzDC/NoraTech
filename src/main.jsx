@@ -7,6 +7,8 @@ import PrivacyPage from './pages/PrivacyPage.jsx'
 import TermsPage from './pages/TermsPage.jsx'
 import SistemasPage from './pages/SistemasPage.jsx'
 import AutomacaoPage from './pages/AutomacaoPage.jsx'
+import DashboardsPage from './pages/DashboardsPage.jsx'
+import IntegracoesPage from './pages/IntegracoesPage.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -17,6 +19,8 @@ createRoot(document.getElementById('root')).render(
         <Route path="/termos" element={<TermsPage />} />
         <Route path="/servicos/sistemas-sob-medida" element={<SistemasPage />} />
         <Route path="/servicos/automacao-de-processos" element={<AutomacaoPage />} />
+        <Route path="/servicos/dashboards-e-bi" element={<DashboardsPage />} />
+        <Route path="/servicos/integracoes" element={<IntegracoesPage />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

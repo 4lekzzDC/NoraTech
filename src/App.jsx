@@ -1269,8 +1269,8 @@ export default function App() {
               links: [
                 { label: "Sistemas sob medida", href: "/servicos/sistemas-sob-medida", internal: true },
                 { label: "Automação de processos", href: "/servicos/automacao-de-processos", internal: true },
-                { label: "Dashboards & BI", href: "#servicos", external: false },
-                { label: "Integrações", href: "#servicos", external: false },
+                { label: "Dashboards & BI", href: "/servicos/dashboards-e-bi", internal: true },
+                { label: "Integrações", href: "/servicos/integracoes", internal: true },
               ],
             },
             {
