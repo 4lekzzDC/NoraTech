@@ -1256,23 +1256,53 @@ export default function App() {
             <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.3)", lineHeight: 1.6, maxWidth: 300, marginTop: 12 }}>Engenharia de software, automação e integrações para empresas que querem operar com eficiência.</p>
           </div>
           {[
-            { title: "Produtos", links: ["Finzo App", "WhatsApp Bot", "Sites para Empresas"] },
-            { title: "Serviços", links: ["Sistemas sob medida", "Automação de processos", "Dashboards & BI", "Integrações"] },
-            { title: "Contato", links: ["contato@noratech.com.br", "LinkedIn", "GitHub", "WhatsApp"] },
+            {
+              title: "Produtos",
+              links: [
+                { label: "Finzo App", href: "#produtos", external: false },
+                { label: "WhatsApp Bot", href: "https://whatsapp-mu.vercel.app", external: true },
+                { label: "Criador de Sites", href: "https://criadordesites-rose.vercel.app", external: true },
+              ],
+            },
+            {
+              title: "Serviços",
+              links: [
+                { label: "Sistemas sob medida", href: "/servicos/sistemas-sob-medida", internal: true },
+                { label: "Automação de processos", href: "/servicos/automacao-de-processos", internal: true },
+                { label: "Dashboards & BI", href: "#servicos", external: false },
+                { label: "Integrações", href: "#servicos", external: false },
+              ],
+            },
+            {
+              title: "Contato",
+              links: [
+                { label: "contato@noratech.com.br", href: "mailto:contato@noratech.com.br", external: false },
+                { label: "LinkedIn", href: "#", external: false },
+                { label: "GitHub", href: "#", external: false },
+                { label: "WhatsApp", href: "https://wa.me/5511932227752", external: true },
+              ],
+            },
           ].map((col, i) => (
             <div key={i}>
               <h5 style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, color: "rgba(255,255,255,0.2)", marginBottom: 16 }}>{col.title}</h5>
               {col.links.map(link => {
-                const isWhatsappLink = link === "WhatsApp";
+                const linkStyle = { display: "block", color: "rgba(255,255,255,0.35)", fontSize: "0.86rem", padding: "3px 0", transition: "color 0.2s" };
+                if (link.internal) {
+                  return (
+                    <Link key={link.label} to={link.href} style={linkStyle}>
+                      {link.label}
+                    </Link>
+                  );
+                }
                 return (
                   <a
-                    key={link}
-                    href={isWhatsappLink ? "https://wa.me/5511932227752" : "#"}
-                    target={isWhatsappLink ? "_blank" : undefined}
-                    rel={isWhatsappLink ? "noopener noreferrer" : undefined}
-                    style={{ display: "block", color: "rgba(255,255,255,0.35)", fontSize: "0.86rem", padding: "3px 0", transition: "color 0.2s" }}
+                    key={link.label}
+                    href={link.href}
+                    target={link.external ? "_blank" : undefined}
+                    rel={link.external ? "noopener noreferrer" : undefined}
+                    style={linkStyle}
                   >
-                    {link}
+                    {link.label}
                   </a>
                 );
               })}
