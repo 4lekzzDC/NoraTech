@@ -1,10 +1,64 @@
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function ClienteAreaPage() {
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const ACCENT = "#c8ff00";
+
+  const TABS = [
+    { id: "visao-geral", label: "Visão Geral", num: "01" },
+    { id: "sistemas", label: "Sistemas", num: "02" },
+    { id: "faturas", label: "Faturas", num: "03" },
+    { id: "documentos", label: "Documentos", num: "04" },
+    { id: "suporte", label: "Suporte", num: "05" },
+  ];
+
+  const [activeTab, setActiveTab] = useState("visao-geral");
+  const sectionRefs = useRef({});
+  const isClickScrolling = useRef(false);
+  const clickScrollTimeout = useRef(null);
+
+  // Scroll-spy: detect which section is currently centered in viewport
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (isClickScrolling.current) return;
+        // pick the entry with largest intersection ratio that's intersecting
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (visible[0]) setActiveTab(visible[0].target.id);
+      },
+      {
+        // account for sticky header (~64px) + tab bar (~56px)
+        rootMargin: "-140px 0px -55% 0px",
+        threshold: [0, 0.15, 0.3, 0.6],
+      }
+    );
+
+    TABS.forEach((t) => {
+      const el = sectionRefs.current[t.id];
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  const handleTabClick = (id) => {
+    setActiveTab(id);
+    isClickScrolling.current = true;
+    const el = sectionRefs.current[id];
+    if (el) {
+      // offset for sticky header + tab bar
+      const y = el.getBoundingClientRect().top + window.scrollY - 120;
+      window.scrollTo({ top: y, behavior: "smooth" });
+    }
+    if (clickScrollTimeout.current) clearTimeout(clickScrollTimeout.current);
+    clickScrollTimeout.current = setTimeout(() => {
+      isClickScrolling.current = false;
+    }, 900);
+  };
 
   // Mock client data — seria substituído por dados reais via API/auth
   const client = {
@@ -96,6 +150,9 @@ export default function ClienteAreaPage() {
         .logout-btn { transition: all 0.25s; }
         .logout-btn:hover { background: rgba(255,80,80,0.08) !important; border-color: rgba(255,80,80,0.28) !important; color: #ff7a7a !important; }
 
+        .ca-tab:hover { color: rgba(255,255,255,0.85) !important; }
+        .ca-tabs-inner::-webkit-scrollbar { display: none; }
+
         .status-dot { animation: pulseDot 2s ease-in-out infinite; }
         @keyframes pulseDot {
           0%, 100% { opacity: 1; }
@@ -105,6 +162,8 @@ export default function ClienteAreaPage() {
         @media (max-width: 900px) {
           .ca-nav { padding: 14px 20px !important; flex-wrap: wrap !important; gap: 12px !important; }
           .ca-nav-user { width: 100%; justify-content: space-between !important; }
+          .ca-tabs-inner { padding: 0 20px !important; }
+          .ca-tab { padding: 14px 12px !important; }
           .ca-container { padding: 32px 20px 80px !important; }
           .ca-welcome { font-size: clamp(1.5rem, 6vw, 2rem) !important; }
           .ca-grid-4 { grid-template-columns: 1fr 1fr !important; }
@@ -154,11 +213,54 @@ export default function ClienteAreaPage() {
         </div>
       </header>
 
+      {/* Sticky tab bar */}
+      <nav className="ca-tabs" style={{
+        position: "sticky", top: 65, zIndex: 99,
+        background: "rgba(8,8,10,0.85)", backdropFilter: "blur(20px)",
+        borderBottom: "1px solid rgba(255,255,255,0.06)"
+      }}>
+        <div className="ca-tabs-inner" style={{ maxWidth: 1200, margin: "0 auto", padding: "0 40px", display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none" }}>
+          {TABS.map((t) => {
+            const active = activeTab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => handleTabClick(t.id)}
+                className="ca-tab"
+                style={{
+                  position: "relative",
+                  display: "inline-flex", alignItems: "center", gap: 10,
+                  padding: "16px 18px", background: "transparent", border: "none", cursor: "pointer",
+                  color: active ? "#eeede9" : "rgba(255,255,255,0.42)",
+                  transition: "color 0.3s cubic-bezier(0.16,1,0.3,1)",
+                  fontFamily: "'Manrope', sans-serif", whiteSpace: "nowrap",
+                }}
+              >
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", fontWeight: 600,
+                  letterSpacing: 1.5,
+                  color: active ? ACCENT : "rgba(255,255,255,0.3)",
+                  transition: "color 0.3s"
+                }}>{t.num}</span>
+                <span style={{ fontSize: "0.83rem", fontWeight: active ? 700 : 500, letterSpacing: -0.2 }}>{t.label}</span>
+                <span style={{
+                  position: "absolute", left: 14, right: 14, bottom: 0, height: 2,
+                  background: active ? ACCENT : "transparent",
+                  boxShadow: active ? `0 0 12px ${ACCENT}88` : "none",
+                  borderRadius: 2,
+                  transition: "all 0.35s cubic-bezier(0.16,1,0.3,1)",
+                }} />
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
       {/* Main container */}
       <main className="ca-container" style={{ position: "relative", zIndex: 1, maxWidth: 1200, margin: "0 auto", padding: "56px 40px 120px" }}>
 
         {/* Welcome */}
-        <section style={{ marginBottom: 48 }}>
+        <section id="visao-geral" ref={(el) => (sectionRefs.current["visao-geral"] = el)} style={{ marginBottom: 48, scrollMarginTop: 130 }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 12px", background: "rgba(0,212,138,0.1)", border: "1px solid rgba(0,212,138,0.25)", borderRadius: 100, marginBottom: 18 }}>
             <span className="status-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "#00d48a", boxShadow: "0 0 8px #00d48a" }} />
             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.65rem", fontWeight: 700, color: "#00d48a", letterSpacing: 2 }}>OPERAÇÃO ONLINE</span>
@@ -188,7 +290,7 @@ export default function ClienteAreaPage() {
         </section>
 
         {/* Sistemas contratados */}
-        <section style={{ marginBottom: 72 }}>
+        <section id="sistemas" ref={(el) => (sectionRefs.current["sistemas"] = el)} style={{ marginBottom: 72, scrollMarginTop: 130 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 22 }}>
             <div>
               <span style={{ display: "inline-block", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2.5, color: ACCENT, marginBottom: 10 }}>Sistemas contratados</span>
@@ -237,7 +339,7 @@ export default function ClienteAreaPage() {
         </section>
 
         {/* Faturas */}
-        <section style={{ marginBottom: 72 }}>
+        <section id="faturas" ref={(el) => (sectionRefs.current["faturas"] = el)} style={{ marginBottom: 72, scrollMarginTop: 130 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 22 }}>
             <div>
               <span style={{ display: "inline-block", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2.5, color: ACCENT, marginBottom: 10 }}>Financeiro</span>
@@ -290,7 +392,7 @@ export default function ClienteAreaPage() {
         </section>
 
         {/* Documentos & Licenças */}
-        <section style={{ marginBottom: 72 }}>
+        <section id="documentos" ref={(el) => (sectionRefs.current["documentos"] = el)} style={{ marginBottom: 72, scrollMarginTop: 130 }}>
           <div style={{ marginBottom: 22 }}>
             <span style={{ display: "inline-block", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2.5, color: ACCENT, marginBottom: 10 }}>Contratos & licenças</span>
             <h2 style={{ fontSize: "clamp(1.45rem, 2.2vw, 1.75rem)", fontWeight: 700, color: "#eeede9", letterSpacing: -0.5 }}>Documentos assinados</h2>
@@ -328,7 +430,7 @@ export default function ClienteAreaPage() {
         </section>
 
         {/* Suporte */}
-        <section>
+        <section id="suporte" ref={(el) => (sectionRefs.current["suporte"] = el)} style={{ scrollMarginTop: 130 }}>
           <div style={{ marginBottom: 22 }}>
             <span style={{ display: "inline-block", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2.5, color: ACCENT, marginBottom: 10 }}>Suporte</span>
             <h2 style={{ fontSize: "clamp(1.45rem, 2.2vw, 1.75rem)", fontWeight: 700, color: "#eeede9", letterSpacing: -0.5 }}>Precisa de ajuda?</h2>
