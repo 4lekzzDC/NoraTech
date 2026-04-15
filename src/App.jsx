@@ -391,10 +391,10 @@ export default function App() {
 
           <Reveal delay={0.55}>
             <div className="hero-buttons" style={{ display: "flex", gap: 12 }}>
-              <a href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20solicitar%20um%20or%C3%A7amento%20com%20a%20Noratech." target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 30px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", transition: "all 0.3s" }}>
+              <a href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20solicitar%20um%20or%C3%A7amento%20com%20a%20Noratech." target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 28px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", transition: "all 0.3s" }}>
                 Solicitar orçamento <span style={{ fontSize: "1.1rem" }}>↗</span>
               </a>
-              <a href="#produtos" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 28px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, fontWeight: 600, fontSize: "0.92rem", transition: "all 0.3s" }}>
+              <a href="#produtos" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 28px", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 100, fontWeight: 600, fontSize: "0.92rem", color: "rgba(255,255,255,0.85)", transition: "all 0.3s" }}>
                 Conhecer soluções
               </a>
             </div>
@@ -476,7 +476,7 @@ export default function App() {
       </section>
 
       {/* ═══ MARQUEE ═══ */}
-      <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "20px 0", overflow: "hidden", position: "relative", zIndex: 1 }}>
+      <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "32px 0", overflow: "hidden", position: "relative", zIndex: 1 }}>
         <div style={{ display: "flex", gap: 48, animation: "marquee 30s linear infinite", width: "max-content" }}>
           {[...Array(2)].flatMap((_, ri) =>
             ["💰 Gestão Financeira", "💬 WhatsApp Bot", "🌐 Criação de Sites", "📊 Análise de Gastos", "🤖 Pré-Atendimento", "🎨 Design Profissional", "🔗 Open Finance"].map((t, i) =>
