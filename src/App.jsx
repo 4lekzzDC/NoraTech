@@ -1158,9 +1158,9 @@ export default function App() {
 
         <Reveal delay={0.25}>
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 12, marginTop: 40 }}>
-            <a className="cta-btn" href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20sou%20cliente%20Noratech%20e%20gostaria%20de%20acessar%20minha%20conta." target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 28px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.9rem", transition: "all 0.3s" }}>
+            <Link className="cta-btn" to="/area-do-cliente" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 28px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.9rem", transition: "all 0.3s" }}>
               Fazer login <span style={{ fontSize: "1rem" }}>↗</span>
-            </a>
+            </Link>
             <a className="cta-btn" href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20me%20cadastrar%20como%20cliente%20Noratech." target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 28px", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 100, fontWeight: 600, fontSize: "0.9rem", color: "rgba(255,255,255,0.85)", transition: "all 0.3s" }}>
               Se registrar
             </a>
