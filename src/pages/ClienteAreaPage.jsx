@@ -5,20 +5,106 @@ export default function ClienteAreaPage() {
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const ACCENT = "#c8ff00";
+
+  // Auth state
+  const [view, setView] = useState("login"); // "login" | "signup" | "recover" | "recover-sent"
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Login form
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPass, setLoginPass] = useState("");
   const [loginError, setLoginError] = useState("");
 
+  // Signup form
+  const [signupName, setSignupName] = useState("");
+  const [signupCompany, setSignupCompany] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPass, setSignupPass] = useState("");
+  const [signupPass2, setSignupPass2] = useState("");
+  const [signupError, setSignupError] = useState("");
+
+  // Recover form
+  const [recoverEmail, setRecoverEmail] = useState("");
+  const [recoverError, setRecoverError] = useState("");
+
+  // Cockpit state (declared up front to keep hook order stable)
+  const [activeTab, setActiveTab] = useState("cockpit");
+  const sectionRefs = useRef({});
+  const isClickScrolling = useRef(false);
+  const clickTimeout = useRef(null);
+
+  // Persistence helpers
+  const getUsers = () => {
+    try { return JSON.parse(localStorage.getItem("noratech_users") || "[]"); } catch { return []; }
+  };
+  const saveUsers = (u) => { try { localStorage.setItem("noratech_users", JSON.stringify(u)); } catch {} };
+
+  const makeAvatar = (name) => {
+    if (!name) return "??";
+    const parts = name.trim().split(/\s+/);
+    const a = parts[0]?.[0] || "";
+    const b = parts[1]?.[0] || "";
+    return (a + b).toUpperCase() || "??";
+  };
+
   const handleLogin = (e) => {
     e.preventDefault();
-    if (!loginEmail || !loginPass) {
-      setLoginError("Preencha todos os campos.");
-      return;
-    }
     setLoginError("");
+    if (!loginEmail || !loginPass) { setLoginError("Preencha todos os campos."); return; }
+    const users = getUsers();
+    const user = users.find((u) => u.email.toLowerCase() === loginEmail.toLowerCase() && u.password === loginPass);
+    if (!user) { setLoginError("E-mail ou senha incorretos."); return; }
+    setCurrentUser(user);
     setIsLoggedIn(true);
     window.scrollTo(0, 0);
+  };
+
+  const handleSignup = (e) => {
+    e.preventDefault();
+    setSignupError("");
+    if (!signupName || !signupEmail || !signupPass) { setSignupError("Preencha nome, e-mail e senha."); return; }
+    if (signupPass.length < 6) { setSignupError("A senha precisa ter pelo menos 6 caracteres."); return; }
+    if (signupPass !== signupPass2) { setSignupError("As senhas não conferem."); return; }
+    const users = getUsers();
+    if (users.some((u) => u.email.toLowerCase() === signupEmail.toLowerCase())) {
+      setSignupError("Este e-mail já está cadastrado."); return;
+    }
+    const now = new Date();
+    const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    const newUser = {
+      name: signupName.trim(),
+      company: signupCompany.trim() || "—",
+      email: signupEmail.trim(),
+      password: signupPass,
+      memberSince: `${meses[now.getMonth()]}/${String(now.getFullYear()).slice(-2)}`,
+    };
+    users.push(newUser);
+    saveUsers(users);
+    setCurrentUser(newUser);
+    setIsLoggedIn(true);
+    window.scrollTo(0, 0);
+  };
+
+  const handleRecover = (e) => {
+    e.preventDefault();
+    setRecoverError("");
+    if (!recoverEmail) { setRecoverError("Informe seu e-mail."); return; }
+    const users = getUsers();
+    const user = users.find((u) => u.email.toLowerCase() === recoverEmail.toLowerCase());
+    if (!user) { setRecoverError("Nenhuma conta encontrada com esse e-mail."); return; }
+    // Simulate recovery: generate a temp password
+    const tempPass = Math.random().toString(36).slice(-8);
+    const updated = users.map((u) => u.email.toLowerCase() === recoverEmail.toLowerCase() ? { ...u, password: tempPass } : u);
+    saveUsers(updated);
+    setView("recover-sent");
+    // Store temp pass to show on the confirmation screen
+    sessionStorage.setItem("noratech_temp_pass", tempPass);
+  };
+
+  const switchTo = (v) => {
+    setLoginError(""); setSignupError(""); setRecoverError("");
+    setView(v);
   };
 
   // ── LOGIN SCREEN ──
@@ -59,46 +145,115 @@ export default function ClienteAreaPage() {
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: "1.1rem", color: ACCENT, letterSpacing: -0.5, marginBottom: 8 }}>
                 NORA<span style={{ color: "rgba(255,255,255,0.3)" }}>TECH</span>
               </div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.64rem", fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 3, textTransform: "uppercase" }}>Central de Controle</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.64rem", fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 3, textTransform: "uppercase" }}>
+                {view === "login" && "Central de Controle"}
+                {view === "signup" && "Criar sua conta"}
+                {view === "recover" && "Recuperar acesso"}
+                {view === "recover-sent" && "Senha redefinida"}
+              </div>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div>
-                <label style={{ display: "block", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>E-mail</label>
-                <input
-                  type="email"
-                  className="login-input"
-                  placeholder="seu@email.com.br"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                />
-              </div>
-              <div>
-                <label style={{ display: "block", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Senha</label>
-                <input
-                  type="password"
-                  className="login-input"
-                  placeholder="••••••••"
-                  value={loginPass}
-                  onChange={(e) => setLoginPass(e.target.value)}
-                />
-              </div>
+            {/* ── LOGIN VIEW ── */}
+            {view === "login" && (
+              <>
+                <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div>
+                    <label style={{ display: "block", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>E-mail</label>
+                    <input type="email" className="login-input" placeholder="seu@email.com.br" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Senha</label>
+                    <input type="password" className="login-input" placeholder="••••••••" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} />
+                  </div>
+                  {loginError && (
+                    <div style={{ padding: "10px 14px", background: "rgba(255,80,80,0.08)", border: "1px solid rgba(255,80,80,0.2)", borderRadius: 10, fontSize: "0.8rem", color: "#ff7a7a" }}>{loginError}</div>
+                  )}
+                  <button type="submit" className="login-btn" style={{ marginTop: 6 }}>Entrar</button>
+                </form>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20, paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                  <button type="button" onClick={() => switchTo("recover")} className="login-link" style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.4)", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>Esqueci a senha</button>
+                  <button type="button" onClick={() => switchTo("signup")} className="login-link" style={{ fontSize: "0.76rem", color: ACCENT, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit", fontWeight: 600 }}>Criar conta</button>
+                </div>
+              </>
+            )}
 
-              {loginError && (
-                <div style={{ padding: "10px 14px", background: "rgba(255,80,80,0.08)", border: "1px solid rgba(255,80,80,0.2)", borderRadius: 10, fontSize: "0.8rem", color: "#ff7a7a" }}>{loginError}</div>
-              )}
+            {/* ── SIGNUP VIEW ── */}
+            {view === "signup" && (
+              <>
+                <form onSubmit={handleSignup} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div>
+                    <label style={{ display: "block", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Nome completo</label>
+                    <input type="text" className="login-input" placeholder="João Silva" value={signupName} onChange={(e) => setSignupName(e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Empresa <span style={{ textTransform: "none", letterSpacing: 0, fontSize: "0.6rem", opacity: 0.6 }}>(opcional)</span></label>
+                    <input type="text" className="login-input" placeholder="Acme Indústria Ltda" value={signupCompany} onChange={(e) => setSignupCompany(e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>E-mail</label>
+                    <input type="email" className="login-input" placeholder="seu@email.com.br" value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Senha <span style={{ textTransform: "none", letterSpacing: 0, fontSize: "0.6rem", opacity: 0.6 }}>(mín. 6 caracteres)</span></label>
+                    <input type="password" className="login-input" placeholder="••••••••" value={signupPass} onChange={(e) => setSignupPass(e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Confirmar senha</label>
+                    <input type="password" className="login-input" placeholder="••••••••" value={signupPass2} onChange={(e) => setSignupPass2(e.target.value)} />
+                  </div>
+                  {signupError && (
+                    <div style={{ padding: "10px 14px", background: "rgba(255,80,80,0.08)", border: "1px solid rgba(255,80,80,0.2)", borderRadius: 10, fontSize: "0.8rem", color: "#ff7a7a" }}>{signupError}</div>
+                  )}
+                  <button type="submit" className="login-btn" style={{ marginTop: 6 }}>Criar conta</button>
+                </form>
+                <div style={{ textAlign: "center", marginTop: 20, paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                  <span style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.4)" }}>Já tem conta? </span>
+                  <button type="button" onClick={() => switchTo("login")} className="login-link" style={{ fontSize: "0.76rem", color: ACCENT, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit", fontWeight: 600 }}>Entrar</button>
+                </div>
+              </>
+            )}
 
-              <button type="submit" className="login-btn" style={{ marginTop: 6 }}>
-                Entrar
-              </button>
-            </form>
+            {/* ── RECOVER VIEW ── */}
+            {view === "recover" && (
+              <>
+                <p style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.55)", lineHeight: 1.55, marginBottom: 18, textAlign: "center" }}>
+                  Informe o e-mail da sua conta e enviaremos uma nova senha provisória.
+                </p>
+                <form onSubmit={handleRecover} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div>
+                    <label style={{ display: "block", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>E-mail cadastrado</label>
+                    <input type="email" className="login-input" placeholder="seu@email.com.br" value={recoverEmail} onChange={(e) => setRecoverEmail(e.target.value)} />
+                  </div>
+                  {recoverError && (
+                    <div style={{ padding: "10px 14px", background: "rgba(255,80,80,0.08)", border: "1px solid rgba(255,80,80,0.2)", borderRadius: 10, fontSize: "0.8rem", color: "#ff7a7a" }}>{recoverError}</div>
+                  )}
+                  <button type="submit" className="login-btn" style={{ marginTop: 6 }}>Enviar nova senha</button>
+                </form>
+                <div style={{ textAlign: "center", marginTop: 20, paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                  <button type="button" onClick={() => switchTo("login")} className="login-link" style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.55)", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>← Voltar ao login</button>
+                </div>
+              </>
+            )}
 
-            {/* Footer links */}
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20, paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-              <a href="https://wa.me/5511932227752?text=Esqueci%20minha%20senha%20da%20%C3%A1rea%20do%20cliente." target="_blank" rel="noopener noreferrer" className="login-link" style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.4)" }}>Esqueci a senha</a>
-              <a href="https://wa.me/5511932227752?text=Gostaria%20de%20me%20cadastrar%20como%20cliente." target="_blank" rel="noopener noreferrer" className="login-link" style={{ fontSize: "0.76rem", color: ACCENT }}>Criar conta</a>
-            </div>
+            {/* ── RECOVER SENT VIEW ── */}
+            {view === "recover-sent" && (
+              <>
+                <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
+                  <div style={{ width: 60, height: 60, borderRadius: "50%", background: "rgba(0,212,138,0.12)", border: "1px solid rgba(0,212,138,0.35)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 18, fontSize: "1.6rem", color: "#00d48a" }}>✓</div>
+                  <h3 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: 10 }}>Sua senha foi redefinida</h3>
+                  <p style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.55)", lineHeight: 1.6, marginBottom: 18 }}>
+                    Geramos uma senha provisória para o e-mail informado. Use-a para entrar e depois altere no seu perfil.
+                  </p>
+                  <div style={{ padding: "14px 18px", background: "rgba(200,255,0,0.08)", border: `1px dashed ${ACCENT}55`, borderRadius: 12, marginBottom: 20 }}>
+                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.6rem", color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>Senha provisória</div>
+                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "1.15rem", fontWeight: 600, color: ACCENT, letterSpacing: 2 }}>
+                      {typeof window !== "undefined" ? sessionStorage.getItem("noratech_temp_pass") || "--------" : "--------"}
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => switchTo("login")} className="login-btn">Ir para o login</button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Bottom text */}
@@ -120,12 +275,8 @@ export default function ClienteAreaPage() {
     { id: "comando", label: "Comando", num: "05" },
   ];
 
-  const [activeTab, setActiveTab] = useState("cockpit");
-  const sectionRefs = useRef({});
-  const isClickScrolling = useRef(false);
-  const clickTimeout = useRef(null);
-
   useEffect(() => {
+    if (!isLoggedIn) return;
     const observer = new IntersectionObserver(
       (entries) => {
         if (isClickScrolling.current) return;
@@ -136,7 +287,7 @@ export default function ClienteAreaPage() {
     );
     TABS.forEach((t) => { const el = sectionRefs.current[t.id]; if (el) observer.observe(el); });
     return () => observer.disconnect();
-  }, []);
+  }, [isLoggedIn]);
 
   const handleTabClick = (id) => {
     setActiveTab(id);
@@ -147,7 +298,9 @@ export default function ClienteAreaPage() {
     clickTimeout.current = setTimeout(() => { isClickScrolling.current = false; }, 900);
   };
 
-  const client = { name: "João Silva", company: "Acme Indústria Ltda", avatar: "JS", memberSince: "Mar/2024" };
+  const client = currentUser
+    ? { name: currentUser.name, company: currentUser.company, avatar: makeAvatar(currentUser.name), memberSince: currentUser.memberSince }
+    : { name: "João Silva", company: "Acme Indústria Ltda", avatar: "JS", memberSince: "Mar/2024" };
 
   const healthScore = 98;
   const SIGNALS = [
