@@ -225,6 +225,14 @@ export default function App() {
         .form-option:hover { border-color: rgba(200,255,0,0.4) !important; background: rgba(200,255,0,0.04) !important; }
         a { text-decoration: none; color: inherit; }
 
+        /* ═══ TABLET ═══ */
+        @media (max-width: 1024px) {
+          .section-padding { padding: 100px 32px !important; }
+          .cta-section { padding: 100px 32px !important; }
+          .footer-section { padding: 60px 32px 40px !important; }
+          .hero-section { padding: 110px 32px 60px !important; gap: 32px !important; }
+        }
+
         /* ═══ MOBILE RESPONSIVE ═══ */
         @media (max-width: 768px) {
           .nav-links { display: none !important; }
@@ -274,7 +282,7 @@ export default function App() {
           .hero-buttons { flex-wrap: wrap !important; }
           .hero-buttons a { flex: 1; text-align: center; justify-content: center; min-width: 140px; }
 
-          .section-padding { padding: 80px 20px !important; }
+          .section-padding { padding: 72px 20px !important; }
 
           .products-grid {
             grid-template-columns: 1fr !important;
@@ -283,11 +291,15 @@ export default function App() {
           .featured-inner {
             grid-template-columns: 1fr !important;
           }
+          .featured-text { padding: 28px 22px !important; }
+          .featured-mockup { padding: 22px !important; max-width: 100% !important; }
           .featured-code {
             border-left: none !important;
             border-top: 1px solid rgba(255,255,255,0.06) !important;
             border-radius: 0 0 18px 18px !important;
+            min-height: 320px;
           }
+          .mockup-stats-4 { grid-template-columns: 1fr 1fr !important; }
 
           .process-grid { grid-template-columns: 1fr 1fr !important; }
           .services-grid { grid-template-columns: 1fr !important; }
@@ -313,6 +325,13 @@ export default function App() {
           .process-grid { grid-template-columns: 1fr !important; }
           .footer-grid { grid-template-columns: 1fr !important; }
           .hero-stats { gap: 16px !important; }
+          .section-padding { padding: 56px 16px !important; }
+          .hero-section { padding: 96px 16px 48px !important; }
+          .cta-section { padding: 64px 16px 80px !important; }
+          .featured-text { padding: 24px 18px !important; }
+          .featured-mockup { padding: 18px !important; }
+          .mockup-stats-3 { grid-template-columns: 1fr 1fr !important; }
+          .mockup-stats-4 { grid-template-columns: 1fr 1fr !important; }
         }
       `}</style>
 
@@ -343,12 +362,28 @@ export default function App() {
           boxShadow: navScrolled ? "0 8px 40px rgba(0,0,0,0.5)" : "none"
         }}>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5 }}>NORA<span style={{ color: "rgba(255,255,255,0.3)" }}>TECH</span></span>
-          <a href="#sobre" className="nav-link">Sobre</a>
-          <a href="#servicos" className="nav-link">Serviços</a>
-          <a href="#produtos" className="nav-link">Projetos</a>
-          <a href="#processo" className="nav-link">Processo</a>
-          <a href="#depoimentos" className="nav-link">Clientes</a>
-          <a href="#contato" className="nav-link" style={{ padding: "8px 18px", background: "#c8ff00", color: "#08080a", fontWeight: 700, borderRadius: 100 }}>Contato</a>
+          <div className="nav-links" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <a href="#sobre" className="nav-link">Sobre</a>
+            <a href="#servicos" className="nav-link">Serviços</a>
+            <a href="#produtos" className="nav-link">Projetos</a>
+            <a href="#processo" className="nav-link">Processo</a>
+            <a href="#depoimentos" className="nav-link">Clientes</a>
+            <a href="#contato" className="nav-link nav-cta-desktop" style={{ padding: "8px 18px", background: "#c8ff00", color: "#08080a", fontWeight: 700, borderRadius: 100 }}>Contato</a>
+          </div>
+          <button
+            className="hamburger"
+            aria-label="Abrir menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen(true)}
+            style={{
+              display: "none", alignItems: "center", justifyContent: "center",
+              width: 34, height: 34, borderRadius: "50%",
+              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+              cursor: "pointer", padding: 0, marginLeft: 2
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eeede9" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+          </button>
           <Link to={user ? "/perfil" : "/login"} title={user ? "Meu perfil" : "Acesso admin"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: user ? "rgba(200,255,0,0.1)" : "rgba(255,255,255,0.04)", border: `1px solid ${user ? "rgba(200,255,0,0.2)" : "rgba(255,255,255,0.08)"}`, marginLeft: 2, overflow: "hidden", flexShrink: 0 }}>
             {user?.photoUrl
               ? <img src={user.photoUrl} alt="perfil" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -361,6 +396,19 @@ export default function App() {
       {/* ═══ MOBILE MENU OVERLAY ═══ */}
       {menuOpen && (
         <div className="mobile-menu" style={{ display: "none" }}>
+          <button
+            aria-label="Fechar menu"
+            onClick={() => setMenuOpen(false)}
+            style={{
+              position: "absolute", top: 20, right: 20,
+              width: 40, height: 40, borderRadius: "50%",
+              background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+              color: "#eeede9", cursor: "pointer", fontSize: "1.2rem",
+              display: "flex", alignItems: "center", justifyContent: "center"
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
+          </button>
           <a href="#sobre" className="nav-link" onClick={() => setMenuOpen(false)}>Sobre</a>
           <a href="#servicos" className="nav-link" onClick={() => setMenuOpen(false)}>Serviços</a>
           <a href="#produtos" className="nav-link" onClick={() => setMenuOpen(false)}>Projetos</a>
@@ -814,10 +862,10 @@ export default function App() {
         </Reveal>
 
         {/* Bento Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14 }}>
+        <div className="products-grid" style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14 }}>
           {PRODUCTS.map((p, i) => (
             <Reveal key={p.id} type={i % 2 === 0 ? "up" : "scale"} delay={i * 0.08}>
-              <div className="product-card"
+              <div className={`product-card${p.featured ? " featured-inner" : ""}`}
                 onMouseEnter={() => setHoveredProduct(p.id)}
                 onMouseLeave={() => setHoveredProduct(null)}
                 style={{
@@ -838,7 +886,7 @@ export default function App() {
 
                 {p.featured ? (
                   <>
-                    <div style={{ padding: 36, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                    <div className="featured-text" style={{ padding: 36, display: "flex", flexDirection: "column", justifyContent: "center" }}>
                       <div style={{ width: 44, height: 44, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem", background: `${p.color}12`, border: `1px solid ${p.color}18`, marginBottom: 18 }}>{p.icon}</div>
                       <h3 style={{ fontSize: "1.55rem", fontWeight: 700, marginBottom: 12, letterSpacing: -0.5 }}>{p.name}</h3>
                       <p style={{ fontSize: "0.9rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.65, marginBottom: 20 }}>{p.desc}</p>
@@ -864,7 +912,7 @@ export default function App() {
 
                       {/* Finzo App */}
                       {p.id === 1 && (
-                        <div style={{ zIndex: 1, padding: 28, width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 14 }}>
+                        <div className="featured-mockup" style={{ zIndex: 1, padding: 28, width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 14 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.55)", fontFamily: "'JetBrains Mono', monospace" }}>Contas conectadas</div>
                             <div style={{ fontSize: "0.58rem", color: "rgba(76,217,100,0.7)", fontFamily: "'JetBrains Mono', monospace" }}>● 3 ativas</div>
@@ -935,7 +983,7 @@ export default function App() {
 
                       {/* WhatsApp Bot */}
                       {p.id === 2 && (
-                        <div style={{ zIndex: 1, padding: 28, width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div className="featured-mockup" style={{ zIndex: 1, padding: 28, width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 12 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.55)", fontFamily: "'JetBrains Mono', monospace" }}>Conversas recentes</div>
                             <div style={{ fontSize: "0.58rem", color: "rgba(37,211,102,0.8)", fontFamily: "'JetBrains Mono', monospace" }}>● Online 24/7</div>
@@ -984,7 +1032,7 @@ export default function App() {
                               ))}
                             </div>
                           </div>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
+                          <div className="mockup-stats-4" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
                             <div style={{ padding: "8px 10px", background: "rgba(37,211,102,0.05)", border: "1px solid rgba(37,211,102,0.1)", borderRadius: 10, textAlign: "center" }}>
                               <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Filtradas</div>
                               <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#25D366" }}>70%</div>
@@ -1007,7 +1055,7 @@ export default function App() {
 
                       {/* Sites para Empresas */}
                       {p.id === 4 && (
-                        <div style={{ zIndex: 1, padding: 28, width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div className="featured-mockup" style={{ zIndex: 1, padding: 28, width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 12 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.55)", fontFamily: "'JetBrains Mono', monospace" }}>Projeto em andamento</div>
                             <div style={{ fontSize: "0.58rem", color: "rgba(255,107,157,0.8)", fontFamily: "'JetBrains Mono', monospace" }}>● Sprint 3/4</div>
@@ -1042,7 +1090,7 @@ export default function App() {
                               <span key={t} style={{ padding: "3px 9px", background: "rgba(255,107,157,0.06)", border: "1px solid rgba(255,107,157,0.15)", borderRadius: 100, fontSize: "0.56rem", fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: "rgba(255,107,157,0.8)" }}>{t}</span>
                             ))}
                           </div>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                          <div className="mockup-stats-3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                             <div style={{ padding: "8px 10px", background: "rgba(255,107,157,0.05)", border: "1px solid rgba(255,107,157,0.1)", borderRadius: 10, textAlign: "center" }}>
                               <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Progresso</div>
                               <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#ff6b9d" }}>75%</div>
