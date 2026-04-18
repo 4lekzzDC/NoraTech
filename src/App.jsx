@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import MeetingScheduler from "./components/MeetingScheduler";
+import { useAuth } from "./contexts/AuthContext";
 
 // ═══════════════════════════════════════════════════════════════
 // Noratech — Institutional website
@@ -171,6 +172,7 @@ function StatusBadge({ status }) {
 // MAIN APP
 // ═══════════════════════════════════════
 export default function App() {
+  const { user } = useAuth();
   const [scrollY, setScrollY] = useState(0);
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
   const [navScrolled, setNavScrolled] = useState(false);
@@ -347,6 +349,12 @@ export default function App() {
           <a href="#processo" className="nav-link">Processo</a>
           <a href="#depoimentos" className="nav-link">Clientes</a>
           <a href="#contato" className="nav-link" style={{ padding: "8px 18px", background: "#c8ff00", color: "#08080a", fontWeight: 700, borderRadius: 100 }}>Contato</a>
+          <Link to={user ? "/perfil" : "/login"} title={user ? "Meu perfil" : "Acesso admin"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: user ? "rgba(200,255,0,0.1)" : "rgba(255,255,255,0.04)", border: `1px solid ${user ? "rgba(200,255,0,0.2)" : "rgba(255,255,255,0.08)"}`, marginLeft: 2, overflow: "hidden", flexShrink: 0 }}>
+            {user?.photoUrl
+              ? <img src={user.photoUrl} alt="perfil" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={user ? "#c8ff00" : "rgba(255,255,255,0.35)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+            }
+          </Link>
         </nav>
       </div>
 
