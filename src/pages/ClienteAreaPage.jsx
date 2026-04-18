@@ -40,6 +40,14 @@ export default function ClienteAreaPage() {
   };
   const saveUsers = (u) => { try { localStorage.setItem("noratech_users", JSON.stringify(u)); } catch {} };
 
+  // Seed demo account if storage is empty
+  useEffect(() => {
+    const users = getUsers();
+    if (users.length === 0) {
+      saveUsers([{ name: "Demo Noratech", company: "Noratech Demo", email: "demo@noratech.com.br", password: "demo123", memberSince: "Jan/25" }]);
+    }
+  }, []);
+
   const makeAvatar = (name) => {
     if (!name) return "??";
     const parts = name.trim().split(/\s+/);
