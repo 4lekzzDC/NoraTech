@@ -5,6 +5,112 @@ export default function ClienteAreaPage() {
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const ACCENT = "#c8ff00";
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPass, setLoginPass] = useState("");
+  const [loginError, setLoginError] = useState("");
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (!loginEmail || !loginPass) {
+      setLoginError("Preencha todos os campos.");
+      return;
+    }
+    setLoginError("");
+    setIsLoggedIn(true);
+    window.scrollTo(0, 0);
+  };
+
+  // ── LOGIN SCREEN ──
+  if (!isLoggedIn) {
+    return (
+      <div style={{ background: "#08080a", color: "#eeede9", fontFamily: "'Manrope', sans-serif", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+          *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+          body{-webkit-font-smoothing:antialiased}
+          a{text-decoration:none;color:inherit}
+          .login-input{width:100%;padding:14px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#eeede9;font-family:'Manrope',sans-serif;font-size:0.9rem;outline:none;transition:border-color 0.3s}
+          .login-input:focus{border-color:rgba(200,255,0,0.4)}
+          .login-input::placeholder{color:rgba(255,255,255,0.28)}
+          .login-btn{width:100%;padding:14px;background:#c8ff00;color:#08080a;border:none;border-radius:12px;font-family:'Manrope',sans-serif;font-size:0.92rem;font-weight:700;cursor:pointer;transition:all 0.25s cubic-bezier(0.16,1,0.3,1)}
+          .login-btn:hover{background:#d4ff33;transform:translateY(-1px)}
+          .login-link{transition:color 0.2s}
+          .login-link:hover{color:rgba(255,255,255,0.85)!important}
+          @keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+        `}</style>
+
+        {/* Atmosphere */}
+        <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
+          <div style={{ position: "absolute", width: 700, height: 700, top: "20%", left: "50%", transform: "translateX(-50%)", background: `radial-gradient(circle, ${ACCENT}0c 0%, transparent 55%)`, filter: "blur(60px)" }} />
+          <div style={{ position: "absolute", width: 400, height: 400, bottom: "10%", right: "15%", background: "radial-gradient(circle, rgba(0,212,138,0.04) 0%, transparent 55%)", filter: "blur(40px)" }} />
+        </div>
+
+        {/* Login card */}
+        <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 420, padding: "0 24px", animation: "fadeIn 0.6s ease-out both" }}>
+          {/* Back link */}
+          <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.78rem", color: "rgba(255,255,255,0.4)", marginBottom: 32 }}>
+            <span style={{ fontSize: "0.9rem" }}>&larr;</span> Voltar ao site
+          </Link>
+
+          <div style={{ background: "#111114", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 24, padding: "40px 32px", boxShadow: "0 30px 80px rgba(0,0,0,0.5)" }}>
+            {/* Logo */}
+            <div style={{ textAlign: "center", marginBottom: 32 }}>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: "1.1rem", color: ACCENT, letterSpacing: -0.5, marginBottom: 8 }}>
+                NORA<span style={{ color: "rgba(255,255,255,0.3)" }}>TECH</span>
+              </div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.64rem", fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 3, textTransform: "uppercase" }}>Central de Controle</div>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ display: "block", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>E-mail</label>
+                <input
+                  type="email"
+                  className="login-input"
+                  placeholder="seu@email.com.br"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Senha</label>
+                <input
+                  type="password"
+                  className="login-input"
+                  placeholder="••••••••"
+                  value={loginPass}
+                  onChange={(e) => setLoginPass(e.target.value)}
+                />
+              </div>
+
+              {loginError && (
+                <div style={{ padding: "10px 14px", background: "rgba(255,80,80,0.08)", border: "1px solid rgba(255,80,80,0.2)", borderRadius: 10, fontSize: "0.8rem", color: "#ff7a7a" }}>{loginError}</div>
+              )}
+
+              <button type="submit" className="login-btn" style={{ marginTop: 6 }}>
+                Entrar
+              </button>
+            </form>
+
+            {/* Footer links */}
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20, paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+              <a href="https://wa.me/5511932227752?text=Esqueci%20minha%20senha%20da%20%C3%A1rea%20do%20cliente." target="_blank" rel="noopener noreferrer" className="login-link" style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.4)" }}>Esqueci a senha</a>
+              <a href="https://wa.me/5511932227752?text=Gostaria%20de%20me%20cadastrar%20como%20cliente." target="_blank" rel="noopener noreferrer" className="login-link" style={{ fontSize: "0.76rem", color: ACCENT }}>Criar conta</a>
+            </div>
+          </div>
+
+          {/* Bottom text */}
+          <p style={{ textAlign: "center", fontSize: "0.68rem", color: "rgba(255,255,255,0.2)", marginTop: 24 }}>
+            &copy; 2026 Noratech &mdash; Todos os direitos reservados
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── COCKPIT (post-login) ──
 
   const TABS = [
     { id: "cockpit", label: "Cockpit", num: "01" },
