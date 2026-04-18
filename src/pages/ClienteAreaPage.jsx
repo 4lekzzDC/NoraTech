@@ -115,6 +115,28 @@ export default function ClienteAreaPage() {
     setView(v);
   };
 
+  const TABS = [
+    { id: "cockpit", label: "Cockpit", num: "01" },
+    { id: "operacao", label: "Operação", num: "02" },
+    { id: "financeiro", label: "Financeiro", num: "03" },
+    { id: "oportunidades", label: "Oportunidades", num: "04" },
+    { id: "comando", label: "Comando", num: "05" },
+  ];
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (isClickScrolling.current) return;
+        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (visible[0]) setActiveTab(visible[0].target.id);
+      },
+      { rootMargin: "-140px 0px -55% 0px", threshold: [0, 0.15, 0.3, 0.6] }
+    );
+    TABS.forEach((t) => { const el = sectionRefs.current[t.id]; if (el) observer.observe(el); });
+    return () => observer.disconnect();
+  }, [isLoggedIn]);
+
   // ── LOGIN SCREEN ──
   if (!isLoggedIn) {
     return (
@@ -274,28 +296,6 @@ export default function ClienteAreaPage() {
   }
 
   // ── COCKPIT (post-login) ──
-
-  const TABS = [
-    { id: "cockpit", label: "Cockpit", num: "01" },
-    { id: "operacao", label: "Operação", num: "02" },
-    { id: "financeiro", label: "Financeiro", num: "03" },
-    { id: "oportunidades", label: "Oportunidades", num: "04" },
-    { id: "comando", label: "Comando", num: "05" },
-  ];
-
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (isClickScrolling.current) return;
-        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-        if (visible[0]) setActiveTab(visible[0].target.id);
-      },
-      { rootMargin: "-140px 0px -55% 0px", threshold: [0, 0.15, 0.3, 0.6] }
-    );
-    TABS.forEach((t) => { const el = sectionRefs.current[t.id]; if (el) observer.observe(el); });
-    return () => observer.disconnect();
-  }, [isLoggedIn]);
 
   const handleTabClick = (id) => {
     setActiveTab(id);
