@@ -345,8 +345,8 @@ export default function App() {
           <a href="#servicos" className="nav-link">Serviços</a>
           <a href="#produtos" className="nav-link">Projetos</a>
           <a href="#processo" className="nav-link">Processo</a>
-          <a href="#depoimentos" className="nav-link">Clientes</a>
-          <a href="#contato" className="nav-link" style={{ padding: "8px 18px", background: "#c8ff00", color: "#08080a", fontWeight: 700, borderRadius: 100 }}>Contato</a>
+          <a href="#contato" className="nav-link">Contato</a>
+          <Link to="/area-do-cliente" className="nav-link" style={{ padding: "8px 18px", background: "#c8ff00", color: "#08080a", fontWeight: 700, borderRadius: 100 }}>Área do Cliente</Link>
         </nav>
       </div>
 
@@ -357,8 +357,8 @@ export default function App() {
           <a href="#servicos" className="nav-link" onClick={() => setMenuOpen(false)}>Serviços</a>
           <a href="#produtos" className="nav-link" onClick={() => setMenuOpen(false)}>Projetos</a>
           <a href="#processo" className="nav-link" onClick={() => setMenuOpen(false)}>Processo</a>
-          <a href="#depoimentos" className="nav-link" onClick={() => setMenuOpen(false)}>Clientes</a>
-          <a href="#contato" className="nav-link mobile-cta" onClick={() => setMenuOpen(false)}>Contato</a>
+          <a href="#contato" className="nav-link" onClick={() => setMenuOpen(false)}>Contato</a>
+          <Link to="/area-do-cliente" className="nav-link mobile-cta" onClick={() => setMenuOpen(false)}>Área do Cliente</Link>
         </div>
       )}
 
@@ -1111,61 +1111,6 @@ export default function App() {
             </Reveal>
           ))}
         </div>
-      </section>
-
-      {/* ═══ TESTIMONIALS — iMessage window ═══ */}
-      <section id="depoimentos" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
-        <Reveal>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <Star size={12} color="#00d48a" />
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#00d48a", textTransform: "uppercase", letterSpacing: 3 }}>Clientes</span>
-          </div>
-        </Reveal>
-        <Reveal delay={0.1}>
-          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 14 }}>
-            Quem já <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>transformou</span>
-          </h2>
-        </Reveal>
-        <Reveal delay={0.15}>
-          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 560, lineHeight: 1.6, marginBottom: 64 }}>
-            Resultados reais de empresas que colocaram a Noratech dentro da operação.
-          </p>
-        </Reveal>
-
-        <Reveal type="scale" delay={0.2}>
-          <div style={{ background: "#111114", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 22, overflow: "hidden", maxWidth: 720, margin: "0 auto", boxShadow: "0 30px 80px rgba(0,0,0,0.4)" }}>
-            <WinBar title="mensagens — clientes" />
-            <div style={{ padding: "20px 20px", display: "flex", flexDirection: "column", gap: 14, maxHeight: 440, overflowY: "auto" }}>
-              {TESTIMONIALS.map((t, i) => (
-                <div key={i} style={{ display: "flex", flexDirection: "column", gap: 4, alignSelf: i % 2 === 0 ? "flex-start" : "flex-end", maxWidth: "78%" }}>
-                  <div style={{
-                    padding: "12px 16px", borderRadius: 18, fontSize: "0.86rem", lineHeight: 1.55,
-                    background: i % 2 === 0 ? "#1a1a1e" : "rgba(200,255,0,0.1)",
-                    color: i % 2 === 0 ? "rgba(255,255,255,0.7)" : "#c8ff00",
-                    borderBottomLeftRadius: i % 2 === 0 ? 4 : 18,
-                    borderBottomRightRadius: i % 2 !== 0 ? 4 : 18,
-                  }}>
-                    {t.text}
-                  </div>
-                  <span style={{ fontSize: "0.64rem", color: "rgba(255,255,255,0.2)", padding: "0 6px", textAlign: i % 2 === 0 ? "left" : "right" }}>
-                    {t.name} — {t.role}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Reveal>
-
-        <Reveal delay={0.25}>
-          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 12, marginTop: 40 }}>
-            <Link className="cta-btn" to="/area-do-cliente" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 28px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.9rem", transition: "all 0.3s" }}>
-              Fazer login <span style={{ fontSize: "1rem" }}>↗</span>
-            </Link>
-            <a className="cta-btn" href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20me%20cadastrar%20como%20cliente%20Noratech." target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 28px", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 100, fontWeight: 600, fontSize: "0.9rem", color: "rgba(255,255,255,0.85)", transition: "all 0.3s" }}>
-              Se registrar
-            </a>
-          </div>
-        </Reveal>
       </section>
 
       {/* ═══ FAQ — Tabbed (hen-ry style) ═══ */}
