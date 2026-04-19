@@ -40,6 +40,19 @@ export function AuthProvider({ children }) {
     return data.user;
   };
 
+  const register = async (name, email, password) => {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao criar conta');
+    localStorage.setItem('nt_token', data.token);
+    setUser(data.user);
+    return data.user;
+  };
+
   const logout = () => {
     localStorage.removeItem('nt_token');
     setUser(null);
@@ -56,7 +69,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, updateUser, authFetch }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser, authFetch }}>
       {children}
     </AuthContext.Provider>
   );

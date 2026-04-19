@@ -10,6 +10,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'noratech-secret-key-change-in-production';
 const DATA_FILE = path.join(__dirname, 'data', 'user.json');
+const USERS_FILE = path.join(__dirname, 'data', 'users.json');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 
 if (!fs.existsSync(path.join(__dirname, 'data'))) {
@@ -30,6 +31,10 @@ if (!fs.existsSync(DATA_FILE)) {
   };
   fs.writeFileSync(DATA_FILE, JSON.stringify(defaultUser, null, 2));
   console.log('Usuário padrão criado: admin@noratech.com.br / noratech@2024');
+}
+
+if (!fs.existsSync(USERS_FILE)) {
+  fs.writeFileSync(USERS_FILE, JSON.stringify([], null, 2));
 }
 
 const storage = multer.diskStorage({
@@ -54,6 +59,8 @@ app.use('/uploads', express.static(UPLOADS_DIR));
 
 const readUser = () => JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
 const writeUser = (data) => fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+const readUsers = () => JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
+const writeUsers = (data) => fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
 
 const authenticate = (req, res, next) => {
   const auth = req.headers.authorization;
@@ -73,11 +80,13 @@ app.post('/api/auth/login', (req, res) => {
   if (!email || !password) {
     return res.status(400).json({ error: 'Email e senha são obrigatórios' });
   }
-  const user = readUser();
-  if (user.email.toLowerCase() !== email.toLowerCase()) {
-    return res.status(401).json({ error: 'Credenciais inválidas' });
-  }
-  if (!bcrypt.compareSync(password, user.passwordHash)) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const adminUser = readUser();
+  const users = readUsers();
+  const user = adminUser.email.toLowerCase() === normalizedEmail
+    ? adminUser
+    : users.find((u) => u.email.toLowerCase() === normalizedEmail);
+  if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
     return res.status(401).json({ error: 'Credenciais inválidas' });
   }
   const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
@@ -87,14 +96,60 @@ app.post('/api/auth/login', (req, res) => {
   });
 });
 
+app.post('/api/auth/register', (req, res) => {
+  const { name, email, password } = req.body;
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: 'Nome, email e senha são obrigatórios' });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Senha deve ter pelo menos 8 caracteres' });
+  }
+  const normalizedEmail = email.trim().toLowerCase();
+  const adminUser = readUser();
+  if (adminUser.email.toLowerCase() === normalizedEmail) {
+    return res.status(409).json({ error: 'Este email já está em uso' });
+  }
+  const users = readUsers();
+  if (users.find((u) => u.email.toLowerCase() === normalizedEmail)) {
+    return res.status(409).json({ error: 'Este email já está em uso' });
+  }
+  const newUser = {
+    id: `u_${Date.now()}`,
+    name: name.trim(),
+    email: normalizedEmail,
+    passwordHash: bcrypt.hashSync(password, 10),
+    photoUrl: null,
+    createdAt: new Date().toISOString(),
+  };
+  users.push(newUser);
+  writeUsers(users);
+  const token = jwt.sign({ id: newUser.id }, JWT_SECRET, { expiresIn: '7d' });
+  res.status(201).json({
+    token,
+    user: { id: newUser.id, name: newUser.name, email: newUser.email, photoUrl: newUser.photoUrl },
+  });
+});
+
+const findUser = (id) => {
+  const admin = readUser();
+  if (admin.id === id) return { user: admin, isAdmin: true };
+  const users = readUsers();
+  const found = users.find((u) => u.id === id);
+  return found ? { user: found, isAdmin: false } : null;
+};
+
 app.get('/api/profile', authenticate, (req, res) => {
-  const user = readUser();
+  const result = findUser(req.user.id);
+  if (!result) return res.status(404).json({ error: 'Usuário não encontrado' });
+  const { user } = result;
   res.json({ id: user.id, name: user.name, email: user.email, photoUrl: user.photoUrl });
 });
 
 app.patch('/api/profile', authenticate, (req, res) => {
   const { name, email } = req.body;
-  const user = readUser();
+  const result = findUser(req.user.id);
+  if (!result) return res.status(404).json({ error: 'Usuário não encontrado' });
+  const { user, isAdmin } = result;
   if (name !== undefined) {
     if (!name.trim()) return res.status(400).json({ error: 'Nome não pode ser vazio' });
     user.name = name.trim();
@@ -107,7 +162,14 @@ app.patch('/api/profile', authenticate, (req, res) => {
     user.email = trimmed;
   }
   user.updatedAt = new Date().toISOString();
-  writeUser(user);
+  if (isAdmin) {
+    writeUser(user);
+  } else {
+    const users = readUsers();
+    const idx = users.findIndex((u) => u.id === user.id);
+    users[idx] = user;
+    writeUsers(users);
+  }
   res.json({ id: user.id, name: user.name, email: user.email, photoUrl: user.photoUrl });
 });
 
@@ -119,37 +181,64 @@ app.patch('/api/profile/password', authenticate, (req, res) => {
   if (newPassword.length < 8) {
     return res.status(400).json({ error: 'Nova senha deve ter pelo menos 8 caracteres' });
   }
-  const user = readUser();
+  const result = findUser(req.user.id);
+  if (!result) return res.status(404).json({ error: 'Usuário não encontrado' });
+  const { user, isAdmin } = result;
   if (!bcrypt.compareSync(currentPassword, user.passwordHash)) {
     return res.status(401).json({ error: 'Senha atual incorreta' });
   }
   user.passwordHash = bcrypt.hashSync(newPassword, 10);
   user.updatedAt = new Date().toISOString();
-  writeUser(user);
+  if (isAdmin) {
+    writeUser(user);
+  } else {
+    const users = readUsers();
+    const idx = users.findIndex((u) => u.id === user.id);
+    users[idx] = user;
+    writeUsers(users);
+  }
   res.json({ message: 'Senha alterada com sucesso' });
 });
 
 app.post('/api/profile/photo', authenticate, upload.single('photo'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Nenhuma foto enviada' });
-  const user = readUser();
+  const result = findUser(req.user.id);
+  if (!result) return res.status(404).json({ error: 'Usuário não encontrado' });
+  const { user, isAdmin } = result;
   if (user.photoUrl) {
     const oldPath = path.join(UPLOADS_DIR, path.basename(user.photoUrl));
     if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
   }
   user.photoUrl = `/uploads/${req.file.filename}`;
   user.updatedAt = new Date().toISOString();
-  writeUser(user);
+  if (isAdmin) {
+    writeUser(user);
+  } else {
+    const users = readUsers();
+    const idx = users.findIndex((u) => u.id === user.id);
+    users[idx] = user;
+    writeUsers(users);
+  }
   res.json({ photoUrl: user.photoUrl });
 });
 
 app.delete('/api/profile/photo', authenticate, (req, res) => {
-  const user = readUser();
+  const result = findUser(req.user.id);
+  if (!result) return res.status(404).json({ error: 'Usuário não encontrado' });
+  const { user, isAdmin } = result;
   if (user.photoUrl) {
     const oldPath = path.join(UPLOADS_DIR, path.basename(user.photoUrl));
     if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
     user.photoUrl = null;
     user.updatedAt = new Date().toISOString();
-    writeUser(user);
+    if (isAdmin) {
+      writeUser(user);
+    } else {
+      const users = readUsers();
+      const idx = users.findIndex((u) => u.id === user.id);
+      users[idx] = user;
+      writeUsers(users);
+    }
   }
   res.json({ photoUrl: null });
 });
