@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function LoginPage() {
-  const { login } = useAuth();
+export default function RegisterPage() {
+  const { register } = useAuth();
   const navigate = useNavigate();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
@@ -14,9 +16,13 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (password !== confirmPassword) {
+      setError('As senhas não coincidem');
+      return;
+    }
     setLoading(true);
     try {
-      await login(email, password);
+      await register(name, email, password);
       navigate('/perfil');
     } catch (err) {
       setError(err.message);
@@ -42,7 +48,7 @@ export default function LoginPage() {
         @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         body { -webkit-font-smoothing: antialiased; }
-        .login-input {
+        .reg-input {
           width: 100%;
           background: rgba(255,255,255,0.04);
           border: 1px solid rgba(255,255,255,0.1);
@@ -54,12 +60,12 @@ export default function LoginPage() {
           outline: none;
           transition: border-color 0.2s, background 0.2s;
         }
-        .login-input:focus {
+        .reg-input:focus {
           border-color: rgba(200,255,0,0.4);
           background: rgba(200,255,0,0.03);
         }
-        .login-input::placeholder { color: rgba(255,255,255,0.25); }
-        .login-btn {
+        .reg-input::placeholder { color: rgba(255,255,255,0.25); }
+        .reg-btn {
           width: 100%;
           padding: 15px;
           background: #c8ff00;
@@ -73,23 +79,20 @@ export default function LoginPage() {
           transition: all 0.2s;
           letter-spacing: 0.3px;
         }
-        .login-btn:hover:not(:disabled) { background: #d4ff33; transform: translateY(-1px); }
-        .login-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .reg-btn:hover:not(:disabled) { background: #d4ff33; transform: translateY(-1px); }
+        .reg-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .back-link { color: rgba(255,255,255,0.35); font-size: 0.8rem; text-decoration: none; transition: color 0.2s; }
         .back-link:hover { color: rgba(255,255,255,0.7); }
-        .register-link { color: #c8ff00; font-size: 0.85rem; text-decoration: none; font-weight: 600; transition: opacity 0.2s; }
-        .register-link:hover { opacity: 0.8; }
-        @keyframes pulse-ring { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(2.5); opacity: 0; } }
+        .login-link { color: #c8ff00; font-size: 0.85rem; text-decoration: none; font-weight: 600; transition: opacity 0.2s; }
+        .login-link:hover { opacity: 0.8; }
       `}</style>
 
-      {/* Background glows */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
         <div style={{ position: 'absolute', width: 600, height: 600, top: '-10%', right: '-5%', background: 'radial-gradient(circle, rgba(200,255,0,0.04) 0%, transparent 60%)', filter: 'blur(40px)' }} />
         <div style={{ position: 'absolute', width: 400, height: 400, bottom: '5%', left: '-5%', background: 'radial-gradient(circle, rgba(77,159,255,0.03) 0%, transparent 60%)', filter: 'blur(40px)' }} />
       </div>
 
       <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 420 }}>
-        {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <Link to="/" style={{ display: 'inline-block', marginBottom: 24 }}>
             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '1.1rem', color: '#c8ff00', letterSpacing: -0.5 }}>
@@ -97,14 +100,13 @@ export default function LoginPage() {
             </span>
           </Link>
           <h1 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: -0.8, marginBottom: 8 }}>
-            Acesso ao painel
+            Criar conta
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.88rem' }}>
-            Entre com suas credenciais para continuar
+            Preencha os dados para se registrar
           </p>
         </div>
 
-        {/* Card */}
         <div style={{
           background: 'rgba(255,255,255,0.02)',
           border: '1px solid rgba(255,255,255,0.07)',
@@ -115,10 +117,25 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Nome
+              </label>
+              <input
+                className="reg-input"
+                type="text"
+                placeholder="Seu nome"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                autoComplete="name"
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 E-mail
               </label>
               <input
-                className="login-input"
+                className="reg-input"
                 type="email"
                 placeholder="seu@email.com"
                 value={email}
@@ -134,13 +151,13 @@ export default function LoginPage() {
               </label>
               <div style={{ position: 'relative' }}>
                 <input
-                  className="login-input"
+                  className="reg-input"
                   type={showPass ? 'text' : 'password'}
-                  placeholder="••••••••"
+                  placeholder="Mínimo 8 caracteres"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   style={{ paddingRight: 48 }}
                 />
                 <button
@@ -153,22 +170,37 @@ export default function LoginPage() {
               </div>
             </div>
 
+            <div>
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Confirmar Senha
+              </label>
+              <input
+                className="reg-input"
+                type={showPass ? 'text' : 'password'}
+                placeholder="Repita a senha"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                autoComplete="new-password"
+              />
+            </div>
+
             {error && (
               <div style={{ padding: '10px 14px', background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.2)', borderRadius: 10, fontSize: '0.85rem', color: '#ff6b6b' }}>
                 {error}
               </div>
             )}
 
-            <button className="login-btn" type="submit" disabled={loading} style={{ marginTop: 4 }}>
-              {loading ? 'Entrando...' : 'Entrar'}
+            <button className="reg-btn" type="submit" disabled={loading} style={{ marginTop: 4 }}>
+              {loading ? 'Criando conta...' : 'Criar conta'}
             </button>
           </form>
         </div>
 
         <div style={{ textAlign: 'center', marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
           <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.85rem' }}>
-            Não tem uma conta?{' '}
-            <Link to="/registro" className="register-link">Criar conta</Link>
+            Já tem uma conta?{' '}
+            <Link to="/login" className="login-link">Entrar</Link>
           </span>
           <Link to="/" className="back-link">← Voltar ao site</Link>
         </div>

@@ -8,6 +8,7 @@ import TermsPage from './pages/TermsPage.jsx'
 import SistemasPage from './pages/SistemasPage.jsx'
 import AutomacaoPage from './pages/AutomacaoPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
+import RegisterPage from './pages/RegisterPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
 
@@ -33,6 +34,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/servicos/sistemas-sob-medida" element={<SistemasPage />} />
           <Route path="/servicos/automacao-de-processos" element={<AutomacaoPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/registro" element={<RegisterPage />} />
           <Route path="/perfil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
         </Routes>
       </AuthProvider>
