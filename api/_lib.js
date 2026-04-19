@@ -1,38 +1,56 @@
-import { kv } from '@vercel/kv';
+import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
+export { bcrypt };
 export const JWT_SECRET = process.env.JWT_SECRET || 'noratech-secret-key-change-in-production';
+
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'admin@noratech.com.br').toLowerCase();
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'noratech@2024';
 
+export function getSupabase() {
+  return createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { persistSession: false } }
+  );
+}
+
 export async function ensureAdmin() {
-  const exists = await kv.get(`email:${ADMIN_EMAIL}`);
-  if (exists) return;
-  const admin = {
+  const sb = getSupabase();
+  const { data } = await sb.from('users').select('id').eq('email', ADMIN_EMAIL).maybeSingle();
+  if (data) return;
+  await sb.from('users').insert({
     id: 'admin',
     name: 'Alexandre DC',
     email: ADMIN_EMAIL,
-    passwordHash: bcrypt.hashSync(ADMIN_PASSWORD, 10),
-    photoUrl: null,
-    createdAt: new Date().toISOString(),
-  };
-  await kv.set(`user:admin`, admin);
-  await kv.set(`email:${ADMIN_EMAIL}`, 'admin');
+    password_hash: bcrypt.hashSync(ADMIN_PASSWORD, 10),
+    photo_url: null,
+  });
 }
 
 export async function findUserByEmail(email) {
-  const userId = await kv.get(`email:${email}`);
-  if (!userId) return null;
-  return kv.get(`user:${userId}`);
+  const { data } = await getSupabase().from('users').select('*').eq('email', email).maybeSingle();
+  return data;
 }
 
 export async function findUserById(id) {
-  return kv.get(`user:${id}`);
+  const { data } = await getSupabase().from('users').select('*').eq('id', id).maybeSingle();
+  return data;
 }
 
-export async function saveUser(user) {
-  await kv.set(`user:${user.id}`, user);
+export async function updateUser(id, fields) {
+  const { data } = await getSupabase()
+    .from('users')
+    .update({ ...fields, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('*')
+    .single();
+  return data;
+}
+
+export function toPublic(user) {
+  return { id: user.id, name: user.name, email: user.email, photoUrl: user.photo_url };
 }
 
 export function authenticate(req, res) {
@@ -48,5 +66,3 @@ export function authenticate(req, res) {
     return null;
   }
 }
-
-export { bcrypt, kv };

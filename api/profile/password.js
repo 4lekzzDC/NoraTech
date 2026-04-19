@@ -1,4 +1,4 @@
-import { bcrypt, authenticate, findUserById, saveUser } from '../_lib.js';
+import { bcrypt, authenticate, findUserById, updateUser } from '../_lib.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'PATCH') return res.status(405).json({ error: 'Method not allowed' });
@@ -17,12 +17,10 @@ export default async function handler(req, res) {
   const user = await findUserById(payload.id);
   if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
 
-  if (!bcrypt.compareSync(currentPassword, user.passwordHash)) {
+  if (!bcrypt.compareSync(currentPassword, user.password_hash)) {
     return res.status(401).json({ error: 'Senha atual incorreta' });
   }
 
-  user.passwordHash = bcrypt.hashSync(newPassword, 10);
-  user.updatedAt = new Date().toISOString();
-  await saveUser(user);
+  await updateUser(user.id, { password_hash: bcrypt.hashSync(newPassword, 10) });
   res.json({ message: 'Senha alterada com sucesso' });
 }

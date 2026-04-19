@@ -1,4 +1,4 @@
-import { kv, authenticate, findUserById, saveUser } from './_lib.js';
+import { authenticate, findUserById, findUserByEmail, updateUser, getSupabase, toPublic } from './_lib.js';
 
 export default async function handler(req, res) {
   const payload = authenticate(req, res);
@@ -8,31 +8,32 @@ export default async function handler(req, res) {
   if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
 
   if (req.method === 'GET') {
-    return res.json({ id: user.id, name: user.name, email: user.email, photoUrl: user.photoUrl });
+    return res.json(toPublic(user));
   }
 
   if (req.method === 'PATCH') {
     const { name, email } = req.body || {};
+    const fields = {};
+
     if (name !== undefined) {
       if (!name.trim()) return res.status(400).json({ error: 'Nome não pode ser vazio' });
-      user.name = name.trim();
+      fields.name = name.trim();
     }
+
     if (email !== undefined) {
       const trimmed = email.trim().toLowerCase();
       if (!trimmed.includes('@') || !trimmed.includes('.')) {
         return res.status(400).json({ error: 'Email inválido' });
       }
       if (trimmed !== user.email) {
-        const taken = await kv.get(`email:${trimmed}`);
+        const taken = await findUserByEmail(trimmed);
         if (taken) return res.status(409).json({ error: 'Este email já está em uso' });
-        await kv.del(`email:${user.email}`);
-        await kv.set(`email:${trimmed}`, user.id);
-        user.email = trimmed;
+        fields.email = trimmed;
       }
     }
-    user.updatedAt = new Date().toISOString();
-    await saveUser(user);
-    return res.json({ id: user.id, name: user.name, email: user.email, photoUrl: user.photoUrl });
+
+    const updated = await updateUser(user.id, fields);
+    return res.json(toPublic(updated));
   }
 
   res.status(405).json({ error: 'Method not allowed' });

@@ -1,5 +1,5 @@
-import { kv, bcrypt, JWT_SECRET, ensureAdmin, findUserByEmail } from '../_lib.js';
 import jwt from 'jsonwebtoken';
+import { bcrypt, JWT_SECRET, ensureAdmin, findUserByEmail, getSupabase, toPublic } from '../_lib.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -13,27 +13,22 @@ export default async function handler(req, res) {
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-
   await ensureAdmin();
 
-  const existing = await kv.get(`email:${normalizedEmail}`);
+  const existing = await findUserByEmail(normalizedEmail);
   if (existing) return res.status(409).json({ error: 'Este email já está em uso' });
 
   const newUser = {
     id: `u_${Date.now()}`,
     name: name.trim(),
     email: normalizedEmail,
-    passwordHash: bcrypt.hashSync(password, 10),
-    photoUrl: null,
-    createdAt: new Date().toISOString(),
+    password_hash: bcrypt.hashSync(password, 10),
+    photo_url: null,
   };
 
-  await kv.set(`user:${newUser.id}`, newUser);
-  await kv.set(`email:${normalizedEmail}`, newUser.id);
+  const { data, error } = await getSupabase().from('users').insert(newUser).select('*').single();
+  if (error) return res.status(500).json({ error: 'Erro ao criar conta' });
 
-  const token = jwt.sign({ id: newUser.id }, JWT_SECRET, { expiresIn: '7d' });
-  res.status(201).json({
-    token,
-    user: { id: newUser.id, name: newUser.name, email: newUser.email, photoUrl: newUser.photoUrl },
-  });
+  const token = jwt.sign({ id: data.id }, JWT_SECRET, { expiresIn: '7d' });
+  res.status(201).json({ token, user: toPublic(data) });
 }

@@ -1,24 +1,21 @@
 import { put } from '@vercel/blob';
-import { authenticate, findUserById, saveUser } from '../_lib.js';
+import { authenticate, findUserById, updateUser, toPublic } from '../_lib.js';
 
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
+  const payload = authenticate(req, res);
+  if (!payload) return;
+
+  const user = await findUserById(payload.id);
+  if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
+
   if (req.method === 'DELETE') {
-    const payload = authenticate(req, res);
-    if (!payload) return;
-    const user = await findUserById(payload.id);
-    if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
-    user.photoUrl = null;
-    user.updatedAt = new Date().toISOString();
-    await saveUser(user);
-    return res.json({ photoUrl: null });
+    const updated = await updateUser(user.id, { photo_url: null });
+    return res.json({ photoUrl: updated.photo_url });
   }
 
   if (req.method === 'POST') {
-    const payload = authenticate(req, res);
-    if (!payload) return;
-
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     const buffer = Buffer.concat(chunks);
@@ -50,12 +47,8 @@ export default async function handler(req, res) {
       contentType: mimeType,
     });
 
-    const user = await findUserById(payload.id);
-    if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
-    user.photoUrl = blob.url;
-    user.updatedAt = new Date().toISOString();
-    await saveUser(user);
-    return res.json({ photoUrl: blob.url });
+    const updated = await updateUser(user.id, { photo_url: blob.url });
+    return res.json(toPublic(updated));
   }
 
   res.status(405).json({ error: 'Method not allowed' });
