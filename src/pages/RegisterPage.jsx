@@ -5,7 +5,6 @@ import { useAuth } from '../contexts/AuthContext';
 export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -22,7 +21,7 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
-      await register(name, email, password);
+      await register(email, password);
       navigate('/perfil');
     } catch (err) {
       setError(err.message);
@@ -115,21 +114,6 @@ export default function RegisterPage() {
           backdropFilter: 'blur(12px)',
         }}>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Nome
-              </label>
-              <input
-                className="reg-input"
-                type="text"
-                placeholder="Seu nome"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                autoComplete="name"
-              />
-            </div>
-
             <div>
               <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 E-mail

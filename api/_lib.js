@@ -22,10 +22,8 @@ export async function ensureAdmin() {
   if (data) return;
   await sb.from('users').insert({
     id: 'admin',
-    name: 'Alexandre DC',
     email: ADMIN_EMAIL,
-    password_hash: bcrypt.hashSync(ADMIN_PASSWORD, 10),
-    photo_url: null,
+    password: bcrypt.hashSync(ADMIN_PASSWORD, 10),
   });
 }
 
@@ -42,7 +40,7 @@ export async function findUserById(id) {
 export async function updateUser(id, fields) {
   const { data } = await getSupabase()
     .from('users')
-    .update({ ...fields, updated_at: new Date().toISOString() })
+    .update(fields)
     .eq('id', id)
     .select('*')
     .single();
@@ -50,7 +48,12 @@ export async function updateUser(id, fields) {
 }
 
 export function toPublic(user) {
-  return { id: user.id, name: user.name, email: user.email, photoUrl: user.photo_url };
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.email.split('@')[0],
+    photoUrl: null,
+  };
 }
 
 export function authenticate(req, res) {

@@ -17,10 +17,10 @@ export default async function handler(req, res) {
   const user = await findUserById(payload.id);
   if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
 
-  if (!bcrypt.compareSync(currentPassword, user.password_hash)) {
+  if (!bcrypt.compareSync(currentPassword, user.password)) {
     return res.status(401).json({ error: 'Senha atual incorreta' });
   }
 
-  await updateUser(user.id, { password_hash: bcrypt.hashSync(newPassword, 10) });
+  await updateUser(user.id, { password: bcrypt.hashSync(newPassword, 10) });
   res.json({ message: 'Senha alterada com sucesso' });
 }

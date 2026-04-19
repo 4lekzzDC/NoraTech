@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   await ensureAdmin();
 
   const user = await findUserByEmail(normalizedEmail);
-  if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+  if (!user || !bcrypt.compareSync(password, user.password)) {
     return res.status(401).json({ error: 'Credenciais inválidas' });
   }
 

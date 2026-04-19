@@ -1,4 +1,4 @@
-import { authenticate, findUserById, findUserByEmail, updateUser, getSupabase, toPublic } from './_lib.js';
+import { authenticate, findUserById, findUserByEmail, updateUser, toPublic } from './_lib.js';
 
 export default async function handler(req, res) {
   const payload = authenticate(req, res);
@@ -12,14 +12,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'PATCH') {
-    const { name, email } = req.body || {};
-    const fields = {};
-
-    if (name !== undefined) {
-      if (!name.trim()) return res.status(400).json({ error: 'Nome não pode ser vazio' });
-      fields.name = name.trim();
-    }
-
+    const { email } = req.body || {};
     if (email !== undefined) {
       const trimmed = email.trim().toLowerCase();
       if (!trimmed.includes('@') || !trimmed.includes('.')) {
@@ -28,12 +21,11 @@ export default async function handler(req, res) {
       if (trimmed !== user.email) {
         const taken = await findUserByEmail(trimmed);
         if (taken) return res.status(409).json({ error: 'Este email já está em uso' });
-        fields.email = trimmed;
+        const updated = await updateUser(user.id, { email: trimmed });
+        return res.json(toPublic(updated));
       }
     }
-
-    const updated = await updateUser(user.id, fields);
-    return res.json(toPublic(updated));
+    return res.json(toPublic(user));
   }
 
   res.status(405).json({ error: 'Method not allowed' });
