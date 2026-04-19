@@ -366,8 +366,7 @@ export default function App() {
             <a href="#sobre" className="nav-link">Sobre</a>
             <a href="#servicos" className="nav-link">Serviços</a>
             <a href="#produtos" className="nav-link">Projetos</a>
-            <a href="#processo" className="nav-link">Processo</a>
-            <a href="#depoimentos" className="nav-link">Clientes</a>
+
             <a href="#contato" className="nav-link nav-cta-desktop" style={{ padding: "8px 18px", background: "#c8ff00", color: "#08080a", fontWeight: 700, borderRadius: 100 }}>Contato</a>
           </div>
           <button
@@ -412,8 +411,7 @@ export default function App() {
           <a href="#sobre" className="nav-link" onClick={() => setMenuOpen(false)}>Sobre</a>
           <a href="#servicos" className="nav-link" onClick={() => setMenuOpen(false)}>Serviços</a>
           <a href="#produtos" className="nav-link" onClick={() => setMenuOpen(false)}>Projetos</a>
-          <a href="#processo" className="nav-link" onClick={() => setMenuOpen(false)}>Processo</a>
-          <a href="#depoimentos" className="nav-link" onClick={() => setMenuOpen(false)}>Clientes</a>
+
           <a href="#contato" className="nav-link mobile-cta" onClick={() => setMenuOpen(false)}>Contato</a>
         </div>
       )}
@@ -1125,93 +1123,6 @@ export default function App() {
         </div>
       </section>
 
-      {/* ═══ PROCESS — hen-ry editorial style ═══ */}
-      <section id="processo" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
-        <Reveal>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <Star size={12} color="#ff6b9d" />
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#ff6b9d", textTransform: "uppercase", letterSpacing: 3 }}>Processo</span>
-          </div>
-        </Reveal>
-        <Reveal delay={0.1}>
-          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 14 }}>
-            Do briefing ao <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>deploy</span>
-          </h2>
-        </Reveal>
-        <Reveal delay={0.15}>
-          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 560, lineHeight: 1.6, marginBottom: 64 }}>
-            Metodologia aplicada a cada projeto — quatro etapas com entregáveis definidos, prazo acordado e transparência total de escopo.
-          </p>
-        </Reveal>
-
-        <div className="process-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 2, borderRadius: 18, overflow: "hidden" }}>
-          {[
-            { num: "01", icon: "🔍", title: "Diagnóstico", desc: "Mapeamos gargalos e identificamos onde a tecnologia gera mais impacto no seu negócio." },
-            { num: "02", icon: "🔧", title: "Arquitetura", desc: "Stack, módulos e integrações. Protótipo funcional em 2 semanas." },
-            { num: "03", icon: "🧪", title: "Configuração", desc: "Sistema configurado com seus dados, fluxos e regras. Refinamento até a performance ideal." },
-            { num: "04", icon: "🚀", title: "Deploy", desc: "Produção com monitoramento 24/7, suporte dedicado e otimização contínua." },
-          ].map((step, i) => (
-            <Reveal key={i} type="up" delay={i * 0.1}>
-              <div style={{ background: "#111114", padding: "36px 24px", height: "100%", transition: "all 0.3s", position: "relative" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.6rem", color: "rgba(255,255,255,0.15)", fontWeight: 600, letterSpacing: 2 }}>{step.num}</span>
-                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.04)" }} />
-                </div>
-                <div style={{ fontSize: "2rem", marginBottom: 14 }}>{step.icon}</div>
-                <h4 style={{ fontSize: "1.05rem", fontWeight: 700, marginBottom: 10 }}>{step.title}</h4>
-                <p style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.35)", lineHeight: 1.65 }}>{step.desc}</p>
-
-                {/* Decorative star */}
-                <Star size={8} color="rgba(255,107,157,0.15)" style={{ position: "absolute", top: 20, right: 20 }} />
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
-      {/* ═══ TESTIMONIALS — iMessage window ═══ */}
-      <section id="depoimentos" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
-        <Reveal>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <Star size={12} color="#00d48a" />
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#00d48a", textTransform: "uppercase", letterSpacing: 3 }}>Clientes</span>
-          </div>
-        </Reveal>
-        <Reveal delay={0.1}>
-          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 14 }}>
-            Quem já <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>transformou</span>
-          </h2>
-        </Reveal>
-        <Reveal delay={0.15}>
-          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 560, lineHeight: 1.6, marginBottom: 64 }}>
-            Resultados reais de empresas que colocaram a Noratech dentro da operação.
-          </p>
-        </Reveal>
-
-        <Reveal type="scale" delay={0.2}>
-          <div style={{ background: "#111114", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 22, overflow: "hidden", maxWidth: 720, margin: "0 auto", boxShadow: "0 30px 80px rgba(0,0,0,0.4)" }}>
-            <WinBar title="mensagens — clientes" />
-            <div style={{ padding: "20px 20px", display: "flex", flexDirection: "column", gap: 14, maxHeight: 440, overflowY: "auto" }}>
-              {TESTIMONIALS.map((t, i) => (
-                <div key={i} style={{ display: "flex", flexDirection: "column", gap: 4, alignSelf: i % 2 === 0 ? "flex-start" : "flex-end", maxWidth: "78%" }}>
-                  <div style={{
-                    padding: "12px 16px", borderRadius: 18, fontSize: "0.86rem", lineHeight: 1.55,
-                    background: i % 2 === 0 ? "#1a1a1e" : "rgba(200,255,0,0.1)",
-                    color: i % 2 === 0 ? "rgba(255,255,255,0.7)" : "#c8ff00",
-                    borderBottomLeftRadius: i % 2 === 0 ? 4 : 18,
-                    borderBottomRightRadius: i % 2 !== 0 ? 4 : 18,
-                  }}>
-                    {t.text}
-                  </div>
-                  <span style={{ fontSize: "0.64rem", color: "rgba(255,255,255,0.2)", padding: "0 6px", textAlign: i % 2 === 0 ? "left" : "right" }}>
-                    {t.name} — {t.role}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Reveal>
-      </section>
 
       {/* ═══ FAQ — Tabbed (hen-ry style) ═══ */}
       <section className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
