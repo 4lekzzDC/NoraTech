@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   if (!email || !password) return res.status(400).json({ error: 'Email e senha são obrigatórios' });
 
   const normalizedEmail = email.trim().toLowerCase();
-  await ensureAdmin();
+  try { await ensureAdmin(); } catch (_) {}
 
   const user = await findUserByEmail(normalizedEmail);
   if (!user || !bcrypt.compareSync(password, user.password)) {

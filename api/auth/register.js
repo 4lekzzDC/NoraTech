@@ -13,18 +13,19 @@ export default async function handler(req, res) {
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  await ensureAdmin();
+
+  try { await ensureAdmin(); } catch (_) {}
 
   const existing = await findUserByEmail(normalizedEmail);
   if (existing) return res.status(409).json({ error: 'Este email já está em uso' });
 
   const { data, error } = await getSupabase()
     .from('users')
-    .insert({ id: `u_${Date.now()}`, email: normalizedEmail, password: bcrypt.hashSync(password, 10) })
+    .insert({ email: normalizedEmail, password: bcrypt.hashSync(password, 10) })
     .select('*')
     .single();
 
-  if (error) return res.status(500).json({ error: 'Erro ao criar conta' });
+  if (error) return res.status(500).json({ error: error.message });
 
   const token = jwt.sign({ id: data.id }, JWT_SECRET, { expiresIn: '7d' });
   res.status(201).json({ token, user: toPublic(data) });

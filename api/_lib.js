@@ -21,7 +21,6 @@ export async function ensureAdmin() {
   const { data } = await sb.from('users').select('id').eq('email', ADMIN_EMAIL).maybeSingle();
   if (data) return;
   await sb.from('users').insert({
-    id: 'admin',
     email: ADMIN_EMAIL,
     password: bcrypt.hashSync(ADMIN_PASSWORD, 10),
   });
