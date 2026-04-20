@@ -4,7 +4,11 @@ const url = import.meta.env.VITE_SUPABASE_URL
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!url || !key) {
-  console.error('Supabase env vars missing: VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY')
+  throw new Error(
+    '[Noratech] Variáveis de ambiente Supabase não configuradas.\n' +
+    'Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no Vercel (Settings → Environment Variables) ' +
+    'para os ambientes Production E Preview, depois faça um novo deploy.'
+  )
 }
 
 export const supabase = createClient(url, key)
