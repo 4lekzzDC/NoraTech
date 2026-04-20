@@ -203,9 +203,23 @@ export default function RegisterPage() {
 
       <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 420 }}>
         <div style={{ textAlign: 'center' }}>
-          <Link to="/" style={{ display: 'inline-block' }}>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '1.1rem', color: '#7C3AED', letterSpacing: -0.5 }}>
-              NORA<span style={{ color: 'rgba(255,255,255,0.3)' }}>TECH</span>
+          <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 48 48" fill="none">
+              <defs>
+                <linearGradient id="nora-n-grad-r" x1="6" y1="40" x2="42" y2="8" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="#7C3AED"/>
+                  <stop offset="100%" stopColor="#2563EB"/>
+                </linearGradient>
+                <linearGradient id="nora-accent-grad-r" x1="30" y1="6" x2="42" y2="22" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="#2563EB"/>
+                  <stop offset="100%" stopColor="#7C3AED"/>
+                </linearGradient>
+              </defs>
+              <path d="M10 40 V10 H17 L32 30 V10 H38 V40 H31 L16 20 V40 Z" fill="url(#nora-n-grad-r)"/>
+              <path d="M32 10 H38 V22 L32 16 Z" fill="url(#nora-accent-grad-r)" opacity="0.85"/>
+            </svg>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '1.15rem', color: '#eeede9', letterSpacing: -0.5 }}>
+              Nora<span style={{ color: 'rgba(255,255,255,0.35)' }}>tech</span>
             </span>
           </Link>
           <h1 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: -0.8, marginBottom: 8, marginTop: 18 }}>
@@ -226,7 +240,7 @@ export default function RegisterPage() {
           padding: '32px 28px',
           backdropFilter: 'blur(12px)',
         }}>
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div className="input-group">
               <label className="input-label">Nome</label>
               <div className="input-wrapper">
