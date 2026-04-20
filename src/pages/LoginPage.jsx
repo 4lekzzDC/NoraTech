@@ -27,13 +27,31 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
+
+    const TIMEOUT_MS = 15000;
+    let timedOut = false;
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      setLoading(false);
+      setError('A conexão demorou demais. Verifique sua internet e tente novamente.');
+    }, TIMEOUT_MS);
+
     try {
       await login(email, password);
-      navigate('/area-do-cliente');
+      if (!timedOut) {
+        clearTimeout(timeoutId);
+        navigate('/area-do-cliente');
+      }
     } catch (err) {
-      setError(err.message);
+      if (!timedOut) {
+        clearTimeout(timeoutId);
+        setError(err.message);
+      }
     } finally {
-      setLoading(false);
+      if (!timedOut) {
+        clearTimeout(timeoutId);
+        setLoading(false);
+      }
     }
   };
 

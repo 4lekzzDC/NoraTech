@@ -11,6 +11,8 @@ function translateAuthError(error) {
   if (msg.includes('user already registered')) return 'Este e-mail já está em uso';
   if (msg.includes('password should be at least')) return 'A senha deve ter pelo menos 6 caracteres';
   if (msg.includes('rate limit')) return 'Muitas tentativas. Tente novamente em instantes.';
+  if (msg.includes('fetch') || msg.includes('network') || msg.includes('failed to fetch')) return 'Erro de conexão. Verifique sua internet e tente novamente.';
+  if (error.status === 404 || error.status === 503) return 'Serviço temporariamente indisponível. Tente novamente em instantes.';
   return error.message || 'Erro ao processar a solicitação';
 }
 
