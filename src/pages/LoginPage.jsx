@@ -2,6 +2,18 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
+function Star({ size = 20, color = '#c8ff00', style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={{ flexShrink: 0, ...style }}>
+      <path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41Z" />
+    </svg>
+  );
+}
+
+function Diamond({ size = 12, color = 'rgba(200,255,0,0.3)', style = {} }) {
+  return <div style={{ width: size, height: size, background: color, transform: 'rotate(45deg)', borderRadius: 2, flexShrink: 0, ...style }} />;
+}
+
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -64,9 +76,7 @@ export default function LoginPage() {
           position: relative;
           transition: transform 0.2s ease;
         }
-        .input-wrapper:focus-within {
-          transform: translateY(-1px);
-        }
+        .input-wrapper:focus-within { transform: translateY(-1px); }
         .login-btn {
           width: 100%;
           padding: 15px;
@@ -111,7 +121,17 @@ export default function LoginPage() {
           border-color: rgba(255,255,255,0.15);
           color: rgba(255,255,255,0.8);
         }
-        @keyframes pulse-ring { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(2.5); opacity: 0; } }
+        @keyframes float1 { 0%,100% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(12px,-18px) rotate(3deg); } }
+        @keyframes float2 { 0%,100% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(-15px,12px) rotate(-2deg); } }
+        @keyframes float3 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(8px,14px); } }
+        @keyframes grain {
+          0%,100% { transform: translate(0,0); }
+          10% { transform: translate(-5%,-10%); }
+          30% { transform: translate(3%,-15%); }
+          50% { transform: translate(12%,9%); }
+          70% { transform: translate(9%,4%); }
+          90% { transform: translate(-1%,7%); }
+        }
       `}</style>
 
       {/* Back button top-left */}
@@ -121,16 +141,27 @@ export default function LoginPage() {
         </svg>
       </Link>
 
-      {/* Background glows */}
+      {/* Animated background */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
-        <div style={{ position: 'absolute', width: 600, height: 600, top: '-10%', right: '-5%', background: 'radial-gradient(circle, rgba(200,255,0,0.04) 0%, transparent 60%)', filter: 'blur(40px)' }} />
-        <div style={{ position: 'absolute', width: 400, height: 400, bottom: '5%', left: '-5%', background: 'radial-gradient(circle, rgba(77,159,255,0.03) 0%, transparent 60%)', filter: 'blur(40px)' }} />
+        <div style={{ position: 'absolute', inset: 0, opacity: 0.02, backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")", animation: 'grain 8s steps(10) infinite' }} />
+        <div style={{ position: 'absolute', width: 800, height: 800, top: '-15%', right: '-10%', background: 'radial-gradient(circle, rgba(200,255,0,0.035) 0%, transparent 55%)', filter: 'blur(40px)' }} />
+        <div style={{ position: 'absolute', width: 600, height: 600, bottom: '10%', left: '-10%', background: 'radial-gradient(circle, rgba(77,159,255,0.025) 0%, transparent 55%)', filter: 'blur(40px)' }} />
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px)', backgroundSize: '40px 40px', maskImage: 'radial-gradient(ellipse at 50% 30%, black 10%, transparent 60%)' }} />
+      </div>
+
+      {/* Floating decorative elements */}
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+        <Star size={14} color="rgba(200,255,0,0.15)" style={{ position: 'absolute', top: '12%', left: '8%', animation: 'float1 7s ease-in-out infinite' }} />
+        <Star size={10} color="rgba(77,159,255,0.12)" style={{ position: 'absolute', top: '35%', right: '12%', animation: 'float2 9s ease-in-out infinite' }} />
+        <Diamond size={10} color="rgba(255,107,157,0.15)" style={{ position: 'absolute', top: '60%', left: '5%', animation: 'float3 8s ease-in-out infinite' }} />
+        <Star size={8} color="rgba(200,255,0,0.1)" style={{ position: 'absolute', top: '75%', right: '8%', animation: 'float1 11s ease-in-out infinite' }} />
+        <Diamond size={8} color="rgba(255,138,61,0.12)" style={{ position: 'absolute', top: '20%', right: '25%', animation: 'float2 10s ease-in-out infinite' }} />
       </div>
 
       <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 420 }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <Link to="/" style={{ display: 'inline-block', marginBottom: 20 }}>
+          <Link to="/" style={{ display: 'inline-block', marginBottom: 20, textDecoration: 'none' }}>
             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '1.1rem', color: '#c8ff00', letterSpacing: -0.5 }}>
               NORA<span style={{ color: 'rgba(255,255,255,0.3)' }}>TECH</span>
             </span>
