@@ -119,6 +119,8 @@ export default function AreaDoClientePage() {
         a { text-decoration: none; color: inherit; }
         .tab-btn { background: none; border: none; cursor: pointer; font-family: 'Manrope', sans-serif; padding: 14px 4px; position: relative; transition: color 0.2s; }
         .tab-btn:hover { color: rgba(255,255,255,0.9); }
+        .tabs-nav { scrollbar-width: none; -ms-overflow-style: none; }
+        .tabs-nav::-webkit-scrollbar { display: none; }
         .btn-ghost:hover { background: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.2) !important; }
         .btn-primary:hover { background: #d4ff33 !important; transform: translateY(-1px); }
         .system-card:hover { border-color: rgba(200,255,0,0.25) !important; background: rgba(255,255,255,0.03) !important; }
@@ -172,7 +174,7 @@ export default function AreaDoClientePage() {
 
       <main style={{ position: 'relative', zIndex: 1, maxWidth: 1240, margin: '0 auto', padding: '28px 32px 96px' }}>
         {/* Tabs */}
-        <nav style={{ display: 'flex', gap: 36, borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 56, overflowX: 'auto' }}>
+        <nav className="tabs-nav" style={{ display: 'flex', gap: 36, borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 56, overflowX: 'auto' }}>
           {TABS.map((t) => {
             const active = activeTab === t.id;
             return (
