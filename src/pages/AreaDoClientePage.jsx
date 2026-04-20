@@ -40,9 +40,9 @@ const STATUS_CARDS = [
     icon: '↗',
     title: 'EXPANSÃO',
     count: 2,
-    color: '#4d9fff',
-    bg: 'rgba(77,159,255,0.08)',
-    border: 'rgba(77,159,255,0.22)',
+    color: '#2563EB',
+    bg: 'rgba(37, 99, 235,0.08)',
+    border: 'rgba(37, 99, 235,0.22)',
     items: ['Upgrade Bot → multicanal disponível', 'Dashboard financeiro recomendado'],
   },
 ];
@@ -50,7 +50,7 @@ const STATUS_CARDS = [
 const ACTIVITY = [
   { when: 'agora', color: '#7dff7d', text: 'WhatsApp Bot respondeu 3 clientes simultâneos' },
   { when: '2min', color: '#7dff7d', text: 'Finzo sincronizou 12 transações bancárias' },
-  { when: '15min', color: '#4d9fff', text: 'Site recebeu 47 visitas orgânicas' },
+  { when: '15min', color: '#2563EB', text: 'Site recebeu 47 visitas orgânicas' },
   { when: '1h', color: '#ffb347', text: 'Certificado SSL — renovação em 12 dias' },
   { when: '3h', color: '#7dff7d', text: 'Backup automático concluído com sucesso' },
 ];
@@ -70,22 +70,22 @@ function Gauge({ value }) {
   return (
     <div style={{ position: 'relative', width: size, height: size }}>
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(200,255,0,0.08)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(124, 58, 237,0.08)" strokeWidth={stroke} />
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="#c8ff00"
+          stroke="#7C3AED"
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          style={{ filter: 'drop-shadow(0 0 12px rgba(200,255,0,0.4))', transition: 'stroke-dashoffset 1s ease' }}
+          style={{ filter: 'drop-shadow(0 0 12px rgba(124, 58, 237,0.4))', transition: 'stroke-dashoffset 1s ease' }}
         />
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ fontSize: '3.6rem', fontWeight: 800, color: '#c8ff00', letterSpacing: -2, lineHeight: 1 }}>{value}</div>
+        <div style={{ fontSize: '3.6rem', fontWeight: 800, color: '#7C3AED', letterSpacing: -2, lineHeight: 1 }}>{value}</div>
         <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: 1.5, color: 'rgba(255,255,255,0.45)', marginTop: 8, textTransform: 'uppercase' }}>
           Saúde da operação
         </div>
@@ -111,32 +111,32 @@ export default function AreaDoClientePage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#08080a', color: '#eeede9', fontFamily: "'Manrope', sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: '#08080a', color: '#eeede9', fontFamily: "'Inter', sans-serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         body { -webkit-font-smoothing: antialiased; }
         a { text-decoration: none; color: inherit; }
-        .tab-btn { background: none; border: none; cursor: pointer; font-family: 'Manrope', sans-serif; padding: 14px 4px; position: relative; transition: color 0.2s; }
+        .tab-btn { background: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; padding: 14px 4px; position: relative; transition: color 0.2s; }
         .tab-btn:hover { color: rgba(255,255,255,0.9); }
         .btn-ghost:hover { background: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.2) !important; }
         .btn-primary:hover { background: #d4ff33 !important; transform: translateY(-1px); }
-        .system-card:hover { border-color: rgba(200,255,0,0.25) !important; background: rgba(255,255,255,0.03) !important; }
+        .system-card:hover { border-color: rgba(124, 58, 237,0.25) !important; background: rgba(255,255,255,0.03) !important; }
         @keyframes pulse { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.4; } }
         .live-dot { animation: pulse 1.6s ease-in-out infinite; }
       `}</style>
 
       {/* Background glow */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
-        <div style={{ position: 'absolute', width: 720, height: 720, top: '-20%', right: '-10%', background: 'radial-gradient(circle, rgba(200,255,0,0.035) 0%, transparent 60%)', filter: 'blur(50px)' }} />
-        <div style={{ position: 'absolute', width: 520, height: 520, bottom: '-10%', left: '-10%', background: 'radial-gradient(circle, rgba(77,159,255,0.025) 0%, transparent 60%)', filter: 'blur(50px)' }} />
+        <div style={{ position: 'absolute', width: 720, height: 720, top: '-20%', right: '-10%', background: 'radial-gradient(circle, rgba(124, 58, 237,0.035) 0%, transparent 60%)', filter: 'blur(50px)' }} />
+        <div style={{ position: 'absolute', width: 520, height: 520, bottom: '-10%', left: '-10%', background: 'radial-gradient(circle, rgba(37, 99, 235,0.025) 0%, transparent 60%)', filter: 'blur(50px)' }} />
       </div>
 
       {/* Header */}
       <header style={{ position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(8,8,10,0.9)', backdropFilter: 'blur(20px)' }}>
         <div style={{ maxWidth: 1240, margin: '0 auto', padding: '0 32px', height: 72, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 20, minWidth: 0 }}>
-            <Link to="/" style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '0.95rem', color: '#c8ff00', letterSpacing: -0.5, flexShrink: 0 }}>
+            <Link to="/" style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '0.95rem', color: '#7C3AED', letterSpacing: -0.5, flexShrink: 0 }}>
               NORA<span style={{ color: 'rgba(255,255,255,0.3)' }}>TECH</span>
             </Link>
             <span style={{ color: 'rgba(255,255,255,0.15)' }}>/</span>
@@ -150,7 +150,7 @@ export default function AreaDoClientePage() {
               {user?.photoUrl ? (
                 <img src={user.photoUrl} alt="" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover' }} />
               ) : (
-                <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(200,255,0,0.15)', color: '#c8ff00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.78rem', fontWeight: 800 }}>
+                <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(124, 58, 237,0.15)', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.78rem', fontWeight: 800 }}>
                   {initials}
                 </div>
               )}
@@ -162,7 +162,7 @@ export default function AreaDoClientePage() {
             <button
               onClick={handleLogout}
               className="btn-ghost"
-              style={{ padding: '9px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'rgba(255,255,255,0.6)', fontFamily: "'Manrope', sans-serif", fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
+              style={{ padding: '9px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'rgba(255,255,255,0.6)', fontFamily: "'Inter', sans-serif", fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
             >
               Sair ↗
             </button>
@@ -180,14 +180,14 @@ export default function AreaDoClientePage() {
                 key={t.id}
                 className="tab-btn"
                 onClick={() => setActiveTab(t.id)}
-                style={{ color: active ? '#c8ff00' : 'rgba(255,255,255,0.45)', fontSize: '0.92rem', fontWeight: active ? 700 : 500, display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap' }}
+                style={{ color: active ? '#7C3AED' : 'rgba(255,255,255,0.45)', fontSize: '0.92rem', fontWeight: active ? 700 : 500, display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap' }}
               >
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.72rem', color: active ? 'rgba(200,255,0,0.6)' : 'rgba(255,255,255,0.25)' }}>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.72rem', color: active ? 'rgba(124, 58, 237,0.6)' : 'rgba(255,255,255,0.25)' }}>
                   {t.num}
                 </span>
                 {t.label}
                 {active && (
-                  <span style={{ position: 'absolute', left: 0, right: 0, bottom: -1, height: 2, background: '#c8ff00', borderRadius: 2 }} />
+                  <span style={{ position: 'absolute', left: 0, right: 0, bottom: -1, height: 2, background: '#7C3AED', borderRadius: 2 }} />
                 )}
               </button>
             );
@@ -211,7 +211,7 @@ export default function AreaDoClientePage() {
                   CLIENTE DESDE MAR/2024
                 </span>
                 <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 800, letterSpacing: -1.5, lineHeight: 1.05, marginBottom: 14 }}>
-                  Olá, <span style={{ color: '#c8ff00' }}>{firstName}</span>
+                  Olá, <span style={{ color: '#7C3AED' }}>{firstName}</span>
                 </h1>
                 <p style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.5)', maxWidth: 520 }}>
                   Visão em tempo real da sua operação na Noratech.
@@ -274,7 +274,7 @@ export default function AreaDoClientePage() {
             <section>
               <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 22, gap: 16, flexWrap: 'wrap' }}>
                 <div>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.5, color: '#c8ff00', textTransform: 'uppercase' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.5, color: '#7C3AED', textTransform: 'uppercase' }}>
                     Operação
                   </span>
                   <h2 style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: -0.8, marginTop: 6 }}>
@@ -283,7 +283,7 @@ export default function AreaDoClientePage() {
                 </div>
                 <button
                   className="btn-ghost"
-                  style={{ padding: '10px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: 'rgba(255,255,255,0.7)', fontFamily: "'Manrope', sans-serif", fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
+                  style={{ padding: '10px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: 'rgba(255,255,255,0.7)', fontFamily: "'Inter', sans-serif", fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
                 >
                   + Novo sistema
                 </button>
@@ -303,7 +303,7 @@ export default function AreaDoClientePage() {
                       </span>
                     </div>
                     <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', marginBottom: 14 }}>{s.desc}</p>
-                    <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.78rem', color: '#c8ff00' }}>{s.metric}</p>
+                    <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.78rem', color: '#7C3AED' }}>{s.metric}</p>
                   </div>
                 ))}
               </div>

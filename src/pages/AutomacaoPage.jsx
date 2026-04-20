@@ -4,7 +4,7 @@ import { useEffect } from "react";
 export default function AutomacaoPage() {
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
-  const ACCENT = "#4d9fff";
+  const ACCENT = "#2563EB";
 
   const sectionStyle = { marginBottom: 56 };
   const h2Style = { fontSize: "1.5rem", fontWeight: 700, color: "#eeede9", marginBottom: 18, letterSpacing: -0.4 };
@@ -43,9 +43,9 @@ export default function AutomacaoPage() {
   ];
 
   return (
-    <div style={{ background: "#08080a", color: "#eeede9", fontFamily: "'Manrope', sans-serif", minHeight: "100vh", overflowX: "hidden" }}>
+    <div style={{ background: "#08080a", color: "#eeede9", fontFamily: "'Inter', sans-serif", minHeight: "100vh", overflowX: "hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
         body { -webkit-font-smoothing: antialiased; }
@@ -54,7 +54,7 @@ export default function AutomacaoPage() {
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
         a { text-decoration: none; color: inherit; }
         .feature-card { transition: all 0.4s cubic-bezier(0.16,1,0.3,1); }
-        .feature-card:hover { transform: translateY(-4px); border-color: rgba(77,159,255,0.28) !important; }
+        .feature-card:hover { transform: translateY(-4px); border-color: rgba(37, 99, 235,0.28) !important; }
 
         @media (max-width: 768px) {
           .svc-header { padding: 16px 20px !important; }
@@ -70,12 +70,12 @@ export default function AutomacaoPage() {
       {/* Atmosphere */}
       <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
         <div style={{ position: "absolute", width: 800, height: 800, top: "-15%", right: "-10%", background: `radial-gradient(circle, ${ACCENT}14 0%, transparent 55%)`, filter: "blur(40px)" }} />
-        <div style={{ position: "absolute", width: 600, height: 600, bottom: "10%", left: "-10%", background: "radial-gradient(circle, rgba(200,255,0,0.02) 0%, transparent 55%)", filter: "blur(40px)" }} />
+        <div style={{ position: "absolute", width: 600, height: 600, bottom: "10%", left: "-10%", background: "radial-gradient(circle, rgba(124, 58, 237,0.02) 0%, transparent 55%)", filter: "blur(40px)" }} />
       </div>
 
       {/* Header */}
       <header className="svc-header" style={{ position: "sticky", top: 0, zIndex: 100, padding: "20px 60px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(8,8,10,0.9)", backdropFilter: "blur(24px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <Link to="/" style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", letterSpacing: -0.5 }}>
+        <Link to="/" style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#7C3AED", letterSpacing: -0.5 }}>
           NORA<span style={{ color: "rgba(255,255,255,0.25)" }}>.tech</span>
         </Link>
         <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.82rem", color: "rgba(255,255,255,0.45)", padding: "7px 16px", borderRadius: 100, border: "1px solid rgba(255,255,255,0.08)", transition: "all 0.3s" }}>
@@ -96,7 +96,7 @@ export default function AutomacaoPage() {
           Transformamos tarefas manuais e repetitivas em fluxos automáticos — operações internas, atendimento, notificações e aprovações — reduzindo custo operacional e erro humano.
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-          <a href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20conversar%20sobre%20automa%C3%A7%C3%A3o%20de%20processos." target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 26px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.9rem" }}>
+          <a href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20conversar%20sobre%20automa%C3%A7%C3%A3o%20de%20processos." target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 26px", background: "#7C3AED", color: "#ffffff", borderRadius: 100, fontWeight: 700, fontSize: "0.9rem" }}>
             Solicitar diagnóstico <span style={{ fontSize: "1rem" }}>↗</span>
           </a>
           <Link to="/#servicos" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 24px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, fontWeight: 600, fontSize: "0.9rem" }}>
@@ -170,7 +170,7 @@ export default function AutomacaoPage() {
         </section>
 
         {/* CTA */}
-        <section style={{ marginTop: 64, padding: 40, background: `linear-gradient(135deg, ${ACCENT}14 0%, rgba(200,255,0,0.04) 100%)`, border: `1px solid ${ACCENT}33`, borderRadius: 20, textAlign: "center" }}>
+        <section style={{ marginTop: 64, padding: 40, background: `linear-gradient(135deg, ${ACCENT}14 0%, rgba(124, 58, 237,0.04) 100%)`, border: `1px solid ${ACCENT}33`, borderRadius: 20, textAlign: "center" }}>
           <h2 style={{ fontSize: "1.6rem", fontWeight: 800, letterSpacing: -0.6, marginBottom: 10 }}>
             Quais processos na sua empresa ainda são{" "}
             <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: ACCENT }}>manuais</span>?
@@ -178,7 +178,7 @@ export default function AutomacaoPage() {
           <p style={{ fontSize: "0.95rem", color: "rgba(255,255,255,0.55)", lineHeight: 1.7, maxWidth: 580, margin: "0 auto 24px" }}>
             Fazemos um diagnóstico gratuito de 30 minutos — identificamos os 3 processos de maior impacto para automatizar primeiro e estimamos o retorno em horas economizadas.
           </p>
-          <a href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20um%20diagn%C3%B3stico%20de%20automa%C3%A7%C3%A3o." target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 28px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem" }}>
+          <a href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20um%20diagn%C3%B3stico%20de%20automa%C3%A7%C3%A3o." target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 28px", background: "#7C3AED", color: "#ffffff", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem" }}>
             Agendar diagnóstico <span style={{ fontSize: "1rem" }}>↗</span>
           </a>
         </section>
