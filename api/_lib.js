@@ -21,6 +21,7 @@ export async function ensureAdmin() {
   const { data } = await sb.from('users').select('id').eq('email', ADMIN_EMAIL).maybeSingle();
   if (data) return;
   await sb.from('users').insert({
+    name: 'Alexandre DC',
     email: ADMIN_EMAIL,
     password: bcrypt.hashSync(ADMIN_PASSWORD, 10),
   });
@@ -50,7 +51,7 @@ export function toPublic(user) {
   return {
     id: user.id,
     email: user.email,
-    name: user.email.split('@')[0],
+    name: user.name || user.email.split('@')[0],
     photoUrl: user.photo_url ?? null,
   };
 }
