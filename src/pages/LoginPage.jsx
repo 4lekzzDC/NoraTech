@@ -28,30 +28,26 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    const TIMEOUT_MS = 15000;
+    const TIMEOUT_MS = 30000;
     let timedOut = false;
     const timeoutId = setTimeout(() => {
       timedOut = true;
       setLoading(false);
-      setError('A conexão demorou demais. Verifique sua internet e tente novamente.');
+      setError('A conexão demorou demais. Verifique sua internet, desative extensões do navegador e tente novamente.');
     }, TIMEOUT_MS);
 
     try {
       await login(email, password);
-      if (!timedOut) {
-        clearTimeout(timeoutId);
-        navigate('/area-do-cliente');
-      }
+      clearTimeout(timeoutId);
+      setError('');
+      navigate('/area-do-cliente');
     } catch (err) {
+      clearTimeout(timeoutId);
       if (!timedOut) {
-        clearTimeout(timeoutId);
         setError(err.message);
       }
     } finally {
-      if (!timedOut) {
-        clearTimeout(timeoutId);
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
