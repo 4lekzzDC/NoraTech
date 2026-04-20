@@ -17,7 +17,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate('/perfil');
+      navigate('/area-do-cliente');
     } catch (err) {
       setError(err.message);
     } finally {

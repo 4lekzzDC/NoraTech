@@ -10,6 +10,7 @@ import AutomacaoPage from './pages/AutomacaoPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
+import AreaDoClientePage from './pages/AreaDoClientePage.jsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
 
 function ProtectedRoute({ children }) {
@@ -36,6 +37,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/login" element={<LoginPage />} />
           <Route path="/registro" element={<RegisterPage />} />
           <Route path="/perfil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          <Route path="/area-do-cliente" element={<ProtectedRoute><AreaDoClientePage /></ProtectedRoute>} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
