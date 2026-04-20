@@ -4,7 +4,7 @@ import { useEffect } from "react";
 export default function SistemasPage() {
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
-  const ACCENT = "#c8ff00";
+  const ACCENT = "#7C3AED";
 
   const sectionStyle = { marginBottom: 56 };
   const h2Style = { fontSize: "1.5rem", fontWeight: 700, color: "#eeede9", marginBottom: 18, letterSpacing: -0.4 };
@@ -43,9 +43,9 @@ export default function SistemasPage() {
   ];
 
   return (
-    <div style={{ background: "#08080a", color: "#eeede9", fontFamily: "'Manrope', sans-serif", minHeight: "100vh", overflowX: "hidden" }}>
+    <div style={{ background: "#08080a", color: "#eeede9", fontFamily: "'Inter', sans-serif", minHeight: "100vh", overflowX: "hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
         body { -webkit-font-smoothing: antialiased; }
@@ -54,7 +54,7 @@ export default function SistemasPage() {
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
         a { text-decoration: none; color: inherit; }
         .feature-card { transition: all 0.4s cubic-bezier(0.16,1,0.3,1); }
-        .feature-card:hover { transform: translateY(-4px); border-color: rgba(200,255,0,0.22) !important; }
+        .feature-card:hover { transform: translateY(-4px); border-color: rgba(124, 58, 237,0.22) !important; }
 
         @media (max-width: 768px) {
           .svc-header { padding: 16px 20px !important; }
@@ -69,7 +69,7 @@ export default function SistemasPage() {
       {/* Atmosphere */}
       <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
         <div style={{ position: "absolute", width: 800, height: 800, top: "-15%", right: "-10%", background: `radial-gradient(circle, ${ACCENT}0D 0%, transparent 55%)`, filter: "blur(40px)" }} />
-        <div style={{ position: "absolute", width: 600, height: 600, bottom: "10%", left: "-10%", background: "radial-gradient(circle, rgba(77,159,255,0.025) 0%, transparent 55%)", filter: "blur(40px)" }} />
+        <div style={{ position: "absolute", width: 600, height: 600, bottom: "10%", left: "-10%", background: "radial-gradient(circle, rgba(37, 99, 235,0.025) 0%, transparent 55%)", filter: "blur(40px)" }} />
       </div>
 
       {/* Header */}
@@ -174,7 +174,7 @@ export default function SistemasPage() {
         </section>
 
         {/* CTA */}
-        <section style={{ marginTop: 64, padding: 40, background: `linear-gradient(135deg, ${ACCENT}10 0%, rgba(77,159,255,0.04) 100%)`, border: `1px solid ${ACCENT}22`, borderRadius: 20, textAlign: "center" }}>
+        <section style={{ marginTop: 64, padding: 40, background: `linear-gradient(135deg, ${ACCENT}10 0%, rgba(37, 99, 235,0.04) 100%)`, border: `1px solid ${ACCENT}22`, borderRadius: 20, textAlign: "center" }}>
           <h2 style={{ fontSize: "1.6rem", fontWeight: 800, letterSpacing: -0.6, marginBottom: 10 }}>
             Precisa de um sistema <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: ACCENT }}>sob medida</span>?
           </h2>

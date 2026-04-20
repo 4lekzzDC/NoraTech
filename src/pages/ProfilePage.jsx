@@ -39,13 +39,13 @@ function Toast({ message, type, onClose }) {
     <div style={{
       position: 'fixed', bottom: 28, right: 28, zIndex: 9999,
       padding: '12px 20px', borderRadius: 12, fontSize: '0.88rem', fontWeight: 600,
-      background: type === 'success' ? 'rgba(200,255,0,0.12)' : 'rgba(255,80,80,0.12)',
-      border: `1px solid ${type === 'success' ? 'rgba(200,255,0,0.3)' : 'rgba(255,80,80,0.3)'}`,
-      color: type === 'success' ? '#c8ff00' : '#ff6b6b',
+      background: type === 'success' ? 'rgba(124, 58, 237,0.12)' : 'rgba(255,80,80,0.12)',
+      border: `1px solid ${type === 'success' ? 'rgba(124, 58, 237,0.3)' : 'rgba(255,80,80,0.3)'}`,
+      color: type === 'success' ? '#7C3AED' : '#ff6b6b',
       boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
       display: 'flex', alignItems: 'center', gap: 10,
       animation: 'slideIn 0.3s cubic-bezier(0.16,1,0.3,1)',
-      fontFamily: "'Manrope', sans-serif",
+      fontFamily: "'Inter', sans-serif",
     }}>
       <span>{type === 'success' ? '✓' : '✕'}</span>
       {message}
@@ -177,7 +177,7 @@ export default function ProfilePage() {
     borderRadius: 12,
     padding: '13px 16px',
     color: '#eeede9',
-    fontFamily: "'Manrope', sans-serif",
+    fontFamily: "'Inter', sans-serif",
     fontSize: '0.92rem',
     outline: 'none',
     transition: 'border-color 0.2s',
@@ -185,11 +185,11 @@ export default function ProfilePage() {
 
   const btnPrimary = {
     padding: '12px 24px',
-    background: '#c8ff00',
+    background: '#7C3AED',
     color: '#08080a',
     border: 'none',
     borderRadius: 10,
-    fontFamily: "'Manrope', sans-serif",
+    fontFamily: "'Inter', sans-serif",
     fontSize: '0.88rem',
     fontWeight: 700,
     cursor: 'pointer',
@@ -201,16 +201,16 @@ export default function ProfilePage() {
       minHeight: '100vh',
       background: '#08080a',
       color: '#eeede9',
-      fontFamily: "'Manrope', sans-serif",
+      fontFamily: "'Inter', sans-serif",
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         body { -webkit-font-smoothing: antialiased; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-        .profile-input:focus { border-color: rgba(200,255,0,0.4) !important; background: rgba(200,255,0,0.02) !important; }
+        .profile-input:focus { border-color: rgba(124, 58, 237,0.4) !important; background: rgba(124, 58, 237,0.02) !important; }
         .profile-input::placeholder { color: rgba(255,255,255,0.2); }
         .btn-primary:hover:not(:disabled) { background: #d4ff33 !important; transform: translateY(-1px); }
         .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
@@ -225,14 +225,14 @@ export default function ProfilePage() {
 
       {/* Background */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
-        <div style={{ position: 'absolute', width: 600, height: 600, top: '-10%', right: '-5%', background: 'radial-gradient(circle, rgba(200,255,0,0.03) 0%, transparent 60%)', filter: 'blur(40px)' }} />
+        <div style={{ position: 'absolute', width: 600, height: 600, top: '-10%', right: '-5%', background: 'radial-gradient(circle, rgba(124, 58, 237,0.03) 0%, transparent 60%)', filter: 'blur(40px)' }} />
       </div>
 
       {/* Header */}
       <div style={{ position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(8,8,10,0.9)', backdropFilter: 'blur(20px)' }}>
         <div style={{ maxWidth: 760, margin: '0 auto', padding: '0 24px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '0.85rem', color: '#c8ff00', letterSpacing: -0.5 }}>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '0.85rem', color: '#7C3AED', letterSpacing: -0.5 }}>
               NORA<span style={{ color: 'rgba(255,255,255,0.3)' }}>TECH</span>
             </span>
             <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '0.75rem' }}>/</span>
@@ -241,7 +241,7 @@ export default function ProfilePage() {
           <button
             onClick={handleLogout}
             className="btn-ghost"
-            style={{ padding: '7px 16px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'rgba(255,255,255,0.45)', fontFamily: "'Manrope', sans-serif", fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
+            style={{ padding: '7px 16px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'rgba(255,255,255,0.45)', fontFamily: "'Inter', sans-serif", fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
           >
             Sair
           </button>
@@ -267,10 +267,10 @@ export default function ProfilePage() {
                 <img
                   src={user.photoUrl}
                   alt="Foto de perfil"
-                  style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(200,255,0,0.2)' }}
+                  style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(124, 58, 237,0.2)' }}
                 />
               ) : (
-                <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'rgba(200,255,0,0.08)', border: '2px solid rgba(200,255,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 800, color: '#c8ff00' }}>
+                <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'rgba(124, 58, 237,0.08)', border: '2px solid rgba(124, 58, 237,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 800, color: '#7C3AED' }}>
                   {initials}
                 </div>
               )}
@@ -296,7 +296,7 @@ export default function ProfilePage() {
                     onClick={handleRemovePhoto}
                     disabled={photoLoading}
                     className="btn-danger"
-                    style={{ padding: '9px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'rgba(255,255,255,0.4)', fontFamily: "'Manrope', sans-serif", fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
+                    style={{ padding: '9px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'rgba(255,255,255,0.4)', fontFamily: "'Inter', sans-serif", fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
                   >
                     Remover
                   </button>
@@ -379,7 +379,7 @@ export default function ProfilePage() {
               {newPassword.length > 0 && (
                 <div style={{ marginTop: 8, display: 'flex', gap: 4 }}>
                   {[1, 2, 3, 4].map((i) => (
-                    <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: newPassword.length >= i * 3 ? (newPassword.length >= 12 ? '#c8ff00' : newPassword.length >= 8 ? '#ff8a3d' : '#ff5f57') : 'rgba(255,255,255,0.1)', transition: 'background 0.3s' }} />
+                    <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: newPassword.length >= i * 3 ? (newPassword.length >= 12 ? '#7C3AED' : newPassword.length >= 8 ? '#ff8a3d' : '#ff5f57') : 'rgba(255,255,255,0.1)', transition: 'background 0.3s' }} />
                   ))}
                 </div>
               )}

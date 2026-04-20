@@ -11,9 +11,9 @@ export default function TermsPage() {
   const listStyle = { fontSize: "0.92rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.8, paddingLeft: 24, marginBottom: 12 };
 
   return (
-    <div style={{ background: "#08080a", color: "#eeede9", fontFamily: "'Manrope', sans-serif", minHeight: "100vh" }}>
+    <div style={{ background: "#08080a", color: "#eeede9", fontFamily: "'Inter', sans-serif", minHeight: "100vh" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
         body { -webkit-font-smoothing: antialiased; }
@@ -25,13 +25,13 @@ export default function TermsPage() {
 
       {/* Atmosphere */}
       <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
-        <div style={{ position: "absolute", width: 800, height: 800, top: "-15%", right: "-10%", background: "radial-gradient(circle, rgba(200,255,0,0.035) 0%, transparent 55%)", filter: "blur(40px)" }} />
-        <div style={{ position: "absolute", width: 600, height: 600, bottom: "10%", left: "-10%", background: "radial-gradient(circle, rgba(77,159,255,0.025) 0%, transparent 55%)", filter: "blur(40px)" }} />
+        <div style={{ position: "absolute", width: 800, height: 800, top: "-15%", right: "-10%", background: "radial-gradient(circle, rgba(124, 58, 237,0.035) 0%, transparent 55%)", filter: "blur(40px)" }} />
+        <div style={{ position: "absolute", width: 600, height: 600, bottom: "10%", left: "-10%", background: "radial-gradient(circle, rgba(37, 99, 235,0.025) 0%, transparent 55%)", filter: "blur(40px)" }} />
       </div>
 
       {/* Header */}
       <header style={{ position: "sticky", top: 0, zIndex: 100, padding: "20px 60px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(8,8,10,0.9)", backdropFilter: "blur(24px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <Link to="/" style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#c8ff00", letterSpacing: -0.5 }}>
+        <Link to="/" style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#7C3AED", letterSpacing: -0.5 }}>
           NORA<span style={{ color: "rgba(255,255,255,0.25)" }}>.tech</span>
         </Link>
         <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.82rem", color: "rgba(255,255,255,0.45)", padding: "7px 16px", borderRadius: 100, border: "1px solid rgba(255,255,255,0.08)", transition: "all 0.3s" }}>
@@ -42,10 +42,10 @@ export default function TermsPage() {
       {/* Content */}
       <main style={{ position: "relative", zIndex: 1, maxWidth: 780, margin: "0 auto", padding: "80px 32px 120px" }}>
         <div style={{ marginBottom: 56 }}>
-          <span style={{ display: "inline-block", fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: 3, color: "#c8ff00", marginBottom: 16, fontFamily: "'JetBrains Mono', monospace" }}>Legal</span>
+          <span style={{ display: "inline-block", fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: 3, color: "#7C3AED", marginBottom: 16, fontFamily: "'JetBrains Mono', monospace" }}>Legal</span>
           <h1 style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, letterSpacing: -1.5, lineHeight: 1.1, marginBottom: 16 }}>
             Termos de{" "}
-            <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#c8ff00" }}>Uso</span>
+            <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#7C3AED" }}>Uso</span>
           </h1>
           <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.3)", fontFamily: "'JetBrains Mono', monospace" }}>
             Ultima atualizacao: Abril de 2026
@@ -82,7 +82,7 @@ export default function TermsPage() {
             <h3 style={h3Style}>3.2 Responsabilidade</h3>
             <p style={pStyle}>
               Voce e responsavel por todas as atividades realizadas em sua conta. Caso identifique uso nao autorizado, notifique-nos imediatamente pelo e-mail{" "}
-              <a href="mailto:contato@noratech.com.br" style={{ color: "#c8ff00", borderBottom: "1px solid rgba(200,255,0,0.3)" }}>contato@noratech.com.br</a>.
+              <a href="mailto:contato@noratech.com.br" style={{ color: "#7C3AED", borderBottom: "1px solid rgba(124, 58, 237,0.3)" }}>contato@noratech.com.br</a>.
             </p>
           </section>
 
@@ -135,7 +135,7 @@ export default function TermsPage() {
             <h2 style={h2Style}>8. Privacidade</h2>
             <p style={pStyle}>
               O tratamento de seus dados pessoais e regido por nossa{" "}
-              <Link to="/privacidade" style={{ color: "#c8ff00", borderBottom: "1px solid rgba(200,255,0,0.3)" }}>Politica de Privacidade</Link>, que faz parte integrante destes Termos de Uso.
+              <Link to="/privacidade" style={{ color: "#7C3AED", borderBottom: "1px solid rgba(124, 58, 237,0.3)" }}>Politica de Privacidade</Link>, que faz parte integrante destes Termos de Uso.
             </p>
           </section>
 
@@ -160,8 +160,8 @@ export default function TermsPage() {
             </p>
             <div style={{ padding: 24, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 16, marginTop: 8 }}>
               <p style={{ ...pStyle, marginBottom: 4 }}><strong style={{ color: "rgba(255,255,255,0.65)" }}>Noratech</strong></p>
-              <p style={{ ...pStyle, marginBottom: 4 }}>E-mail: <a href="mailto:contato@noratech.com.br" style={{ color: "#c8ff00" }}>contato@noratech.com.br</a></p>
-              <p style={{ ...pStyle, marginBottom: 0 }}>WhatsApp: <a href="https://wa.me/5511932227752" target="_blank" rel="noopener noreferrer" style={{ color: "#c8ff00" }}>(11) 93222-7752</a></p>
+              <p style={{ ...pStyle, marginBottom: 4 }}>E-mail: <a href="mailto:contato@noratech.com.br" style={{ color: "#7C3AED" }}>contato@noratech.com.br</a></p>
+              <p style={{ ...pStyle, marginBottom: 0 }}>WhatsApp: <a href="https://wa.me/5511932227752" target="_blank" rel="noopener noreferrer" style={{ color: "#7C3AED" }}>(11) 93222-7752</a></p>
             </div>
           </section>
         </div>
@@ -173,7 +173,7 @@ export default function TermsPage() {
           <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)" }}>&copy; 2026 Noratech &mdash; Todos os direitos reservados</span>
           <div style={{ display: "flex", gap: 16 }}>
             <Link to="/privacidade" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Privacidade</Link>
-            <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", borderBottom: "1px solid rgba(200,255,0,0.2)" }}>Termos</span>
+            <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", borderBottom: "1px solid rgba(124, 58, 237,0.2)" }}>Termos</span>
           </div>
         </div>
       </footer>

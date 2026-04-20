@@ -422,7 +422,7 @@ export default function MeetingScheduler({ isOpen, onClose }) {
                 fontSize: "1.05rem",
                 fontWeight: 700,
                 color: "#eeede9",
-                fontFamily: "'Manrope', sans-serif",
+                fontFamily: "'Inter', sans-serif",
                 lineHeight: 1.2,
               }}>
                 {step === "calendar" && "Agendar Reunião"}
@@ -507,7 +507,7 @@ export default function MeetingScheduler({ isOpen, onClose }) {
                   fontWeight: 700,
                   fontSize: "1rem",
                   color: "#eeede9",
-                  fontFamily: "'Manrope', sans-serif",
+                  fontFamily: "'Inter', sans-serif",
                 }}>
                   {MONTH_NAMES[currentMonth]} {currentYear}
                 </span>
@@ -581,18 +581,18 @@ export default function MeetingScheduler({ isOpen, onClose }) {
                       style={{
                         aspectRatio: "1",
                         borderRadius: 12,
-                        border: isToday ? "1px solid rgba(200,255,0,0.4)" : "1px solid transparent",
+                        border: isToday ? "1px solid rgba(124, 58, 237,0.4)" : "1px solid transparent",
                         background: available
-                          ? "rgba(200,255,0,0.06)"
+                          ? "rgba(124, 58, 237,0.06)"
                           : "transparent",
                         color: available
-                          ? "#c8ff00"
+                          ? "#7C3AED"
                           : isPast || !isWorkDay
                             ? "rgba(255,255,255,0.12)"
                             : "rgba(255,255,255,0.25)",
                         fontSize: "0.85rem",
                         fontWeight: available ? 600 : 400,
-                        fontFamily: "'Manrope', sans-serif",
+                        fontFamily: "'Inter', sans-serif",
                         cursor: available ? "pointer" : "default",
                         display: "flex",
                         alignItems: "center",
@@ -611,7 +611,7 @@ export default function MeetingScheduler({ isOpen, onClose }) {
                           width: 4,
                           height: 4,
                           borderRadius: "50%",
-                          background: "#c8ff00",
+                          background: "#7C3AED",
                         }} />
                       )}
                     </button>
@@ -646,7 +646,7 @@ export default function MeetingScheduler({ isOpen, onClose }) {
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-                    background: "#c8ff00",
+                    background: "#7C3AED",
                     display: "inline-block",
                   }} />
                   <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.35)", fontFamily: "'JetBrains Mono', monospace" }}>Disponível</span>
@@ -668,10 +668,10 @@ export default function MeetingScheduler({ isOpen, onClose }) {
                   marginTop: 16,
                   padding: "12px 16px",
                   borderRadius: 12,
-                  background: "rgba(77,159,255,0.08)",
-                  border: "1px solid rgba(77,159,255,0.15)",
+                  background: "rgba(37, 99, 235,0.08)",
+                  border: "1px solid rgba(37, 99, 235,0.15)",
                   fontSize: "0.72rem",
-                  color: "rgba(77,159,255,0.7)",
+                  color: "rgba(37, 99, 235,0.7)",
                   fontFamily: "'JetBrains Mono', monospace",
                   lineHeight: 1.5,
                   textAlign: "center",
@@ -704,7 +704,7 @@ export default function MeetingScheduler({ isOpen, onClose }) {
                         color: "#eeede9",
                         fontSize: "0.88rem",
                         fontWeight: 600,
-                        fontFamily: "'Manrope', sans-serif",
+                        fontFamily: "'Inter', sans-serif",
                         cursor: "pointer",
                         display: "flex",
                         alignItems: "center",
@@ -717,7 +717,7 @@ export default function MeetingScheduler({ isOpen, onClose }) {
                         width: 6,
                         height: 6,
                         borderRadius: "50%",
-                        background: "#c8ff00",
+                        background: "#7C3AED",
                         flexShrink: 0,
                       }} />
                       {slot.start} — {slot.end}
@@ -748,8 +748,8 @@ export default function MeetingScheduler({ isOpen, onClose }) {
                 <div style={{
                   padding: "14px 16px",
                   borderRadius: 12,
-                  background: "rgba(200,255,0,0.04)",
-                  border: "1px solid rgba(200,255,0,0.1)",
+                  background: "rgba(124, 58, 237,0.04)",
+                  border: "1px solid rgba(124, 58, 237,0.1)",
                   display: "flex",
                   alignItems: "center",
                   gap: 12,
@@ -759,7 +759,7 @@ export default function MeetingScheduler({ isOpen, onClose }) {
                     width: 40,
                     height: 40,
                     borderRadius: 10,
-                    background: "rgba(200,255,0,0.1)",
+                    background: "rgba(124, 58, 237,0.1)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -806,12 +806,12 @@ export default function MeetingScheduler({ isOpen, onClose }) {
                       background: "rgba(255,255,255,0.04)",
                       color: "#eeede9",
                       fontSize: "0.88rem",
-                      fontFamily: "'Manrope', sans-serif",
+                      fontFamily: "'Inter', sans-serif",
                       outline: "none",
                       transition: "border-color 0.2s",
                       boxSizing: "border-box",
                     }}
-                    onFocus={(e) => e.target.style.borderColor = "rgba(200,255,0,0.4)"}
+                    onFocus={(e) => e.target.style.borderColor = "rgba(124, 58, 237,0.4)"}
                     onBlur={(e) => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
                   />
                 </div>
@@ -844,12 +844,12 @@ export default function MeetingScheduler({ isOpen, onClose }) {
                       background: "rgba(255,255,255,0.04)",
                       color: "#eeede9",
                       fontSize: "0.88rem",
-                      fontFamily: "'Manrope', sans-serif",
+                      fontFamily: "'Inter', sans-serif",
                       outline: "none",
                       transition: "border-color 0.2s",
                       boxSizing: "border-box",
                     }}
-                    onFocus={(e) => e.target.style.borderColor = "rgba(200,255,0,0.4)"}
+                    onFocus={(e) => e.target.style.borderColor = "rgba(124, 58, 237,0.4)"}
                     onBlur={(e) => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
                   />
                 </div>
@@ -881,12 +881,12 @@ export default function MeetingScheduler({ isOpen, onClose }) {
                       background: "rgba(255,255,255,0.04)",
                       color: "#eeede9",
                       fontSize: "0.88rem",
-                      fontFamily: "'Manrope', sans-serif",
+                      fontFamily: "'Inter', sans-serif",
                       outline: "none",
                       transition: "border-color 0.2s",
                       boxSizing: "border-box",
                     }}
-                    onFocus={(e) => e.target.style.borderColor = "rgba(200,255,0,0.4)"}
+                    onFocus={(e) => e.target.style.borderColor = "rgba(124, 58, 237,0.4)"}
                     onBlur={(e) => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
                   />
                 </div>
@@ -900,11 +900,11 @@ export default function MeetingScheduler({ isOpen, onClose }) {
                     padding: "14px 24px",
                     borderRadius: 100,
                     border: "none",
-                    background: submitting ? "rgba(200,255,0,0.5)" : "#c8ff00",
+                    background: submitting ? "rgba(124, 58, 237,0.5)" : "#7C3AED",
                     color: "#08080a",
                     fontSize: "0.92rem",
                     fontWeight: 700,
-                    fontFamily: "'Manrope', sans-serif",
+                    fontFamily: "'Inter', sans-serif",
                     cursor: submitting ? "wait" : "pointer",
                     transition: "all 0.2s",
                     display: "flex",
@@ -930,7 +930,7 @@ export default function MeetingScheduler({ isOpen, onClose }) {
                 width: 64,
                 height: 64,
                 borderRadius: 20,
-                background: "rgba(200,255,0,0.1)",
+                background: "rgba(124, 58, 237,0.1)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -977,7 +977,7 @@ export default function MeetingScheduler({ isOpen, onClose }) {
                   color: "#eeede9",
                   fontSize: "0.88rem",
                   fontWeight: 600,
-                  fontFamily: "'Manrope', sans-serif",
+                  fontFamily: "'Inter', sans-serif",
                   cursor: "pointer",
                   transition: "all 0.2s",
                 }}
@@ -1000,13 +1000,13 @@ export default function MeetingScheduler({ isOpen, onClose }) {
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
         .calendar-day:hover:not(:disabled) {
-          background: rgba(200,255,0,0.15) !important;
-          border-color: rgba(200,255,0,0.3) !important;
+          background: rgba(124, 58, 237,0.15) !important;
+          border-color: rgba(124, 58, 237,0.3) !important;
           transform: scale(1.05);
         }
         .slot-button:hover {
-          border-color: rgba(200,255,0,0.4) !important;
-          background: rgba(200,255,0,0.06) !important;
+          border-color: rgba(124, 58, 237,0.4) !important;
+          background: rgba(124, 58, 237,0.06) !important;
           transform: translateY(-2px);
         }
         .scheduler-modal input::placeholder {

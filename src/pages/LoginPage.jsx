@@ -30,7 +30,7 @@ export default function LoginPage() {
       minHeight: '100vh',
       background: '#08080a',
       color: '#eeede9',
-      fontFamily: "'Manrope', sans-serif",
+      fontFamily: "'Inter', sans-serif",
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -39,7 +39,7 @@ export default function LoginPage() {
       overflow: 'hidden',
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         body { -webkit-font-smoothing: antialiased; }
         .login-input {
@@ -49,15 +49,15 @@ export default function LoginPage() {
           border-radius: 12px;
           padding: 14px 16px;
           color: #eeede9;
-          font-family: 'Manrope', sans-serif;
+          font-family: 'Inter', sans-serif;
           font-size: 0.95rem;
           outline: none;
           transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
         }
         .login-input:focus {
-          border-color: rgba(200,255,0,0.5);
-          background: rgba(200,255,0,0.03);
-          box-shadow: 0 0 0 3px rgba(200,255,0,0.08), inset 0 0 0 1px rgba(200,255,0,0.15);
+          border-color: rgba(124, 58, 237,0.5);
+          background: rgba(124, 58, 237,0.03);
+          box-shadow: 0 0 0 3px rgba(124, 58, 237,0.08), inset 0 0 0 1px rgba(124, 58, 237,0.15);
         }
         .login-input::placeholder { color: rgba(255,255,255,0.25); }
         .input-wrapper {
@@ -70,11 +70,11 @@ export default function LoginPage() {
         .login-btn {
           width: 100%;
           padding: 15px;
-          background: #c8ff00;
+          background: #7C3AED;
           color: #08080a;
           border: none;
           border-radius: 12px;
-          font-family: 'Manrope', sans-serif;
+          font-family: 'Inter', sans-serif;
           font-size: 0.95rem;
           font-weight: 700;
           cursor: pointer;
@@ -85,16 +85,16 @@ export default function LoginPage() {
         .login-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .back-link { color: rgba(255,255,255,0.35); font-size: 0.8rem; text-decoration: none; transition: color 0.2s; }
         .back-link:hover { color: rgba(255,255,255,0.7); }
-        .register-link { color: #c8ff00; font-size: 0.85rem; text-decoration: none; font-weight: 600; transition: opacity 0.2s; }
+        .register-link { color: #7C3AED; font-size: 0.85rem; text-decoration: none; font-weight: 600; transition: opacity 0.2s; }
         .register-link:hover { opacity: 0.8; }
         .forgot-link { color: rgba(255,255,255,0.35); font-size: 0.8rem; text-decoration: none; transition: color 0.2s; }
-        .forgot-link:hover { color: rgba(200,255,0,0.7); }
+        .forgot-link:hover { color: rgba(124, 58, 237,0.7); }
         .toggle-pass { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.3); padding: 4px; line-height: 1; display: flex; align-items: center; transition: color 0.2s; }
         .toggle-pass:hover { color: rgba(255,255,255,0.7); }
         .logo-divider {
           width: 40px;
           height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(200,255,0,0.4), transparent);
+          background: linear-gradient(90deg, transparent, rgba(124, 58, 237,0.4), transparent);
           margin: 20px auto 0;
         }
         @keyframes pulse-ring { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(2.5); opacity: 0; } }
@@ -102,15 +102,15 @@ export default function LoginPage() {
 
       {/* Background glows */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
-        <div style={{ position: 'absolute', width: 600, height: 600, top: '-10%', right: '-5%', background: 'radial-gradient(circle, rgba(200,255,0,0.04) 0%, transparent 60%)', filter: 'blur(40px)' }} />
-        <div style={{ position: 'absolute', width: 400, height: 400, bottom: '5%', left: '-5%', background: 'radial-gradient(circle, rgba(77,159,255,0.03) 0%, transparent 60%)', filter: 'blur(40px)' }} />
+        <div style={{ position: 'absolute', width: 600, height: 600, top: '-10%', right: '-5%', background: 'radial-gradient(circle, rgba(124, 58, 237,0.04) 0%, transparent 60%)', filter: 'blur(40px)' }} />
+        <div style={{ position: 'absolute', width: 400, height: 400, bottom: '5%', left: '-5%', background: 'radial-gradient(circle, rgba(37, 99, 235,0.03) 0%, transparent 60%)', filter: 'blur(40px)' }} />
       </div>
 
       <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 420 }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <Link to="/" style={{ display: 'inline-block', marginBottom: 16 }}>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '1.1rem', color: '#c8ff00', letterSpacing: -0.5 }}>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '1.1rem', color: '#7C3AED', letterSpacing: -0.5 }}>
               NORA<span style={{ color: 'rgba(255,255,255,0.3)' }}>TECH</span>
             </span>
           </Link>

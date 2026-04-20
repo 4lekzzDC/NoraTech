@@ -75,7 +75,7 @@ const DIFFERENTIALS = [
 const PRODUCTS = [
   { id: 2, icon: "💬", name: "WhatsApp Bot", desc: "Sistema de atendimento via WhatsApp que categoriza conversas, realiza o pré-atendimento e organiza o fluxo antes da interação humana.", tags: ["Chatbot", "WhatsApp API", "NLP"], color: "#25D366", featured: true, features: ["Atendimento automatizado 24/7", "Categorização por intenção (NLP)", "Pré-atendimento e triagem inteligente", "Transferência fluida para humanos", "Relatórios de atendimento e métricas"] },
   { id: 4, icon: "🌐", name: "Sites para Empresas", desc: "Criação de sites profissionais com IA, adaptados ao modelo e necessidade de cada cliente. Design moderno, responsivo e otimizado para conversão.", tags: ["Web Design", "IA", "SEO"], color: "#ff6b9d", featured: true, features: ["Design personalizado gerado com IA", "Layout 100% responsivo (mobile/tablet/desktop)", "SEO técnico e performance otimizada", "Integrações (pagamento, CRM, analytics)", "Hospedagem, deploy e suporte contínuo"] },
-  { id: 1, icon: "💰", name: "Finzo App", desc: "Plataforma de gestão financeira inteligente que conecta contas, organiza movimentações e transforma dados em análises claras sobre gastos, rendimento e oportunidades de economia.", tags: ["FinTech", "Analytics", "Open Finance"], color: "#c8ff00", featured: true, features: ["Integração via Open Finance com bancos", "Categorização automática de transações", "Análises e insights com IA", "Metas de economia e alertas inteligentes", "Dashboard unificado em tempo real"] },
+  { id: 1, icon: "💰", name: "Finzo App", desc: "Plataforma de gestão financeira inteligente que conecta contas, organiza movimentações e transforma dados em análises claras sobre gastos, rendimento e oportunidades de economia.", tags: ["FinTech", "Analytics", "Open Finance"], color: "#7C3AED", featured: true, features: ["Integração via Open Finance com bancos", "Categorização automática de transações", "Análises e insights com IA", "Metas de economia e alertas inteligentes", "Dashboard unificado em tempo real"] },
 ];
 
 const TESTIMONIALS = [
@@ -136,7 +136,7 @@ function Reveal({ children, type = "up", delay = 0, className = "", style = {} }
 }
 
 // ═══ Decorative Star SVG ═══
-function Star({ size = 20, color = "#c8ff00", style = {} }) {
+function Star({ size = 20, color = "#7C3AED", style = {} }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={{ flexShrink: 0, ...style }}>
       <path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41Z" />
@@ -145,7 +145,7 @@ function Star({ size = 20, color = "#c8ff00", style = {} }) {
 }
 
 // ═══ Decorative Diamond ═══
-function Diamond({ size = 12, color = "rgba(200,255,0,0.3)", style = {} }) {
+function Diamond({ size = 12, color = "rgba(124, 58, 237,0.3)", style = {} }) {
   return <div style={{ width: size, height: size, background: color, transform: "rotate(45deg)", borderRadius: 2, flexShrink: 0, ...style }} />;
 }
 
@@ -163,7 +163,7 @@ function WinBar({ title = "", dark = false }) {
 
 // ═══ STATUS BADGE ═══
 function StatusBadge({ status }) {
-  const config = { live: { bg: "rgba(0,212,138,0.1)", color: "#00d48a", border: "rgba(0,212,138,0.2)", label: "● Operacional" }, dev: { bg: "rgba(77,159,255,0.1)", color: "#4d9fff", border: "rgba(77,159,255,0.2)", label: "● Em Dev" }, soon: { bg: "rgba(255,138,61,0.1)", color: "#ff8a3d", border: "rgba(255,138,61,0.2)", label: "● Em Breve" } };
+  const config = { live: { bg: "rgba(0,212,138,0.1)", color: "#00d48a", border: "rgba(0,212,138,0.2)", label: "● Operacional" }, dev: { bg: "rgba(37, 99, 235,0.1)", color: "#2563EB", border: "rgba(37, 99, 235,0.2)", label: "● Em Dev" }, soon: { bg: "rgba(255,138,61,0.1)", color: "#ff8a3d", border: "rgba(255,138,61,0.2)", label: "● Em Breve" } };
   const c = config[status];
   return <span style={{ padding: "3px 10px", borderRadius: 100, fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, background: c.bg, color: c.color, border: `1px solid ${c.border}` }}>{c.label}</span>;
 }
@@ -193,12 +193,12 @@ export default function App() {
 
   const faqTabs = Object.keys(FAQS);
   const faqsByTab = Object.values(FAQS);
-  const faqTabColors = ["#c8ff00", "#25D366", "#4d9fff", "#ff6b9d"];
+  const faqTabColors = ["#7C3AED", "#25D366", "#2563EB", "#ff6b9d"];
 
   return (
-    <div style={{ background: "#08080a", color: "#eeede9", fontFamily: "'Manrope', sans-serif", overflowX: "hidden", minHeight: "100vh" }}>
+    <div style={{ background: "#08080a", color: "#eeede9", fontFamily: "'Inter', sans-serif", overflowX: "hidden", minHeight: "100vh" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
         body { -webkit-font-smoothing: antialiased; }
@@ -222,7 +222,7 @@ export default function App() {
         .faq-item { transition: all 0.3s; cursor: pointer; }
         .faq-item:hover { background: rgba(255,255,255,0.03) !important; }
         .form-option { transition: all 0.3s; cursor: pointer; }
-        .form-option:hover { border-color: rgba(200,255,0,0.4) !important; background: rgba(200,255,0,0.04) !important; }
+        .form-option:hover { border-color: rgba(124, 58, 237,0.4) !important; background: rgba(124, 58, 237,0.04) !important; }
         a { text-decoration: none; color: inherit; }
 
         /* ═══ TABLET ═══ */
@@ -262,7 +262,7 @@ export default function App() {
           .mobile-menu a:hover { background: rgba(255,255,255,0.06); color: #eeede9 !important; }
           .mobile-menu .mobile-cta {
             margin-top: 16px;
-            background: #c8ff00 !important;
+            background: #7C3AED !important;
             color: #08080a !important;
             font-weight: 700 !important;
           }
@@ -338,17 +338,17 @@ export default function App() {
       {/* ═══ ATMOSPHERE ═══ */}
       <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
         <div style={{ position: "absolute", inset: 0, opacity: 0.02, backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")", animation: "grain 8s steps(10) infinite" }} />
-        <div style={{ position: "absolute", width: 800, height: 800, top: "-15%", right: "-10%", background: "radial-gradient(circle, rgba(200,255,0,0.035) 0%, transparent 55%)", filter: "blur(40px)" }} />
-        <div style={{ position: "absolute", width: 600, height: 600, bottom: "10%", left: "-10%", background: "radial-gradient(circle, rgba(77,159,255,0.025) 0%, transparent 55%)", filter: "blur(40px)" }} />
+        <div style={{ position: "absolute", width: 800, height: 800, top: "-15%", right: "-10%", background: "radial-gradient(circle, rgba(124, 58, 237,0.035) 0%, transparent 55%)", filter: "blur(40px)" }} />
+        <div style={{ position: "absolute", width: 600, height: 600, bottom: "10%", left: "-10%", background: "radial-gradient(circle, rgba(37, 99, 235,0.025) 0%, transparent 55%)", filter: "blur(40px)" }} />
         <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px)", backgroundSize: "40px 40px", maskImage: "radial-gradient(ellipse at 50% 30%, black 10%, transparent 60%)" }} />
       </div>
 
       {/* ═══ FLOATING DECORATIVE ELEMENTS ═══ */}
       <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}>
-        <Star size={14} color="rgba(200,255,0,0.15)" style={{ position: "absolute", top: "12%", left: "8%", animation: "float1 7s ease-in-out infinite" }} />
-        <Star size={10} color="rgba(77,159,255,0.12)" style={{ position: "absolute", top: "35%", right: "12%", animation: "float2 9s ease-in-out infinite" }} />
+        <Star size={14} color="rgba(124, 58, 237,0.15)" style={{ position: "absolute", top: "12%", left: "8%", animation: "float1 7s ease-in-out infinite" }} />
+        <Star size={10} color="rgba(37, 99, 235,0.12)" style={{ position: "absolute", top: "35%", right: "12%", animation: "float2 9s ease-in-out infinite" }} />
         <Diamond size={10} color="rgba(255,107,157,0.15)" style={{ position: "absolute", top: "60%", left: "5%", animation: "float3 8s ease-in-out infinite" }} />
-        <Star size={8} color="rgba(200,255,0,0.1)" style={{ position: "absolute", top: "75%", right: "8%", animation: "float1 11s ease-in-out infinite" }} />
+        <Star size={8} color="rgba(124, 58, 237,0.1)" style={{ position: "absolute", top: "75%", right: "8%", animation: "float1 11s ease-in-out infinite" }} />
         <Diamond size={8} color="rgba(255,138,61,0.12)" style={{ position: "absolute", top: "20%", right: "25%", animation: "float2 10s ease-in-out infinite" }} />
       </div>
 
@@ -361,13 +361,13 @@ export default function App() {
           borderRadius: 100, transition: "all 0.5s cubic-bezier(0.16,1,0.3,1)",
           boxShadow: navScrolled ? "0 8px 40px rgba(0,0,0,0.5)" : "none"
         }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: "0.82rem", color: "#c8ff00", marginRight: 12, letterSpacing: -0.5 }}>NORA<span style={{ color: "rgba(255,255,255,0.3)" }}>TECH</span></span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: "0.82rem", color: "#7C3AED", marginRight: 12, letterSpacing: -0.5 }}>NORA<span style={{ color: "rgba(255,255,255,0.3)" }}>TECH</span></span>
           <div className="nav-links" style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <a href="#sobre" className="nav-link">Sobre</a>
             <a href="#servicos" className="nav-link">Serviços</a>
             <a href="#produtos" className="nav-link">Projetos</a>
 
-            <a href="#contato" className="nav-link nav-cta-desktop" style={{ padding: "8px 18px", background: "#c8ff00", color: "#08080a", fontWeight: 700, borderRadius: 100 }}>Contato</a>
+            <a href="#contato" className="nav-link nav-cta-desktop" style={{ padding: "8px 18px", background: "#7C3AED", color: "#ffffff", fontWeight: 700, borderRadius: 100 }}>Contato</a>
           </div>
           <button
             className="hamburger"
@@ -383,10 +383,10 @@ export default function App() {
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eeede9" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
           </button>
-          <Link to={user ? "/area-do-cliente" : "/login"} title={user ? "Central de Controle" : "Acesso admin"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: user ? "rgba(200,255,0,0.1)" : "rgba(255,255,255,0.04)", border: `1px solid ${user ? "rgba(200,255,0,0.2)" : "rgba(255,255,255,0.08)"}`, marginLeft: 2, overflow: "hidden", flexShrink: 0 }}>
+          <Link to={user ? "/area-do-cliente" : "/login"} title={user ? "Central de Controle" : "Acesso admin"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: user ? "rgba(124, 58, 237,0.1)" : "rgba(255,255,255,0.04)", border: `1px solid ${user ? "rgba(124, 58, 237,0.2)" : "rgba(255,255,255,0.08)"}`, marginLeft: 2, overflow: "hidden", flexShrink: 0 }}>
             {user?.photoUrl
               ? <img src={user.photoUrl} alt="perfil" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={user ? "#c8ff00" : "rgba(255,255,255,0.35)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={user ? "#7C3AED" : "rgba(255,255,255,0.35)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
             }
           </Link>
         </nav>
@@ -420,19 +420,19 @@ export default function App() {
       <section className="hero-section" style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "1.1fr 0.9fr", alignItems: "center", padding: "120px 60px 80px", gap: 60, maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <div>
           <Reveal delay={0.1}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 16px 6px 10px", background: "rgba(200,255,0,0.08)", border: "1px solid rgba(200,255,0,0.12)", borderRadius: 100, marginBottom: 28 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 16px 6px 10px", background: "rgba(124, 58, 237,0.08)", border: "1px solid rgba(124, 58, 237,0.12)", borderRadius: 100, marginBottom: 28 }}>
               <div style={{ position: "relative" }}>
-                <div style={{ width: 8, height: 8, background: "#c8ff00", borderRadius: "50%" }} />
-                <div style={{ position: "absolute", inset: -4, borderRadius: "50%", border: "1px solid #c8ff00", animation: "pulse-ring 2s cubic-bezier(0,0,0.2,1) infinite" }} />
+                <div style={{ width: 8, height: 8, background: "#7C3AED", borderRadius: "50%" }} />
+                <div style={{ position: "absolute", inset: -4, borderRadius: "50%", border: "1px solid #7C3AED", animation: "pulse-ring 2s cubic-bezier(0,0,0.2,1) infinite" }} />
               </div>
-              <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 2 }}>Noratech · Software sob medida</span>
+              <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#7C3AED", textTransform: "uppercase", letterSpacing: 2 }}>Noratech · Software sob medida</span>
             </div>
           </Reveal>
 
           <Reveal delay={0.25}>
             <h1 style={{ fontSize: "clamp(2.8rem, 5.2vw, 4.8rem)", fontWeight: 800, lineHeight: 1.05, letterSpacing: -2.5, marginBottom: 24 }}>
               Automação e software sob medida para{" "}
-              <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#c8ff00" }}>escalar</span>{" "}
+              <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#7C3AED" }}>escalar</span>{" "}
               sua operação.
             </h1>
           </Reveal>
@@ -445,7 +445,7 @@ export default function App() {
 
           <Reveal delay={0.55}>
             <div className="hero-buttons" style={{ display: "flex", gap: 12 }}>
-              <a href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20solicitar%20um%20or%C3%A7amento%20com%20a%20Noratech." target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 30px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", transition: "all 0.3s" }}>
+              <a href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20solicitar%20um%20or%C3%A7amento%20com%20a%20Noratech." target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 30px", background: "#7C3AED", color: "#ffffff", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", transition: "all 0.3s" }}>
                 Solicitar orçamento <span style={{ fontSize: "1.1rem" }}>↗</span>
               </a>
               <a href="#produtos" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 28px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, fontWeight: 600, fontSize: "0.92rem", transition: "all 0.3s" }}>
@@ -459,7 +459,7 @@ export default function App() {
             <div className="hero-stats" style={{ display: "flex", gap: 40, marginTop: 56, paddingTop: 32, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
               {[["50+", "Clientes"], ["200+", "Automações"], ["99.9%", "Uptime"], ["24/7", "Suporte"]].map(([val, label], i) => (
                 <div key={i}>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "1.5rem", fontWeight: 700, color: "#c8ff00" }}>{val}</div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "1.5rem", fontWeight: 700, color: "#7C3AED" }}>{val}</div>
                   <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: 1, marginTop: 2 }}>{label}</div>
                 </div>
               ))}
@@ -477,13 +477,13 @@ export default function App() {
           }}>
             <WinBar title="terminal — noratech" />
             <div style={{ padding: 16, fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", lineHeight: 2 }}>
-              <div><span style={{ color: "#c8ff00" }}>▸</span> <span style={{ color: "#eeede9" }}>noratech deploy</span> <span style={{ color: "#25D366" }}>--production</span></div>
+              <div><span style={{ color: "#7C3AED" }}>▸</span> <span style={{ color: "#eeede9" }}>noratech deploy</span> <span style={{ color: "#25D366" }}>--production</span></div>
               <div style={{ color: "#00d48a" }}>✓ WhatsApp Bot conectado</div>
               <div style={{ color: "#00d48a" }}>✓ Finzo sync — 3 contas ativas</div>
               <div style={{ color: "#00d48a" }}>✓ Sites publicados com sucesso</div>
-              <div><span style={{ color: "#c8ff00" }}>▸</span> <span style={{ color: "#eeede9" }}>status</span></div>
+              <div><span style={{ color: "#7C3AED" }}>▸</span> <span style={{ color: "#eeede9" }}>status</span></div>
               <div style={{ color: "#00d48a" }}>● Todos os serviços online</div>
-              <div><span style={{ color: "#c8ff00" }}>▸</span> <span style={{ display: "inline-block", width: 7, height: 14, background: "#c8ff00", animation: "blink 1s step-end infinite", verticalAlign: "middle" }} /></div>
+              <div><span style={{ color: "#7C3AED" }}>▸</span> <span style={{ display: "inline-block", width: 7, height: 14, background: "#7C3AED", animation: "blink 1s step-end infinite", verticalAlign: "middle" }} /></div>
             </div>
           </div>
 
@@ -518,14 +518,14 @@ export default function App() {
               {[["Projetos", "4"], ["Clientes", "50+"], ["Automações", "200+"], ["Uptime", "99.9%"]].map(([k, v], i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < 3 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
                   <span style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.3)" }}>{k}</span>
-                  <span style={{ fontSize: "0.76rem", fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: "#c8ff00" }}>{v}</span>
+                  <span style={{ fontSize: "0.76rem", fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: "#7C3AED" }}>{v}</span>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Decorative glow behind windows */}
-          <div style={{ position: "absolute", width: 300, height: 300, top: "30%", left: "30%", background: "radial-gradient(circle, rgba(200,255,0,0.06) 0%, transparent 60%)", filter: "blur(50px)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", width: 300, height: 300, top: "30%", left: "30%", background: "radial-gradient(circle, rgba(124, 58, 237,0.06) 0%, transparent 60%)", filter: "blur(50px)", pointerEvents: "none" }} />
         </div>
       </section>
 
@@ -535,7 +535,7 @@ export default function App() {
           {[...Array(2)].flatMap((_, ri) =>
             ["💰 Gestão Financeira", "💬 WhatsApp Bot", "🌐 Criação de Sites", "📊 Análise de Gastos", "🤖 Pré-Atendimento", "🎨 Design Profissional", "🔗 Open Finance"].map((t, i) =>
               <span key={`${ri}-${i}`} style={{ fontSize: "0.82rem", fontWeight: 500, color: "rgba(255,255,255,0.2)", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
-                <Diamond size={5} color="rgba(200,255,0,0.3)" /> {t}
+                <Diamond size={5} color="rgba(124, 58, 237,0.3)" /> {t}
               </span>
             )
           )}
@@ -594,7 +594,7 @@ export default function App() {
                 "
               </div>
 
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", fontWeight: 700, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 2, marginBottom: 18 }}>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", fontWeight: 700, color: "#7C3AED", textTransform: "uppercase", letterSpacing: 2, marginBottom: 18 }}>
                 Princípio de engenharia
               </div>
 
@@ -607,7 +607,7 @@ export default function App() {
               </p>
 
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 28, height: 1, background: "rgba(200,255,0,0.6)" }} />
+                <div style={{ width: 28, height: 1, background: "rgba(124, 58, 237,0.6)" }} />
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", color: "rgba(255,255,255,0.45)", letterSpacing: 1 }}>
                   Noratech — Engenharia de Operação
                 </span>
@@ -642,8 +642,8 @@ export default function App() {
                 borderRight: i < 2 ? "1px solid rgba(255,255,255,0.08)" : "none"
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-                  <Diamond size={6} color="#c8ff00" />
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.68rem", fontWeight: 700, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 2 }}>
+                  <Diamond size={6} color="#7C3AED" />
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.68rem", fontWeight: 700, color: "#7C3AED", textTransform: "uppercase", letterSpacing: 2 }}>
                     {p.label}
                   </span>
                 </div>
@@ -660,8 +660,8 @@ export default function App() {
       <section id="servicos" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <Reveal>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <Star size={12} color="#4d9fff" />
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#4d9fff", textTransform: "uppercase", letterSpacing: 3 }}>Serviços</span>
+            <Star size={12} color="#2563EB" />
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#2563EB", textTransform: "uppercase", letterSpacing: 3 }}>Serviços</span>
           </div>
         </Reveal>
         <Reveal delay={0.1}>
@@ -683,21 +683,21 @@ export default function App() {
                 border: "1px solid rgba(255,255,255,0.06)", borderRadius: 18,
                 padding: 32, overflow: "hidden", transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)"
               }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(77,159,255,0.22)"; e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(77,159,255,0.12)"; }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(37, 99, 235,0.22)"; e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(37, 99, 235,0.12)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
               >
                 {/* Decorative glow */}
                 <div style={{
                   position: "absolute", width: 220, height: 220, borderRadius: "50%",
-                  background: "radial-gradient(circle, rgba(77,159,255,0.10) 0%, transparent 60%)",
+                  background: "radial-gradient(circle, rgba(37, 99, 235,0.10) 0%, transparent 60%)",
                   top: -80, right: -60, filter: "blur(40px)", pointerEvents: "none"
                 }} />
 
                 {/* Number + divider */}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 22, position: "relative" }}>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", color: "#4d9fff", fontWeight: 700, letterSpacing: 2 }}>{s.num}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.62rem", color: "#2563EB", fontWeight: 700, letterSpacing: 2 }}>{s.num}</span>
                   <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.05)" }} />
-                  <Star size={8} color="rgba(77,159,255,0.25)" />
+                  <Star size={8} color="rgba(37, 99, 235,0.25)" />
                 </div>
 
                 <div style={{ fontSize: "2.1rem", marginBottom: 16, position: "relative" }}>{s.icon}</div>
@@ -713,8 +713,8 @@ export default function App() {
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, position: "relative" }}>
                   {s.tags.map(t => (
                     <span key={t} style={{
-                      padding: "4px 10px", background: "rgba(77,159,255,0.06)",
-                      border: "1px solid rgba(77,159,255,0.14)", borderRadius: 100,
+                      padding: "4px 10px", background: "rgba(37, 99, 235,0.06)",
+                      border: "1px solid rgba(37, 99, 235,0.14)", borderRadius: 100,
                       fontSize: "0.66rem", fontWeight: 600, fontFamily: "'JetBrains Mono', monospace",
                       color: "rgba(200,220,255,0.7)"
                     }}>{t}</span>
@@ -729,12 +729,12 @@ export default function App() {
         <Reveal delay={0.3}>
           <div style={{
             marginTop: 28, padding: "22px 28px",
-            background: "linear-gradient(135deg, rgba(77,159,255,0.06), rgba(77,159,255,0.02))",
-            border: "1px solid rgba(77,159,255,0.14)", borderRadius: 18,
+            background: "linear-gradient(135deg, rgba(37, 99, 235,0.06), rgba(37, 99, 235,0.02))",
+            border: "1px solid rgba(37, 99, 235,0.14)", borderRadius: 18,
             display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(77,159,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>✦</div>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(37, 99, 235,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>✦</div>
               <div>
                 <div style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: 2 }}>Precisa de um escopo específico?</div>
                 <div style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.4)" }}>Conte o desafio e montamos uma proposta técnica sob medida.</div>
@@ -742,7 +742,7 @@ export default function App() {
             </div>
             <a href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20conversar%20sobre%20um%20projeto%20com%20a%20Noratech." target="_blank" rel="noopener noreferrer" style={{
               display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 22px",
-              background: "#4d9fff", color: "#08080a", borderRadius: 100,
+              background: "#2563EB", color: "#ffffff", borderRadius: 100,
               fontWeight: 700, fontSize: "0.86rem", whiteSpace: "nowrap"
             }}>
               Falar com especialista <span style={{ fontSize: "1rem" }}>↗</span>
@@ -844,8 +844,8 @@ export default function App() {
       <section id="produtos" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <Reveal>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <Star size={12} color="#c8ff00" />
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 3 }}>Sistemas</span>
+            <Star size={12} color="#7C3AED" />
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#7C3AED", textTransform: "uppercase", letterSpacing: 3 }}>Sistemas</span>
           </div>
         </Reveal>
         <Reveal delay={0.1}>
@@ -906,7 +906,7 @@ export default function App() {
                     </div>
                     <div className="featured-code" style={{ background: "#0c0c0e", borderLeft: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden", borderRadius: "0 18px 18px 0" }}>
                       <div style={{ position: "absolute", width: 120, height: 120, borderRadius: "50%", background: `${p.color}15`, filter: "blur(40px)", top: "20%", left: "30%", animation: "float1 6s ease-in-out infinite" }} />
-                      <div style={{ position: "absolute", width: 90, height: 90, borderRadius: "50%", background: "rgba(77,159,255,0.1)", filter: "blur(40px)", bottom: "20%", right: "25%", animation: "float2 8s ease-in-out infinite" }} />
+                      <div style={{ position: "absolute", width: 90, height: 90, borderRadius: "50%", background: "rgba(37, 99, 235,0.1)", filter: "blur(40px)", bottom: "20%", right: "25%", animation: "float2 8s ease-in-out infinite" }} />
 
                       {/* Finzo App */}
                       {p.id === 1 && (
@@ -945,8 +945,8 @@ export default function App() {
                             <div style={{ fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 10, fontFamily: "'JetBrains Mono', monospace" }}>Categorias do mês</div>
                             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                               {[
-                                { name: "Alimentação", value: "R$ 840", pct: 85, color: "#c8ff00" },
-                                { name: "Transporte", value: "R$ 420", pct: 55, color: "#4d9fff" },
+                                { name: "Alimentação", value: "R$ 840", pct: 85, color: "#7C3AED" },
+                                { name: "Transporte", value: "R$ 420", pct: 55, color: "#2563EB" },
                                 { name: "Lazer", value: "R$ 310", pct: 38, color: "#ff6b9d" },
                               ].map((c, idx) => (
                                 <div key={idx}>
@@ -962,13 +962,13 @@ export default function App() {
                             </div>
                           </div>
                           <div style={{ display: "flex", gap: 8 }}>
-                            <div style={{ flex: 1, padding: "10px 12px", background: "rgba(200,255,0,0.05)", border: "1px solid rgba(200,255,0,0.1)", borderRadius: 10 }}>
+                            <div style={{ flex: 1, padding: "10px 12px", background: "rgba(124, 58, 237,0.05)", border: "1px solid rgba(124, 58, 237,0.1)", borderRadius: 10 }}>
                               <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Economia</div>
-                              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#c8ff00" }}>+12%</div>
+                              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#7C3AED" }}>+12%</div>
                             </div>
-                            <div style={{ flex: 1, padding: "10px 12px", background: "rgba(77,159,255,0.05)", border: "1px solid rgba(77,159,255,0.1)", borderRadius: 10 }}>
+                            <div style={{ flex: 1, padding: "10px 12px", background: "rgba(37, 99, 235,0.05)", border: "1px solid rgba(37, 99, 235,0.1)", borderRadius: 10 }}>
                               <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Gastos</div>
-                              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#4d9fff" }}>R$ 2.4k</div>
+                              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#2563EB" }}>R$ 2.4k</div>
                             </div>
                             <div style={{ flex: 1, padding: "10px 12px", background: "rgba(255,107,157,0.05)", border: "1px solid rgba(255,107,157,0.1)", borderRadius: 10 }}>
                               <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Investido</div>
@@ -1004,7 +1004,7 @@ export default function App() {
                             <div style={{ padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
                               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                                 <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>Ana Costa</div>
-                                <span style={{ padding: "2px 8px", background: "rgba(77,159,255,0.15)", borderRadius: 100, fontSize: "0.52rem", fontWeight: 600, color: "#4d9fff" }}>Encaminhado</span>
+                                <span style={{ padding: "2px 8px", background: "rgba(37, 99, 235,0.15)", borderRadius: 100, fontSize: "0.52rem", fontWeight: 600, color: "#2563EB" }}>Encaminhado</span>
                               </div>
                               <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.35)" }}>Transferido para atendente humano</div>
                             </div>
@@ -1014,7 +1014,7 @@ export default function App() {
                             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                               {[
                                 { name: "Agendamento", pct: 42, color: "#25D366" },
-                                { name: "Dúvidas / Suporte", pct: 30, color: "#4d9fff" },
+                                { name: "Dúvidas / Suporte", pct: 30, color: "#2563EB" },
                                 { name: "Vendas", pct: 18, color: "#ffb400" },
                                 { name: "Outros", pct: 10, color: "#ff6b9d" },
                               ].map((c, idx) => (
@@ -1035,9 +1035,9 @@ export default function App() {
                               <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Filtradas</div>
                               <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#25D366" }}>70%</div>
                             </div>
-                            <div style={{ padding: "8px 10px", background: "rgba(77,159,255,0.05)", border: "1px solid rgba(77,159,255,0.1)", borderRadius: 10, textAlign: "center" }}>
+                            <div style={{ padding: "8px 10px", background: "rgba(37, 99, 235,0.05)", border: "1px solid rgba(37, 99, 235,0.1)", borderRadius: 10, textAlign: "center" }}>
                               <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Resolução</div>
-                              <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#4d9fff" }}>92%</div>
+                              <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#2563EB" }}>92%</div>
                             </div>
                             <div style={{ padding: "8px 10px", background: "rgba(255,180,0,0.05)", border: "1px solid rgba(255,180,0,0.1)", borderRadius: 10, textAlign: "center" }}>
                               <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Hoje</div>
@@ -1093,9 +1093,9 @@ export default function App() {
                               <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Progresso</div>
                               <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#ff6b9d" }}>75%</div>
                             </div>
-                            <div style={{ padding: "8px 10px", background: "rgba(200,255,0,0.05)", border: "1px solid rgba(200,255,0,0.1)", borderRadius: 10, textAlign: "center" }}>
+                            <div style={{ padding: "8px 10px", background: "rgba(124, 58, 237,0.05)", border: "1px solid rgba(124, 58, 237,0.1)", borderRadius: 10, textAlign: "center" }}>
                               <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Performance</div>
-                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#c8ff00" }}>98</div>
+                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#7C3AED" }}>98</div>
                             </div>
                             <div style={{ padding: "8px 10px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, textAlign: "center" }}>
                               <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Entrega</div>
@@ -1150,7 +1150,7 @@ export default function App() {
               {faqTabs.map((tab, i) => (
                 <button key={i} onClick={() => { setActiveFaqTab(i); setOpenFaq(null); }} style={{
                   padding: "8px 20px", borderRadius: 100, border: "1px solid", cursor: "pointer",
-                  fontFamily: "'Manrope', sans-serif", fontSize: "0.78rem", fontWeight: 600, transition: "all 0.3s",
+                  fontFamily: "'Inter', sans-serif", fontSize: "0.78rem", fontWeight: 600, transition: "all 0.3s",
                   background: activeFaqTab === i ? faqTabColors[i] : "transparent",
                   color: activeFaqTab === i ? "#08080a" : "rgba(255,255,255,0.4)",
                   borderColor: activeFaqTab === i ? faqTabColors[i] : "rgba(255,255,255,0.08)"
@@ -1186,25 +1186,25 @@ export default function App() {
       {/* ═══ CTA — Big editorial statement ═══ */}
       <section id="contato" className="cta-section" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
         {/* Decorative elements — hen-ry style */}
-        <div style={{ position: "absolute", top: "40%", left: "50%", transform: "translate(-50%, -50%)", width: 400, height: 400, background: "radial-gradient(circle, rgba(200,255,0,0.04) 0%, transparent 55%)", filter: "blur(40px)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", top: "40%", left: "50%", transform: "translate(-50%, -50%)", width: 400, height: 400, background: "radial-gradient(circle, rgba(124, 58, 237,0.04) 0%, transparent 55%)", filter: "blur(40px)", pointerEvents: "none" }} />
 
         <Reveal type="scale">
           <div style={{ position: "relative" }}>
             <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 32 }}>
-              <Star size={16} color="#c8ff00" style={{ animation: "float1 4s ease-in-out infinite" }} />
-              <Star size={12} color="#4d9fff" style={{ animation: "float2 5s ease-in-out infinite" }} />
+              <Star size={16} color="#7C3AED" style={{ animation: "float1 4s ease-in-out infinite" }} />
+              <Star size={12} color="#2563EB" style={{ animation: "float2 5s ease-in-out infinite" }} />
               <Star size={14} color="#ff6b9d" style={{ animation: "float3 6s ease-in-out infinite" }} />
             </div>
 
             <h2 style={{ fontSize: "clamp(2.5rem, 5vw, 4.5rem)", fontWeight: 800, letterSpacing: -2.5, lineHeight: 1.05, marginBottom: 20, maxWidth: 820, margin: "0 auto 20px" }}>
               Pronto para construir a próxima fase da sua{" "}
-              <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#c8ff00" }}>operação</span>?
+              <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#7C3AED" }}>operação</span>?
             </h2>
             <p style={{ fontSize: "1.08rem", color: "rgba(255,255,255,0.45)", maxWidth: 520, margin: "0 auto 44px", lineHeight: 1.6 }}>
               Agende uma conversa sem compromisso. Em 30 minutos mapeamos onde a Noratech pode gerar mais impacto na sua operação.
             </p>
             <div className="cta-buttons" style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-              <a href="#" onClick={(e) => { e.preventDefault(); setSchedulerOpen(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 30px", background: "#c8ff00", color: "#08080a", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", cursor: "pointer", transition: "all 0.3s" }}>
+              <a href="#" onClick={(e) => { e.preventDefault(); setSchedulerOpen(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 30px", background: "#7C3AED", color: "#ffffff", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", cursor: "pointer", transition: "all 0.3s" }}>
                 Agendar reunião <span style={{ fontSize: "1.1rem" }}>↗</span>
               </a>
               <a href="https://wa.me/5511932227752" target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 28px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", transition: "all 0.3s" }}>
@@ -1219,7 +1219,7 @@ export default function App() {
       <footer className="footer-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "80px 60px 48px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <div className="footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 48, marginBottom: 48 }}>
           <div>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: "0.9rem", color: "#c8ff00" }}>NORA<span style={{ color: "rgba(255,255,255,0.3)" }}>TECH</span></span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: "0.9rem", color: "#7C3AED" }}>NORA<span style={{ color: "rgba(255,255,255,0.3)" }}>TECH</span></span>
             <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.3)", lineHeight: 1.6, maxWidth: 300, marginTop: 12 }}>Engenharia de software, automação e integrações para empresas que querem operar com eficiência.</p>
           </div>
           {[
