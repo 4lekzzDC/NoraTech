@@ -54,7 +54,7 @@ function Toast({ message, type, onClose }) {
 }
 
 export default function ProfilePage() {
-  const { user, updateUser, logout, authFetch } = useAuth();
+  const { user, updateProfile, changePassword, uploadPhoto, removePhoto, logout } = useAuth();
   const navigate = useNavigate();
   const photoInputRef = useRef(null);
 
@@ -82,15 +82,12 @@ export default function ProfilePage() {
     e.preventDefault();
     setInfoLoading(true);
     try {
-      const res = await authFetch('/api/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      updateUser(data);
-      showToast('Perfil atualizado com sucesso');
+      const { emailChanged } = await updateProfile({ name, email });
+      if (emailChanged) {
+        showToast('Enviamos um link de confirmação para o novo e-mail');
+      } else {
+        showToast('Perfil atualizado com sucesso');
+      }
     } catch (err) {
       showToast(err.message || 'Erro ao atualizar perfil', 'error');
     } finally {
@@ -108,13 +105,7 @@ export default function ProfilePage() {
     }
     setPassLoading(true);
     try {
-      const res = await authFetch('/api/profile/password', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      await changePassword(currentPassword, newPassword);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -130,13 +121,8 @@ export default function ProfilePage() {
     const file = e.target.files[0];
     if (!file) return;
     setPhotoLoading(true);
-    const formData = new FormData();
-    formData.append('photo', file);
     try {
-      const res = await authFetch('/api/profile/photo', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      updateUser({ photoUrl: data.photoUrl });
+      await uploadPhoto(file);
       showToast('Foto atualizada com sucesso');
     } catch (err) {
       showToast(err.message || 'Erro ao enviar foto', 'error');
@@ -149,10 +135,7 @@ export default function ProfilePage() {
   const handleRemovePhoto = async () => {
     setPhotoLoading(true);
     try {
-      const res = await authFetch('/api/profile/photo', { method: 'DELETE' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      updateUser({ photoUrl: null });
+      await removePhoto();
       showToast('Foto removida');
     } catch (err) {
       showToast(err.message || 'Erro ao remover foto', 'error');
@@ -161,8 +144,8 @@ export default function ProfilePage() {
     }
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/');
   };
 

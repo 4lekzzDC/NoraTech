@@ -102,18 +102,122 @@ Definidos em `package.json`:
 
 ## Como rodar localmente
 
-Pré-requisitos: **Node.js 18+** e **npm**.
+Pré-requisitos: **Node.js 18+**, **npm** e um projeto Supabase (veja
+[Supabase — setup](#supabase--setup)).
 
 ```bash
 # 1. Instalar dependências
 npm install
 
-# 2. Rodar em modo desenvolvimento
+# 2. Copiar .env.example e preencher com as credenciais do Supabase
+cp .env.example .env.local
+# edite .env.local com VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY
+
+# 3. Rodar em modo desenvolvimento
 npm run dev
 
-# 3. Acessar no navegador
+# 4. Acessar no navegador
 # http://localhost:5173
 ```
+
+> **Produção (Vercel):** configure `VITE_SUPABASE_URL` e
+> `VITE_SUPABASE_ANON_KEY` em *Project Settings → Environment Variables*
+> e redeploy.
+
+---
+
+## Supabase — setup
+
+Autenticação, perfis e avatares ficam no Supabase. Toda a comunicação é
+feita pelo cliente `@supabase/supabase-js` (ver `src/lib/supabase.js`) —
+não existe backend próprio em produção.
+
+### 1. Tabela `profiles`
+
+```sql
+create table public.profiles (
+  id uuid primary key references auth.users on delete cascade,
+  name text,
+  photo_url text,
+  company text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+-- Cada usuário só vê / edita o próprio perfil
+create policy "profiles_select_own" on public.profiles
+  for select using (auth.uid() = id);
+
+create policy "profiles_insert_own" on public.profiles
+  for insert with check (auth.uid() = id);
+
+create policy "profiles_update_own" on public.profiles
+  for update using (auth.uid() = id);
+```
+
+(Opcional) criar o profile automaticamente no signup via trigger:
+
+```sql
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer as $$
+begin
+  insert into public.profiles (id, name)
+  values (new.id, coalesce(new.raw_user_meta_data->>'name', ''))
+  on conflict (id) do nothing;
+  return new;
+end; $$;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+```
+
+### 2. Bucket `avatars` (Storage)
+
+No painel do Supabase → **Storage → New bucket**:
+
+- Nome: `avatars`
+- **Public bucket**: ✅ (para que `photo_url` seja acessível direto)
+
+Policies sugeridas (Storage → `avatars` → Policies):
+
+```sql
+-- Leitura pública (se o bucket já é público, basta isso)
+create policy "avatars_public_read" on storage.objects
+  for select using (bucket_id = 'avatars');
+
+-- Cada usuário pode escrever apenas em pastas com o próprio uid
+create policy "avatars_write_own" on storage.objects
+  for insert with check (
+    bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "avatars_update_own" on storage.objects
+  for update using (
+    bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "avatars_delete_own" on storage.objects
+  for delete using (
+    bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text
+  );
+```
+
+As fotos são salvas em `avatars/<user_id>/avatar-<timestamp>.<ext>`.
+
+### 3. Auth settings
+
+Em **Authentication → Providers → Email**, decida:
+
+- Deixar **Confirm email** ligado (usuário precisa clicar em link no e-mail
+  para ativar a conta) — o `register()` retorna mensagem pedindo
+  confirmação.
+- Desligar para ambiente de testes — login imediato pós-signup.
+
+Para troca de e-mail funcionar, configure o **Site URL** em
+**Authentication → URL Configuration** (ex.: `https://noratech.com.br`).
 
 Para checagem de lint antes de commitar:
 

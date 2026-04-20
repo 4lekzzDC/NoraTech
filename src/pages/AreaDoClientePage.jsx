@@ -105,8 +105,8 @@ export default function AreaDoClientePage() {
     [user]
   );
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/');
   };
 
