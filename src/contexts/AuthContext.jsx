@@ -21,6 +21,7 @@ function mapProfile(authUser, profile) {
     name: profile?.name || authUser.user_metadata?.name || '',
     photoUrl: profile?.photo_url || null,
     company: profile?.company || null,
+    createdAt: authUser.created_at || null,
   };
 }
 
