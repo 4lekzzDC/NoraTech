@@ -83,22 +83,43 @@ export default function LoginPage() {
         }
         .login-btn:hover:not(:disabled) { background: #d4ff33; transform: translateY(-1px); }
         .login-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-        .back-link { color: rgba(255,255,255,0.35); font-size: 0.8rem; text-decoration: none; transition: color 0.2s; }
-        .back-link:hover { color: rgba(255,255,255,0.7); }
         .register-link { color: #c8ff00; font-size: 0.85rem; text-decoration: none; font-weight: 600; transition: opacity 0.2s; }
         .register-link:hover { opacity: 0.8; }
-        .forgot-link { color: rgba(255,255,255,0.35); font-size: 0.8rem; text-decoration: none; transition: color 0.2s; }
+        .forgot-link { color: rgba(255,255,255,0.35); font-size: 0.8rem; text-decoration: none; transition: color 0.2s; display: block; text-align: center; }
         .forgot-link:hover { color: rgba(200,255,0,0.7); }
         .toggle-pass { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.3); padding: 4px; line-height: 1; display: flex; align-items: center; transition: color 0.2s; }
         .toggle-pass:hover { color: rgba(255,255,255,0.7); }
-        .logo-divider {
+        .back-btn {
+          position: fixed;
+          top: 24px;
+          left: 24px;
+          z-index: 10;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           width: 40px;
-          height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(200,255,0,0.4), transparent);
-          margin: 20px auto 0;
+          height: 40px;
+          border-radius: 10px;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: rgba(255,255,255,0.4);
+          text-decoration: none;
+          transition: background 0.2s, border-color 0.2s, color 0.2s;
+        }
+        .back-btn:hover {
+          background: rgba(255,255,255,0.08);
+          border-color: rgba(255,255,255,0.15);
+          color: rgba(255,255,255,0.8);
         }
         @keyframes pulse-ring { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(2.5); opacity: 0; } }
       `}</style>
+
+      {/* Back button top-left */}
+      <Link to="/" className="back-btn" title="Voltar ao site">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+      </Link>
 
       {/* Background glows */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
@@ -109,13 +130,12 @@ export default function LoginPage() {
       <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 420 }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <Link to="/" style={{ display: 'inline-block', marginBottom: 16 }}>
+          <Link to="/" style={{ display: 'inline-block', marginBottom: 20 }}>
             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '1.1rem', color: '#c8ff00', letterSpacing: -0.5 }}>
               NORA<span style={{ color: 'rgba(255,255,255,0.3)' }}>TECH</span>
             </span>
           </Link>
-          <div className="logo-divider" />
-          <h1 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: -0.8, marginBottom: 8, marginTop: 24 }}>
+          <h1 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: -0.8, marginBottom: 8 }}>
             Acesso ao painel
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.88rem' }}>
@@ -150,12 +170,9 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Senha
-                </label>
-                <Link to="/recuperar-senha" className="forgot-link">Esqueci minha senha</Link>
-              </div>
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Senha
+              </label>
               <div className="input-wrapper" style={{ position: 'relative' }}>
                 <input
                   className="login-input"
@@ -193,15 +210,16 @@ export default function LoginPage() {
             <button className="login-btn" type="submit" disabled={loading} style={{ marginTop: 4 }}>
               {loading ? 'Entrando...' : 'Entrar'}
             </button>
+
+            <Link to="/recuperar-senha" className="forgot-link">Esqueci minha senha</Link>
           </form>
         </div>
 
-        <div style={{ textAlign: 'center', marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+        <div style={{ textAlign: 'center', marginTop: 20 }}>
           <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.85rem' }}>
             Não tem uma conta?{' '}
             <Link to="/registro" className="register-link">Criar conta</Link>
           </span>
-          <Link to="/" className="back-link">← Voltar ao site</Link>
         </div>
       </div>
     </div>
