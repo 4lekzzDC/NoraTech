@@ -73,9 +73,9 @@ const DIFFERENTIALS = [
 ];
 
 const PRODUCTS = [
-  { id: 1, icon: "💰", name: "Finzo App", desc: "Plataforma de gestão financeira inteligente que conecta contas, organiza movimentações e transforma dados em análises claras sobre gastos, rendimento e oportunidades de economia.", tags: ["FinTech", "Analytics", "Open Finance"], color: "#c8ff00", featured: true, features: ["Integração via Open Finance com bancos", "Categorização automática de transações", "Análises e insights com IA", "Metas de economia e alertas inteligentes", "Dashboard unificado em tempo real"] },
   { id: 2, icon: "💬", name: "WhatsApp Bot", desc: "Sistema de atendimento via WhatsApp que categoriza conversas, realiza o pré-atendimento e organiza o fluxo antes da interação humana.", tags: ["Chatbot", "WhatsApp API", "NLP"], color: "#25D366", featured: true, features: ["Atendimento automatizado 24/7", "Categorização por intenção (NLP)", "Pré-atendimento e triagem inteligente", "Transferência fluida para humanos", "Relatórios de atendimento e métricas"] },
   { id: 4, icon: "🌐", name: "Sites para Empresas", desc: "Criação de sites profissionais com IA, adaptados ao modelo e necessidade de cada cliente. Design moderno, responsivo e otimizado para conversão.", tags: ["Web Design", "IA", "SEO"], color: "#ff6b9d", featured: true, features: ["Design personalizado gerado com IA", "Layout 100% responsivo (mobile/tablet/desktop)", "SEO técnico e performance otimizada", "Integrações (pagamento, CRM, analytics)", "Hospedagem, deploy e suporte contínuo"] },
+  { id: 1, icon: "💰", name: "Finzo App", desc: "Plataforma de gestão financeira inteligente que conecta contas, organiza movimentações e transforma dados em análises claras sobre gastos, rendimento e oportunidades de economia.", tags: ["FinTech", "Analytics", "Open Finance"], color: "#c8ff00", featured: true, features: ["Integração via Open Finance com bancos", "Categorização automática de transações", "Análises e insights com IA", "Metas de economia e alertas inteligentes", "Dashboard unificado em tempo real"] },
 ];
 
 const TESTIMONIALS = [
@@ -845,12 +845,12 @@ export default function App() {
         <Reveal>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <Star size={12} color="#c8ff00" />
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 3 }}>Projetos</span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#c8ff00", textTransform: "uppercase", letterSpacing: 3 }}>Sistemas</span>
           </div>
         </Reveal>
         <Reveal delay={0.1}>
           <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 14 }}>
-            Projetos em <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>atividade</span>
+            Sistemas em <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>destaque</span>
           </h2>
         </Reveal>
         <Reveal delay={0.15}>
