@@ -52,13 +52,21 @@ export default function LoginPage() {
           font-family: 'Manrope', sans-serif;
           font-size: 0.95rem;
           outline: none;
-          transition: border-color 0.2s, background 0.2s;
+          transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
         }
         .login-input:focus {
-          border-color: rgba(200,255,0,0.4);
+          border-color: rgba(200,255,0,0.5);
           background: rgba(200,255,0,0.03);
+          box-shadow: 0 0 0 3px rgba(200,255,0,0.08), inset 0 0 0 1px rgba(200,255,0,0.15);
         }
         .login-input::placeholder { color: rgba(255,255,255,0.25); }
+        .input-wrapper {
+          position: relative;
+          transition: transform 0.2s ease;
+        }
+        .input-wrapper:focus-within {
+          transform: translateY(-1px);
+        }
         .login-btn {
           width: 100%;
           padding: 15px;
@@ -79,6 +87,16 @@ export default function LoginPage() {
         .back-link:hover { color: rgba(255,255,255,0.7); }
         .register-link { color: #c8ff00; font-size: 0.85rem; text-decoration: none; font-weight: 600; transition: opacity 0.2s; }
         .register-link:hover { opacity: 0.8; }
+        .forgot-link { color: rgba(255,255,255,0.35); font-size: 0.8rem; text-decoration: none; transition: color 0.2s; }
+        .forgot-link:hover { color: rgba(200,255,0,0.7); }
+        .toggle-pass { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.3); padding: 4px; line-height: 1; display: flex; align-items: center; transition: color 0.2s; }
+        .toggle-pass:hover { color: rgba(255,255,255,0.7); }
+        .logo-divider {
+          width: 40px;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(200,255,0,0.4), transparent);
+          margin: 20px auto 0;
+        }
         @keyframes pulse-ring { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(2.5); opacity: 0; } }
       `}</style>
 
@@ -91,12 +109,13 @@ export default function LoginPage() {
       <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 420 }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <Link to="/" style={{ display: 'inline-block', marginBottom: 24 }}>
+          <Link to="/" style={{ display: 'inline-block', marginBottom: 16 }}>
             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '1.1rem', color: '#c8ff00', letterSpacing: -0.5 }}>
               NORA<span style={{ color: 'rgba(255,255,255,0.3)' }}>TECH</span>
             </span>
           </Link>
-          <h1 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: -0.8, marginBottom: 8 }}>
+          <div className="logo-divider" />
+          <h1 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: -0.8, marginBottom: 8, marginTop: 24 }}>
             Acesso ao painel
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.88rem' }}>
@@ -117,22 +136,27 @@ export default function LoginPage() {
               <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 E-mail
               </label>
-              <input
-                className="login-input"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
+              <div className="input-wrapper">
+                <input
+                  className="login-input"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+              </div>
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Senha
-              </label>
-              <div style={{ position: 'relative' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Senha
+                </label>
+                <Link to="/recuperar-senha" className="forgot-link">Esqueci minha senha</Link>
+              </div>
+              <div className="input-wrapper" style={{ position: 'relative' }}>
                 <input
                   className="login-input"
                   type={showPass ? 'text' : 'password'}
@@ -143,12 +167,19 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   style={{ paddingRight: 48 }}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPass((v) => !v)}
-                  style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.35)', fontSize: '1rem', padding: 2, lineHeight: 1 }}
-                >
-                  {showPass ? '🙈' : '👁'}
+                <button type="button" onClick={() => setShowPass((v) => !v)} className="toggle-pass">
+                  {showPass ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
+                      <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  )}
                 </button>
               </div>
             </div>
