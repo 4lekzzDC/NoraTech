@@ -22,8 +22,12 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
-      await register(name, email, password);
-      navigate('/area-do-cliente');
+      const result = await register(name, email, password);
+      if (result?.pendingConfirmation) {
+        navigate('/login', { state: { message: 'Conta criada! Confirme seu e-mail para entrar.' } });
+      } else {
+        navigate('/area-do-cliente');
+      }
     } catch (err) {
       setError(err.message);
     } finally {
