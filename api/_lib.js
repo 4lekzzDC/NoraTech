@@ -51,7 +51,7 @@ export function toPublic(user) {
     id: user.id,
     email: user.email,
     name: user.email.split('@')[0],
-    photoUrl: null,
+    photoUrl: user.photo_url ?? null,
   };
 }
 

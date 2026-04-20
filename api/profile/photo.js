@@ -1,7 +1,6 @@
-import { put } from '@vercel/blob';
-import { authenticate, findUserById, updateUser, toPublic } from '../_lib.js';
+import { authenticate, findUserById, updateUser, getSupabase, toPublic } from '../_lib.js';
 
-export const config = { api: { bodyParser: false } };
+const BUCKET = 'photos';
 
 export default async function handler(req, res) {
   const payload = authenticate(req, res);
@@ -11,8 +10,13 @@ export default async function handler(req, res) {
   if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
 
   if (req.method === 'DELETE') {
+    if (user.photo_url) {
+      const sb = getSupabase();
+      const segment = user.photo_url.split(`/object/public/${BUCKET}/`)[1];
+      if (segment) await sb.storage.from(BUCKET).remove([decodeURIComponent(segment)]);
+    }
     const updated = await updateUser(user.id, { photo_url: null });
-    return res.json({ photoUrl: updated.photo_url });
+    return res.json(toPublic(updated));
   }
 
   if (req.method === 'POST') {
@@ -41,13 +45,19 @@ export default async function handler(req, res) {
 
     if (!fileBuffer) return res.status(400).json({ error: 'Nenhuma foto enviada' });
 
-    const ext = mimeType.split('/')[1] || 'jpg';
-    const blob = await put(`photos/photo_${Date.now()}.${ext}`, fileBuffer, {
-      access: 'public',
-      contentType: mimeType,
-    });
+    const ext = mimeType.split('/')[1]?.split('+')[0] || 'jpg';
+    const path = `${user.id}/photo_${Date.now()}.${ext}`;
 
-    const updated = await updateUser(user.id, { photo_url: blob.url });
+    const sb = getSupabase();
+    const { error: uploadError } = await sb.storage
+      .from(BUCKET)
+      .upload(path, fileBuffer, { contentType: mimeType, upsert: true });
+
+    if (uploadError) return res.status(500).json({ error: uploadError.message });
+
+    const { data: { publicUrl } } = sb.storage.from(BUCKET).getPublicUrl(path);
+
+    const updated = await updateUser(user.id, { photo_url: publicUrl });
     return res.json(toPublic(updated));
   }
 
