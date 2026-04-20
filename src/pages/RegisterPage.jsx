@@ -23,7 +23,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await register(name, email, password);
-      navigate('/perfil');
+      navigate('/area-do-cliente');
     } catch (err) {
       setError(err.message);
     } finally {

@@ -383,7 +383,7 @@ export default function App() {
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eeede9" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
           </button>
-          <Link to={user ? "/perfil" : "/login"} title={user ? "Meu perfil" : "Acesso admin"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: user ? "rgba(200,255,0,0.1)" : "rgba(255,255,255,0.04)", border: `1px solid ${user ? "rgba(200,255,0,0.2)" : "rgba(255,255,255,0.08)"}`, marginLeft: 2, overflow: "hidden", flexShrink: 0 }}>
+          <Link to={user ? "/area-do-cliente" : "/login"} title={user ? "Central de Controle" : "Acesso admin"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: user ? "rgba(200,255,0,0.1)" : "rgba(255,255,255,0.04)", border: `1px solid ${user ? "rgba(200,255,0,0.2)" : "rgba(255,255,255,0.08)"}`, marginLeft: 2, overflow: "hidden", flexShrink: 0 }}>
             {user?.photoUrl
               ? <img src={user.photoUrl} alt="perfil" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={user ? "#c8ff00" : "rgba(255,255,255,0.35)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
