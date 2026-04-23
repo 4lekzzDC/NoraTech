@@ -19,6 +19,279 @@ function formatMemberSince(isoDate) {
   return `${MONTHS_PT[d.getMonth()]}/${d.getFullYear()}`;
 }
 
+function SectionHeader({ eyebrow, title, description }) {
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.5, color: '#7C3AED', textTransform: 'uppercase' }}>
+        {eyebrow}
+      </span>
+      <h2 style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: -0.8, marginTop: 6, marginBottom: description ? 8 : 0 }}>
+        {title}
+      </h2>
+      {description && (
+        <p style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,0.55)', maxWidth: 620 }}>{description}</p>
+      )}
+    </div>
+  );
+}
+
+function StatCard({ label, value, hint, accent = '#7C3AED' }) {
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '22px 24px' }}>
+      <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.5, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase' }}>
+        {label}
+      </span>
+      <div style={{ fontSize: '1.9rem', fontWeight: 800, letterSpacing: -1, marginTop: 8, color: accent }}>
+        {value}
+      </div>
+      {hint && (
+        <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', marginTop: 6 }}>{hint}</div>
+      )}
+    </div>
+  );
+}
+
+function OperacaoTab() {
+  return (
+    <>
+      <SectionHeader
+        eyebrow="Operação"
+        title="Monitoramento em tempo real"
+        description="Acompanhe a saúde dos seus sistemas, eventos e indicadores operacionais assim que sua automação for ativada."
+      />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 32 }}>
+        <StatCard label="Uptime 30d" value="—" hint="Sem operação ativa" />
+        <StatCard label="Execuções hoje" value="0" hint="Nenhum evento processado" />
+        <StatCard label="Tempo médio" value="—" hint="Aguardando coleta" />
+        <StatCard label="Incidentes" value="0" hint="Nenhum registro" accent="#7dff7d" />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '22px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Eventos recentes</h3>
+            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: 1, textTransform: 'uppercase' }}>
+              Últimas 24h
+            </span>
+          </div>
+          <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.45)', padding: '20px 0', textAlign: 'center' }}>
+            Nenhum evento registrado.
+          </div>
+        </div>
+
+        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '22px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Serviços conectados</h3>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.3)' }} />
+              0 ativos
+            </span>
+          </div>
+          <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.45)', padding: '20px 0', textAlign: 'center' }}>
+            Nenhuma integração configurada ainda.
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function FinanceiroTab() {
+  return (
+    <>
+      <SectionHeader
+        eyebrow="Financeiro"
+        title="Plano, faturas e pagamentos"
+        description="Consulte o seu plano atual, histórico de faturas e método de pagamento em um único lugar."
+      />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 32 }}>
+        <StatCard label="Plano atual" value="Free" hint="Nenhum serviço contratado" />
+        <StatCard label="Mensalidade" value="R$ 0,00" hint="Ativa ao contratar um serviço" />
+        <StatCard label="Próxima fatura" value="—" hint="Sem cobrança programada" />
+        <StatCard label="Status" value="Em dia" hint="Sem pendências" accent="#7dff7d" />
+      </div>
+
+      <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '22px 24px', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Histórico de faturas</h3>
+          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: 1, textTransform: 'uppercase' }}>
+            0 faturas
+          </span>
+        </div>
+        <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.45)', padding: '24px 0', textAlign: 'center' }}>
+          Você ainda não possui faturas emitidas.
+        </div>
+      </div>
+
+      <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '22px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
+          <div>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 4 }}>Método de pagamento</h3>
+            <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)' }}>
+              Nenhum cartão ou método cadastrado.
+            </p>
+          </div>
+          <Link
+            to="/#contato"
+            className="btn-ghost"
+            style={{ padding: '10px 18px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: 'rgba(255,255,255,0.85)', fontSize: '0.85rem', fontWeight: 600, transition: 'all 0.2s' }}
+          >
+            Configurar
+          </Link>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function OportunidadesTab() {
+  const opportunities = [
+    {
+      tag: 'Automação',
+      title: 'Automação de atendimento 24/7',
+      description: 'Implante um agente inteligente para responder leads e clientes com tom humano e integração direta ao seu CRM.',
+      to: '/servicos/automacao-ia',
+    },
+    {
+      tag: 'Sistemas',
+      title: 'Sistema sob medida para a sua operação',
+      description: 'Plataforma web exclusiva, desenhada para os fluxos do seu negócio — sem planilhas, sem gambiarras.',
+      to: '/servicos/sistemas-sob-medida',
+    },
+    {
+      tag: 'Estratégia',
+      title: 'Diagnóstico gratuito de operação',
+      description: 'Agende uma conversa de 30 minutos com a Noratech para mapear gargalos e oportunidades de automação.',
+      to: '/#contato',
+    },
+  ];
+
+  return (
+    <>
+      <SectionHeader
+        eyebrow="Oportunidades"
+        title="Próximos passos sugeridos"
+        description="Uma curadoria de serviços e melhorias que podem acelerar seus resultados."
+      />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+        {opportunities.map((op) => (
+          <Link
+            key={op.title}
+            to={op.to}
+            className="system-card"
+            style={{ display: 'flex', flexDirection: 'column', gap: 10, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '22px 24px', transition: 'all 0.2s' }}
+          >
+            <span style={{ alignSelf: 'flex-start', fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.5, color: '#7C3AED', textTransform: 'uppercase', padding: '4px 10px', border: '1px solid rgba(124, 58, 237,0.25)', background: 'rgba(124, 58, 237,0.06)', borderRadius: 6 }}>
+              {op.tag}
+            </span>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: -0.3, marginTop: 4 }}>
+              {op.title}
+            </h3>
+            <p style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.5 }}>
+              {op.description}
+            </p>
+            <span style={{ marginTop: 'auto', fontSize: '0.82rem', fontWeight: 700, color: '#b197ff' }}>
+              Saiba mais ↗
+            </span>
+          </Link>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function ComandoTab({ user, onLogout }) {
+  const actions = [
+    {
+      title: 'Editar perfil',
+      description: 'Atualize nome, foto e informações da sua conta.',
+      cta: 'Abrir perfil',
+      to: '/perfil',
+      external: false,
+    },
+    {
+      title: 'Falar com suporte',
+      description: 'Tire dúvidas, abra chamados ou peça ajustes na operação.',
+      cta: 'Enviar mensagem',
+      to: '/#contato',
+      external: false,
+    },
+    {
+      title: 'Solicitar novo projeto',
+      description: 'Conte o que você precisa construir e receba uma proposta.',
+      cta: 'Iniciar briefing',
+      to: '/#contato',
+      external: false,
+    },
+  ];
+
+  return (
+    <>
+      <SectionHeader
+        eyebrow="Comando"
+        title="Ações rápidas e configurações"
+        description="Centralize os comandos da sua conta e fale com a Noratech em poucos cliques."
+      />
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 28 }}>
+        {actions.map((a) => (
+          <div
+            key={a.title}
+            className="system-card"
+            style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 10, transition: 'all 0.2s' }}
+          >
+            <h3 style={{ fontSize: '1.02rem', fontWeight: 800, letterSpacing: -0.3 }}>
+              {a.title}
+            </h3>
+            <p style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.5 }}>
+              {a.description}
+            </p>
+            <Link
+              to={a.to}
+              style={{ marginTop: 'auto', alignSelf: 'flex-start', padding: '9px 16px', background: '#7C3AED', borderRadius: 10, color: '#fff', fontSize: '0.82rem', fontWeight: 700 }}
+            >
+              {a.cta}
+            </Link>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '22px 24px', marginBottom: 16 }}>
+        <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 14 }}>Resumo da conta</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+          <div>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.5, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 4 }}>Nome</div>
+            <div style={{ fontSize: '0.92rem', fontWeight: 600 }}>{user?.name || '—'}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.5, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 4 }}>E-mail</div>
+            <div style={{ fontSize: '0.92rem', fontWeight: 600, wordBreak: 'break-all' }}>{user?.email || '—'}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.5, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 4 }}>Empresa</div>
+            <div style={{ fontSize: '0.92rem', fontWeight: 600 }}>{user?.company || '—'}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, background: 'rgba(255,0,80,0.04)', border: '1px solid rgba(255,0,80,0.18)', borderRadius: 14, padding: '18px 22px' }}>
+        <div>
+          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: 4 }}>Encerrar sessão</h3>
+          <p style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.5)' }}>
+            Você pode entrar novamente a qualquer momento com seu e-mail e senha.
+          </p>
+        </div>
+        <button
+          onClick={onLogout}
+          style={{ padding: '10px 18px', background: 'transparent', border: '1px solid rgba(255,0,80,0.35)', borderRadius: 10, color: '#ff9ab4', fontFamily: "'Inter', sans-serif", fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}
+        >
+          Sair ↗
+        </button>
+      </div>
+    </>
+  );
+}
+
 function EmptyGauge() {
   const size = 240;
   const stroke = 4;
@@ -76,6 +349,8 @@ export default function AreaDoClientePage() {
         .btn-ghost:hover { background: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.2) !important; }
         .btn-primary:hover { background: #d4ff33 !important; transform: translateY(-1px); }
         .system-card:hover { border-color: rgba(124, 58, 237,0.25) !important; background: rgba(255,255,255,0.03) !important; }
+        .tabs-nav { scrollbar-width: none; -ms-overflow-style: none; }
+        .tabs-nav::-webkit-scrollbar { display: none; width: 0; height: 0; }
         @keyframes pulse { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.4; } }
         .live-dot { animation: pulse 1.6s ease-in-out infinite; }
       `}</style>
@@ -126,7 +401,7 @@ export default function AreaDoClientePage() {
 
       <main style={{ position: 'relative', zIndex: 1, maxWidth: 1240, margin: '0 auto', padding: '28px 32px 96px' }}>
         {/* Tabs */}
-        <nav style={{ display: 'flex', gap: 36, borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 56, overflowX: 'auto' }}>
+        <nav className="tabs-nav" style={{ display: 'flex', gap: 36, borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 56, overflowX: 'auto', overflowY: 'hidden' }}>
           {TABS.map((t) => {
             const active = activeTab === t.id;
             return (
@@ -240,19 +515,10 @@ export default function AreaDoClientePage() {
           </>
         )}
 
-        {activeTab !== 'cockpit' && (
-          <section style={{ minHeight: 320, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 16, padding: 48 }}>
-            <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.5, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 10 }}>
-              Em breve
-            </span>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: -0.6, marginBottom: 8 }}>
-              {TABS.find((t) => t.id === activeTab)?.label}
-            </h2>
-            <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.45)', maxWidth: 420 }}>
-              Esta seção está sendo preparada e estará disponível em breve na sua Central de Controle.
-            </p>
-          </section>
-        )}
+        {activeTab === 'operacao' && <OperacaoTab />}
+        {activeTab === 'financeiro' && <FinanceiroTab />}
+        {activeTab === 'oportunidades' && <OportunidadesTab />}
+        {activeTab === 'comando' && <ComandoTab user={user} onLogout={handleLogout} />}
       </main>
     </div>
   );
