@@ -248,6 +248,15 @@ export default function LoginPage() {
           position: relative;
           z-index: 1;
         }
+        .login-card {
+          background: rgba(255,255,255,0.02);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 16px;
+          padding: 36px 36px 32px;
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 18px 50px -20px rgba(0,0,0,0.55);
+        }
 
         .mobile-only { display: none; }
 
@@ -262,6 +271,7 @@ export default function LoginPage() {
         }
         @media (max-width: 480px) {
           .form-panel { padding: 24px 18px; }
+          .login-card { padding: 28px 24px 24px; border-radius: 14px; }
         }
       `}</style>
 
@@ -333,23 +343,24 @@ export default function LoginPage() {
 
           <div className="form-panel-body">
             <div className="form-inner">
-              <div className="fade-up fade-up-d2" style={{ marginBottom: 40 }}>
-                <h1 style={{
-                  fontSize: '2.25rem',
-                  fontWeight: 700,
-                  letterSpacing: -1.2,
-                  marginBottom: 12,
-                  lineHeight: 1.15,
-                  color: '#eeede9',
-                }}>
-                  Acesse o painel
-                </h1>
-                <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '1rem', lineHeight: 1.55 }}>
-                  Entre com suas credenciais para continuar.
-                </p>
-              </div>
+              <div className="login-card fade-up fade-up-d2">
+                <div style={{ marginBottom: 28 }}>
+                  <h1 style={{
+                    fontSize: '1.85rem',
+                    fontWeight: 700,
+                    letterSpacing: -1,
+                    marginBottom: 8,
+                    lineHeight: 1.2,
+                    color: '#eeede9',
+                  }}>
+                    Acesse o painel
+                  </h1>
+                  <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.95rem', lineHeight: 1.55 }}>
+                    Entre com suas credenciais para continuar.
+                  </p>
+                </div>
 
-              <form onSubmit={handleSubmit} className="fade-up fade-up-d3" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
                 <div>
                   <label className="input-label" htmlFor="login-email">E-mail</label>
                   <input
@@ -410,9 +421,10 @@ export default function LoginPage() {
                 <button className="login-btn" type="submit" disabled={loading} style={{ marginTop: 6 }}>
                   {loading ? 'Entrando...' : 'Entrar'}
                 </button>
-              </form>
+                </form>
+              </div>
 
-              <div className="fade-up fade-up-d4" style={{ textAlign: 'center', marginTop: 32 }}>
+              <div className="fade-up fade-up-d4" style={{ textAlign: 'center', marginTop: 24 }}>
                 <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.9rem' }}>
                   Não tem uma conta?{' '}
                   <Link to="/registro" className="register-link">Criar conta</Link>
