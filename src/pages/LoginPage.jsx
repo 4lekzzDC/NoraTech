@@ -78,8 +78,8 @@ export default function LoginPage() {
         .login-input {
           width: 100%;
           height: 54px;
-          background: rgba(255,255,255,0.025);
-          border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(0,0,0,0.28);
+          border: 1px solid rgba(255,255,255,0.12);
           border-radius: 12px;
           padding: 0 18px;
           color: #eeede9;
@@ -87,24 +87,24 @@ export default function LoginPage() {
           font-size: 1rem;
           line-height: 1.4;
           outline: none;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), inset 0 0 0 1px rgba(0,0,0,0.1);
           transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
         }
         .login-input:hover:not(:focus) {
-          border-color: rgba(255,255,255,0.18);
-          background: rgba(255,255,255,0.035);
+          border-color: rgba(255,255,255,0.2);
+          background: rgba(0,0,0,0.32);
         }
         .login-input:focus {
           border-color: #7C3AED;
-          background: rgba(124,58,237,0.05);
-          box-shadow: 0 0 0 4px rgba(124,58,237,0.18), inset 0 1px 0 rgba(255,255,255,0.04);
+          background: rgba(124,58,237,0.08);
+          box-shadow: 0 0 0 4px rgba(124,58,237,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
         }
-        .login-input::placeholder { color: rgba(255,255,255,0.3); }
+        .login-input::placeholder { color: rgba(255,255,255,0.32); }
         .login-input:-webkit-autofill,
         .login-input:-webkit-autofill:hover,
         .login-input:-webkit-autofill:focus {
           -webkit-text-fill-color: #eeede9;
-          -webkit-box-shadow: 0 0 0 1000px rgba(20,20,22,0.98) inset, 0 0 0 4px rgba(124,58,237,0.18);
+          -webkit-box-shadow: 0 0 0 1000px rgba(10,10,14,0.98) inset, 0 0 0 4px rgba(124,58,237,0.2);
           caret-color: #eeede9;
           transition: background-color 9999s ease-in-out 0s;
         }
@@ -264,16 +264,18 @@ export default function LoginPage() {
           z-index: 1;
         }
         .login-card {
-          background: rgba(255,255,255,0.025);
-          border: 1px solid rgba(255,255,255,0.1);
+          background:
+            linear-gradient(180deg, rgba(14,14,18,0.62) 0%, rgba(8,8,12,0.68) 100%);
+          border: 1px solid rgba(255,255,255,0.09);
           border-radius: 18px;
           padding: 40px 40px 36px;
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
+          backdrop-filter: blur(18px) saturate(1.1);
+          -webkit-backdrop-filter: blur(18px) saturate(1.1);
           box-shadow:
             0 1px 0 rgba(255,255,255,0.05) inset,
+            0 0 0 1px rgba(0,0,0,0.2) inset,
             0 0 90px rgba(124,58,237,0.055),
-            0 24px 56px -22px rgba(0,0,0,0.55),
+            0 24px 56px -22px rgba(0,0,0,0.6),
             0 18px 44px -18px rgba(124,58,237,0.12);
         }
 
