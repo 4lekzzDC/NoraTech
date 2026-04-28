@@ -217,6 +217,16 @@ export default function LoginPage() {
           pointer-events: none;
           z-index: -1;
         }
+        .brand-panel::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background:
+            radial-gradient(ellipse 70% 55% at 22% 28%, rgba(124,58,237,0.07) 0%, transparent 65%),
+            radial-gradient(ellipse 60% 50% at 85% 95%, rgba(37,99,235,0.04) 0%, transparent 60%);
+          pointer-events: none;
+          z-index: -1;
+        }
         .form-panel {
           flex: 1.15;
           position: relative;
@@ -322,7 +332,7 @@ export default function LoginPage() {
               lineHeight: 1.2,
               letterSpacing: -1,
               marginBottom: 32,
-              color: 'rgba(255,255,255,0.72)',
+              color: 'rgba(255,255,255,0.82)',
             }}>
               Sua operação inteira, em um só lugar.
             </h2>
