@@ -257,18 +257,23 @@ export default function LoginPage() {
         }
         .form-inner {
           width: 100%;
-          max-width: 460px;
+          max-width: 490px;
           position: relative;
           z-index: 1;
         }
         .login-card {
-          background: rgba(255,255,255,0.02);
+          background: rgba(255,255,255,0.025);
           border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 16px;
-          padding: 36px 36px 32px;
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
-          box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 18px 50px -20px rgba(0,0,0,0.55);
+          border-radius: 18px;
+          padding: 40px 40px 36px;
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          box-shadow:
+            0 1px 0 rgba(255,255,255,0.06) inset,
+            0 0 0 1px rgba(124,58,237,0.05),
+            0 0 48px rgba(124,58,237,0.1),
+            0 28px 64px -20px rgba(0,0,0,0.7),
+            0 12px 28px -14px rgba(124,58,237,0.22);
         }
 
         .mobile-only { display: none; }
@@ -284,7 +289,15 @@ export default function LoginPage() {
         }
         @media (max-width: 480px) {
           .form-panel { padding: 24px 18px; }
-          .login-card { padding: 28px 24px 24px; border-radius: 14px; }
+          .login-card {
+            padding: 30px 24px 26px;
+            border-radius: 16px;
+            box-shadow:
+              0 1px 0 rgba(255,255,255,0.05) inset,
+              0 0 0 1px rgba(124,58,237,0.04),
+              0 18px 40px -16px rgba(0,0,0,0.6),
+              0 8px 20px -10px rgba(124,58,237,0.18);
+          }
         }
       `}</style>
 
