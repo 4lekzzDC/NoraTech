@@ -82,59 +82,104 @@ export default function LoginPage() {
 
         .login-input {
           width: 100%;
-          background: rgba(255,255,255,0.03);
+          height: 54px;
+          background: rgba(255,255,255,0.025);
           border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 10px;
-          padding: 15px 16px;
+          border-radius: 12px;
+          padding: 0 18px;
           color: #eeede9;
           font-family: 'Inter', sans-serif;
-          font-size: 0.98rem;
+          font-size: 1rem;
+          line-height: 1.4;
           outline: none;
-          transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+          transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+        }
+        .login-input:hover:not(:focus) {
+          border-color: rgba(255,255,255,0.18);
+          background: rgba(255,255,255,0.035);
         }
         .login-input:focus {
           border-color: #7C3AED;
-          background: rgba(124,58,237,0.04);
-          box-shadow: 0 0 0 3px rgba(124,58,237,0.18);
+          background: rgba(124,58,237,0.05);
+          box-shadow: 0 0 0 4px rgba(124,58,237,0.18), inset 0 1px 0 rgba(255,255,255,0.04);
         }
-        .login-input::placeholder { color: rgba(255,255,255,0.28); }
+        .login-input::placeholder { color: rgba(255,255,255,0.3); }
+        .login-input:-webkit-autofill,
+        .login-input:-webkit-autofill:hover,
+        .login-input:-webkit-autofill:focus {
+          -webkit-text-fill-color: #eeede9;
+          -webkit-box-shadow: 0 0 0 1000px rgba(20,20,22,0.98) inset, 0 0 0 4px rgba(124,58,237,0.18);
+          caret-color: #eeede9;
+          transition: background-color 9999s ease-in-out 0s;
+        }
 
         .input-label {
           display: block;
           font-size: 0.85rem;
           font-weight: 500;
-          color: rgba(255,255,255,0.7);
-          margin-bottom: 8px;
+          color: rgba(255,255,255,0.75);
+          margin-bottom: 10px;
+          letter-spacing: -0.05px;
         }
 
         .login-btn {
           width: 100%;
-          padding: 15px;
+          height: 54px;
+          padding: 0 20px;
           background: #7C3AED;
           color: #ffffff;
           border: none;
-          border-radius: 10px;
+          border-radius: 12px;
           font-family: 'Inter', sans-serif;
-          font-size: 0.98rem;
+          font-size: 1rem;
           font-weight: 600;
+          letter-spacing: 0.1px;
           cursor: pointer;
-          transition: background 0.2s ease, transform 0.15s ease;
+          box-shadow: 0 1px 0 rgba(255,255,255,0.18) inset, 0 6px 16px -8px rgba(124,58,237,0.55);
+          transition: background 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
         }
-        .login-btn:hover:not(:disabled) { background: #6d2dd9; }
-        .login-btn:active:not(:disabled) { transform: translateY(1px); }
-        .login-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+        .login-btn:hover:not(:disabled) {
+          background: #6d2dd9;
+          box-shadow: 0 1px 0 rgba(255,255,255,0.22) inset, 0 10px 22px -8px rgba(124,58,237,0.7);
+        }
+        .login-btn:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 4px rgba(124,58,237,0.32), 0 1px 0 rgba(255,255,255,0.22) inset, 0 10px 22px -8px rgba(124,58,237,0.7);
+        }
+        .login-btn:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 1px 0 rgba(255,255,255,0.12) inset, 0 4px 10px -6px rgba(124,58,237,0.5); }
+        .login-btn:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
 
-        .register-link { color: #b684ff; font-size: 0.9rem; text-decoration: none; font-weight: 500; transition: color 0.2s; }
+        .register-link { color: #b684ff; font-size: 0.9rem; text-decoration: none; font-weight: 500; border-radius: 4px; transition: color 0.2s; }
         .register-link:hover { color: #d4b3ff; }
-        .forgot-link { color: rgba(255,255,255,0.55); font-size: 0.85rem; text-decoration: none; transition: color 0.2s; font-weight: 500; }
+        .register-link:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(124,58,237,0.32); }
+        .forgot-link { color: rgba(255,255,255,0.6); font-size: 0.85rem; text-decoration: none; transition: color 0.2s; font-weight: 500; border-radius: 4px; }
         .forgot-link:hover { color: #b684ff; }
+        .forgot-link:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(124,58,237,0.32); }
 
-        .toggle-pass { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.35); padding: 4px; line-height: 1; display: flex; align-items: center; transition: color 0.2s; }
-        .toggle-pass:hover { color: rgba(255,255,255,0.8); }
+        .toggle-pass {
+          position: absolute;
+          right: 8px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 38px;
+          height: 38px;
+          background: transparent;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          color: rgba(255,255,255,0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: color 0.18s ease, background 0.18s ease;
+        }
+        .toggle-pass:hover { color: #eeede9; background: rgba(255,255,255,0.06); }
+        .toggle-pass:focus-visible { outline: none; color: #eeede9; box-shadow: 0 0 0 3px rgba(124,58,237,0.32); }
 
         .back-link {
           display: inline-flex;
@@ -284,23 +329,23 @@ export default function LoginPage() {
 
           <div className="form-panel-body">
             <div className="form-inner">
-              <div className="fade-up fade-up-d2" style={{ marginBottom: 36 }}>
+              <div className="fade-up fade-up-d2" style={{ marginBottom: 40 }}>
                 <h1 style={{
                   fontSize: '2.25rem',
                   fontWeight: 700,
                   letterSpacing: -1.2,
-                  marginBottom: 10,
+                  marginBottom: 12,
                   lineHeight: 1.15,
                   color: '#eeede9',
                 }}>
                   Acesse o painel
                 </h1>
-                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '1rem', lineHeight: 1.55 }}>
+                <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '1rem', lineHeight: 1.55 }}>
                   Entre com suas credenciais para continuar.
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="fade-up fade-up-d3" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <form onSubmit={handleSubmit} className="fade-up fade-up-d3" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
                 <div>
                   <label className="input-label" htmlFor="login-email">E-mail</label>
                   <input
@@ -316,7 +361,7 @@ export default function LoginPage() {
                 </div>
 
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                     <label className="input-label" htmlFor="login-password" style={{ marginBottom: 0 }}>Senha</label>
                     <Link to="/recuperar-senha" className="forgot-link">Esqueci minha senha</Link>
                   </div>
@@ -330,7 +375,7 @@ export default function LoginPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       autoComplete="current-password"
-                      style={{ paddingRight: 48 }}
+                      style={{ paddingRight: 52 }}
                     />
                     <button type="button" onClick={() => setShowPass((v) => !v)} className="toggle-pass" aria-label={showPass ? 'Ocultar senha' : 'Mostrar senha'}>
                       {showPass ? (
@@ -350,17 +395,20 @@ export default function LoginPage() {
                 </div>
 
                 {error && (
-                  <div style={{ padding: '12px 14px', background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.22)', borderRadius: 10, fontSize: '0.88rem', color: '#ff8585' }}>
-                    {error}
+                  <div role="alert" style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '14px 16px', background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.24)', borderRadius: 12, fontSize: '0.9rem', color: '#ff8585', lineHeight: 1.45 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                      <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    <span>{error}</span>
                   </div>
                 )}
 
-                <button className="login-btn" type="submit" disabled={loading} style={{ marginTop: 8 }}>
+                <button className="login-btn" type="submit" disabled={loading} style={{ marginTop: 6 }}>
                   {loading ? 'Entrando...' : 'Entrar'}
                 </button>
               </form>
 
-              <div className="fade-up fade-up-d4" style={{ textAlign: 'center', marginTop: 28 }}>
+              <div className="fade-up fade-up-d4" style={{ textAlign: 'center', marginTop: 32 }}>
                 <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>
                   Não tem uma conta?{' '}
                   <Link to="/registro" className="register-link">Criar conta</Link>
