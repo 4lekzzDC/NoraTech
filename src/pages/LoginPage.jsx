@@ -5,15 +5,10 @@ import { useAuth } from '../contexts/AuthContext';
 function FeatureBullet({ icon, title }) {
   return (
     <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-      <div style={{
-        width: 32, height: 32, flexShrink: 0,
-        borderRadius: 8,
-        background: 'rgba(124,58,237,0.12)',
-        border: '1px solid rgba(124,58,237,0.22)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: '#b684ff',
-      }}>{icon}</div>
-      <div style={{ fontSize: '0.95rem', fontWeight: 500, color: 'rgba(255,255,255,0.85)', letterSpacing: -0.1 }}>{title}</div>
+      <div style={{ flexShrink: 0, color: '#b684ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {icon}
+      </div>
+      <div style={{ fontSize: '0.95rem', fontWeight: 500, color: 'rgba(255,255,255,0.88)', letterSpacing: -0.1 }}>{title}</div>
     </div>
   );
 }
@@ -136,28 +131,24 @@ export default function LoginPage() {
           font-weight: 600;
           letter-spacing: 0.1px;
           cursor: pointer;
-          box-shadow: 0 1px 0 rgba(255,255,255,0.18) inset, 0 6px 16px -8px rgba(124,58,237,0.55);
           transition: background 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
         }
-        .login-btn:hover:not(:disabled) {
-          background: #6d2dd9;
-          box-shadow: 0 1px 0 rgba(255,255,255,0.22) inset, 0 10px 22px -8px rgba(124,58,237,0.7);
-        }
+        .login-btn:hover:not(:disabled) { background: #6d2dd9; }
         .login-btn:focus-visible {
           outline: none;
-          box-shadow: 0 0 0 4px rgba(124,58,237,0.32), 0 1px 0 rgba(255,255,255,0.22) inset, 0 10px 22px -8px rgba(124,58,237,0.7);
+          box-shadow: 0 0 0 4px rgba(124,58,237,0.35);
         }
-        .login-btn:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 1px 0 rgba(255,255,255,0.12) inset, 0 4px 10px -6px rgba(124,58,237,0.5); }
-        .login-btn:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+        .login-btn:active:not(:disabled) { transform: translateY(1px); }
+        .login-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
         .register-link { color: #b684ff; font-size: 0.9rem; text-decoration: none; font-weight: 500; border-radius: 4px; transition: color 0.2s; }
         .register-link:hover { color: #d4b3ff; }
         .register-link:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(124,58,237,0.32); }
-        .forgot-link { color: rgba(255,255,255,0.6); font-size: 0.85rem; text-decoration: none; transition: color 0.2s; font-weight: 500; border-radius: 4px; }
+        .forgot-link { color: rgba(255,255,255,0.7); font-size: 0.85rem; text-decoration: none; transition: color 0.2s; font-weight: 500; border-radius: 4px; }
         .forgot-link:hover { color: #b684ff; }
         .forgot-link:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(124,58,237,0.32); }
 
@@ -185,15 +176,13 @@ export default function LoginPage() {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          color: rgba(255,255,255,0.55);
+          color: rgba(255,255,255,0.7);
           text-decoration: none;
           font-size: 0.88rem;
           font-weight: 500;
           transition: color 0.2s ease;
         }
         .back-link:hover { color: #eeede9; }
-        .back-link svg { transition: transform 0.2s ease; }
-        .back-link:hover svg { transform: translateX(-2px); }
 
         .wordmark {
           font-family: 'Inter', sans-serif;
@@ -202,7 +191,7 @@ export default function LoginPage() {
           color: #7C3AED;
           letter-spacing: 0.5px;
         }
-        .wordmark-tech { color: rgba(255,255,255,0.45); font-weight: 600; }
+        .wordmark-tech { color: rgba(255,255,255,0.55); font-weight: 600; }
 
         .login-split { display: flex; width: 100%; min-height: 100vh; position: relative; z-index: 1; }
         .brand-panel {
@@ -256,17 +245,10 @@ export default function LoginPage() {
         }
       `}</style>
 
-      {/* Subtle ambient background — minimal */}
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
-        <div style={{ position: 'absolute', width: 800, height: 800, top: '-20%', left: '-15%', background: 'radial-gradient(circle, rgba(124, 58, 237,0.07) 0%, transparent 60%)', filter: 'blur(40px)' }} />
-        <div style={{ position: 'absolute', width: 600, height: 600, bottom: '-15%', right: '-10%', background: 'radial-gradient(circle, rgba(124, 58, 237,0.04) 0%, transparent 60%)', filter: 'blur(40px)' }} />
-      </div>
-
       <div className="login-split">
         {/* ═══ LEFT: Brand panel (minimal) ═══ */}
         <aside className="brand-panel">
-          <Link to="/" className="fade-up fade-up-d1" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none', position: 'relative', zIndex: 1 }}>
-            <div style={{ width: 8, height: 8, background: '#7C3AED', borderRadius: '50%' }} />
+          <Link to="/" className="fade-up fade-up-d1" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none', position: 'relative', zIndex: 1 }}>
             <span className="wordmark">
               NORA<span className="wordmark-tech">TECH</span>
             </span>
@@ -304,7 +286,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="fade-up fade-up-d4" style={{ position: 'relative', zIndex: 1, fontSize: '0.82rem', color: 'rgba(255,255,255,0.35)' }}>
+          <div className="fade-up fade-up-d4" style={{ position: 'relative', zIndex: 1, fontSize: '0.82rem', color: 'rgba(255,255,255,0.5)' }}>
             © {new Date().getFullYear()} Noratech. Todos os direitos reservados.
           </div>
         </aside>
@@ -312,8 +294,7 @@ export default function LoginPage() {
         {/* ═══ RIGHT: Form panel (dominant) ═══ */}
         <main className="form-panel">
           <div className="form-panel-top fade-up fade-up-d1">
-            <Link to="/" className="mobile-only" style={{ alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-              <div style={{ width: 7, height: 7, background: '#7C3AED', borderRadius: '50%' }} />
+            <Link to="/" className="mobile-only" style={{ alignItems: 'center', textDecoration: 'none' }}>
               <span className="wordmark" style={{ fontSize: '0.92rem' }}>
                 NORA<span className="wordmark-tech">TECH</span>
               </span>
@@ -340,7 +321,7 @@ export default function LoginPage() {
                 }}>
                   Acesse o painel
                 </h1>
-                <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '1rem', lineHeight: 1.55 }}>
+                <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '1rem', lineHeight: 1.55 }}>
                   Entre com suas credenciais para continuar.
                 </p>
               </div>
@@ -409,7 +390,7 @@ export default function LoginPage() {
               </form>
 
               <div className="fade-up fade-up-d4" style={{ textAlign: 'center', marginTop: 32 }}>
-                <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>
+                <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.9rem' }}>
                   Não tem uma conta?{' '}
                   <Link to="/registro" className="register-link">Criar conta</Link>
                 </span>
