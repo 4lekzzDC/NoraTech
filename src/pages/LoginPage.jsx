@@ -210,17 +210,37 @@ export default function LoginPage() {
           padding: 48px 64px;
           display: flex;
           flex-direction: column;
+          isolation: isolate;
+        }
+        .form-panel-glow {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(ellipse 65% 55% at 50% 50%, rgba(124,58,237,0.07) 0%, rgba(124,58,237,0.02) 40%, transparent 75%);
+          pointer-events: none;
+          z-index: 0;
         }
         .form-panel-top {
+          position: relative;
+          z-index: 1;
           display: flex;
           align-items: center;
           justify-content: space-between;
         }
         .form-panel-body {
+          position: relative;
+          z-index: 1;
           flex: 1;
           display: flex;
           align-items: center;
           justify-content: center;
+        }
+        .page-noise {
+          position: fixed;
+          inset: 0;
+          z-index: 0;
+          pointer-events: none;
+          opacity: 0.025;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
         }
         .form-inner {
           width: 100%;
@@ -244,6 +264,8 @@ export default function LoginPage() {
           .form-panel { padding: 24px 18px; }
         }
       `}</style>
+
+      <div className="page-noise" aria-hidden="true" />
 
       <div className="login-split">
         {/* ═══ LEFT: Brand panel (minimal) ═══ */}
@@ -293,6 +315,7 @@ export default function LoginPage() {
 
         {/* ═══ RIGHT: Form panel (dominant) ═══ */}
         <main className="form-panel">
+          <div className="form-panel-glow" aria-hidden="true" />
           <div className="form-panel-top fade-up fade-up-d1">
             <Link to="/" className="mobile-only" style={{ alignItems: 'center', textDecoration: 'none' }}>
               <span className="wordmark" style={{ fontSize: '0.92rem' }}>
