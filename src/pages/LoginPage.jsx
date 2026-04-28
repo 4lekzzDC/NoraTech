@@ -203,6 +203,17 @@ export default function LoginPage() {
           justify-content: space-between;
           border-right: 1px solid rgba(255,255,255,0.06);
           overflow: hidden;
+          isolation: isolate;
+        }
+        .brand-panel::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background:
+            linear-gradient(90deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.18) 35%, transparent 100%),
+            radial-gradient(ellipse 80% 100% at -10% 50%, rgba(0,0,0,0.35) 0%, transparent 60%);
+          pointer-events: none;
+          z-index: -1;
         }
         .form-panel {
           flex: 1.15;
@@ -215,7 +226,9 @@ export default function LoginPage() {
         .form-panel-glow {
           position: absolute;
           inset: 0;
-          background: radial-gradient(ellipse 65% 55% at 50% 50%, rgba(124,58,237,0.07) 0%, rgba(124,58,237,0.02) 40%, transparent 75%);
+          background:
+            radial-gradient(ellipse 55% 45% at 50% 50%, rgba(255,255,255,0.045) 0%, transparent 70%),
+            radial-gradient(ellipse 70% 60% at 50% 50%, rgba(124,58,237,0.11) 0%, rgba(124,58,237,0.03) 42%, transparent 78%);
           pointer-events: none;
           z-index: 0;
         }
