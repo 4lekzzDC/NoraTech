@@ -271,11 +271,10 @@ export default function LoginPage() {
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
           box-shadow:
-            0 1px 0 rgba(255,255,255,0.06) inset,
-            0 0 0 1px rgba(124,58,237,0.05),
-            0 0 48px rgba(124,58,237,0.1),
-            0 28px 64px -20px rgba(0,0,0,0.7),
-            0 12px 28px -14px rgba(124,58,237,0.22);
+            0 1px 0 rgba(255,255,255,0.05) inset,
+            0 0 90px rgba(124,58,237,0.055),
+            0 24px 56px -22px rgba(0,0,0,0.55),
+            0 18px 44px -18px rgba(124,58,237,0.12);
         }
 
         .mobile-only { display: none; }
@@ -295,10 +294,10 @@ export default function LoginPage() {
             padding: 30px 24px 26px;
             border-radius: 16px;
             box-shadow:
-              0 1px 0 rgba(255,255,255,0.05) inset,
-              0 0 0 1px rgba(124,58,237,0.04),
-              0 18px 40px -16px rgba(0,0,0,0.6),
-              0 8px 20px -10px rgba(124,58,237,0.18);
+              0 1px 0 rgba(255,255,255,0.04) inset,
+              0 0 60px rgba(124,58,237,0.04),
+              0 18px 40px -18px rgba(0,0,0,0.5),
+              0 12px 28px -14px rgba(124,58,237,0.1);
           }
         }
       `}</style>
