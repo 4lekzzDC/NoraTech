@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -10,11 +10,16 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '', {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
+const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+const isNoratechHost = hostname === 'noratech.com.br' || hostname.endsWith('.noratech.com.br');
+
+export const supabase = createBrowserClient(supabaseUrl ?? '', supabaseAnonKey ?? '', {
+  cookieOptions: {
+    domain: isNoratechHost ? '.noratech.com.br' : undefined,
+    path: '/',
+    sameSite: 'lax',
+    secure: isNoratechHost,
+    maxAge: 60 * 60 * 24 * 365,
   },
 });
 
