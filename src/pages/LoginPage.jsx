@@ -5,10 +5,10 @@ import { useAuth } from '../contexts/AuthContext';
 function FeatureBullet({ icon, title }) {
   return (
     <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-      <div style={{ flexShrink: 0, color: '#b684ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ flexShrink: 0, color: 'rgba(180,132,255,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {icon}
       </div>
-      <div style={{ fontSize: '0.95rem', fontWeight: 500, color: 'rgba(255,255,255,0.88)', letterSpacing: -0.1 }}>{title}</div>
+      <div style={{ fontSize: '0.92rem', fontWeight: 500, color: 'rgba(255,255,255,0.62)', letterSpacing: -0.1 }}>{title}</div>
     </div>
   );
 }
@@ -192,6 +192,8 @@ export default function LoginPage() {
           letter-spacing: 0.5px;
         }
         .wordmark-tech { color: rgba(255,255,255,0.55); font-weight: 600; }
+        .brand-panel .wordmark { color: rgba(124,58,237,0.7); }
+        .brand-panel .wordmark-tech { color: rgba(255,255,255,0.38); }
 
         .login-split { display: flex; width: 100%; min-height: 100vh; position: relative; z-index: 1; }
         .brand-panel {
@@ -314,12 +316,12 @@ export default function LoginPage() {
 
           <div style={{ position: 'relative', zIndex: 1, maxWidth: 460 }}>
             <h2 className="fade-up fade-up-d2" style={{
-              fontSize: 'clamp(2rem, 3vw, 2.6rem)',
-              fontWeight: 700,
-              lineHeight: 1.15,
-              letterSpacing: -1.2,
+              fontSize: 'clamp(1.85rem, 2.8vw, 2.4rem)',
+              fontWeight: 600,
+              lineHeight: 1.2,
+              letterSpacing: -1,
               marginBottom: 32,
-              color: '#eeede9',
+              color: 'rgba(255,255,255,0.72)',
             }}>
               Sua operação inteira, em um só lugar.
             </h2>
@@ -344,7 +346,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="fade-up fade-up-d4" style={{ position: 'relative', zIndex: 1, fontSize: '0.82rem', color: 'rgba(255,255,255,0.5)' }}>
+          <div className="fade-up fade-up-d4" style={{ position: 'relative', zIndex: 1, fontSize: '0.8rem', color: 'rgba(255,255,255,0.38)' }}>
             © {new Date().getFullYear()} Noratech. Todos os direitos reservados.
           </div>
         </aside>
