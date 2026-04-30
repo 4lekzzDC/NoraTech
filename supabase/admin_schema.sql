@@ -240,7 +240,11 @@ alter table public.subscriptions
 alter table public.subscriptions
   alter column user_id drop not null;
 
+alter table public.subscriptions
+  add column if not exists system_slug text;
+
 create index if not exists subscriptions_company_id_idx on public.subscriptions(company_id);
+create index if not exists subscriptions_system_slug_idx on public.subscriptions(system_slug);
 
 -- Atualiza policy de leitura para incluir membros ativos da empresa.
 drop policy if exists "subscriptions_select_own_or_admin" on public.subscriptions;

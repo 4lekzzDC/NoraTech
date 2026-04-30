@@ -1,8 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useIsAdmin } from '../lib/admin';
 import CockpitCompany from '../components/CockpitCompany';
+import { supabase } from '../lib/supabase';
+import { fetchMyCompany } from '../lib/companies';
+import { getSystem } from '../lib/systems';
 
 const TABS = [
   { id: 'cockpit', num: '01', label: 'Cockpit' },
@@ -333,7 +336,41 @@ export default function AreaDoClientePage() {
     [user]
   );
   const memberSince = useMemo(() => formatMemberSince(user?.createdAt), [user]);
-  const systems = [];
+
+  const [systems, setSystems] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const my = await fetchMyCompany();
+        const companyId = my?.company?.id;
+        if (!companyId) {
+          if (active) setSystems([]);
+          return;
+        }
+        const { data, error } = await supabase
+          .from('subscriptions')
+          .select('id, system_slug, plan, status, current_period_end')
+          .eq('company_id', companyId)
+          .in('status', ['active', 'trialing']);
+        if (!active) return;
+        if (error) { setSystems([]); return; }
+        const seen = new Set();
+        const list = [];
+        (data || []).forEach((s) => {
+          const sys = getSystem(s.system_slug);
+          if (!sys || seen.has(sys.slug)) return;
+          seen.add(sys.slug);
+          list.push({ ...sys, subscription: s });
+        });
+        setSystems(list);
+      } catch {
+        if (active) setSystems([]);
+      }
+    })();
+    return () => { active = false; };
+  }, [user?.id]);
 
   const handleLogout = async () => {
     await logout();
@@ -517,23 +554,34 @@ export default function AreaDoClientePage() {
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
-                  {systems.map((s) => (
-                    <div
-                      key={s.name}
-                      className="system-card"
-                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '20px 22px', transition: 'all 0.2s', cursor: 'pointer' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                        <span style={{ fontSize: '1rem', fontWeight: 700 }}>{s.name}</span>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', fontWeight: 700, color: '#7dff7d', textTransform: 'uppercase', letterSpacing: 1 }}>
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#7dff7d' }} />
-                          {s.status}
-                        </span>
-                      </div>
-                      <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', marginBottom: 14 }}>{s.desc}</p>
-                      <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.78rem', color: '#7C3AED' }}>{s.metric}</p>
-                    </div>
-                  ))}
+                  {systems.map((s) => {
+                    const isTrial = s.subscription?.status === 'trialing';
+                    const card = (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                          <span style={{ fontSize: '1rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: '1.1rem' }}>{s.icon}</span> {s.name}
+                          </span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', fontWeight: 700, color: isTrial ? '#60a5fa' : '#7dff7d', textTransform: 'uppercase', letterSpacing: 1 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: isTrial ? '#60a5fa' : '#7dff7d' }} />
+                            {isTrial ? 'Trial' : 'Ativa'}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', marginBottom: 14 }}>{s.description}</p>
+                        <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.78rem', color: '#7C3AED' }}>
+                          {s.url ? 'Abrir sistema ↗' : s.subscription?.plan || ''}
+                        </p>
+                      </>
+                    );
+                    const baseStyle = { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '20px 22px', transition: 'all 0.2s', cursor: 'pointer', display: 'block' };
+                    return s.url ? (
+                      <a key={s.slug} href={s.url} target="_blank" rel="noopener noreferrer" className="system-card" style={baseStyle}>
+                        {card}
+                      </a>
+                    ) : (
+                      <div key={s.slug} className="system-card" style={baseStyle}>{card}</div>
+                    );
+                  })}
                 </div>
               )}
             </section>
