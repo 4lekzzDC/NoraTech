@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import AdminLayout, { Card, Modal, Spinner, EmptyState, StatusPill } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { formatBRL, formatDate } from '../../lib/admin';
+import { SYSTEMS, getSystem } from '../../lib/systems';
 
 const EMPTY = {
   company_id: '',
+  system_slug: '',
   plan: '',
   status: 'active',
   amount: '',
@@ -73,17 +75,19 @@ export default function AdminSubscriptionsPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!editing.company_id || !editing.plan) {
-      setError('Selecione uma empresa e informe o plano.');
+    if (!editing.company_id || !editing.system_slug) {
+      setError('Selecione uma empresa e um sistema.');
       return;
     }
     setSaving(true);
     setError('');
 
+    const sys = getSystem(editing.system_slug);
     const payload = {
       company_id: editing.company_id,
       user_id: null,
-      plan: editing.plan.trim(),
+      system_slug: editing.system_slug,
+      plan: (editing.plan || sys?.name || editing.system_slug).trim(),
       status: editing.status,
       amount: editing.amount === '' ? 0 : Number(editing.amount),
       currency: editing.currency || 'BRL',
@@ -162,6 +166,7 @@ export default function AdminSubscriptionsPage() {
               <thead>
                 <tr>
                   <th>Empresa</th>
+                  <th>Sistema</th>
                   <th>Plano</th>
                   <th>Valor</th>
                   <th>Ciclo</th>
@@ -179,6 +184,17 @@ export default function AdminSubscriptionsPage() {
                         <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>{s.company.code}</div>
                       )}
                     </td>
+                    <td>
+                      {(() => {
+                        const sys = getSystem(s.system_slug);
+                        if (!sys) return <span style={{ color: 'rgba(255,255,255,0.4)' }}>—</span>;
+                        return (
+                          <span className="admin-pill" style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', borderColor: 'rgba(124,58,237,0.25)' }}>
+                            {sys.icon} {sys.name}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td style={{ fontWeight: 600 }}>{s.plan}</td>
                     <td>{formatBRL(s.amount)}</td>
                     <td style={{ textTransform: 'capitalize', color: 'rgba(255,255,255,0.6)' }}>{cycleLabel(s.billing_cycle)}</td>
@@ -189,6 +205,7 @@ export default function AdminSubscriptionsPage() {
                         <button className="admin-btn" onClick={() => setEditing({
                           ...s,
                           company_id: s.company_id || '',
+                          system_slug: s.system_slug || '',
                           current_period_end: s.current_period_end ? s.current_period_end.slice(0, 10) : '',
                         })}>Editar</button>
                         <button className="admin-btn danger" onClick={() => handleDelete(s)}>Excluir</button>
@@ -228,8 +245,34 @@ export default function AdminSubscriptionsPage() {
                 ))}
               </select>
             </Field>
-            <Field label="Plano" full>
-              <input className="admin-input" value={editing.plan} onChange={(e) => setEditing({ ...editing, plan: e.target.value })} placeholder="Ex: Sites Pro" required />
+            <Field label="Sistema" full>
+              <select
+                className="admin-select"
+                value={editing.system_slug}
+                onChange={(e) => {
+                  const slug = e.target.value;
+                  const sys = getSystem(slug);
+                  setEditing({
+                    ...editing,
+                    system_slug: slug,
+                    plan: editing.plan || sys?.name || '',
+                  });
+                }}
+                required
+              >
+                <option value="">Selecione um sistema...</option>
+                {SYSTEMS.map((s) => (
+                  <option key={s.slug} value={s.slug}>{s.icon} {s.name}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Plano (rótulo interno)" full>
+              <input
+                className="admin-input"
+                value={editing.plan}
+                onChange={(e) => setEditing({ ...editing, plan: e.target.value })}
+                placeholder="Ex: WhatsApp Bot — Mensal"
+              />
             </Field>
             <Field label="Valor">
               <input className="admin-input" type="number" step="0.01" value={editing.amount} onChange={(e) => setEditing({ ...editing, amount: e.target.value })} />
