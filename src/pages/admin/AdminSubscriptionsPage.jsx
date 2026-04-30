@@ -24,17 +24,27 @@ export default function AdminSubscriptionsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const load = async () => {
-    setLoading(true);
+  const fetchAll = async () => {
     const [subsRes, usersRes] = await Promise.all([
       supabase
         .from('subscriptions')
-        .select('*, profiles:user_id(name, company)')
+        .select('*')
         .order('created_at', { ascending: false }),
-      supabase.from('profiles').select('id, name').order('name'),
+      supabase.from('profiles').select('id, name, company').order('name'),
     ]);
+    const profileById = new Map((usersRes.data || []).map((p) => [p.id, p]));
+    const subsWithProfile = (subsRes.data || []).map((s) => ({
+      ...s,
+      profiles: profileById.get(s.user_id) || null,
+    }));
+    return { subsRes, usersRes, subsWithProfile };
+  };
+
+  const load = async () => {
+    setLoading(true);
+    const { subsRes, usersRes, subsWithProfile } = await fetchAll();
     if (subsRes.error) setError(subsRes.error.message);
-    setSubs(subsRes.data || []);
+    setSubs(subsWithProfile);
     setUsers(usersRes.data || []);
     setLoading(false);
   };
@@ -42,16 +52,10 @@ export default function AdminSubscriptionsPage() {
   useEffect(() => {
     let active = true;
     (async () => {
-      const [subsRes, usersRes] = await Promise.all([
-        supabase
-          .from('subscriptions')
-          .select('*, profiles:user_id(name, company)')
-          .order('created_at', { ascending: false }),
-        supabase.from('profiles').select('id, name').order('name'),
-      ]);
+      const { subsRes, usersRes, subsWithProfile } = await fetchAll();
       if (!active) return;
       if (subsRes.error) setError(subsRes.error.message);
-      setSubs(subsRes.data || []);
+      setSubs(subsWithProfile);
       setUsers(usersRes.data || []);
       setLoading(false);
     })();
