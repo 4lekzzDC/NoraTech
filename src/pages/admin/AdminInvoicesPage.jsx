@@ -34,7 +34,7 @@ export default function AdminInvoicesPage() {
         .select('*')
         .order('created_at', { ascending: false }),
       supabase.from('profiles').select('id, name, company').order('name'),
-      supabase.from('subscriptions').select('id, plan, user_id').order('created_at', { ascending: false }),
+      supabase.from('subscriptions').select('id, plan, user_id, company_id').order('created_at', { ascending: false }),
     ]);
     const profileById = new Map((usersRes.data || []).map((p) => [p.id, p]));
     const subById = new Map((subsRes.data || []).map((s) => [s.id, s]));
@@ -79,11 +79,6 @@ export default function AdminInvoicesPage() {
     });
   }, [invoices, search, statusFilter]);
 
-  const editingUserId = editing?.user_id;
-  const userSubs = useMemo(() => {
-    if (!editingUserId) return [];
-    return subs.filter((s) => s.user_id === editingUserId);
-  }, [subs, editingUserId]);
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -234,9 +229,9 @@ export default function AdminInvoicesPage() {
               </select>
             </Field>
             <Field label="Vincular a assinatura (opcional)" full>
-              <select className="admin-select" value={editing.subscription_id} onChange={(e) => setEditing({ ...editing, subscription_id: e.target.value })} disabled={!editing.user_id}>
+              <select className="admin-select" value={editing.subscription_id} onChange={(e) => setEditing({ ...editing, subscription_id: e.target.value })}>
                 <option value="">— sem vínculo —</option>
-                {userSubs.map((s) => <option key={s.id} value={s.id}>{s.plan}</option>)}
+                {subs.map((s) => <option key={s.id} value={s.id}>{s.plan}</option>)}
               </select>
             </Field>
             <Field label="Descrição" full>

@@ -228,6 +228,30 @@ begin
 end;
 $$;
 
+-- =========================================================================
+-- 7) Assinaturas por empresa
+-- =========================================================================
+-- Adiciona company_id em subscriptions e relaxa user_id para que assinaturas
+-- possam ser associadas a uma empresa.
+
+alter table public.subscriptions
+  add column if not exists company_id uuid references public.companies(id) on delete cascade;
+
+alter table public.subscriptions
+  alter column user_id drop not null;
+
+create index if not exists subscriptions_company_id_idx on public.subscriptions(company_id);
+
+-- Atualiza policy de leitura para incluir membros ativos da empresa.
+drop policy if exists "subscriptions_select_own_or_admin" on public.subscriptions;
+create policy "subscriptions_select_own_or_admin"
+  on public.subscriptions for select
+  using (
+    auth.uid() = user_id
+    or public.is_admin()
+    or (company_id is not null and public.is_company_member(company_id))
+  );
+
 -- RPC: admin exclui empresa
 create or replace function public.admin_delete_company(p_id uuid)
   returns void
