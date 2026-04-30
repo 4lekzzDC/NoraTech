@@ -8,32 +8,40 @@ export default function AdminUsersPage() {
   const { user: me } = useAuth();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
+  const [companies, setCompanies] = useState([]);
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null);
   const [savingId, setSavingId] = useState(null);
   const [error, setError] = useState('');
 
+  const fetchAll = async () => {
+    const [usersRes, companiesRes] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('id, name, photo_url, company, role, updated_at')
+        .order('updated_at', { ascending: false }),
+      supabase.from('companies').select('id, name').order('name'),
+    ]);
+    return { usersRes, companiesRes };
+  };
+
   const load = async () => {
     setLoading(true);
-    const { data, error: e } = await supabase
-      .from('profiles')
-      .select('id, name, photo_url, company, role, updated_at')
-      .order('updated_at', { ascending: false });
-    if (e) setError(e.message);
-    setUsers(data || []);
+    const { usersRes, companiesRes } = await fetchAll();
+    if (usersRes.error) setError(usersRes.error.message);
+    setUsers(usersRes.data || []);
+    setCompanies(companiesRes.data || []);
     setLoading(false);
   };
 
   useEffect(() => {
     let active = true;
     (async () => {
-      const { data, error: e } = await supabase
-        .from('profiles')
-        .select('id, name, photo_url, company, role, updated_at')
-        .order('updated_at', { ascending: false });
+      const { usersRes, companiesRes } = await fetchAll();
       if (!active) return;
-      if (e) setError(e.message);
-      setUsers(data || []);
+      if (usersRes.error) setError(usersRes.error.message);
+      setUsers(usersRes.data || []);
+      setCompanies(companiesRes.data || []);
       setLoading(false);
     })();
     return () => { active = false; };
@@ -195,7 +203,19 @@ export default function AdminUsersPage() {
               <input className="admin-input" value={editing.name || ''} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
             </Field>
             <Field label="Empresa">
-              <input className="admin-input" value={editing.company || ''} onChange={(e) => setEditing({ ...editing, company: e.target.value })} />
+              <input
+                className="admin-input"
+                list="admin-companies-list"
+                value={editing.company || ''}
+                onChange={(e) => setEditing({ ...editing, company: e.target.value })}
+                placeholder={companies.length ? 'Selecione ou digite...' : 'Nenhuma empresa cadastrada'}
+              />
+              <datalist id="admin-companies-list">
+                {companies.map((c) => <option key={c.id} value={c.name} />)}
+              </datalist>
+              <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+                Empresas cadastradas em <em>Empresas</em> aparecem como sugestão.
+              </span>
             </Field>
             <Field label="Role">
               <select className="admin-select" value={editing.role || 'user'} onChange={(e) => setEditing({ ...editing, role: e.target.value })} disabled={editing.id === me?.id}>
