@@ -27,18 +27,30 @@ export default function AdminInvoicesPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const load = async () => {
-    setLoading(true);
+  const fetchAll = async () => {
     const [invRes, usersRes, subsRes] = await Promise.all([
       supabase
         .from('invoices')
-        .select('*, profiles:user_id(name, company), subscriptions:subscription_id(plan)')
+        .select('*')
         .order('created_at', { ascending: false }),
-      supabase.from('profiles').select('id, name').order('name'),
+      supabase.from('profiles').select('id, name, company').order('name'),
       supabase.from('subscriptions').select('id, plan, user_id').order('created_at', { ascending: false }),
     ]);
+    const profileById = new Map((usersRes.data || []).map((p) => [p.id, p]));
+    const subById = new Map((subsRes.data || []).map((s) => [s.id, s]));
+    const invoicesWithJoins = (invRes.data || []).map((i) => ({
+      ...i,
+      profiles: profileById.get(i.user_id) || null,
+      subscriptions: i.subscription_id ? subById.get(i.subscription_id) || null : null,
+    }));
+    return { invRes, usersRes, subsRes, invoicesWithJoins };
+  };
+
+  const load = async () => {
+    setLoading(true);
+    const { invRes, usersRes, subsRes, invoicesWithJoins } = await fetchAll();
     if (invRes.error) setError(invRes.error.message);
-    setInvoices(invRes.data || []);
+    setInvoices(invoicesWithJoins);
     setUsers(usersRes.data || []);
     setSubs(subsRes.data || []);
     setLoading(false);
@@ -47,17 +59,10 @@ export default function AdminInvoicesPage() {
   useEffect(() => {
     let active = true;
     (async () => {
-      const [invRes, usersRes, subsRes] = await Promise.all([
-        supabase
-          .from('invoices')
-          .select('*, profiles:user_id(name, company), subscriptions:subscription_id(plan)')
-          .order('created_at', { ascending: false }),
-        supabase.from('profiles').select('id, name').order('name'),
-        supabase.from('subscriptions').select('id, plan, user_id').order('created_at', { ascending: false }),
-      ]);
+      const { invRes, usersRes, subsRes, invoicesWithJoins } = await fetchAll();
       if (!active) return;
       if (invRes.error) setError(invRes.error.message);
-      setInvoices(invRes.data || []);
+      setInvoices(invoicesWithJoins);
       setUsers(usersRes.data || []);
       setSubs(subsRes.data || []);
       setLoading(false);
