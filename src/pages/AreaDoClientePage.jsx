@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useIsAdmin } from '../lib/admin';
+import CockpitCompany from '../components/CockpitCompany';
 
 const TABS = [
   { id: 'cockpit', num: '01', label: 'Cockpit' },
@@ -459,6 +460,19 @@ export default function AreaDoClientePage() {
                   Sua Central de Controle ainda não tem sistemas ativos. Quando você contratar um serviço, a operação aparece aqui em tempo real.
                 </p>
               </div>
+            </section>
+
+            {/* Empresa */}
+            <section style={{ marginBottom: 48 }}>
+              <div style={{ marginBottom: 22 }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.5, color: '#7C3AED', textTransform: 'uppercase' }}>
+                  Empresa
+                </span>
+                <h2 style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: -0.8, marginTop: 6 }}>
+                  Sua organização
+                </h2>
+              </div>
+              <CockpitCompany user={user} />
             </section>
 
             {/* Systems */}
