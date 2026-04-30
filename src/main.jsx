@@ -11,6 +11,11 @@ import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import AreaDoClientePage from './pages/AreaDoClientePage.jsx'
+import AdminOverviewPage from './pages/admin/AdminOverviewPage.jsx'
+import AdminUsersPage from './pages/admin/AdminUsersPage.jsx'
+import AdminSubscriptionsPage from './pages/admin/AdminSubscriptionsPage.jsx'
+import AdminInvoicesPage from './pages/admin/AdminInvoicesPage.jsx'
+import AdminRoute from './components/AdminRoute.jsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
 
 function ProtectedRoute({ children }) {
@@ -38,6 +43,10 @@ createRoot(document.getElementById('root')).render(
           <Route path="/registro" element={<RegisterPage />} />
           <Route path="/perfil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/area-do-cliente" element={<ProtectedRoute><AreaDoClientePage /></ProtectedRoute>} />
+          <Route path="/admin" element={<AdminRoute><AdminOverviewPage /></AdminRoute>} />
+          <Route path="/admin/usuarios" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
+          <Route path="/admin/assinaturas" element={<AdminRoute><AdminSubscriptionsPage /></AdminRoute>} />
+          <Route path="/admin/faturas" element={<AdminRoute><AdminInvoicesPage /></AdminRoute>} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

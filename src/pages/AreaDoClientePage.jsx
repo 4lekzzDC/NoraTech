@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useIsAdmin } from '../lib/admin';
 
 const TABS = [
   { id: 'cockpit', num: '01', label: 'Cockpit' },
@@ -321,6 +322,7 @@ function EmptyGauge() {
 
 export default function AreaDoClientePage() {
   const { user, logout } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('cockpit');
 
@@ -375,6 +377,15 @@ export default function AreaDoClientePage() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className="btn-ghost"
+                style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid rgba(124, 58, 237,0.35)', background: 'rgba(124, 58, 237,0.08)', color: '#a78bfa', fontSize: '0.78rem', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', transition: 'all 0.2s' }}
+              >
+                ⚙ Admin
+              </Link>
+            )}
             <Link to="/perfil" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 14px 6px 6px', borderRadius: 40, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', transition: 'all 0.2s' }} className="btn-ghost">
               {user?.photoUrl ? (
                 <img src={user.photoUrl} alt="" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover' }} />
