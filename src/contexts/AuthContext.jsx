@@ -67,6 +67,10 @@ export function AuthProvider({ children }) {
   }, [loadUser]);
 
   const login = useCallback(async (email, password) => {
+    // Limpa qualquer sessão local stale antes de autenticar, evitando que
+    // cookies/tokens de uma tentativa anterior interrompida bloqueiem o fluxo.
+    try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* noop */ }
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password,

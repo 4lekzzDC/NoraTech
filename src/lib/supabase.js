@@ -13,7 +13,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
 const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
 const isNoratechHost = hostname === 'noratech.com.br' || hostname.endsWith('.noratech.com.br');
 
+// Substitui o `navigator.locks` padrão: locks remanescentes de uma aba anterior
+// que fechou no meio de uma requisição de auth deixavam o signIn pendurado.
+const noLock = async (_name, _acquireTimeout, fn) => fn();
+
 export const supabase = createBrowserClient(supabaseUrl ?? '', supabaseAnonKey ?? '', {
+  auth: {
+    lock: noLock,
+  },
   cookieOptions: {
     domain: isNoratechHost ? '.noratech.com.br' : undefined,
     path: '/',
