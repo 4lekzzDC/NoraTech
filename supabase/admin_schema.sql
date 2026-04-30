@@ -130,3 +130,140 @@ create trigger subscriptions_touch before update on public.subscriptions
 drop trigger if exists invoices_touch on public.invoices;
 create trigger invoices_touch before update on public.invoices
   for each row execute function public.touch_updated_at();
+
+-- =========================================================================
+-- 6) Admin: gestão de empresas
+-- =========================================================================
+-- Policies para admin gerenciar todas as empresas (companies / company_members).
+-- Pré-requisito: o schema de companies (companies_schema.sql) já deve estar
+-- aplicado.
+
+drop policy if exists "companies_admin_all" on public.companies;
+create policy "companies_admin_all"
+  on public.companies for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists "company_members_admin_all" on public.company_members;
+create policy "company_members_admin_all"
+  on public.company_members for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+-- RPC: admin cria empresa (opcionalmente atribuindo dono)
+create or replace function public.admin_create_company(p_name text, p_owner_id uuid default null)
+  returns public.companies
+  language plpgsql
+  volatile
+  security definer
+  set search_path = public
+as $$
+declare
+  v_company public.companies;
+  v_code text;
+  v_owner uuid := coalesce(p_owner_id, auth.uid());
+  v_name text := trim(coalesce(p_name, ''));
+begin
+  if not public.is_admin() then
+    raise exception 'Apenas administradores' using errcode = '42501';
+  end if;
+  if length(v_name) < 2 then
+    raise exception 'Nome da empresa muito curto' using errcode = '22023';
+  end if;
+  if v_owner is null then
+    raise exception 'Dono da empresa é obrigatório' using errcode = '22023';
+  end if;
+
+  v_code := public.generate_company_code();
+
+  insert into public.companies (name, code, owner_id)
+  values (v_name, v_code, v_owner)
+  returning * into v_company;
+
+  insert into public.company_members (company_id, user_id, role, status)
+  values (v_company.id, v_owner, 'owner', 'active')
+  on conflict (company_id, user_id) do nothing;
+
+  return v_company;
+end;
+$$;
+
+-- RPC: admin atualiza empresa
+create or replace function public.admin_update_company(p_id uuid, p_name text, p_owner_id uuid default null)
+  returns public.companies
+  language plpgsql
+  volatile
+  security definer
+  set search_path = public
+as $$
+declare
+  v_company public.companies;
+  v_name text := trim(coalesce(p_name, ''));
+begin
+  if not public.is_admin() then
+    raise exception 'Apenas administradores' using errcode = '42501';
+  end if;
+  if length(v_name) < 2 then
+    raise exception 'Nome da empresa muito curto' using errcode = '22023';
+  end if;
+
+  update public.companies
+  set name = v_name,
+      owner_id = coalesce(p_owner_id, owner_id),
+      updated_at = now()
+  where id = p_id
+  returning * into v_company;
+
+  if v_company.id is null then
+    raise exception 'Empresa não encontrada' using errcode = 'P0002';
+  end if;
+
+  -- garante membership 'owner' ativa para o dono atual
+  insert into public.company_members (company_id, user_id, role, status)
+  values (v_company.id, v_company.owner_id, 'owner', 'active')
+  on conflict (company_id, user_id) do update
+    set role = 'owner', status = 'active', updated_at = now();
+
+  return v_company;
+end;
+$$;
+
+-- =========================================================================
+-- 7) Assinaturas por empresa
+-- =========================================================================
+-- Adiciona company_id em subscriptions e relaxa user_id para que assinaturas
+-- possam ser associadas a uma empresa.
+
+alter table public.subscriptions
+  add column if not exists company_id uuid references public.companies(id) on delete cascade;
+
+alter table public.subscriptions
+  alter column user_id drop not null;
+
+create index if not exists subscriptions_company_id_idx on public.subscriptions(company_id);
+
+-- Atualiza policy de leitura para incluir membros ativos da empresa.
+drop policy if exists "subscriptions_select_own_or_admin" on public.subscriptions;
+create policy "subscriptions_select_own_or_admin"
+  on public.subscriptions for select
+  using (
+    auth.uid() = user_id
+    or public.is_admin()
+    or (company_id is not null and public.is_company_member(company_id))
+  );
+
+-- RPC: admin exclui empresa
+create or replace function public.admin_delete_company(p_id uuid)
+  returns void
+  language plpgsql
+  volatile
+  security definer
+  set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Apenas administradores' using errcode = '42501';
+  end if;
+  delete from public.companies where id = p_id;
+end;
+$$;

@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { formatBRL, formatDate } from '../../lib/admin';
 
 const EMPTY = {
-  user_id: '',
+  company_id: '',
   plan: '',
   status: 'active',
   amount: '',
@@ -17,7 +17,7 @@ const EMPTY = {
 export default function AdminSubscriptionsPage() {
   const [loading, setLoading] = useState(true);
   const [subs, setSubs] = useState([]);
-  const [users, setUsers] = useState([]);
+  const [companies, setCompanies] = useState([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [editing, setEditing] = useState(null);
@@ -25,38 +25,38 @@ export default function AdminSubscriptionsPage() {
   const [error, setError] = useState('');
 
   const fetchAll = async () => {
-    const [subsRes, usersRes] = await Promise.all([
+    const [subsRes, companiesRes] = await Promise.all([
       supabase
         .from('subscriptions')
         .select('*')
         .order('created_at', { ascending: false }),
-      supabase.from('profiles').select('id, name, company').order('name'),
+      supabase.from('companies').select('id, name, code').order('name'),
     ]);
-    const profileById = new Map((usersRes.data || []).map((p) => [p.id, p]));
-    const subsWithProfile = (subsRes.data || []).map((s) => ({
+    const companyById = new Map((companiesRes.data || []).map((c) => [c.id, c]));
+    const subsWithCompany = (subsRes.data || []).map((s) => ({
       ...s,
-      profiles: profileById.get(s.user_id) || null,
+      company: s.company_id ? companyById.get(s.company_id) || null : null,
     }));
-    return { subsRes, usersRes, subsWithProfile };
+    return { subsRes, companiesRes, subsWithCompany };
   };
 
   const load = async () => {
     setLoading(true);
-    const { subsRes, usersRes, subsWithProfile } = await fetchAll();
+    const { subsRes, companiesRes, subsWithCompany } = await fetchAll();
     if (subsRes.error) setError(subsRes.error.message);
-    setSubs(subsWithProfile);
-    setUsers(usersRes.data || []);
+    setSubs(subsWithCompany);
+    setCompanies(companiesRes.data || []);
     setLoading(false);
   };
 
   useEffect(() => {
     let active = true;
     (async () => {
-      const { subsRes, usersRes, subsWithProfile } = await fetchAll();
+      const { subsRes, companiesRes, subsWithCompany } = await fetchAll();
       if (!active) return;
       if (subsRes.error) setError(subsRes.error.message);
-      setSubs(subsWithProfile);
-      setUsers(usersRes.data || []);
+      setSubs(subsWithCompany);
+      setCompanies(companiesRes.data || []);
       setLoading(false);
     })();
     return () => { active = false; };
@@ -67,21 +67,22 @@ export default function AdminSubscriptionsPage() {
     return subs.filter((s) => {
       if (statusFilter && s.status !== statusFilter) return false;
       if (!q) return true;
-      return [s.plan, s.profiles?.name, s.profiles?.company].some((v) => (v || '').toLowerCase().includes(q));
+      return [s.plan, s.company?.name, s.company?.code].some((v) => (v || '').toLowerCase().includes(q));
     });
   }, [subs, search, statusFilter]);
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!editing.user_id || !editing.plan) {
-      setError('Selecione um usuário e informe o plano.');
+    if (!editing.company_id || !editing.plan) {
+      setError('Selecione uma empresa e informe o plano.');
       return;
     }
     setSaving(true);
     setError('');
 
     const payload = {
-      user_id: editing.user_id,
+      company_id: editing.company_id,
+      user_id: null,
       plan: editing.plan.trim(),
       status: editing.status,
       amount: editing.amount === '' ? 0 : Number(editing.amount),
@@ -102,7 +103,7 @@ export default function AdminSubscriptionsPage() {
   };
 
   const handleDelete = async (sub) => {
-    if (!confirm(`Excluir assinatura "${sub.plan}" de ${sub.profiles?.name || sub.user_id}?`)) return;
+    if (!confirm(`Excluir assinatura "${sub.plan}" de ${sub.company?.name || sub.company_id}?`)) return;
     const { error: e } = await supabase.from('subscriptions').delete().eq('id', sub.id);
     if (e) { setError(e.message); return; }
     await load();
@@ -111,7 +112,7 @@ export default function AdminSubscriptionsPage() {
   return (
     <AdminLayout
       title="Assinaturas"
-      subtitle="Crie, atualize e cancele assinaturas dos clientes."
+      subtitle="Crie, atualize e cancele assinaturas das empresas."
       actions={
         <>
           <input
@@ -129,13 +130,26 @@ export default function AdminSubscriptionsPage() {
             <option value="past_due">Atrasada</option>
             <option value="canceled">Cancelada</option>
           </select>
-          <button className="admin-btn primary" onClick={() => setEditing({ ...EMPTY })}>+ Nova</button>
+          <button
+            className="admin-btn primary"
+            onClick={() => setEditing({ ...EMPTY })}
+            disabled={companies.length === 0}
+            title={companies.length === 0 ? 'Cadastre uma empresa primeiro' : ''}
+          >
+            + Nova
+          </button>
         </>
       }
     >
       {error && (
         <div style={{ padding: '12px 16px', background: 'rgba(255,107,107,0.08)', border: '1px solid rgba(255,107,107,0.25)', borderRadius: 10, marginBottom: 16, color: '#ff6b6b', fontSize: '0.85rem' }}>
           {error}
+        </div>
+      )}
+
+      {!loading && companies.length === 0 && (
+        <div style={{ padding: '12px 16px', background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.25)', borderRadius: 10, marginBottom: 16, color: '#a78bfa', fontSize: '0.85rem' }}>
+          Nenhuma empresa cadastrada. Vá em <strong>Empresas</strong> para criar antes de adicionar assinaturas.
         </div>
       )}
 
@@ -147,7 +161,7 @@ export default function AdminSubscriptionsPage() {
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th>Cliente</th>
+                  <th>Empresa</th>
                   <th>Plano</th>
                   <th>Valor</th>
                   <th>Ciclo</th>
@@ -160,8 +174,10 @@ export default function AdminSubscriptionsPage() {
                 {filtered.map((s) => (
                   <tr key={s.id}>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{s.profiles?.name || '—'}</div>
-                      <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)' }}>{s.profiles?.company || ''}</div>
+                      <div style={{ fontWeight: 600 }}>{s.company?.name || <span style={{ color: 'rgba(255,255,255,0.4)' }}>(sem empresa)</span>}</div>
+                      {s.company?.code && (
+                        <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>{s.company.code}</div>
+                      )}
                     </td>
                     <td style={{ fontWeight: 600 }}>{s.plan}</td>
                     <td>{formatBRL(s.amount)}</td>
@@ -172,6 +188,7 @@ export default function AdminSubscriptionsPage() {
                       <div style={{ display: 'inline-flex', gap: 8 }}>
                         <button className="admin-btn" onClick={() => setEditing({
                           ...s,
+                          company_id: s.company_id || '',
                           current_period_end: s.current_period_end ? s.current_period_end.slice(0, 10) : '',
                         })}>Editar</button>
                         <button className="admin-btn danger" onClick={() => handleDelete(s)}>Excluir</button>
@@ -201,10 +218,14 @@ export default function AdminSubscriptionsPage() {
       >
         {editing && (
           <form id="sub-form" onSubmit={handleSave} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <Field label="Cliente" full>
-              <select className="admin-select" value={editing.user_id} onChange={(e) => setEditing({ ...editing, user_id: e.target.value })} required>
+            <Field label="Empresa" full>
+              <select className="admin-select" value={editing.company_id} onChange={(e) => setEditing({ ...editing, company_id: e.target.value })} required>
                 <option value="">Selecione...</option>
-                {users.map((u) => <option key={u.id} value={u.id}>{u.name || u.id.slice(0, 8)}</option>)}
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.code ? ` (${c.code})` : ''}
+                  </option>
+                ))}
               </select>
             </Field>
             <Field label="Plano" full>

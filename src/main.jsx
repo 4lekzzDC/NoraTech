@@ -13,6 +13,7 @@ import ProfilePage from './pages/ProfilePage.jsx'
 import AreaDoClientePage from './pages/AreaDoClientePage.jsx'
 import AdminOverviewPage from './pages/admin/AdminOverviewPage.jsx'
 import AdminUsersPage from './pages/admin/AdminUsersPage.jsx'
+import AdminCompaniesPage from './pages/admin/AdminCompaniesPage.jsx'
 import AdminSubscriptionsPage from './pages/admin/AdminSubscriptionsPage.jsx'
 import AdminInvoicesPage from './pages/admin/AdminInvoicesPage.jsx'
 import AdminRoute from './components/AdminRoute.jsx'
@@ -45,6 +46,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/area-do-cliente" element={<ProtectedRoute><AreaDoClientePage /></ProtectedRoute>} />
           <Route path="/admin" element={<AdminRoute><AdminOverviewPage /></AdminRoute>} />
           <Route path="/admin/usuarios" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
+          <Route path="/admin/empresas" element={<AdminRoute><AdminCompaniesPage /></AdminRoute>} />
           <Route path="/admin/assinaturas" element={<AdminRoute><AdminSubscriptionsPage /></AdminRoute>} />
           <Route path="/admin/faturas" element={<AdminRoute><AdminInvoicesPage /></AdminRoute>} />
         </Routes>
