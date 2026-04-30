@@ -8,7 +8,7 @@ export const SYSTEMS = [
     icon: '💬',
     color: '#25D366',
     description: 'Atendimento automatizado, triagem por intenção e transferência fluida para humanos.',
-    url: 'https://whatsapp-mu.vercel.app',
+    url: 'https://falahub.noratech.com.br',
   },
 ];
 
