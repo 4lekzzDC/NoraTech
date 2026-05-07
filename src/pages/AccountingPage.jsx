@@ -429,26 +429,6 @@ function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, re
   const toggleFilter = (chart, status) =>
     setChartFilter((prev) => (prev?.chart === chart && prev?.status === status ? null : { chart, status }));
 
-  const filterDetails = useMemo(() => {
-    if (!chartFilter) return [];
-    if (chartFilter.chart === 'arquivos') {
-      return filtered.map((company) => {
-        const items = TASKS.filter((t) => {
-          const r = fileRecords.find((r) => r.accounting_company_id === company.id && r.doc_type === t.id);
-          return getFileStatus(r) === chartFilter.status;
-        }).map((t) => t.label);
-        return { company, items };
-      }).filter((x) => x.items.length > 0);
-    }
-    return filtered.map((company) => {
-      const items = RECON_CATEGORIES.filter((cat) => {
-        const r = reconciliations.find((r) => r.accounting_company_id === company.id && r.category === cat.id);
-        return (r?.status || 'nao_iniciado') === chartFilter.status;
-      }).map((cat) => cat.label);
-      return { company, items };
-    }).filter((x) => x.items.length > 0);
-  }, [chartFilter, filtered, fileRecords, reconciliations]);
-
   const responsaveis = useMemo(
     () => Array.from(new Set(companies.map((c) => c.responsavel).filter(Boolean))).sort(),
     [companies]
@@ -523,6 +503,26 @@ function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, re
       reconTotal, reconConcluido, reconEmAndamento, reconPendencia, reconNaoIniciado, reconPctGeral,
     };
   }, [filtered, fileRecords, reconciliations]);
+
+  const filterDetails = useMemo(() => {
+    if (!chartFilter) return [];
+    if (chartFilter.chart === 'arquivos') {
+      return filtered.map((company) => {
+        const items = TASKS.filter((t) => {
+          const r = fileRecords.find((r) => r.accounting_company_id === company.id && r.doc_type === t.id);
+          return getFileStatus(r) === chartFilter.status;
+        }).map((t) => t.label);
+        return { company, items };
+      }).filter((x) => x.items.length > 0);
+    }
+    return filtered.map((company) => {
+      const items = RECON_CATEGORIES.filter((cat) => {
+        const r = reconciliations.find((r) => r.accounting_company_id === company.id && r.category === cat.id);
+        return (r?.status || 'nao_iniciado') === chartFilter.status;
+      }).map((cat) => cat.label);
+      return { company, items };
+    }).filter((x) => x.items.length > 0);
+  }, [chartFilter, filtered, fileRecords, reconciliations]);
 
   const openCreate = () => { setForm({ ...EMPTY_FORM }); setEditing('new'); };
   const openEdit = (c) => {
