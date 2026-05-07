@@ -16,9 +16,8 @@ export const SYSTEMS = [
     icon: '📊',
     color: '#7C3AED',
     description: 'Gestão operacional do fechamento mensal — status de tarefas, alertas de pendências e visão gerencial por empresa.',
-    url: '/admin/acompanhamento-contabil',
+    url: '/acompanhamento-contabil',
     internal: true,
-    adminOnly: true,
   },
 ];
 

@@ -16,8 +16,9 @@ import AdminUsersPage from './pages/admin/AdminUsersPage.jsx'
 import AdminCompaniesPage from './pages/admin/AdminCompaniesPage.jsx'
 import AdminSubscriptionsPage from './pages/admin/AdminSubscriptionsPage.jsx'
 import AdminInvoicesPage from './pages/admin/AdminInvoicesPage.jsx'
-import AdminAccountingTrackingPage from './pages/admin/AdminAccountingTrackingPage.jsx'
+import AccountingPage from './pages/AccountingPage.jsx'
 import AdminRoute from './components/AdminRoute.jsx'
+import SubscriptionRoute from './components/SubscriptionRoute.jsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
 
 function ProtectedRoute({ children }) {
@@ -50,7 +51,10 @@ createRoot(document.getElementById('root')).render(
           <Route path="/admin/empresas" element={<AdminRoute><AdminCompaniesPage /></AdminRoute>} />
           <Route path="/admin/assinaturas" element={<AdminRoute><AdminSubscriptionsPage /></AdminRoute>} />
           <Route path="/admin/faturas" element={<AdminRoute><AdminInvoicesPage /></AdminRoute>} />
-          <Route path="/admin/acompanhamento-contabil" element={<AdminRoute><AdminAccountingTrackingPage /></AdminRoute>} />
+          <Route
+            path="/acompanhamento-contabil"
+            element={<SubscriptionRoute systemSlug="acompanhamento-contabil"><AccountingPage /></SubscriptionRoute>}
+          />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

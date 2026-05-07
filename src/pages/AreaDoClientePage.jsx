@@ -326,10 +326,13 @@ function SystemCard({ s }) {
 }
 
 function SystemsGrid({ systems, isAdmin }) {
-  const adminSystems = isAdmin
-    ? SYSTEMS.filter((s) => s.adminOnly).map((s) => ({ ...s, subscription: { status: 'active' } }))
+  // Admin tem bypass: vê todos os sistemas internos do catálogo, mesmo sem assinatura.
+  const adminInternals = isAdmin
+    ? SYSTEMS
+        .filter((s) => s.internal && !systems.some((sub) => sub.slug === s.slug))
+        .map((s) => ({ ...s, subscription: { status: 'active' } }))
     : [];
-  const all = [...systems, ...adminSystems];
+  const all = [...systems, ...adminInternals];
 
   if (all.length === 0) {
     return (
@@ -421,7 +424,7 @@ export default function AreaDoClientePage() {
             const seen = new Set();
             (data || []).forEach((s) => {
               const sys = getSystem(s.system_slug);
-              if (!sys || seen.has(sys.slug) || sys.adminOnly) return;
+              if (!sys || seen.has(sys.slug)) return;
               seen.add(sys.slug);
               list.push({ ...sys, subscription: s });
             });
