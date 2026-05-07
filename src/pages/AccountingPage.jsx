@@ -24,6 +24,17 @@ const TABS = [
   { id: 'conciliacao', num: '03', label: 'Conciliação' },
 ];
 
+const FILE_STATUS = {
+  pendente: { label: 'Pendente', fg: '#9aa0a6',  bg: 'rgba(255,255,255,0.05)',  bd: 'rgba(255,255,255,0.12)' },
+  cobrado:  { label: 'Cobrado',  fg: '#fbbf24',  bg: 'rgba(251,191,36,0.1)',    bd: 'rgba(251,191,36,0.3)'   },
+  recebido: { label: 'Recebido', fg: '#00d48a',  bg: 'rgba(0,212,138,0.12)',    bd: 'rgba(0,212,138,0.28)'   },
+};
+const FILE_STATUS_CYCLE = ['pendente', 'cobrado', 'recebido'];
+
+function getFileStatus(record) {
+  return record?.file_status || (record?.received ? 'recebido' : 'pendente');
+}
+
 export default function AccountingPage() {
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -378,7 +389,7 @@ function StackedBar({ data, height = 10 }) {
 function companyProgress(companyId, fileRecords, reconciliations) {
   const files = fileRecords.filter((r) => r.accounting_company_id === companyId);
   const recons = reconciliations.filter((r) => r.accounting_company_id === companyId);
-  const filesReceived = files.filter((r) => r.received).length;
+  const filesReceived = files.filter((r) => getFileStatus(r) === 'recebido').length;
   const reconDone = recons.filter((r) => r.status === 'conciliado').length;
   const filesPct = TASKS.length ? Math.round((filesReceived / TASKS.length) * 100) : 0;
   const reconPct = RECON_CATEGORIES.length ? Math.round((reconDone / RECON_CATEGORIES.length) * 100) : 0;
@@ -425,7 +436,9 @@ function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, re
 
     const totalEmpresas = filtered.length;
     const totalEsperado = totalEmpresas * TASKS.length;
-    const totalRecebidos = fRecs.filter((r) => r.received).length;
+    const totalRecebidos = fRecs.filter((r) => getFileStatus(r) === 'recebido').length;
+    const totalCobrados = fRecs.filter((r) => getFileStatus(r) === 'cobrado').length;
+    const totalPendentes = Math.max(0, totalEsperado - totalRecebidos - totalCobrados);
     const pctRecebido = totalEsperado ? Math.round((totalRecebidos / totalEsperado) * 100) : 0;
 
     const byDocType = TASKS.map((t) => {
@@ -464,14 +477,15 @@ function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, re
     const reconConcluido = recs.filter((r) => r.status === 'conciliado').length;
     const reconEmAndamento = recs.filter((r) => r.status === 'em_andamento').length;
     const reconPendencia = recs.filter((r) => r.status === 'pendencia').length;
-    const reconNaoIniciado = reconTotal - reconConcluido - reconEmAndamento - reconPendencia;
+    const reconNaoIniciado = Math.max(0, reconTotal - reconConcluido - reconEmAndamento - reconPendencia);
+    const reconPctGeral = reconTotal ? Math.round((reconConcluido / reconTotal) * 100) : 0;
 
     return {
-      totalEmpresas, totalEsperado, totalRecebidos, pctRecebido,
-      pendentes: totalEsperado - totalRecebidos,
+      totalEmpresas, totalEsperado, totalRecebidos, totalCobrados, totalPendentes, pctRecebido,
+      pendentes: totalPendentes,
       byDocType, byCategory, perCompany, progressoMedio, empresasCompletas, alertasAtivos,
       empresasEmAndamento, empresasSemInicio,
-      reconTotal, reconConcluido, reconEmAndamento, reconPendencia, reconNaoIniciado,
+      reconTotal, reconConcluido, reconEmAndamento, reconPendencia, reconNaoIniciado, reconPctGeral,
     };
   }, [filtered, fileRecords, reconciliations]);
 
@@ -512,64 +526,99 @@ function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, re
     <>
       {/* Seção Visão Geral */}
       <div className="acc-section-eyebrow">Visão geral</div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 210px', gap: 12, marginBottom: 28, alignItems: 'start' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-          <Kpi label="Total empresas" value={dashMetrics.totalEmpresas} hint={`competência ${competencia}`} />
-          <Kpi label="Progresso médio" value={`${dashMetrics.progressoMedio}%`} accent="#7C3AED" hint="files + conciliação" />
-          <Kpi label="Empresas concluídas" value={dashMetrics.empresasCompletas} accent="#00d48a" hint="100% do fechamento" />
-          <Kpi label="Alertas ativos" value={dashMetrics.alertasAtivos} accent={dashMetrics.alertasAtivos > 0 ? '#ff6b6b' : '#00d48a'} />
-        </div>
-        <Card style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <div style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1.3, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', alignSelf: 'flex-start' }}>Situação das empresas</div>
-          <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 28 }}>
+        <Kpi label="Total empresas" value={dashMetrics.totalEmpresas} hint={`competência ${competencia}`} />
+        <Kpi label="Progresso médio" value={`${dashMetrics.progressoMedio}%`} accent="#7C3AED" hint="files + conciliação" />
+        <Kpi label="Empresas concluídas" value={dashMetrics.empresasCompletas} accent="#00d48a" hint="100% do fechamento" />
+        <Kpi label="Alertas ativos" value={dashMetrics.alertasAtivos} accent={dashMetrics.alertasAtivos > 0 ? '#ff6b6b' : '#00d48a'} />
+      </div>
+
+      {/* Dois gráficos principais */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 28 }}>
+        {/* Gráfico 1: Situação dos arquivos */}
+        <Card style={{ padding: '22px 26px', display: 'flex', gap: 28, alignItems: 'center' }}>
+          <div style={{ position: 'relative', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
             <DonutChart
               data={[
-                { value: dashMetrics.empresasCompletas, color: '#00d48a' },
-                { value: dashMetrics.empresasEmAndamento, color: '#7C3AED' },
-                { value: dashMetrics.empresasSemInicio, color: 'rgba(255,255,255,0.1)' },
+                { value: dashMetrics.totalRecebidos, color: '#00d48a' },
+                { value: dashMetrics.totalCobrados,  color: '#fbbf24' },
+                { value: dashMetrics.totalPendentes,  color: 'rgba(255,255,255,0.08)' },
               ]}
-              size={110}
-              thickness={22}
+              size={140} thickness={28}
             />
             <div style={{ position: 'absolute', textAlign: 'center', pointerEvents: 'none' }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: -0.5, color: '#eeede9', lineHeight: 1 }}>{dashMetrics.progressoMedio}%</div>
-              <div style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.4)', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.8 }}>geral</div>
+              <div style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: -0.8, color: '#eeede9', lineHeight: 1 }}>{dashMetrics.pctRecebido}%</div>
+              <div style={{ fontSize: '0.56rem', color: 'rgba(255,255,255,0.4)', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.8 }}>recebidos</div>
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 7, width: '100%' }}>
-            <LegendItem color="#00d48a" label="Concluídas" value={dashMetrics.empresasCompletas} />
-            <LegendItem color="#7C3AED" label="Em andamento" value={dashMetrics.empresasEmAndamento} />
-            <LegendItem color="rgba(255,255,255,0.18)" label="Sem início" value={dashMetrics.empresasSemInicio} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.3, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 14 }}>Situação da chegada de arquivos</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <LegendItem color="#00d48a" label="Recebidos" value={dashMetrics.totalRecebidos} />
+              <LegendItem color="#fbbf24" label="Cobrados" value={dashMetrics.totalCobrados} />
+              <LegendItem color="rgba(255,255,255,0.2)" label="Pendentes" value={dashMetrics.totalPendentes} />
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>{dashMetrics.totalEsperado} docs esperados ({TASKS.length} × {dashMetrics.totalEmpresas} emp.)</div>
+              <ProgressBar pct={dashMetrics.pctRecebido} color="#00d48a" height={5} />
+            </div>
+          </div>
+        </Card>
+
+        {/* Gráfico 2: Situação da conciliação */}
+        <Card style={{ padding: '22px 26px', display: 'flex', gap: 28, alignItems: 'center' }}>
+          <div style={{ position: 'relative', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            <DonutChart
+              data={[
+                { value: dashMetrics.reconConcluido,    color: '#00d48a' },
+                { value: dashMetrics.reconEmAndamento,   color: '#7C3AED' },
+                { value: dashMetrics.reconPendencia,     color: '#ff6b6b' },
+                { value: dashMetrics.reconNaoIniciado,   color: 'rgba(255,255,255,0.08)' },
+              ]}
+              size={140} thickness={28}
+            />
+            <div style={{ position: 'absolute', textAlign: 'center', pointerEvents: 'none' }}>
+              <div style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: -0.8, color: '#eeede9', lineHeight: 1 }}>{dashMetrics.reconPctGeral}%</div>
+              <div style={{ fontSize: '0.56rem', color: 'rgba(255,255,255,0.4)', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.8 }}>conciliado</div>
+            </div>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.3, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 14 }}>Situação da conciliação das empresas</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <LegendItem color="#00d48a" label="Conciliado"    value={dashMetrics.reconConcluido} />
+              <LegendItem color="#7C3AED" label="Em andamento"  value={dashMetrics.reconEmAndamento} />
+              <LegendItem color="#ff6b6b" label="Pendência"     value={dashMetrics.reconPendencia} />
+              <LegendItem color="rgba(255,255,255,0.2)" label="Não iniciado" value={dashMetrics.reconNaoIniciado} />
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>{dashMetrics.reconTotal} categorias ({RECON_CATEGORIES.length} × {dashMetrics.totalEmpresas} emp.)</div>
+              <ProgressBar pct={dashMetrics.reconPctGeral} color="#00d48a" height={5} />
+            </div>
           </div>
         </Card>
       </div>
 
-      {/* Seção Arquivos */}
+      {/* Seção Documentos — stats compactos */}
       <div className="acc-section-eyebrow">Documentos</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 14, marginBottom: 28 }}>
-        <Card style={{ padding: '16px 18px' }}>
-          <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 14 }}>
-            <CompactStat label="Esperado" value={dashMetrics.totalEsperado} hint={`${TASKS.length}×emp`} />
-            <CompactStat label="Recebidos" value={dashMetrics.totalRecebidos} color="#00d48a" divider />
-            <CompactStat label="Pendentes" value={dashMetrics.pendentes} color={dashMetrics.pendentes > 0 ? '#ff8a3d' : '#00d48a'} divider />
-            <CompactStat label="% Recebido" value={`${dashMetrics.pctRecebido}%`} color="#7C3AED" divider />
+      <Card style={{ marginBottom: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <CompactStat label="Esperado" value={dashMetrics.totalEsperado} hint={`${TASKS.length}×empresa`} />
+          <CompactStat label="Recebidos" value={dashMetrics.totalRecebidos} color="#00d48a" divider />
+          <CompactStat label="Cobrados" value={dashMetrics.totalCobrados} color="#fbbf24" divider />
+          <CompactStat label="Pendentes" value={dashMetrics.totalPendentes} color={dashMetrics.totalPendentes > 0 ? '#ff8a3d' : '#00d48a'} divider />
+        </div>
+        <div style={{ padding: '0 18px 14px' }}>
+          <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', display: 'flex', marginTop: 12 }}>
+            <div style={{ flex: dashMetrics.totalRecebidos, background: '#00d48a' }} />
+            <div style={{ flex: dashMetrics.totalCobrados, background: '#fbbf24' }} />
+            <div style={{ flex: dashMetrics.totalPendentes, background: 'rgba(255,255,255,0.08)' }} />
           </div>
-          <ProgressBar pct={dashMetrics.pctRecebido} color="#7C3AED" height={5} />
-        </Card>
-        <Card style={{ padding: '16px 20px' }}>
-          <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.3, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', marginBottom: 12 }}>
-            Recebimento por tipo de documento
-          </div>
-          {dashMetrics.totalEmpresas === 0
-            ? <div style={{ fontSize: '0.84rem', color: 'rgba(255,255,255,0.4)' }}>Nenhuma empresa cadastrada.</div>
-            : <BarChart items={dashMetrics.byDocType} maxValue={100} />
-          }
-        </Card>
-      </div>
+        </div>
+      </Card>
 
-      {/* Seção Conciliação */}
-      <div className="acc-section-eyebrow">Conciliação</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 12 }}>
+      {/* Seção Conciliação — cards por categoria */}
+      <div className="acc-section-eyebrow">Conciliação por categoria</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 28 }}>
         {dashMetrics.byCategory.map((cat) => (
           <Card key={cat.id} style={{ padding: '14px 16px' }}>
             <div style={{ fontSize: '0.64rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 6 }}>{cat.label}</div>
@@ -585,24 +634,6 @@ function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, re
           </Card>
         ))}
       </div>
-      {/* Resumo geral conciliação */}
-      <Card style={{ padding: '14px 18px', marginBottom: 28 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-          <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.3, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' }}>Resumo geral — conciliação</div>
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            <LegendItem color="#00d48a" label="Conciliado" value={dashMetrics.reconConcluido} />
-            <LegendItem color="#7C3AED" label="Em andamento" value={dashMetrics.reconEmAndamento} />
-            <LegendItem color="#ff6b6b" label="Pendência" value={dashMetrics.reconPendencia} />
-            <LegendItem color="rgba(255,255,255,0.15)" label="Não iniciado" value={Math.max(0, dashMetrics.reconNaoIniciado)} />
-          </div>
-        </div>
-        <StackedBar data={[
-          { value: dashMetrics.reconConcluido, color: '#00d48a' },
-          { value: dashMetrics.reconEmAndamento, color: '#7C3AED' },
-          { value: dashMetrics.reconPendencia, color: '#ff6b6b' },
-          { value: Math.max(0, dashMetrics.reconNaoIniciado), color: 'rgba(255,255,255,0.08)' },
-        ]} />
-      </Card>
 
       {/* Tabela de empresas */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
@@ -978,17 +1009,21 @@ function FilesTab({ competencia, companies, fileRecords, onChange }) {
   }, [fileRecords]);
 
   const totalCells = companies.length * TASKS.length;
-  const receivedCells = fileRecords.filter((r) => r.received).length;
+  const receivedCells = fileRecords.filter((r) => getFileStatus(r) === 'recebido').length;
+  const cobradoCells = fileRecords.filter((r) => getFileStatus(r) === 'cobrado').length;
+  const pendenteCells = Math.max(0, totalCells - receivedCells - cobradoCells);
   const pct = totalCells ? Math.round((receivedCells / totalCells) * 100) : 0;
 
-  const toggle = async (companyId, docType) => {
+  const cycle = async (companyId, docType) => {
     const current = recordsMap[`${companyId}::${docType}`];
+    const cur = getFileStatus(current);
+    const next = FILE_STATUS_CYCLE[(FILE_STATUS_CYCLE.indexOf(cur) + 1) % FILE_STATUS_CYCLE.length];
     try {
       await upsertFileRecord({
         accountingCompanyId: companyId,
         docType,
         competencia,
-        received: !(current?.received),
+        fileStatus: next,
         notes: current?.notes ?? null,
       });
       onChange();
@@ -1008,7 +1043,7 @@ function FilesTab({ competencia, companies, fileRecords, onChange }) {
         accountingCompanyId: editing.companyId,
         docType: editing.docType,
         competencia,
-        received: current?.received || false,
+        fileStatus: getFileStatus(current),
         notes: editNotes,
       });
       setEditing(null);
@@ -1021,10 +1056,11 @@ function FilesTab({ competencia, companies, fileRecords, onChange }) {
 
   return (
     <>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 18 }}>
-        <Kpi label="Empresas" value={companies.length} />
-        <Kpi label="Docs esperados" value={totalCells} hint={`${TASKS.length} por empresa`} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 18 }}>
+        <Kpi label="Esperados" value={totalCells} hint={`${TASKS.length} por empresa`} />
         <Kpi label="Recebidos" value={receivedCells} accent="#00d48a" />
+        <Kpi label="Cobrados" value={cobradoCells} accent="#fbbf24" />
+        <Kpi label="Pendentes" value={pendenteCells} accent={pendenteCells > 0 ? '#ff8a3d' : '#00d48a'} />
         <Kpi label="% recebido" value={`${pct}%`} accent="#7C3AED" />
       </div>
 
@@ -1046,25 +1082,20 @@ function FilesTab({ competencia, companies, fileRecords, onChange }) {
                   </td>
                   {TASKS.map((t) => {
                     const r = recordsMap[`${c.id}::${t.id}`];
-                    const received = !!r?.received;
+                    const status = getFileStatus(r);
+                    const s = FILE_STATUS[status];
                     const hasNotes = !!r?.notes;
                     return (
                       <td key={t.id}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 110 }}>
                           <button
-                            onClick={() => toggle(c.id, t.id)}
+                            onClick={() => cycle(c.id, t.id)}
                             className="acc-pill"
-                            style={{
-                              cursor: 'pointer',
-                              background: received ? 'rgba(0,212,138,0.12)' : 'rgba(255,255,255,0.05)',
-                              color: received ? '#00d48a' : '#9aa0a6',
-                              borderColor: received ? 'rgba(0,212,138,0.28)' : 'rgba(255,255,255,0.12)',
-                              width: 'fit-content',
-                            }}
+                            style={{ cursor: 'pointer', background: s.bg, color: s.fg, borderColor: s.bd, width: 'fit-content' }}
                           >
-                            {received ? '✓ Recebido' : 'Pendente'}
+                            {status === 'recebido' ? '✓ ' : status === 'cobrado' ? '◎ ' : ''}{s.label}
                           </button>
-                          {received && r?.received_at && (
+                          {status === 'recebido' && r?.received_at && (
                             <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.4)' }}>
                               {new Date(r.received_at).toLocaleDateString('pt-BR')}
                             </span>

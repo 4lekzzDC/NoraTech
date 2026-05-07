@@ -82,6 +82,8 @@ create table if not exists public.accounting_file_records (
   competencia text not null,
   received boolean not null default false,
   received_at timestamptz,
+  file_status text not null default 'pendente'
+    check (file_status in ('pendente', 'cobrado', 'recebido')),
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -116,6 +118,13 @@ create policy "accounting_file_records_access"
         and public.has_accounting_access(ac.tenant_company_id)
     )
   );
+
+-- Migration helper (safe to run on existing installs):
+-- alter table public.accounting_file_records
+--   add column if not exists file_status text not null default 'pendente'
+--     check (file_status in ('pendente', 'cobrado', 'recebido'));
+-- update public.accounting_file_records
+--   set file_status = case when received then 'recebido' else 'pendente' end;
 
 -- =========================================================================
 -- 3) accounting_reconciliations — conciliação livre por categoria
