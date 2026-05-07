@@ -8,6 +8,7 @@ const NAV = [
   { to: '/admin/empresas', label: 'Empresas', icon: '▣' },
   { to: '/admin/assinaturas', label: 'Assinaturas', icon: '◇' },
   { to: '/admin/faturas', label: 'Faturas', icon: '◈' },
+  { to: '/admin/acompanhamento-contabil', label: 'Acompanhamento contábil', icon: '◧' },
 ];
 
 export default function AdminLayout({ title, subtitle, actions, children }) {

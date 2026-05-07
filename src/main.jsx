@@ -16,6 +16,7 @@ import AdminUsersPage from './pages/admin/AdminUsersPage.jsx'
 import AdminCompaniesPage from './pages/admin/AdminCompaniesPage.jsx'
 import AdminSubscriptionsPage from './pages/admin/AdminSubscriptionsPage.jsx'
 import AdminInvoicesPage from './pages/admin/AdminInvoicesPage.jsx'
+import AdminAccountingTrackingPage from './pages/admin/AdminAccountingTrackingPage.jsx'
 import AdminRoute from './components/AdminRoute.jsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
 
@@ -49,6 +50,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/admin/empresas" element={<AdminRoute><AdminCompaniesPage /></AdminRoute>} />
           <Route path="/admin/assinaturas" element={<AdminRoute><AdminSubscriptionsPage /></AdminRoute>} />
           <Route path="/admin/faturas" element={<AdminRoute><AdminInvoicesPage /></AdminRoute>} />
+          <Route path="/admin/acompanhamento-contabil" element={<AdminRoute><AdminAccountingTrackingPage /></AdminRoute>} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
