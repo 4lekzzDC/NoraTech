@@ -77,7 +77,7 @@ create table if not exists public.accounting_file_records (
   doc_type text not null
     check (doc_type in (
       'contas_pagar', 'contas_receber', 'taxas_adm', 'extratos',
-      'estoques', 'apuracao', 'folha'
+      'estoques', 'apuracao'
     )),
   competencia text not null,
   received boolean not null default false,
@@ -119,12 +119,24 @@ create policy "accounting_file_records_access"
     )
   );
 
--- Migration helper (safe to run on existing installs):
+-- Migration helpers (safe to run on existing installs):
+--
+-- A) Add file_status column:
 -- alter table public.accounting_file_records
 --   add column if not exists file_status text not null default 'pendente'
 --     check (file_status in ('pendente', 'cobrado', 'recebido'));
 -- update public.accounting_file_records
 --   set file_status = case when received then 'recebido' else 'pendente' end;
+--
+-- B) Remove folha from doc_type / split demais_contas_fornecedores:
+-- alter table public.accounting_file_records drop constraint if exists accounting_file_records_doc_type_check;
+-- alter table public.accounting_file_records add constraint accounting_file_records_doc_type_check
+--   check (doc_type in ('contas_pagar','contas_receber','taxas_adm','extratos','estoques','apuracao'));
+-- delete from public.accounting_file_records where doc_type = 'folha';
+-- alter table public.accounting_reconciliations drop constraint if exists accounting_reconciliations_category_check;
+-- alter table public.accounting_reconciliations add constraint accounting_reconciliations_category_check
+--   check (category in ('extrato_aplicacoes','apuracao','folha','demais_contas','fornecedores'));
+-- update public.accounting_reconciliations set category = 'demais_contas' where category = 'demais_contas_fornecedores';
 
 -- =========================================================================
 -- 3) accounting_reconciliations — conciliação livre por categoria
@@ -135,7 +147,7 @@ create table if not exists public.accounting_reconciliations (
   competencia text not null,
   category text not null
     check (category in (
-      'extrato_aplicacoes', 'apuracao', 'folha', 'demais_contas_fornecedores'
+      'extrato_aplicacoes', 'apuracao', 'folha', 'demais_contas', 'fornecedores'
     )),
   status text not null default 'nao_iniciado'
     check (status in ('nao_iniciado', 'em_andamento', 'conciliado', 'pendencia')),

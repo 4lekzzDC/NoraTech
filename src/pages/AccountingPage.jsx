@@ -364,9 +364,20 @@ function CompactStat({ label, value, color, hint, divider }) {
   );
 }
 
-function LegendItem({ color, label, value }) {
+function LegendItem({ color, label, value, onClick, active }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+    <div
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 7,
+        cursor: onClick ? 'pointer' : 'default',
+        padding: '4px 8px', margin: '-4px -8px', borderRadius: 7,
+        background: active ? 'rgba(255,255,255,0.07)' : 'transparent',
+        opacity: active === false ? 0.35 : 1,
+        transition: 'background 0.15s, opacity 0.15s',
+        outline: active ? `1px solid rgba(255,255,255,0.12)` : 'none',
+      }}
+    >
       <span style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />
       <span style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.6)' }}>{label}</span>
       {value !== undefined && <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'rgba(255,255,255,0.85)', marginLeft: 'auto' }}>{value}</span>}
@@ -413,6 +424,30 @@ function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, re
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [viewCompany, setViewCompany] = useState(null);
+  const [chartFilter, setChartFilter] = useState(null);
+
+  const toggleFilter = (chart, status) =>
+    setChartFilter((prev) => (prev?.chart === chart && prev?.status === status ? null : { chart, status }));
+
+  const filterDetails = useMemo(() => {
+    if (!chartFilter) return [];
+    if (chartFilter.chart === 'arquivos') {
+      return filtered.map((company) => {
+        const items = TASKS.filter((t) => {
+          const r = fileRecords.find((r) => r.accounting_company_id === company.id && r.doc_type === t.id);
+          return getFileStatus(r) === chartFilter.status;
+        }).map((t) => t.label);
+        return { company, items };
+      }).filter((x) => x.items.length > 0);
+    }
+    return filtered.map((company) => {
+      const items = RECON_CATEGORIES.filter((cat) => {
+        const r = reconciliations.find((r) => r.accounting_company_id === company.id && r.category === cat.id);
+        return (r?.status || 'nao_iniciado') === chartFilter.status;
+      }).map((cat) => cat.label);
+      return { company, items };
+    }).filter((x) => x.items.length > 0);
+  }, [chartFilter, filtered, fileRecords, reconciliations]);
 
   const responsaveis = useMemo(
     () => Array.from(new Set(companies.map((c) => c.responsavel).filter(Boolean))).sort(),
@@ -534,7 +569,7 @@ function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, re
       </div>
 
       {/* Dois gráficos principais */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: chartFilter ? 12 : 28 }}>
         {/* Gráfico 1: Situação dos arquivos */}
         <Card style={{ padding: '22px 26px', display: 'flex', gap: 28, alignItems: 'center' }}>
           <div style={{ position: 'relative', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -552,11 +587,21 @@ function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, re
             </div>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.3, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 14 }}>Situação da chegada de arquivos</div>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.3, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 14 }}>
+              Situação da chegada de arquivos
+              <span style={{ marginLeft: 8, color: 'rgba(255,255,255,0.25)', fontWeight: 400, letterSpacing: 0 }}>clique para filtrar</span>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <LegendItem color="#00d48a" label="Recebidos" value={dashMetrics.totalRecebidos} />
-              <LegendItem color="#fbbf24" label="Cobrados" value={dashMetrics.totalCobrados} />
-              <LegendItem color="rgba(255,255,255,0.2)" label="Pendentes" value={dashMetrics.totalPendentes} />
+              {[
+                { status: 'recebido', color: '#00d48a', label: 'Recebidos', value: dashMetrics.totalRecebidos },
+                { status: 'cobrado',  color: '#fbbf24', label: 'Cobrados',  value: dashMetrics.totalCobrados },
+                { status: 'pendente', color: 'rgba(255,255,255,0.2)', label: 'Pendentes', value: dashMetrics.totalPendentes },
+              ].map(({ status, color, label, value }) => (
+                <LegendItem key={status} color={color} label={label} value={value}
+                  onClick={() => toggleFilter('arquivos', status)}
+                  active={chartFilter?.chart === 'arquivos' ? chartFilter.status === status : undefined}
+                />
+              ))}
             </div>
             <div style={{ marginTop: 14 }}>
               <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>{dashMetrics.totalEsperado} docs esperados ({TASKS.length} × {dashMetrics.totalEmpresas} emp.)</div>
@@ -583,12 +628,22 @@ function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, re
             </div>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.3, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 14 }}>Situação da conciliação das empresas</div>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.3, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 14 }}>
+              Situação da conciliação das empresas
+              <span style={{ marginLeft: 8, color: 'rgba(255,255,255,0.25)', fontWeight: 400, letterSpacing: 0 }}>clique para filtrar</span>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <LegendItem color="#00d48a" label="Conciliado"    value={dashMetrics.reconConcluido} />
-              <LegendItem color="#7C3AED" label="Em andamento"  value={dashMetrics.reconEmAndamento} />
-              <LegendItem color="#ff6b6b" label="Pendência"     value={dashMetrics.reconPendencia} />
-              <LegendItem color="rgba(255,255,255,0.2)" label="Não iniciado" value={dashMetrics.reconNaoIniciado} />
+              {[
+                { status: 'conciliado',    color: '#00d48a', label: 'Conciliado',    value: dashMetrics.reconConcluido },
+                { status: 'em_andamento',  color: '#7C3AED', label: 'Em andamento',  value: dashMetrics.reconEmAndamento },
+                { status: 'pendencia',     color: '#ff6b6b', label: 'Pendência',     value: dashMetrics.reconPendencia },
+                { status: 'nao_iniciado',  color: 'rgba(255,255,255,0.2)', label: 'Não iniciado', value: dashMetrics.reconNaoIniciado },
+              ].map(({ status, color, label, value }) => (
+                <LegendItem key={status} color={color} label={label} value={value}
+                  onClick={() => toggleFilter('conciliacao', status)}
+                  active={chartFilter?.chart === 'conciliacao' ? chartFilter.status === status : undefined}
+                />
+              ))}
             </div>
             <div style={{ marginTop: 14 }}>
               <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>{dashMetrics.reconTotal} categorias ({RECON_CATEGORIES.length} × {dashMetrics.totalEmpresas} emp.)</div>
@@ -597,6 +652,55 @@ function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, re
           </div>
         </Card>
       </div>
+
+      {/* Painel de detalhes do filtro */}
+      {chartFilter && (
+        <Card style={{ padding: '16px 20px', marginBottom: 28, border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: filterDetails.length > 0 ? 14 : 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: chartFilter.chart === 'arquivos'
+                ? (FILE_STATUS[chartFilter.status]?.fg || '#aaa')
+                : (RECON_STATUS[chartFilter.status]?.fg || '#aaa'), flexShrink: 0 }} />
+              <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#eeede9' }}>
+                {chartFilter.chart === 'arquivos'
+                  ? `Arquivos — ${FILE_STATUS[chartFilter.status]?.label}`
+                  : `Conciliação — ${RECON_STATUS[chartFilter.status]?.label}`}
+              </span>
+              <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)' }}>
+                {filterDetails.length === 0 ? 'Nenhuma empresa neste status' : `${filterDetails.length} empresa${filterDetails.length !== 1 ? 's' : ''}`}
+              </span>
+            </div>
+            <button onClick={() => setChartFilter(null)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 20, cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}>×</button>
+          </div>
+          {filterDetails.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {filterDetails.map(({ company, items }) => (
+                <div key={company.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ minWidth: 160, fontWeight: 700, fontSize: '0.88rem', color: '#eeede9' }}>{company.nome}</div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {items.map((item) => {
+                      const fg = chartFilter.chart === 'arquivos'
+                        ? (FILE_STATUS[chartFilter.status]?.fg || '#aaa')
+                        : (RECON_STATUS[chartFilter.status]?.fg || '#aaa');
+                      const bg = chartFilter.chart === 'arquivos'
+                        ? (FILE_STATUS[chartFilter.status]?.bg || 'rgba(255,255,255,0.05)')
+                        : (RECON_STATUS[chartFilter.status]?.bg || 'rgba(255,255,255,0.05)');
+                      const bd = chartFilter.chart === 'arquivos'
+                        ? (FILE_STATUS[chartFilter.status]?.bd || 'rgba(255,255,255,0.12)')
+                        : (RECON_STATUS[chartFilter.status]?.bd || 'rgba(255,255,255,0.12)');
+                      return (
+                        <span key={item} className="acc-pill" style={{ background: bg, color: fg, borderColor: bd }}>
+                          {item}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Seção Documentos — stats compactos */}
       <div className="acc-section-eyebrow">Documentos</div>
