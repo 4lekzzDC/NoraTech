@@ -10,6 +10,16 @@ export const SYSTEMS = [
     description: 'Atendimento automatizado, triagem por intenção e transferência fluida para humanos.',
     url: 'https://falahub.noratech.com.br',
   },
+  {
+    slug: 'acompanhamento-contabil',
+    name: 'Acompanhamento contábil',
+    icon: '📊',
+    color: '#7C3AED',
+    description: 'Gestão operacional do fechamento mensal — status de tarefas, alertas de pendências e visão gerencial por empresa.',
+    url: '/admin/acompanhamento-contabil',
+    internal: true,
+    adminOnly: true,
+  },
 ];
 
 export const SYSTEMS_BY_SLUG = Object.fromEntries(SYSTEMS.map((s) => [s.slug, s]));
