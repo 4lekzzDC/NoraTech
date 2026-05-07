@@ -5,7 +5,7 @@ import { useIsAdmin } from '../lib/admin';
 import CockpitCompany from '../components/CockpitCompany';
 import { supabase } from '../lib/supabase';
 import { fetchMyCompany } from '../lib/companies';
-import { getSystem } from '../lib/systems';
+import { getSystem, SYSTEMS } from '../lib/systems';
 
 const TABS = [
   { id: 'cockpit', num: '01', label: 'Cockpit' },
@@ -297,6 +297,74 @@ function ComandoTab({ user, onLogout }) {
   );
 }
 
+const BASE_CARD_STYLE = { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '20px 22px', transition: 'all 0.2s', cursor: 'pointer', display: 'block' };
+
+function SystemCard({ s }) {
+  const isTrial = s.subscription?.status === 'trialing';
+  const statusColor = isTrial ? '#60a5fa' : '#7dff7d';
+  const statusLabel = isTrial ? 'Trial' : 'Ativa';
+  const inner = (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ fontSize: '1rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: '1.1rem' }}>{s.icon}</span> {s.name}
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', fontWeight: 700, color: statusColor, textTransform: 'uppercase', letterSpacing: 1 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor }} />
+          {statusLabel}
+        </span>
+      </div>
+      <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', marginBottom: 14 }}>{s.description}</p>
+      <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.78rem', color: '#7C3AED' }}>
+        {s.url ? 'Abrir sistema ↗' : s.subscription?.plan || ''}
+      </p>
+    </>
+  );
+  if (!s.url) return <div className="system-card" style={BASE_CARD_STYLE}>{inner}</div>;
+  if (s.internal) return <Link to={s.url} className="system-card" style={BASE_CARD_STYLE}>{inner}</Link>;
+  return <a href={s.url} target="_blank" rel="noopener noreferrer" className="system-card" style={BASE_CARD_STYLE}>{inner}</a>;
+}
+
+function SystemsGrid({ systems, isAdmin }) {
+  // Admin tem bypass: vê todos os sistemas internos do catálogo, mesmo sem assinatura.
+  const adminInternals = isAdmin
+    ? SYSTEMS
+        .filter((s) => s.internal && !systems.some((sub) => sub.slug === s.slug))
+        .map((s) => ({ ...s, subscription: { status: 'active' } }))
+    : [];
+  const all = [...systems, ...adminInternals];
+
+  if (all.length === 0) {
+    return (
+      <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 16, padding: '40px 32px', textAlign: 'center' }}>
+        <span style={{ display: 'inline-block', fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.5, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 10 }}>
+          Nenhum sistema contratado
+        </span>
+        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: -0.4, marginBottom: 10 }}>
+          Você ainda não tem sistemas ativos
+        </h3>
+        <p style={{ fontSize: '0.92rem', color: 'rgba(255,255,255,0.55)', maxWidth: 520, margin: '0 auto 22px' }}>
+          Explore nossos serviços ou fale com a Noratech para começar sua operação.
+        </p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <Link to="/servicos/sistemas-sob-medida" className="btn-ghost" style={{ padding: '10px 18px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', fontWeight: 600, transition: 'all 0.2s' }}>
+            Ver serviços
+          </Link>
+          <Link to="/#contato" style={{ padding: '10px 18px', background: '#7C3AED', borderRadius: 10, color: '#fff', fontSize: '0.85rem', fontWeight: 700 }}>
+            Falar com a Noratech
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+      {all.map((s) => <SystemCard key={s.slug} s={s} />)}
+    </div>
+  );
+}
+
 function EmptyGauge() {
   const size = 240;
   const stroke = 4;
@@ -345,26 +413,24 @@ export default function AreaDoClientePage() {
       try {
         const my = await fetchMyCompany();
         const companyId = my?.company?.id;
-        if (!companyId) {
-          if (active) setSystems([]);
-          return;
-        }
-        const { data, error } = await supabase
-          .from('subscriptions')
-          .select('id, system_slug, plan, status, current_period_end')
-          .eq('company_id', companyId)
-          .in('status', ['active', 'trialing']);
-        if (!active) return;
-        if (error) { setSystems([]); return; }
-        const seen = new Set();
         const list = [];
-        (data || []).forEach((s) => {
-          const sys = getSystem(s.system_slug);
-          if (!sys || seen.has(sys.slug)) return;
-          seen.add(sys.slug);
-          list.push({ ...sys, subscription: s });
-        });
-        setSystems(list);
+        if (companyId) {
+          const { data, error } = await supabase
+            .from('subscriptions')
+            .select('id, system_slug, plan, status, current_period_end')
+            .eq('company_id', companyId)
+            .in('status', ['active', 'trialing']);
+          if (active && !error) {
+            const seen = new Set();
+            (data || []).forEach((s) => {
+              const sys = getSystem(s.system_slug);
+              if (!sys || seen.has(sys.slug)) return;
+              seen.add(sys.slug);
+              list.push({ ...sys, subscription: s });
+            });
+          }
+        }
+        if (active) setSystems(list);
       } catch {
         if (active) setSystems([]);
       }
@@ -525,65 +591,7 @@ export default function AreaDoClientePage() {
                 </div>
               </div>
 
-              {systems.length === 0 ? (
-                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 16, padding: '40px 32px', textAlign: 'center' }}>
-                  <span style={{ display: 'inline-block', fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.5, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 10 }}>
-                    Nenhum sistema contratado
-                  </span>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: -0.4, marginBottom: 10 }}>
-                    Você ainda não tem sistemas ativos
-                  </h3>
-                  <p style={{ fontSize: '0.92rem', color: 'rgba(255,255,255,0.55)', maxWidth: 520, margin: '0 auto 22px' }}>
-                    Explore nossos serviços ou fale com a Noratech para começar sua operação.
-                  </p>
-                  <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <Link
-                      to="/servicos/sistemas-sob-medida"
-                      className="btn-ghost"
-                      style={{ padding: '10px 18px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', fontWeight: 600, transition: 'all 0.2s' }}
-                    >
-                      Ver serviços
-                    </Link>
-                    <Link
-                      to="/#contato"
-                      style={{ padding: '10px 18px', background: '#7C3AED', borderRadius: 10, color: '#fff', fontSize: '0.85rem', fontWeight: 700 }}
-                    >
-                      Falar com a Noratech
-                    </Link>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
-                  {systems.map((s) => {
-                    const isTrial = s.subscription?.status === 'trialing';
-                    const card = (
-                      <>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                          <span style={{ fontSize: '1rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontSize: '1.1rem' }}>{s.icon}</span> {s.name}
-                          </span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', fontWeight: 700, color: isTrial ? '#60a5fa' : '#7dff7d', textTransform: 'uppercase', letterSpacing: 1 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: isTrial ? '#60a5fa' : '#7dff7d' }} />
-                            {isTrial ? 'Trial' : 'Ativa'}
-                          </span>
-                        </div>
-                        <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', marginBottom: 14 }}>{s.description}</p>
-                        <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.78rem', color: '#7C3AED' }}>
-                          {s.url ? 'Abrir sistema ↗' : s.subscription?.plan || ''}
-                        </p>
-                      </>
-                    );
-                    const baseStyle = { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '20px 22px', transition: 'all 0.2s', cursor: 'pointer', display: 'block' };
-                    return s.url ? (
-                      <a key={s.slug} href={s.url} target="_blank" rel="noopener noreferrer" className="system-card" style={baseStyle}>
-                        {card}
-                      </a>
-                    ) : (
-                      <div key={s.slug} className="system-card" style={baseStyle}>{card}</div>
-                    );
-                  })}
-                </div>
-              )}
+              {SystemsGrid({ systems, isAdmin })}
             </section>
           </>
         )}
