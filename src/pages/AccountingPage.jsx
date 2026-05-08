@@ -46,8 +46,13 @@ export default function AccountingPage() {
   const [reconciliations, setReconciliations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
-  const [companiesOpen, setCompaniesOpen] = useState(false);
+  const [companiesView, setCompaniesView] = useState(null); // null | { initialSort?, initialOnlyCompleted? }
+  const [pendenciasOpen, setPendenciasOpen] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+  // Filtros globais (compartilhados entre dashboard e modal Empresas)
+  const [search, setSearch] = useState('');
+  const [filterResp, setFilterResp] = useState('');
+  const [filterPrio, setFilterPrio] = useState('');
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -155,7 +160,7 @@ export default function AccountingPage() {
               <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Competência</span>
               <input className="acc-input" value={competencia} onChange={(e) => setCompetencia(e.target.value)} placeholder="MM/AAAA" style={{ width: 108 }} />
             </label>
-            <button onClick={() => setCompaniesOpen(true)} className="acc-btn" style={{ fontSize: '0.82rem' }}>🏢 Empresas</button>
+            <button onClick={() => setCompaniesView({})} className="acc-btn" style={{ fontSize: '0.82rem' }}>🏢 Empresas</button>
             <button onClick={handleLogout} className="acc-btn" style={{ fontSize: '0.82rem' }}>Sair ↗</button>
           </div>
         </div>
@@ -190,6 +195,11 @@ export default function AccountingPage() {
                 companies={companies}
                 fileRecords={fileRecords}
                 reconciliations={reconciliations}
+                search={search} setSearch={setSearch}
+                filterResp={filterResp} setFilterResp={setFilterResp}
+                filterPrio={filterPrio} setFilterPrio={setFilterPrio}
+                onOpenCompanies={(view) => setCompaniesView(view || {})}
+                onOpenPendencias={() => setPendenciasOpen(true)}
               />
             )}
             {activeTab === 'arquivos' && (
@@ -212,15 +222,32 @@ export default function AccountingPage() {
         )}
       </main>
 
-      {companiesOpen && tenantCompanyId && (
+      {companiesView && tenantCompanyId && (
         <CompaniesModal
           tenantCompanyId={tenantCompanyId}
           competencia={competencia}
           companies={companies}
           fileRecords={fileRecords}
           reconciliations={reconciliations}
-          onClose={() => setCompaniesOpen(false)}
+          search={search} setSearch={setSearch}
+          filterResp={filterResp} setFilterResp={setFilterResp}
+          filterPrio={filterPrio} setFilterPrio={setFilterPrio}
+          initialSort={companiesView.initialSort}
+          initialOnlyCompleted={companiesView.initialOnlyCompleted}
+          onClose={() => setCompaniesView(null)}
           onChange={reload}
+        />
+      )}
+      {pendenciasOpen && (
+        <PendenciasModal
+          competencia={competencia}
+          companies={companies}
+          fileRecords={fileRecords}
+          reconciliations={reconciliations}
+          search={search}
+          filterResp={filterResp}
+          filterPrio={filterPrio}
+          onClose={() => setPendenciasOpen(false)}
         />
       )}
     </div>
@@ -250,18 +277,35 @@ function NoTenantWarning() {
   );
 }
 
-function Card({ children, style = {} }) {
+function Card({ children, style = {}, ...rest }) {
   return (
-    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, ...style }}>
+    <div {...rest} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, ...style }}>
       {children}
     </div>
   );
 }
 
-function Kpi({ label, value, accent = '#7C3AED', hint, small = false }) {
+function Kpi({ label, value, accent = '#7C3AED', hint, small = false, onClick }) {
+  const [hover, setHover] = useState(false);
+  const interactive = !!onClick;
   return (
-    <Card style={{ padding: small ? '14px 16px' : '16px 18px' }}>
-      <div style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1.4, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' }}>{label}</div>
+    <Card
+      onClick={onClick}
+      onMouseEnter={interactive ? () => setHover(true) : undefined}
+      onMouseLeave={interactive ? () => setHover(false) : undefined}
+      style={{
+        padding: small ? '14px 16px' : '16px 18px',
+        cursor: interactive ? 'pointer' : 'default',
+        transition: 'transform 0.18s, border-color 0.18s, background 0.18s',
+        transform: interactive && hover ? 'translateY(-1px)' : 'none',
+        background: interactive && hover ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.02)',
+        borderColor: interactive && hover ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1.4, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' }}>{label}</div>
+        {interactive && <span style={{ fontSize: '0.78rem', color: hover ? '#7C3AED' : 'rgba(255,255,255,0.25)', transition: 'color 0.18s' }}>›</span>}
+      </div>
       <div style={{ fontSize: small ? '1.5rem' : '1.75rem', fontWeight: 800, color: accent, marginTop: 4, letterSpacing: -0.6 }}>{value}</div>
       {hint && <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.45)', marginTop: 4 }}>{hint}</div>}
     </Card>
@@ -438,10 +482,10 @@ const EMPTY_FORM = {
   prazo: '', observacoes: '', particularidades: '',
 };
 
-function DashboardTab({ competencia, companies, fileRecords, reconciliations }) {
-  const [search, setSearch] = useState('');
-  const [filterResp, setFilterResp] = useState('');
-  const [filterPrio, setFilterPrio] = useState('');
+function DashboardTab({ competencia, companies, fileRecords, reconciliations,
+  search, setSearch, filterResp, setFilterResp, filterPrio, setFilterPrio,
+  onOpenCompanies, onOpenPendencias,
+}) {
   const [chartFilter, setChartFilter] = useState(null);
 
   const toggleFilter = (chart, status) =>
@@ -568,14 +612,32 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations }) 
       {/* Seção Visão Geral */}
       <div className="acc-section-eyebrow">Visão geral</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 28 }}>
-        <Kpi label="Total empresas" value={dashMetrics.totalEmpresas} hint={`competência ${competencia}`} />
-        <Kpi label="Progresso médio" value={`${dashMetrics.progressoMedio}%`} accent="#7C3AED" hint="files + conciliação" />
-        <Kpi label="Empresas concluídas" value={dashMetrics.empresasCompletas} accent="#00d48a" hint="100% do fechamento" />
+        <Kpi
+          label="Total empresas"
+          value={dashMetrics.totalEmpresas}
+          hint={`competência ${competencia}`}
+          onClick={() => onOpenCompanies({})}
+        />
+        <Kpi
+          label="Progresso médio"
+          value={`${dashMetrics.progressoMedio}%`}
+          accent="#7C3AED"
+          hint="files + conciliação"
+          onClick={() => onOpenCompanies({ initialSort: 'progress_asc' })}
+        />
+        <Kpi
+          label="Empresas concluídas"
+          value={dashMetrics.empresasCompletas}
+          accent="#00d48a"
+          hint="100% do fechamento"
+          onClick={() => onOpenCompanies({ initialOnlyCompleted: true })}
+        />
         <Kpi
           label="Pendências abertas"
           value={dashMetrics.pendenciasAbertas}
           accent={dashMetrics.pendenciasAbertas > 0 ? '#ff8a3d' : '#00d48a'}
           hint={`${dashMetrics.docsAbertos} documentos + ${dashMetrics.reconAbertos} conciliações`}
+          onClick={() => onOpenPendencias()}
         />
       </div>
 
@@ -998,38 +1060,47 @@ function InfoItem({ label, value, accent }) {
 // CompaniesModal — gerenciamento de empresas (cadastro/CRUD)
 // =============================================================================
 
-function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, reconciliations, onClose, onChange }) {
-  const [search, setSearch] = useState('');
-  const [filterResp, setFilterResp] = useState('');
-  const [filterPrio, setFilterPrio] = useState('');
+function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, reconciliations,
+  search, setSearch, filterResp, setFilterResp, filterPrio, setFilterPrio,
+  initialSort, initialOnlyCompleted, onClose, onChange,
+}) {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [viewCompany, setViewCompany] = useState(null);
+  const [sortBy, setSortBy] = useState(initialSort || 'name');
+  const [onlyCompleted, setOnlyCompleted] = useState(!!initialOnlyCompleted);
 
   const responsaveis = useMemo(
     () => Array.from(new Set(companies.map((c) => c.responsavel).filter(Boolean))).sort(),
     [companies]
   );
 
-  const filtered = useMemo(() => companies
-    .map((c) => ({ ...c, progress: companyProgress(c.id, fileRecords, reconciliations) }))
-    .filter((c) => {
-      if (filterResp && c.responsavel !== filterResp) return false;
-      if (filterPrio && c.prioridade !== filterPrio) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        if (
-          !c.nome?.toLowerCase().includes(q) &&
-          !c.responsavel?.toLowerCase().includes(q) &&
-          !c.codigo?.toLowerCase().includes(q)
-        ) return false;
-      }
-      return true;
-    }), [companies, fileRecords, reconciliations, filterResp, filterPrio, search]);
+  const filtered = useMemo(() => {
+    const list = companies
+      .map((c) => ({ ...c, progress: companyProgress(c.id, fileRecords, reconciliations) }))
+      .filter((c) => {
+        if (filterResp && c.responsavel !== filterResp) return false;
+        if (filterPrio && c.prioridade !== filterPrio) return false;
+        if (onlyCompleted && c.progress !== 100) return false;
+        if (search) {
+          const q = search.toLowerCase();
+          if (
+            !c.nome?.toLowerCase().includes(q) &&
+            !c.responsavel?.toLowerCase().includes(q) &&
+            !c.codigo?.toLowerCase().includes(q)
+          ) return false;
+        }
+        return true;
+      });
+    if (sortBy === 'progress_asc') list.sort((a, b) => a.progress - b.progress || (a.nome || '').localeCompare(b.nome || ''));
+    else if (sortBy === 'progress_desc') list.sort((a, b) => b.progress - a.progress || (a.nome || '').localeCompare(b.nome || ''));
+    else list.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+    return list;
+  }, [companies, fileRecords, reconciliations, filterResp, filterPrio, search, sortBy, onlyCompleted]);
 
-  const clearFilters = () => { setSearch(''); setFilterResp(''); setFilterPrio(''); };
-  const hasFilters = !!(search || filterResp || filterPrio);
+  const clearFilters = () => { setSearch(''); setFilterResp(''); setFilterPrio(''); setOnlyCompleted(false); setSortBy('name'); };
+  const hasFilters = !!(search || filterResp || filterPrio || onlyCompleted || sortBy !== 'name');
 
   const openCreate = () => { setForm({ ...EMPTY_FORM }); setEditing('new'); };
   const openEdit = (c) => {
@@ -1070,11 +1141,22 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(4,4,8,0.82)', backdropFilter: 'blur(14px) saturate(0.85)', WebkitBackdropFilter: 'blur(14px) saturate(0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 90 }}>
         <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 1100, background: '#101015', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column', boxShadow: '0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(124,58,237,0.08)' }}>
           <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <h2 style={{ fontSize: '1.02rem', fontWeight: 700 }}>🏢 Empresas cadastradas</h2>
               <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)' }}>
                 {filtered.length} de {companies.length}
               </span>
+              {onlyCompleted && (
+                <span onClick={() => setOnlyCompleted(false)} className="acc-pill"
+                  style={{ cursor: 'pointer', background: 'rgba(0,212,138,0.12)', color: '#00d48a', borderColor: 'rgba(0,212,138,0.28)' }}>
+                  ✓ Apenas concluídas (100%) ×
+                </span>
+              )}
+              {sortBy === 'progress_asc' && (
+                <span className="acc-pill" style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', borderColor: 'rgba(124,58,237,0.28)' }}>
+                  ↑ Menor progresso primeiro
+                </span>
+              )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <button className="acc-btn primary" style={{ fontSize: '0.82rem' }} onClick={openCreate}>+ Nova empresa</button>
@@ -1083,7 +1165,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
           </div>
 
           <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px 200px auto', gap: 10, alignItems: 'center' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 170px 170px auto', gap: 10, alignItems: 'center' }}>
               <input className="acc-input" placeholder="Buscar por nome, código ou responsável" value={search} onChange={(e) => setSearch(e.target.value)} />
               <select className="acc-select" value={filterResp} onChange={(e) => setFilterResp(e.target.value)}>
                 <option value="">Todos responsáveis</option>
@@ -1092,6 +1174,11 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
               <select className="acc-select" value={filterPrio} onChange={(e) => setFilterPrio(e.target.value)}>
                 <option value="">Todas prioridades</option>
                 <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
+              </select>
+              <select className="acc-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                <option value="name">Ordenar: A → Z</option>
+                <option value="progress_asc">Ordenar: progresso ↑</option>
+                <option value="progress_desc">Ordenar: progresso ↓</option>
               </select>
               {hasFilters
                 ? <button className="acc-btn" onClick={clearFilters} style={{ fontSize: '0.78rem' }}>Limpar</button>
@@ -1204,6 +1291,143 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
         />
       )}
     </>
+  );
+}
+
+// =============================================================================
+// PendenciasModal — detalhe de pendências agrupado por empresa
+// =============================================================================
+
+function PendenciasModal({ competencia, companies, fileRecords, reconciliations, search, filterResp, filterPrio, onClose }) {
+  const filteredCompanies = useMemo(() => companies.filter((c) => {
+    if (filterResp && c.responsavel !== filterResp) return false;
+    if (filterPrio && c.prioridade !== filterPrio) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (
+        !c.nome?.toLowerCase().includes(q) &&
+        !c.responsavel?.toLowerCase().includes(q) &&
+        !c.codigo?.toLowerCase().includes(q)
+      ) return false;
+    }
+    return true;
+  }), [companies, filterResp, filterPrio, search]);
+
+  const groups = useMemo(() => filteredCompanies.map((company) => {
+    const cFiles = fileRecords.filter((r) => r.accounting_company_id === company.id);
+    const cRecs = reconciliations.filter((r) => r.accounting_company_id === company.id);
+
+    const pendingDocs = TASKS.map((t) => {
+      const r = cFiles.find((r) => r.doc_type === t.id);
+      const status = getFileStatus(r);
+      return status !== 'recebido' ? { id: t.id, label: t.label, status } : null;
+    }).filter(Boolean);
+
+    const pendingRecons = RECON_CATEGORIES.map((cat) => {
+      const r = cRecs.find((r) => r.category === cat.id);
+      const status = r?.status || 'nao_iniciado';
+      return status !== 'conciliado' ? { id: cat.id, label: cat.label, status } : null;
+    }).filter(Boolean);
+
+    return { company, pendingDocs, pendingRecons, total: pendingDocs.length + pendingRecons.length };
+  }).filter((g) => g.total > 0).sort((a, b) => b.total - a.total),
+  [filteredCompanies, fileRecords, reconciliations]);
+
+  const totalDocs = groups.reduce((s, g) => s + g.pendingDocs.length, 0);
+  const totalRecons = groups.reduce((s, g) => s + g.pendingRecons.length, 0);
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(4,4,8,0.82)', backdropFilter: 'blur(14px) saturate(0.85)', WebkitBackdropFilter: 'blur(14px) saturate(0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 95 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 880, background: '#101015', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column', boxShadow: '0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,138,61,0.1)' }}>
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <h2 style={{ fontSize: '1.02rem', fontWeight: 700 }}>⚠ Pendências abertas</h2>
+            <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)' }}>
+              {groups.length} empresa{groups.length !== 1 ? 's' : ''} · competência {competencia}
+            </span>
+          </div>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
+        </div>
+
+        <div style={{ padding: '14px 22px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          <CompactStat label="Empresas com pendência" value={groups.length} />
+          <CompactStat label="Documentos pendentes" value={totalDocs} color="#ff8a3d" divider />
+          <CompactStat label="Conciliações pendentes" value={totalRecons} color="#ff6b6b" divider />
+        </div>
+
+        <div style={{ overflowY: 'auto', flex: 1, padding: '16px 22px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {groups.length === 0 && (
+            <div style={{ padding: '40px 0', textAlign: 'center', color: '#00d48a', fontSize: '0.9rem' }}>
+              ✓ Nenhuma pendência aberta para os filtros atuais
+            </div>
+          )}
+          {groups.map(({ company, pendingDocs, pendingRecons, total }) => (
+            <Card key={company.id} style={{ padding: '14px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                  {company.codigo && (
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.74rem', fontWeight: 600, color: '#7C3AED' }}>#{company.codigo}</span>
+                  )}
+                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#eeede9' }}>{company.nome}</span>
+                  {company.responsavel && (
+                    <span style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.4)' }}>· {company.responsavel}</span>
+                  )}
+                </div>
+                <span className="acc-pill" style={{ background: 'rgba(255,138,61,0.1)', color: '#ff8a3d', borderColor: 'rgba(255,138,61,0.25)' }}>
+                  {total} pendente{total !== 1 ? 's' : ''}
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: '0.64rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,138,61,0.85)', textTransform: 'uppercase', marginBottom: 8 }}>
+                    Documentos pendentes ({pendingDocs.length})
+                  </div>
+                  {pendingDocs.length === 0
+                    ? <div style={{ fontSize: '0.78rem', color: 'rgba(0,212,138,0.7)' }}>✓ Todos recebidos</div>
+                    : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        {pendingDocs.map((d) => {
+                          const s = FILE_STATUS[d.status];
+                          return (
+                            <div key={d.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 10px', background: 'rgba(255,138,61,0.05)', borderRadius: 7, border: '1px solid rgba(255,138,61,0.15)' }}>
+                              <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.8)' }}>{d.label}</span>
+                              <span className="acc-pill" style={{ background: s.bg, color: s.fg, borderColor: s.bd, fontSize: '0.62rem' }}>{s.label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )
+                  }
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '0.64rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,107,107,0.85)', textTransform: 'uppercase', marginBottom: 8 }}>
+                    Conciliações pendentes ({pendingRecons.length})
+                  </div>
+                  {pendingRecons.length === 0
+                    ? <div style={{ fontSize: '0.78rem', color: 'rgba(0,212,138,0.7)' }}>✓ Todas conciliadas</div>
+                    : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        {pendingRecons.map((d) => {
+                          const s = RECON_STATUS[d.status];
+                          return (
+                            <div key={d.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 10px', background: 'rgba(255,107,107,0.05)', borderRadius: 7, border: '1px solid rgba(255,107,107,0.15)' }}>
+                              <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.8)' }}>{d.label}</span>
+                              <span className="acc-pill" style={{ background: s.bg, color: s.fg, borderColor: s.bd, fontSize: '0.62rem' }}>{s.label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )
+                  }
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
