@@ -411,19 +411,24 @@ export default function App() {
         }
 
         /* Faixas de texto translúcido branco — convertem em cinza escuro */
-        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.78)"] { color: rgba(24, 24, 27, 0.85) !important; }
-        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.7)"]  { color: rgba(24, 24, 27, 0.78) !important; }
-        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.65)"] { color: rgba(24, 24, 27, 0.72) !important; }
-        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.6)"]  { color: rgba(24, 24, 27, 0.68) !important; }
-        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.55)"] { color: rgba(24, 24, 27, 0.62) !important; }
-        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.5)"]  { color: rgba(24, 24, 27, 0.58) !important; }
-        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.45)"] { color: rgba(24, 24, 27, 0.55) !important; }
-        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.42)"] { color: rgba(24, 24, 27, 0.55) !important; }
-        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.4)"]  { color: rgba(24, 24, 27, 0.52) !important; }
-        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.35)"] { color: rgba(24, 24, 27, 0.48) !important; }
-        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.3)"]  { color: rgba(24, 24, 27, 0.42) !important; }
-        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.25)"] { color: rgba(24, 24, 27, 0.35) !important; }
-        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.2)"]  { color: rgba(24, 24, 27, 0.32) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.95)"] { color: rgba(15, 15, 18, 0.96) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.9)"]  { color: rgba(15, 15, 18, 0.92) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.85)"] { color: rgba(18, 18, 22, 0.9) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.8)"]  { color: rgba(18, 18, 22, 0.88) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.78)"] { color: rgba(24, 24, 27, 0.88) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.75)"] { color: rgba(24, 24, 27, 0.86) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.7)"]  { color: rgba(24, 24, 27, 0.82) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.65)"] { color: rgba(24, 24, 27, 0.78) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.6)"]  { color: rgba(24, 24, 27, 0.74) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.55)"] { color: rgba(24, 24, 27, 0.7) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.5)"]  { color: rgba(24, 24, 27, 0.66) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.45)"] { color: rgba(24, 24, 27, 0.62) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.42)"] { color: rgba(24, 24, 27, 0.6) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.4)"]  { color: rgba(24, 24, 27, 0.58) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.35)"] { color: rgba(24, 24, 27, 0.52) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.3)"]  { color: rgba(24, 24, 27, 0.48) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.25)"] { color: rgba(24, 24, 27, 0.42) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.2)"]  { color: rgba(24, 24, 27, 0.4) !important; }
 
         /* nav-link, menu mobile etc. (rules in <style>) */
         html[data-theme="light"] .nav-link { color: rgba(24, 24, 27, 0.55); }
@@ -498,9 +503,9 @@ export default function App() {
           color: #ffffff !important;
         }
 
-        /* CTA com fundo "08080a" usado em FAQ tabs ativas */
+        /* FAQ tabs ativas: fundo colorido + texto bem escuro permanece legível */
         html[data-theme="light"] [style*="color: rgb(8, 8, 10)"] {
-          color: #ffffff !important;
+          color: #0a0a0c !important;
         }
 
         /* Scrollbar light */
