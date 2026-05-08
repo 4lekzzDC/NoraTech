@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -487,33 +488,57 @@ function PriorityPill({ value }) {
 
 function StatusDropdown({ value, onChange, options, statusMap }) {
   const [open, setOpen] = useState(false);
-  const [dropUp, setDropUp] = useState(false);
-  const ref = useRef(null);
+  const [pos, setPos] = useState(null); // { top, left, width, dropUp }
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
   const v = value || options[0];
   const c = statusMap[v] || statusMap[options[0]];
 
+  const computePos = () => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const menuHeight = options.length * 32 + 16; // estimativa
+    const dropUp = window.innerHeight - rect.bottom < menuHeight + 12;
+    setPos({
+      top: dropUp ? rect.top - 6 : rect.bottom + 6,
+      left: rect.left,
+      width: rect.width,
+      dropUp,
+    });
+  };
+
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+    const handleOutside = (e) => {
+      if (
+        triggerRef.current && !triggerRef.current.contains(e.target) &&
+        menuRef.current && !menuRef.current.contains(e.target)
+      ) setOpen(false);
+    };
+    const handleScrollResize = () => computePos();
+    document.addEventListener('mousedown', handleOutside);
+    window.addEventListener('scroll', handleScrollResize, true);
+    window.addEventListener('resize', handleScrollResize);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      window.removeEventListener('scroll', handleScrollResize, true);
+      window.removeEventListener('resize', handleScrollResize);
+    };
+  }, [open]); // eslint-disable-line
 
   const handleToggle = () => {
-    if (!open && ref.current) {
-      const rect = ref.current.getBoundingClientRect();
-      setDropUp(window.innerHeight - rect.bottom < 200);
-    }
+    if (!open) computePos();
     setOpen((o) => !o);
   };
 
   return (
-    <div ref={ref} style={{ position: 'relative', display: 'inline-block', minWidth: 148 }}>
+    <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={handleToggle}
         style={{
-          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
+          minWidth: 148, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
           padding: '5px 10px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6,
           background: c.bg, color: c.fg, border: `1px solid ${c.bd}`,
           borderRadius: 8, cursor: 'pointer', outline: 'none', userSelect: 'none',
@@ -531,13 +556,24 @@ function StatusDropdown({ value, onChange, options, statusMap }) {
         </svg>
       </button>
 
-      {open && (
-        <div style={{
-          position: 'absolute', [dropUp ? 'bottom' : 'top']: 'calc(100% + 6px)', left: 0,
-          minWidth: '100%', background: '#18181f', border: '1px solid rgba(255,255,255,0.12)',
-          borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', zIndex: 200,
-          padding: '4px', overflow: 'hidden',
-        }}>
+      {open && pos && createPortal(
+        <div
+          ref={menuRef}
+          style={{
+            position: 'fixed',
+            top: pos.dropUp ? undefined : pos.top,
+            bottom: pos.dropUp ? window.innerHeight - pos.top : undefined,
+            left: pos.left,
+            minWidth: pos.width,
+            background: '#18181f',
+            border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 10,
+            boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
+            zIndex: 9999,
+            padding: 4,
+            overflow: 'hidden',
+          }}
+        >
           {options.map((s) => {
             const sc = statusMap[s];
             const selected = s === v;
@@ -564,9 +600,10 @@ function StatusDropdown({ value, onChange, options, statusMap }) {
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
 
