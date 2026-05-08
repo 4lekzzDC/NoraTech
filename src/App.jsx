@@ -182,6 +182,21 @@ export default function App() {
   const [hoveredProduct, setHoveredProduct] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [schedulerOpen, setSchedulerOpen] = useState(false);
+  const [theme, setTheme] = useState(() => {
+    if (typeof window === "undefined") return "dark";
+    const saved = localStorage.getItem("noratech-theme");
+    if (saved === "light" || saved === "dark") return saved;
+    return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  });
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("noratech-theme", theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((t) => (t === "dark" ? "light" : "dark"));
+  }, []);
 
   useEffect(() => {
     const onScroll = () => { setScrollY(window.scrollY); setNavScrolled(window.scrollY > 60); };
@@ -333,6 +348,163 @@ export default function App() {
           .mockup-stats-3 { grid-template-columns: 1fr 1fr !important; }
           .mockup-stats-4 { grid-template-columns: 1fr 1fr !important; }
         }
+
+        /* ═══════════════════════════════════════════════════
+           THEME TRANSITIONS — apply on every element so the
+           swap dark↔light feels fluido e premium.
+           ═══════════════════════════════════════════════════ */
+        html, body, [data-theme] *, [data-theme] *::before, [data-theme] *::after {
+          transition: background-color 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+                      background 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+                      color 0.4s ease,
+                      border-color 0.4s ease,
+                      box-shadow 0.4s ease,
+                      fill 0.4s ease,
+                      stroke 0.4s ease;
+        }
+
+        .theme-toggle:hover {
+          background: rgba(124, 58, 237, 0.10) !important;
+          border-color: rgba(124, 58, 237, 0.25) !important;
+          color: #7C3AED !important;
+          transform: rotate(20deg);
+        }
+
+        /* ═══════════════════════════════════════════════════
+           LIGHT THEME OVERRIDES
+           Browsers normalize React inline hex/rgba styles to
+           rgb()/rgba() form, so target via [style*="rgb(...)"]
+           substring matchers with !important.
+           ═══════════════════════════════════════════════════ */
+        html[data-theme="light"] {
+          background: #f6f5f1;
+        }
+        html[data-theme="light"] body {
+          background: #f6f5f1;
+        }
+        html[data-theme="light"] ::-webkit-scrollbar-thumb {
+          background: #d4d2cb !important;
+        }
+
+        /* Root container background (#08080a) */
+        html[data-theme="light"] [style*="rgb(8, 8, 10)"],
+        html[data-theme="light"] [style*="background: #08080a"],
+        html[data-theme="light"] [style*="background:#08080a"] {
+          background: #f6f5f1 !important;
+          color: #1a1a1f !important;
+        }
+
+        /* Card backgrounds — várias tonalidades de cinza escuro */
+        html[data-theme="light"] [style*="rgb(20, 20, 22)"],   /* #141416 */
+        html[data-theme="light"] [style*="rgb(17, 17, 20)"],   /* #111114 */
+        html[data-theme="light"] [style*="rgb(14, 14, 16)"],   /* #0e0e10 */
+        html[data-theme="light"] [style*="rgb(12, 12, 14)"] {  /* #0c0c0e */
+          background: rgba(255, 255, 255, 0.72) !important;
+          border-color: rgba(124, 58, 237, 0.10) !important;
+          backdrop-filter: blur(20px) saturate(1.2);
+          -webkit-backdrop-filter: blur(20px) saturate(1.2);
+        }
+
+        /* Texto principal claro (#eeede9) -> escuro */
+        html[data-theme="light"] [style*="rgb(238, 237, 233)"] {
+          color: #18181b !important;
+        }
+
+        /* Faixas de texto translúcido branco — convertem em cinza escuro */
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.78)"] { color: rgba(24, 24, 27, 0.85) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.7)"]  { color: rgba(24, 24, 27, 0.78) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.65)"] { color: rgba(24, 24, 27, 0.72) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.6)"]  { color: rgba(24, 24, 27, 0.68) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.55)"] { color: rgba(24, 24, 27, 0.62) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.5)"]  { color: rgba(24, 24, 27, 0.58) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.45)"] { color: rgba(24, 24, 27, 0.55) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.42)"] { color: rgba(24, 24, 27, 0.55) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.4)"]  { color: rgba(24, 24, 27, 0.52) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.35)"] { color: rgba(24, 24, 27, 0.48) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.3)"]  { color: rgba(24, 24, 27, 0.42) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.25)"] { color: rgba(24, 24, 27, 0.35) !important; }
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.2)"]  { color: rgba(24, 24, 27, 0.32) !important; }
+
+        /* nav-link, menu mobile etc. (rules in <style>) */
+        html[data-theme="light"] .nav-link { color: rgba(24, 24, 27, 0.55); }
+        html[data-theme="light"] .nav-link:hover { color: #18181b; background: rgba(124, 58, 237, 0.08); }
+        html[data-theme="light"] .mobile-menu { background: rgba(246, 245, 241, 0.98) !important; }
+        html[data-theme="light"] .mobile-menu a { color: rgba(24, 24, 27, 0.7) !important; }
+        html[data-theme="light"] .mobile-menu a:hover { background: rgba(124, 58, 237, 0.08) !important; color: #18181b !important; }
+
+        /* Theme toggle button no claro */
+        html[data-theme="light"] .theme-toggle {
+          background: rgba(124, 58, 237, 0.06) !important;
+          border-color: rgba(124, 58, 237, 0.18) !important;
+          color: #7C3AED !important;
+        }
+
+        /* Navbar pill background */
+        html[data-theme="light"] [style*="rgba(16, 16, 18, 0.8)"],
+        html[data-theme="light"] [style*="rgba(12, 12, 14, 0.95)"] {
+          background: rgba(255, 255, 255, 0.72) !important;
+          border-color: rgba(124, 58, 237, 0.12) !important;
+        }
+
+        /* Pequeno botão hamburger / botão fechar — ajusta stroke */
+        html[data-theme="light"] .hamburger svg,
+        html[data-theme="light"] .mobile-menu svg {
+          stroke: #18181b !important;
+        }
+
+        /* Bordas brancas translúcidas → cinza escuro suave */
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.06)"]:not([style*="background"]),
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.07)"]:not([style*="background"]),
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.08)"]:not([style*="background"]),
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.1)"]:not([style*="background"]),
+        html[data-theme="light"] [style*="rgba(255, 255, 255, 0.12)"]:not([style*="background"]) {
+          border-color: rgba(24, 24, 27, 0.08) !important;
+        }
+
+        /* Backgrounds translúcidos brancos sutis (rgba(255,255,255,0.0X)) */
+        html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.02)"],
+        html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.03)"],
+        html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.04)"],
+        html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.06)"] {
+          background: rgba(124, 58, 237, 0.04) !important;
+        }
+
+        /* Atmosfera: o radial dot pattern fica suave em ambos. Ajusta dots */
+        html[data-theme="light"] [style*="radial-gradient(rgba(255, 255, 255, 0.025)"] {
+          background-image: radial-gradient(rgba(124, 58, 237, 0.12) 1px, transparent 1px) !important;
+        }
+
+        /* Glows do fundo: invertendo intensidade no claro */
+        html[data-theme="light"] [style*="rgba(124, 58, 237, 0.035)"] {
+          background: radial-gradient(circle, rgba(124, 58, 237, 0.10) 0%, transparent 55%) !important;
+        }
+        html[data-theme="light"] [style*="rgba(37, 99, 235, 0.025)"] {
+          background: radial-gradient(circle, rgba(37, 99, 235, 0.08) 0%, transparent 55%) !important;
+        }
+
+        /* Input/textarea — caso existam */
+        html[data-theme="light"] input,
+        html[data-theme="light"] textarea,
+        html[data-theme="light"] select {
+          color: #18181b;
+        }
+
+        /* Strong elements (#eeede9 set inline) — herdam */
+        html[data-theme="light"] strong { color: #0a0a0c !important; }
+
+        /* Botões com background #7C3AED mantém — apenas garante texto branco */
+        html[data-theme="light"] [style*="background: #7C3AED"],
+        html[data-theme="light"] [style*="background: rgb(124, 58, 237)"] {
+          color: #ffffff !important;
+        }
+
+        /* CTA com fundo "08080a" usado em FAQ tabs ativas */
+        html[data-theme="light"] [style*="color: rgb(8, 8, 10)"] {
+          color: #ffffff !important;
+        }
+
+        /* Scrollbar light */
+        html[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.25) !important; }
       `}</style>
 
       {/* ═══ ATMOSPHERE ═══ */}
@@ -382,6 +554,32 @@ export default function App() {
             }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eeede9" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+          </button>
+          <button
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Ativar tema claro" : "Ativar tema escuro"}
+            title={theme === "dark" ? "Tema claro" : "Tema escuro"}
+            className="theme-toggle"
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 34, height: 34, borderRadius: "50%",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              cursor: "pointer", padding: 0, marginLeft: 2, flexShrink: 0,
+              color: "rgba(255,255,255,0.55)",
+              transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)"
+            }}
+          >
+            {theme === "dark" ? (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+              </svg>
+            ) : (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            )}
           </button>
           <Link to={user ? "/area-do-cliente" : "/login"} title={user ? "Central de Controle" : "Acesso admin"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: user ? "rgba(124, 58, 237,0.1)" : "rgba(255,255,255,0.04)", border: `1px solid ${user ? "rgba(124, 58, 237,0.2)" : "rgba(255,255,255,0.08)"}`, marginLeft: 2, overflow: "hidden", flexShrink: 0 }}>
             {user?.photoUrl
