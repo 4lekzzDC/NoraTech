@@ -25,6 +25,83 @@ const TABS = [
   { id: 'conciliacao', num: '03', label: 'Conciliação' },
 ];
 
+const MONTHS_SHORT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+function CompetenciaPicker({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [dropUp, setDropUp] = useState(false);
+  const ref = useRef(null);
+  const parts = value ? value.split('/') : [];
+  const curMonth = parts[0] ? parseInt(parts[0], 10) : 0;
+  const curYear  = parts[1] ? parseInt(parts[1], 10) : new Date().getFullYear();
+  const [pickerYear, setPickerYear] = useState(curYear);
+
+  useEffect(() => { if (parts[1]) setPickerYear(parseInt(parts[1], 10)); }, [value]); // eslint-disable-line
+
+  useEffect(() => {
+    if (!open) return;
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [open]);
+
+  const handleToggle = () => {
+    if (!open && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setDropUp(window.innerHeight - rect.bottom < 240);
+    }
+    setOpen((o) => !o);
+  };
+
+  const selectMonth = (m) => {
+    onChange(`${String(m).padStart(2, '0')}/${pickerYear}`);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={handleToggle}
+        className="acc-input"
+        style={{ width: 108, padding: '6px 10px', fontSize: '0.83rem', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, userSelect: 'none' }}
+      >
+        <span>{value || 'MM/AAAA'}</span>
+        <svg width="10" height="10" viewBox="0 0 10 10" style={{ opacity: 0.45, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}>
+          <path d="M1.5 3.5 L5 7 L8.5 3.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', [dropUp ? 'bottom' : 'top']: 'calc(100% + 6px)', right: 0,
+          width: 220, background: '#18181f', border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', zIndex: 300, overflow: 'hidden',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <button type="button" onClick={() => setPickerYear((y) => y - 1)}
+              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, fontSize: '1.1rem', lineHeight: 1 }}>‹</button>
+            <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#eeede9' }}>{pickerYear}</span>
+            <button type="button" onClick={() => setPickerYear((y) => y + 1)}
+              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, fontSize: '1.1rem', lineHeight: 1 }}>›</button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, padding: 8 }}>
+            {MONTHS_SHORT.map((m, i) => {
+              const sel = (i + 1) === curMonth && pickerYear === curYear;
+              return (
+                <button key={m} type="button" onClick={() => selectMonth(i + 1)}
+                  style={{ padding: '8px 4px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: sel ? 700 : 500, background: sel ? '#7C3AED' : 'transparent', color: sel ? '#fff' : 'rgba(255,255,255,0.65)', transition: 'background 0.12s, color 0.12s' }}
+                  onMouseEnter={(e) => { if (!sel) { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = '#fff'; } }}
+                  onMouseLeave={(e) => { if (!sel) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.65)'; } }}
+                >{m}</button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const FILE_STATUS = {
   pendente: { label: 'Pendente', fg: '#9aa0a6',  bg: 'rgba(255,255,255,0.05)',  bd: 'rgba(255,255,255,0.12)' },
   cobrado:  { label: 'Cobrado',  fg: '#fbbf24',  bg: 'rgba(251,191,36,0.1)',    bd: 'rgba(251,191,36,0.3)'   },
@@ -153,10 +230,6 @@ export default function AccountingPage() {
             <Link to="/" style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '0.95rem', color: '#7C3AED', letterSpacing: -0.5, flexShrink: 0 }}>
               NORA<span style={{ color: 'rgba(255,255,255,0.3)' }}>TECH</span>
             </Link>
-            <span style={{ color: 'rgba(255,255,255,0.15)' }}>/</span>
-            <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 2, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-              Central de Controle
-            </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             {isAdmin && (
@@ -198,7 +271,15 @@ export default function AccountingPage() {
         {/* Faixa 2 — módulo: breadcrumb (esq) + atualização (centro) + controles (dir) */}
         <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', maxWidth: 1380, margin: '0 auto', padding: '0 32px', height: 52, display: 'flex', alignItems: 'center', gap: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flexShrink: 0 }}>
-            <Link to="/area-do-cliente" style={{ fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}>Central</Link>
+            <Link to="/area-do-cliente" title="Central de Controle" aria-label="Central de Controle" style={{ color: 'rgba(255,255,255,0.4)', textDecoration: 'none', display: 'flex', alignItems: 'center', transition: 'color 0.2s' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
+                <polyline points="9 21 9 12 15 12 15 21" />
+              </svg>
+            </Link>
             <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '0.9rem' }}>/</span>
             <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#eeede9', whiteSpace: 'nowrap' }}>Acompanhamento contábil</span>
           </div>
@@ -212,9 +293,17 @@ export default function AccountingPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Competência</span>
-              <input className="acc-input" value={competencia} onChange={(e) => setCompetencia(e.target.value)} placeholder="MM/AAAA" style={{ width: 108, padding: '6px 10px', fontSize: '0.83rem' }} />
+              <CompetenciaPicker value={competencia} onChange={setCompetencia} />
             </label>
-            <button type="button" onClick={() => setCompaniesView({})} className="acc-btn" style={{ fontSize: '0.8rem', padding: '7px 14px' }}>🏢 Empresas</button>
+            <button type="button" onClick={() => setCompaniesView({})} className="acc-btn" style={{ fontSize: '0.8rem', padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 7 }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="7" width="20" height="15" rx="1" />
+                <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                <line x1="12" y1="12" x2="12" y2="17" />
+                <line x1="9" y1="14.5" x2="15" y2="14.5" />
+              </svg>
+              Empresas
+            </button>
           </div>
         </div>
 
@@ -734,10 +823,9 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
             <option value="">Todas prioridades</option>
             <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
           </select>
-          {hasFilters
-            ? <button className="acc-btn" onClick={clearFilters} style={{ fontSize: '0.78rem' }}>Limpar filtros</button>
-            : <span className="acc-count-badge">{filtered.length} empresa{filtered.length !== 1 ? 's' : ''}</span>
-          }
+          {hasFilters && (
+            <button className="acc-btn" onClick={clearFilters} style={{ fontSize: '0.78rem', whiteSpace: 'nowrap' }}>Limpar filtros</button>
+          )}
         </div>
       </Card>
 
@@ -844,7 +932,7 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1.3, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 12 }}>
-                Situação da chegada de arquivos
+                Situação dos Arquivos
                 <span style={{ marginLeft: 8, color: 'rgba(255,255,255,0.25)', fontWeight: 400, letterSpacing: 0 }}>clique para filtrar</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -867,7 +955,7 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
           </Card>
 
           <div className="acc-section-eyebrow" style={{ marginBottom: 0 }}>Documentos</div>
-          <Card>
+          <Card style={{ flex: 1 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
               <CompactStat label="Esperado" value={dashMetrics.totalEsperado} hint={`${TASKS.length}×emp`} />
               <CompactStat label="Recebidos" value={dashMetrics.totalRecebidos} color="#00d48a" divider />
@@ -904,7 +992,7 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1.3, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 12 }}>
-                Situação da conciliação das empresas
+                Situação das Empresas
                 <span style={{ marginLeft: 8, color: 'rgba(255,255,255,0.25)', fontWeight: 400, letterSpacing: 0 }}>clique para filtrar</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -928,7 +1016,7 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
           </Card>
 
           <div className="acc-section-eyebrow" style={{ marginBottom: 0 }}>Conciliação por categoria</div>
-          <div className="acc-cat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
+          <div className="acc-cat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10, flex: 1, alignContent: 'start' }}>
             {dashMetrics.byCategory.map((cat) => (
               <Card key={cat.id} style={{ padding: '14px 16px' }}>
                 <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 8, lineHeight: 1.4, minHeight: '1.8em' }}>{cat.label}</div>
