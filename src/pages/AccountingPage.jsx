@@ -177,24 +177,38 @@ export default function AccountingPage() {
                 <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)' }}>{user?.email}</span>
               </div>
             </Link>
-            <button onClick={handleLogout} style={{ padding: '9px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'rgba(255,255,255,0.6)', fontFamily: "'Inter', sans-serif", fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
-              Sair ↗
+            <button
+              type="button"
+              onClick={handleLogout}
+              title="Sair"
+              aria-label="Sair"
+              style={{ padding: '8px 10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'rgba(255,255,255,0.55)', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.background = 'transparent'; }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
             </button>
           </div>
         </div>
 
-        {/* Faixa 2 — módulo: breadcrumb + controles */}
-        <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', maxWidth: 1380, margin: '0 auto', padding: '0 32px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        {/* Faixa 2 — módulo: breadcrumb (esq) + atualização (centro) + controles (dir) */}
+        <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', maxWidth: 1380, margin: '0 auto', padding: '0 32px', height: 52, display: 'flex', alignItems: 'center', gap: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flexShrink: 0 }}>
             <Link to="/area-do-cliente" style={{ fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}>Central</Link>
             <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '0.9rem' }}>/</span>
             <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#eeede9', whiteSpace: 'nowrap' }}>Acompanhamento contábil</span>
-            {lastUpdated && (
-              <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.28)', marginLeft: 6, whiteSpace: 'nowrap' }}>
-                · atualizado {lastUpdated.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-              </span>
-            )}
           </div>
+          {lastUpdated && (
+            <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
+              <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.32)', whiteSpace: 'nowrap' }}>
+                Atualizado em {lastUpdated.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+              </span>
+            </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Competência</span>
