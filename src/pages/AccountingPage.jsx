@@ -46,6 +46,7 @@ export default function AccountingPage() {
   const [reconciliations, setReconciliations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+  const [companiesOpen, setCompaniesOpen] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -144,6 +145,7 @@ export default function AccountingPage() {
               <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Competência</span>
               <input className="acc-input" value={competencia} onChange={(e) => setCompetencia(e.target.value)} placeholder="MM/AAAA" style={{ width: 108 }} />
             </label>
+            <button onClick={() => setCompaniesOpen(true)} className="acc-btn" style={{ fontSize: '0.82rem' }}>🏢 Empresas</button>
             <button onClick={handleLogout} className="acc-btn" style={{ fontSize: '0.82rem' }}>Sair ↗</button>
           </div>
         </div>
@@ -174,12 +176,10 @@ export default function AccountingPage() {
           <>
             {activeTab === 'dashboard' && (
               <DashboardTab
-                tenantCompanyId={tenantCompanyId}
                 competencia={competencia}
                 companies={companies}
                 fileRecords={fileRecords}
                 reconciliations={reconciliations}
-                onChange={reload}
               />
             )}
             {activeTab === 'arquivos' && (
@@ -201,6 +201,18 @@ export default function AccountingPage() {
           </>
         )}
       </main>
+
+      {companiesOpen && tenantCompanyId && (
+        <CompaniesModal
+          tenantCompanyId={tenantCompanyId}
+          competencia={competencia}
+          companies={companies}
+          fileRecords={fileRecords}
+          reconciliations={reconciliations}
+          onClose={() => setCompaniesOpen(false)}
+          onChange={reload}
+        />
+      )}
     </div>
   );
 }
@@ -416,14 +428,10 @@ const EMPTY_FORM = {
   prazo: '', observacoes: '', particularidades: '',
 };
 
-function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, reconciliations, onChange }) {
+function DashboardTab({ competencia, companies, fileRecords, reconciliations }) {
   const [search, setSearch] = useState('');
   const [filterResp, setFilterResp] = useState('');
   const [filterPrio, setFilterPrio] = useState('');
-  const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
-  const [viewCompany, setViewCompany] = useState(null);
   const [chartFilter, setChartFilter] = useState(null);
 
   const toggleFilter = (chart, status) =>
@@ -478,15 +486,6 @@ function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, re
       ? Math.round(perCompany.reduce((s, c) => s + c.progress, 0) / totalEmpresas)
       : 0;
     const empresasCompletas = perCompany.filter((c) => c.progress === 100).length;
-    const alertasAtivos = filtered.reduce((n, c) => {
-      const pending = fileRecords.filter((r) => r.accounting_company_id === c.id && !r.received).length;
-      const hasPendency = reconciliations.some((r) => r.accounting_company_id === c.id && r.status === 'pendencia');
-      const delayed = isDelayed(c) && pending > 0;
-      return n + (delayed ? 1 : 0) + (hasPendency ? 1 : 0);
-    }, 0);
-
-    const empresasEmAndamento = perCompany.filter((c) => c.progress > 0 && c.progress < 100).length;
-    const empresasSemInicio = perCompany.filter((c) => c.progress === 0).length;
 
     const reconTotal = totalEmpresas * RECON_CATEGORIES.length;
     const reconConcluido = recs.filter((r) => r.status === 'conciliado').length;
@@ -495,11 +494,14 @@ function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, re
     const reconNaoIniciado = Math.max(0, reconTotal - reconConcluido - reconEmAndamento - reconPendencia);
     const reconPctGeral = reconTotal ? Math.round((reconConcluido / reconTotal) * 100) : 0;
 
+    const docsAbertos = Math.max(0, totalEsperado - totalRecebidos);
+    const reconAbertos = Math.max(0, reconTotal - reconConcluido);
+    const pendenciasAbertas = docsAbertos + reconAbertos;
+
     return {
       totalEmpresas, totalEsperado, totalRecebidos, totalCobrados, totalPendentes, pctRecebido,
-      pendentes: totalPendentes,
-      byDocType, byCategory, perCompany, progressoMedio, empresasCompletas, alertasAtivos,
-      empresasEmAndamento, empresasSemInicio,
+      byDocType, byCategory, progressoMedio, empresasCompletas,
+      pendenciasAbertas, docsAbertos, reconAbertos,
       reconTotal, reconConcluido, reconEmAndamento, reconPendencia, reconNaoIniciado, reconPctGeral,
     };
   }, [filtered, fileRecords, reconciliations]);
@@ -524,48 +526,47 @@ function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, re
     }).filter((x) => x.items.length > 0);
   }, [chartFilter, filtered, fileRecords, reconciliations]);
 
-  const openCreate = () => { setForm({ ...EMPTY_FORM }); setEditing('new'); };
-  const openEdit = (c) => {
-    setForm({
-      nome: c.nome || '', responsavel: c.responsavel || '',
-      regime: c.regime || 'Simples Nacional', prioridade: c.prioridade || 'media',
-      prazo: c.prazo || '', observacoes: c.observacoes || '',
-      particularidades: c.particularidades || '',
-    });
-    setEditing(c.id);
-  };
-  const closeModal = () => { setEditing(null); setSaving(false); };
-  const save = async () => {
-    if (!form.nome?.trim()) return;
-    setSaving(true);
-    try {
-      const payload = {
-        ...form,
-        tenant_company_id: tenantCompanyId,
-        competencia,
-        prazo: form.prazo || null,
-        tasks: emptyTasks(),
-      };
-      if (editing !== 'new') payload.id = editing;
-      await upsertCompany(payload);
-      closeModal();
-      onChange();
-    } catch (e) { alert(e.message); setSaving(false); }
-  };
-  const remove = async (id) => {
-    if (!confirm('Remover esta empresa do acompanhamento?')) return;
-    try { await deleteCompany(id); onChange(); } catch (e) { alert(e.message); }
-  };
+  const clearFilters = () => { setSearch(''); setFilterResp(''); setFilterPrio(''); };
+  const hasFilters = !!(search || filterResp || filterPrio);
 
   return (
     <>
+      {/* Barra de filtros globais */}
+      <Card style={{ padding: 12, marginBottom: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px 200px auto', gap: 10, alignItems: 'center' }}>
+          <input
+            className="acc-input"
+            placeholder="Buscar por empresa, código ou responsável"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <select className="acc-select" value={filterResp} onChange={(e) => setFilterResp(e.target.value)}>
+            <option value="">Todos responsáveis</option>
+            {responsaveis.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <select className="acc-select" value={filterPrio} onChange={(e) => setFilterPrio(e.target.value)}>
+            <option value="">Todas prioridades</option>
+            <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
+          </select>
+          {hasFilters
+            ? <button className="acc-btn" onClick={clearFilters} style={{ fontSize: '0.78rem' }}>Limpar filtros</button>
+            : <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>{filtered.length} empresa{filtered.length !== 1 ? 's' : ''}</span>
+          }
+        </div>
+      </Card>
+
       {/* Seção Visão Geral */}
       <div className="acc-section-eyebrow">Visão geral</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 28 }}>
         <Kpi label="Total empresas" value={dashMetrics.totalEmpresas} hint={`competência ${competencia}`} />
         <Kpi label="Progresso médio" value={`${dashMetrics.progressoMedio}%`} accent="#7C3AED" hint="files + conciliação" />
         <Kpi label="Empresas concluídas" value={dashMetrics.empresasCompletas} accent="#00d48a" hint="100% do fechamento" />
-        <Kpi label="Alertas ativos" value={dashMetrics.alertasAtivos} accent={dashMetrics.alertasAtivos > 0 ? '#ff6b6b' : '#00d48a'} />
+        <Kpi
+          label="Pendências abertas"
+          value={dashMetrics.pendenciasAbertas}
+          accent={dashMetrics.pendenciasAbertas > 0 ? '#ff8a3d' : '#00d48a'}
+          hint={`${dashMetrics.docsAbertos} docs · ${dashMetrics.reconAbertos} concil.`}
+        />
       </div>
 
       {/* Painel de detalhes do filtro (full width acima das colunas) */}
@@ -742,126 +743,6 @@ function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, re
         </div>
       </div>
 
-      {/* Tabela de empresas */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
-        <div className="acc-section-eyebrow" style={{ marginBottom: 0 }}>Empresas cadastradas</div>
-        <button className="acc-btn primary" style={{ fontSize: '0.82rem' }} onClick={openCreate}>+ Nova empresa</button>
-      </div>
-
-      <Card style={{ padding: 12, marginBottom: 12 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px 200px auto', gap: 10, alignItems: 'center' }}>
-          <input className="acc-input" placeholder="Buscar empresa ou responsável" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <select className="acc-select" value={filterResp} onChange={(e) => setFilterResp(e.target.value)}>
-            <option value="">Todos responsáveis</option>
-            {responsaveis.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
-          <select className="acc-select" value={filterPrio} onChange={(e) => setFilterPrio(e.target.value)}>
-            <option value="">Todas prioridades</option>
-            <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
-          </select>
-          <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>{filtered.length} empresa{filtered.length !== 1 ? 's' : ''}</span>
-        </div>
-      </Card>
-
-      <Card style={{ padding: 0, overflow: 'hidden' }}>
-        <table className="acc-table">
-          <thead>
-            <tr>
-              <th style={{ minWidth: 220 }}>Empresa</th>
-              <th>Responsável</th>
-              <th>Regime</th>
-              <th>Prioridade</th>
-              <th style={{ minWidth: 160 }}>Progresso geral</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 && (
-              <tr><td colSpan={6} style={{ padding: '28px', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
-                Nenhuma empresa para esta competência. Clique em "+ Nova empresa" para começar.
-              </td></tr>
-            )}
-            {dashMetrics.perCompany.filter((c) => {
-              if (filterResp && c.responsavel !== filterResp) return false;
-              if (filterPrio && c.prioridade !== filterPrio) return false;
-              if (search) {
-                const q = search.toLowerCase();
-                if (!c.nome?.toLowerCase().includes(q) && !c.responsavel?.toLowerCase().includes(q)) return false;
-              }
-              return true;
-            }).map((c) => (
-              <tr key={c.id}>
-                <td>
-                  <div style={{ fontWeight: 700, color: '#eeede9' }}>{c.nome}</div>
-                  {c.prazo && (
-                    <div style={{ fontSize: '0.72rem', color: isDelayed(c) ? '#ff6b6b' : 'rgba(255,255,255,0.45)', marginTop: 3 }}>
-                      {isDelayed(c) ? '⚠ ' : ''}Prazo: {c.prazo}
-                    </div>
-                  )}
-                </td>
-                <td style={{ color: 'rgba(255,255,255,0.8)' }}>{c.responsavel || <span style={{ color: 'rgba(255,255,255,0.35)' }}>—</span>}</td>
-                <td><span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)' }}>{c.regime}</span></td>
-                <td><PriorityPill value={c.prioridade} /></td>
-                <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ flex: 1 }}>
-                      <ProgressBar pct={c.progress} color={c.progress === 100 ? '#00d48a' : isDelayed(c) ? '#ff6b6b' : '#7C3AED'} height={6} />
-                    </div>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 700, minWidth: 36, textAlign: 'right', color: c.progress === 100 ? '#00d48a' : 'rgba(255,255,255,0.8)' }}>
-                      {c.progress}%
-                    </span>
-                  </div>
-                </td>
-                <td>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button className="acc-btn view" style={{ padding: '5px 12px', fontSize: '0.76rem' }} onClick={() => setViewCompany(c)}>Ver</button>
-                    <button className="acc-btn" style={{ padding: '5px 10px', fontSize: '0.76rem' }} onClick={() => openEdit(c)}>Editar</button>
-                    <button className="acc-btn danger" style={{ padding: '5px 10px', fontSize: '0.76rem' }} onClick={() => remove(c.id)}>Excluir</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
-
-      {/* Company edit modal */}
-      {editing !== null && (
-        <Modal title={editing === 'new' ? 'Nova empresa' : 'Editar empresa'} onClose={closeModal} onSave={save} saving={saving}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-            <Field label="Empresa"><input className="acc-input" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></Field>
-            <Field label="Responsável"><input className="acc-input" value={form.responsavel} onChange={(e) => setForm({ ...form, responsavel: e.target.value })} /></Field>
-            <Field label="Regime tributário">
-              <select className="acc-select" value={form.regime} onChange={(e) => setForm({ ...form, regime: e.target.value })}>
-                {REGIMES.map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
-            </Field>
-            <Field label="Prioridade">
-              <select className="acc-select" value={form.prioridade} onChange={(e) => setForm({ ...form, prioridade: e.target.value })}>
-                <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
-              </select>
-            </Field>
-            <Field label="Prazo"><input className="acc-input" type="date" value={form.prazo || ''} onChange={(e) => setForm({ ...form, prazo: e.target.value })} /></Field>
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <Field label="Observações"><textarea className="acc-input" rows={2} style={{ width: '100%', resize: 'vertical' }} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></Field>
-          </div>
-          <div style={{ marginTop: 10 }}>
-            <Field label="Particularidades da empresa"><textarea className="acc-input" rows={2} style={{ width: '100%', resize: 'vertical' }} value={form.particularidades} onChange={(e) => setForm({ ...form, particularidades: e.target.value })} /></Field>
-          </div>
-        </Modal>
-      )}
-
-      {/* Company detail drawer */}
-      {viewCompany && (
-        <CompanyDrawer
-          company={viewCompany}
-          fileRecords={fileRecords.filter((r) => r.accounting_company_id === viewCompany.id)}
-          reconciliations={reconciliations.filter((r) => r.accounting_company_id === viewCompany.id)}
-          competencia={competencia}
-          onClose={() => setViewCompany(null)}
-        />
-      )}
     </>
   );
 }
@@ -1097,6 +978,209 @@ function InfoItem({ label, value, accent }) {
       <div style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
       <div style={{ fontSize: '0.9rem', fontWeight: 600, color: accent || 'rgba(255,255,255,0.85)' }}>{value || '—'}</div>
     </div>
+  );
+}
+
+// =============================================================================
+// CompaniesModal — gerenciamento de empresas (cadastro/CRUD)
+// =============================================================================
+
+function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, reconciliations, onClose, onChange }) {
+  const [search, setSearch] = useState('');
+  const [filterResp, setFilterResp] = useState('');
+  const [filterPrio, setFilterPrio] = useState('');
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [viewCompany, setViewCompany] = useState(null);
+
+  const responsaveis = useMemo(
+    () => Array.from(new Set(companies.map((c) => c.responsavel).filter(Boolean))).sort(),
+    [companies]
+  );
+
+  const filtered = useMemo(() => companies
+    .map((c) => ({ ...c, progress: companyProgress(c.id, fileRecords, reconciliations) }))
+    .filter((c) => {
+      if (filterResp && c.responsavel !== filterResp) return false;
+      if (filterPrio && c.prioridade !== filterPrio) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        const codigo = (c.id || '').toString().toLowerCase();
+        if (
+          !c.nome?.toLowerCase().includes(q) &&
+          !c.responsavel?.toLowerCase().includes(q) &&
+          !codigo.includes(q)
+        ) return false;
+      }
+      return true;
+    }), [companies, fileRecords, reconciliations, filterResp, filterPrio, search]);
+
+  const clearFilters = () => { setSearch(''); setFilterResp(''); setFilterPrio(''); };
+  const hasFilters = !!(search || filterResp || filterPrio);
+
+  const openCreate = () => { setForm({ ...EMPTY_FORM }); setEditing('new'); };
+  const openEdit = (c) => {
+    setForm({
+      nome: c.nome || '', responsavel: c.responsavel || '',
+      regime: c.regime || 'Simples Nacional', prioridade: c.prioridade || 'media',
+      prazo: c.prazo || '', observacoes: c.observacoes || '',
+      particularidades: c.particularidades || '',
+    });
+    setEditing(c.id);
+  };
+  const closeEdit = () => { setEditing(null); setSaving(false); };
+  const save = async () => {
+    if (!form.nome?.trim()) return;
+    setSaving(true);
+    try {
+      const payload = {
+        ...form,
+        tenant_company_id: tenantCompanyId,
+        competencia,
+        prazo: form.prazo || null,
+        tasks: emptyTasks(),
+      };
+      if (editing !== 'new') payload.id = editing;
+      await upsertCompany(payload);
+      closeEdit();
+      onChange();
+    } catch (e) { alert(e.message); setSaving(false); }
+  };
+  const remove = async (id) => {
+    if (!confirm('Remover esta empresa do acompanhamento?')) return;
+    try { await deleteCompany(id); onChange(); } catch (e) { alert(e.message); }
+  };
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 90 }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 1100, background: '#101015', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, overflow: 'hidden', maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <h2 style={{ fontSize: '1.02rem', fontWeight: 700 }}>🏢 Empresas cadastradas</h2>
+              <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)' }}>
+                {filtered.length} de {companies.length}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button className="acc-btn primary" style={{ fontSize: '0.82rem' }} onClick={openCreate}>+ Nova empresa</button>
+              <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
+            </div>
+          </div>
+
+          <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px 200px auto', gap: 10, alignItems: 'center' }}>
+              <input className="acc-input" placeholder="Buscar por nome, código ou responsável" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <select className="acc-select" value={filterResp} onChange={(e) => setFilterResp(e.target.value)}>
+                <option value="">Todos responsáveis</option>
+                {responsaveis.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+              <select className="acc-select" value={filterPrio} onChange={(e) => setFilterPrio(e.target.value)}>
+                <option value="">Todas prioridades</option>
+                <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
+              </select>
+              {hasFilters
+                ? <button className="acc-btn" onClick={clearFilters} style={{ fontSize: '0.78rem' }}>Limpar</button>
+                : <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>{filtered.length} resultado{filtered.length !== 1 ? 's' : ''}</span>
+              }
+            </div>
+          </div>
+
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            <table className="acc-table">
+              <thead>
+                <tr>
+                  <th style={{ minWidth: 220 }}>Empresa</th>
+                  <th>Responsável</th>
+                  <th>Regime</th>
+                  <th>Prioridade</th>
+                  <th style={{ minWidth: 160 }}>Progresso</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 && (
+                  <tr><td colSpan={6} style={{ padding: '40px 28px', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
+                    {companies.length === 0
+                      ? 'Nenhuma empresa cadastrada. Clique em "+ Nova empresa" para começar.'
+                      : 'Nenhuma empresa corresponde aos filtros.'}
+                  </td></tr>
+                )}
+                {filtered.map((c) => (
+                  <tr key={c.id}>
+                    <td>
+                      <div style={{ fontWeight: 700, color: '#eeede9' }}>{c.nome}</div>
+                      {c.prazo && (
+                        <div style={{ fontSize: '0.72rem', color: isDelayed(c) ? '#ff6b6b' : 'rgba(255,255,255,0.45)', marginTop: 3 }}>
+                          {isDelayed(c) ? '⚠ ' : ''}Prazo: {c.prazo}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ color: 'rgba(255,255,255,0.8)' }}>{c.responsavel || <span style={{ color: 'rgba(255,255,255,0.35)' }}>—</span>}</td>
+                    <td><span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)' }}>{c.regime}</span></td>
+                    <td><PriorityPill value={c.prioridade} /></td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ flex: 1 }}>
+                          <ProgressBar pct={c.progress} color={c.progress === 100 ? '#00d48a' : isDelayed(c) ? '#ff6b6b' : '#7C3AED'} height={6} />
+                        </div>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700, minWidth: 36, textAlign: 'right', color: c.progress === 100 ? '#00d48a' : 'rgba(255,255,255,0.8)' }}>
+                          {c.progress}%
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="acc-btn view" style={{ padding: '5px 12px', fontSize: '0.76rem' }} onClick={() => setViewCompany(c)}>Ver</button>
+                        <button className="acc-btn" style={{ padding: '5px 10px', fontSize: '0.76rem' }} onClick={() => openEdit(c)}>Editar</button>
+                        <button className="acc-btn danger" style={{ padding: '5px 10px', fontSize: '0.76rem' }} onClick={() => remove(c.id)}>Excluir</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {editing !== null && (
+        <Modal title={editing === 'new' ? 'Nova empresa' : 'Editar empresa'} onClose={closeEdit} onSave={save} saving={saving}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            <Field label="Empresa"><input className="acc-input" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></Field>
+            <Field label="Responsável"><input className="acc-input" value={form.responsavel} onChange={(e) => setForm({ ...form, responsavel: e.target.value })} /></Field>
+            <Field label="Regime tributário">
+              <select className="acc-select" value={form.regime} onChange={(e) => setForm({ ...form, regime: e.target.value })}>
+                {REGIMES.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </Field>
+            <Field label="Prioridade">
+              <select className="acc-select" value={form.prioridade} onChange={(e) => setForm({ ...form, prioridade: e.target.value })}>
+                <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
+              </select>
+            </Field>
+            <Field label="Prazo"><input className="acc-input" type="date" value={form.prazo || ''} onChange={(e) => setForm({ ...form, prazo: e.target.value })} /></Field>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <Field label="Observações"><textarea className="acc-input" rows={2} style={{ width: '100%', resize: 'vertical' }} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></Field>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <Field label="Particularidades da empresa"><textarea className="acc-input" rows={2} style={{ width: '100%', resize: 'vertical' }} value={form.particularidades} onChange={(e) => setForm({ ...form, particularidades: e.target.value })} /></Field>
+          </div>
+        </Modal>
+      )}
+
+      {viewCompany && (
+        <CompanyDrawer
+          company={viewCompany}
+          fileRecords={fileRecords.filter((r) => r.accounting_company_id === viewCompany.id)}
+          reconciliations={reconciliations.filter((r) => r.accounting_company_id === viewCompany.id)}
+          competencia={competencia}
+          onClose={() => setViewCompany(null)}
+        />
+      )}
+    </>
   );
 }
 
