@@ -1517,6 +1517,16 @@ function FilesTab({ competencia, companies, fileRecords, setFileRecords }) {
   const [editing, setEditing] = useState(null);
   const [editNotes, setEditNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [fSearch, setFSearch] = useState('');
+  const [fResp, setFResp] = useState('');
+  const [fPrio, setFPrio] = useState('');
+  const [fDoc, setFDoc] = useState('');
+  const [fStatus, setFStatus] = useState('');
+
+  const responsaveis = useMemo(
+    () => Array.from(new Set(companies.map((c) => c.responsavel).filter(Boolean))).sort(),
+    [companies]
+  );
 
   const recordsMap = useMemo(() => {
     const m = {};
@@ -1524,11 +1534,39 @@ function FilesTab({ competencia, companies, fileRecords, setFileRecords }) {
     return m;
   }, [fileRecords]);
 
-  const totalCells = companies.length * TASKS.length;
-  const receivedCells = fileRecords.filter((r) => getFileStatus(r) === 'recebido').length;
-  const cobradoCells = fileRecords.filter((r) => getFileStatus(r) === 'cobrado').length;
-  const pendenteCells = Math.max(0, totalCells - receivedCells - cobradoCells);
-  const pct = totalCells ? Math.round((receivedCells / totalCells) * 100) : 0;
+  const visibleTasks = useMemo(
+    () => fDoc ? TASKS.filter((t) => t.id === fDoc) : TASKS,
+    [fDoc]
+  );
+
+  const filteredCompanies = useMemo(() => companies.filter((c) => {
+    if (fResp && c.responsavel !== fResp) return false;
+    if (fPrio && c.prioridade !== fPrio) return false;
+    if (fSearch) {
+      const q = fSearch.toLowerCase();
+      if (!c.nome?.toLowerCase().includes(q) && !c.responsavel?.toLowerCase().includes(q) && !c.codigo?.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  }), [companies, fResp, fPrio, fSearch]);
+
+  const filteredRows = useMemo(() => {
+    if (!fStatus) return filteredCompanies;
+    return filteredCompanies.filter((c) =>
+      visibleTasks.some((t) => getFileStatus(recordsMap[`${c.id}::${t.id}`]) === fStatus)
+    );
+  }, [filteredCompanies, fStatus, visibleTasks, recordsMap]);
+
+  const kpiData = useMemo(() => {
+    const total = filteredRows.length * visibleTasks.length;
+    const received = filteredRows.reduce((s, c) =>
+      s + visibleTasks.filter((t) => getFileStatus(recordsMap[`${c.id}::${t.id}`]) === 'recebido').length, 0);
+    const cobrado = filteredRows.reduce((s, c) =>
+      s + visibleTasks.filter((t) => getFileStatus(recordsMap[`${c.id}::${t.id}`]) === 'cobrado').length, 0);
+    return { total, received, cobrado, pending: Math.max(0, total - received - cobrado), pct: total ? Math.round((received / total) * 100) : 0 };
+  }, [filteredRows, visibleTasks, recordsMap]);
+
+  const hasFilters = !!(fSearch || fResp || fPrio || fDoc || fStatus);
+  const clearFilters = () => { setFSearch(''); setFResp(''); setFPrio(''); setFDoc(''); setFStatus(''); };
 
   // Aplica um registro (insert/replace) na lista local — optimistic update.
   const applyLocal = (rec) => setFileRecords((prev) => {
@@ -1602,37 +1640,70 @@ function FilesTab({ competencia, companies, fileRecords, setFileRecords }) {
 
   return (
     <>
+      {/* Barra de filtros */}
+      <Card style={{ padding: 12, marginBottom: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 160px 160px 160px auto', gap: 10, alignItems: 'center' }}>
+          <input className="acc-input" placeholder="Buscar por empresa, código ou responsável" value={fSearch} onChange={(e) => setFSearch(e.target.value)} />
+          <select className="acc-select" value={fResp} onChange={(e) => setFResp(e.target.value)}>
+            <option value="">Todos responsáveis</option>
+            {responsaveis.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <select className="acc-select" value={fPrio} onChange={(e) => setFPrio(e.target.value)}>
+            <option value="">Todas prioridades</option>
+            <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
+          </select>
+          <select className="acc-select" value={fDoc} onChange={(e) => setFDoc(e.target.value)}>
+            <option value="">Todos documentos</option>
+            {TASKS.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+          </select>
+          <select className="acc-select" value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
+            <option value="">Todos status</option>
+            <option value="recebido">Recebido</option>
+            <option value="cobrado">Cobrado</option>
+            <option value="pendente">Pendente</option>
+          </select>
+          {hasFilters
+            ? <button type="button" className="acc-btn" onClick={clearFilters} style={{ fontSize: '0.78rem', whiteSpace: 'nowrap' }}>Limpar filtros</button>
+            : <span className="acc-count-badge">{filteredRows.length} empresa{filteredRows.length !== 1 ? 's' : ''}</span>
+          }
+        </div>
+      </Card>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 18 }}>
-        <Kpi label="Esperados" value={totalCells} hint={`${TASKS.length} por empresa`} />
-        <Kpi label="Recebidos" value={receivedCells} accent="#00d48a" />
-        <Kpi label="Cobrados" value={cobradoCells} accent="#fbbf24" />
-        <Kpi label="Pendentes" value={pendenteCells} accent={pendenteCells > 0 ? '#ff8a3d' : '#00d48a'} />
-        <Kpi label="% recebido" value={`${pct}%`} accent="#7C3AED" />
+        <Kpi label="Esperados" value={kpiData.total} hint={`${visibleTasks.length} por empresa`} />
+        <Kpi label="Recebidos" value={kpiData.received} accent="#00d48a" />
+        <Kpi label="Cobrados" value={kpiData.cobrado} accent="#fbbf24" />
+        <Kpi label="Pendentes" value={kpiData.pending} accent={kpiData.pending > 0 ? '#ff8a3d' : '#00d48a'} />
+        <Kpi label="% recebido" value={`${kpiData.pct}%`} accent="#7C3AED" />
       </div>
 
       <Card style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table className="acc-table" style={{ minWidth: 1000 }}>
+          <table className="acc-table" style={{ minWidth: visibleTasks.length < 4 ? 600 : 1000 }}>
             <thead>
               <tr>
                 <th style={{ position: 'sticky', left: 0, zIndex: 2, minWidth: 220 }}>Empresa</th>
-                {TASKS.map((t) => <th key={t.id} title={t.label}>{t.short}</th>)}
+                {visibleTasks.map((t) => <th key={t.id} title={t.label}>{t.short}</th>)}
               </tr>
             </thead>
             <tbody>
-              {companies.map((c) => (
+              {filteredRows.length === 0
+                ? <tr><td colSpan={visibleTasks.length + 1} style={{ textAlign: 'center', color: 'rgba(255,255,255,0.35)', padding: '32px 0', fontSize: '0.85rem' }}>Nenhuma empresa encontrada com os filtros atuais.</td></tr>
+                : filteredRows.map((c) => (
                 <tr key={c.id}>
                   <td style={{ position: 'sticky', left: 0, background: '#0a0a0e', zIndex: 1 }}>
+                    {c.codigo && <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.35)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 2 }}>#{c.codigo}</div>}
                     <div style={{ fontWeight: 700 }}>{c.nome}</div>
                     {c.responsavel && <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>{c.responsavel}</div>}
                   </td>
-                  {TASKS.map((t) => {
+                  {visibleTasks.map((t) => {
                     const r = recordsMap[`${c.id}::${t.id}`];
                     const status = getFileStatus(r);
                     const s = FILE_STATUS[status];
                     const hasNotes = !!r?.notes;
+                    const dimmed = fStatus && status !== fStatus;
                     return (
-                      <td key={t.id}>
+                      <td key={t.id} style={{ opacity: dimmed ? 0.3 : 1, transition: 'opacity 0.15s' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 110 }}>
                           <button
                             type="button"
@@ -1684,6 +1755,16 @@ function ReconciliationTab({ competencia, companies, reconciliations, setReconci
   const [editing, setEditing] = useState(null);
   const [editNotes, setEditNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [rSearch, setRSearch] = useState('');
+  const [rResp, setRResp] = useState('');
+  const [rPrio, setRPrio] = useState('');
+  const [rCat, setRCat] = useState('');
+  const [rStatus, setRStatus] = useState('');
+
+  const responsaveis = useMemo(
+    () => Array.from(new Set(companies.map((c) => c.responsavel).filter(Boolean))).sort(),
+    [companies]
+  );
 
   const reconsMap = useMemo(() => {
     const m = {};
@@ -1691,11 +1772,36 @@ function ReconciliationTab({ competencia, companies, reconciliations, setReconci
     return m;
   }, [reconciliations]);
 
-  const categoryStats = RECON_CATEGORIES.map((cat) => {
-    const total = companies.length || 1;
-    const done = reconciliations.filter((r) => r.category === cat.id && r.status === 'conciliado').length;
+  const visibleCategories = useMemo(
+    () => rCat ? RECON_CATEGORIES.filter((c) => c.id === rCat) : RECON_CATEGORIES,
+    [rCat]
+  );
+
+  const filteredCompanies = useMemo(() => companies.filter((c) => {
+    if (rResp && c.responsavel !== rResp) return false;
+    if (rPrio && c.prioridade !== rPrio) return false;
+    if (rSearch) {
+      const q = rSearch.toLowerCase();
+      if (!c.nome?.toLowerCase().includes(q) && !c.responsavel?.toLowerCase().includes(q) && !c.codigo?.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  }), [companies, rResp, rPrio, rSearch]);
+
+  const filteredRows = useMemo(() => {
+    if (!rStatus) return filteredCompanies;
+    return filteredCompanies.filter((c) =>
+      visibleCategories.some((cat) => (reconsMap[`${c.id}::${cat.id}`]?.status || 'nao_iniciado') === rStatus)
+    );
+  }, [filteredCompanies, rStatus, visibleCategories, reconsMap]);
+
+  const categoryStats = useMemo(() => visibleCategories.map((cat) => {
+    const total = filteredRows.length || 1;
+    const done = filteredRows.filter((c) => reconsMap[`${c.id}::${cat.id}`]?.status === 'conciliado').length;
     return { ...cat, pct: Math.round((done / total) * 100) };
-  });
+  }), [filteredRows, visibleCategories, reconsMap]);
+
+  const hasFilters = !!(rSearch || rResp || rPrio || rCat || rStatus);
+  const clearFilters = () => { setRSearch(''); setRResp(''); setRPrio(''); setRCat(''); setRStatus(''); };
 
   const applyLocal = (rec) => setReconciliations((prev) => {
     const idx = prev.findIndex((r) =>
@@ -1764,6 +1870,33 @@ function ReconciliationTab({ competencia, companies, reconciliations, setReconci
 
   return (
     <>
+      {/* Barra de filtros */}
+      <Card style={{ padding: 12, marginBottom: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 160px 160px 160px auto', gap: 10, alignItems: 'center' }}>
+          <input className="acc-input" placeholder="Buscar por empresa, código ou responsável" value={rSearch} onChange={(e) => setRSearch(e.target.value)} />
+          <select className="acc-select" value={rResp} onChange={(e) => setRResp(e.target.value)}>
+            <option value="">Todos responsáveis</option>
+            {responsaveis.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <select className="acc-select" value={rPrio} onChange={(e) => setRPrio(e.target.value)}>
+            <option value="">Todas prioridades</option>
+            <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
+          </select>
+          <select className="acc-select" value={rCat} onChange={(e) => setRCat(e.target.value)}>
+            <option value="">Todas categorias</option>
+            {RECON_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+          <select className="acc-select" value={rStatus} onChange={(e) => setRStatus(e.target.value)}>
+            <option value="">Todos status</option>
+            {RECON_STATUS_ORDER.map((s) => <option key={s} value={s}>{RECON_STATUS[s].label}</option>)}
+          </select>
+          {hasFilters
+            ? <button type="button" className="acc-btn" onClick={clearFilters} style={{ fontSize: '0.78rem', whiteSpace: 'nowrap' }}>Limpar filtros</button>
+            : <span className="acc-count-badge">{filteredRows.length} empresa{filteredRows.length !== 1 ? 's' : ''}</span>
+          }
+        </div>
+      </Card>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginBottom: 18 }}>
         {categoryStats.map((c) => (
           <Kpi key={c.id} label={c.label} value={`${c.pct}%`} accent={c.pct === 100 ? '#00d48a' : '#7C3AED'} hint="conciliado" />
@@ -1772,29 +1905,34 @@ function ReconciliationTab({ competencia, companies, reconciliations, setReconci
 
       <Card style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table className="acc-table" style={{ minWidth: 900 }}>
+          <table className="acc-table" style={{ minWidth: visibleCategories.length < 3 ? 600 : 900 }}>
             <thead>
               <tr>
                 <th style={{ position: 'sticky', left: 0, zIndex: 2, minWidth: 220 }}>Empresa</th>
-                {RECON_CATEGORIES.map((c) => <th key={c.id}>{c.label}</th>)}
+                {visibleCategories.map((c) => <th key={c.id}>{c.label}</th>)}
               </tr>
             </thead>
             <tbody>
-              {companies.map((c) => (
+              {filteredRows.length === 0
+                ? <tr><td colSpan={visibleCategories.length + 1} style={{ textAlign: 'center', color: 'rgba(255,255,255,0.35)', padding: '32px 0', fontSize: '0.85rem' }}>Nenhuma empresa encontrada com os filtros atuais.</td></tr>
+                : filteredRows.map((c) => (
                 <tr key={c.id}>
                   <td style={{ position: 'sticky', left: 0, background: '#0a0a0e', zIndex: 1 }}>
+                    {c.codigo && <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.35)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 2 }}>#{c.codigo}</div>}
                     <div style={{ fontWeight: 700 }}>{c.nome}</div>
                     {c.responsavel && <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>{c.responsavel}</div>}
                   </td>
-                  {RECON_CATEGORIES.map((cat) => {
+                  {visibleCategories.map((cat) => {
                     const r = reconsMap[`${c.id}::${cat.id}`];
                     const status = r?.status || 'nao_iniciado';
                     const hasNotes = !!r?.observacoes;
+                    const dimmed = rStatus && status !== rStatus;
                     return (
-                      <td key={cat.id}>
+                      <td key={cat.id} style={{ opacity: dimmed ? 0.3 : 1, transition: 'opacity 0.15s' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           <ReconStatusSelect value={status} onChange={(v) => setStatus(c.id, cat.id, v)} />
                           <button
+                            type="button"
                             onClick={() => openNotes(c.id, cat.id)}
                             style={{ background: 'transparent', border: 'none', color: hasNotes ? '#a78bfa' : 'rgba(255,255,255,0.3)', fontSize: '0.7rem', textAlign: 'left', cursor: 'pointer', padding: 0 }}
                           >
