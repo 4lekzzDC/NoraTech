@@ -1429,38 +1429,209 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
     Empresa: c.nome || '',
     Responsável: c.responsavel || '',
     Regime: c.regime || '',
-    Prioridade: c.prioridade || '',
     'Progresso (%)': c.progress,
   }));
 
+  const exportSummary = (list) => {
+    const total = list.length;
+    const avg = total ? Math.round(list.reduce((s, c) => s + (c.progress || 0), 0) / total) : 0;
+    const concluidas = list.filter((c) => c.progress === 100).length;
+    const buckets = { '0%': 0, '1-49%': 0, '50-99%': 0, '100%': 0 };
+    list.forEach((c) => {
+      const p = c.progress || 0;
+      if (p === 0) buckets['0%']++;
+      else if (p < 50) buckets['1-49%']++;
+      else if (p < 100) buckets['50-99%']++;
+      else buckets['100%']++;
+    });
+    const byRegime = {};
+    list.forEach((c) => { const r = c.regime || '—'; byRegime[r] = (byRegime[r] || 0) + 1; });
+    return { total, avg, concluidas, buckets, byRegime };
+  };
+
+  const STATUS_COLORS = {
+    concluido:          '#00d48a',
+    em_andamento:       '#60a5fa',
+    aguardando_cliente: '#ff8a3d',
+    atrasado:           '#ff6b6b',
+  };
+
   const handleExportExcel = async () => {
-    const { utils, writeFile } = await import('xlsx');
-    const ws = utils.json_to_sheet(exportRows(filtered));
+    const XLSX = await import('xlsx');
+    const { utils, writeFile } = XLSX;
+    const title = STATUS_MODAL_TITLES[initialStatus] ?? 'Empresas';
+    const today = new Date().toLocaleDateString('pt-BR');
+    const summary = exportSummary(filtered);
+    const rows = exportRows(filtered);
+
+    const aoa = [
+      [`RELATÓRIO — ${title.toUpperCase()}`],
+      [`Competência: ${competencia}`, '', `Emissão: ${today}`, '', `Total: ${summary.total} empresa${summary.total !== 1 ? 's' : ''}`],
+      [],
+      ['RESUMO'],
+      ['Total empresas', 'Progresso médio', 'Concluídas (100%)', 'Faixas de progresso'],
+      [
+        summary.total,
+        `${summary.avg}%`,
+        summary.concluidas,
+        `0%: ${summary.buckets['0%']}  |  1-49%: ${summary.buckets['1-49%']}  |  50-99%: ${summary.buckets['50-99%']}  |  100%: ${summary.buckets['100%']}`,
+      ],
+      [],
+      ['DISTRIBUIÇÃO POR REGIME'],
+      ...Object.entries(summary.byRegime).map(([k, v]) => [k, v]),
+      [],
+      ['EMPRESAS'],
+      ['ID', 'Empresa', 'Responsável', 'Regime', 'Progresso (%)'],
+      ...rows.map((r) => Object.values(r)),
+    ];
+
+    const ws = utils.aoa_to_sheet(aoa);
+
+    const cols = ['ID', 'Empresa', 'Responsável', 'Regime', 'Progresso (%)'];
+    ws['!cols'] = cols.map((h, i) => {
+      const headerLen = h.length;
+      const maxData = rows.reduce((m, r) => {
+        const v = String(Object.values(r)[i] ?? '');
+        return Math.max(m, v.length);
+      }, 0);
+      return { wch: Math.min(60, Math.max(headerLen + 2, maxData + 2, 12)) };
+    });
+
+    const headerRowIndex = aoa.findIndex((r) => r[0] === 'ID');
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
+      { s: { r: 3, c: 0 }, e: { r: 3, c: 4 } },
+      { s: { r: 5, c: 3 }, e: { r: 5, c: 4 } },
+      { s: { r: 7, c: 0 }, e: { r: 7, c: 4 } },
+      { s: { r: headerRowIndex - 1, c: 0 }, e: { r: headerRowIndex - 1, c: 4 } },
+    ];
+
+    const lastDataRow = headerRowIndex + rows.length;
+    ws['!autofilter'] = { ref: `A${headerRowIndex + 1}:E${lastDataRow + 1}` };
+    ws['!views'] = [{ state: 'frozen', ySplit: headerRowIndex + 1 }];
+
     const wb = utils.book_new();
     utils.book_append_sheet(wb, ws, 'Empresas');
-    const title = STATUS_MODAL_TITLES[initialStatus] ?? 'Empresas';
-    writeFile(wb, `${title}.xlsx`);
+    writeFile(wb, `${title} — ${competencia.replace('/', '-')}.xlsx`);
     setExportOpen(false);
   };
 
   const handleExportPDF = () => {
     const title = STATUS_MODAL_TITLES[initialStatus] ?? 'Empresas';
-    const rows = exportRows(filtered).map((r) =>
-      `<tr>${Object.values(r).map((v) => `<td>${v}</td>`).join('')}</tr>`
-    ).join('');
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
-      <style>body{font-family:Arial,sans-serif;font-size:12px;padding:24px}
-      h1{font-size:16px;margin-bottom:16px}
-      table{width:100%;border-collapse:collapse}
-      th,td{border:1px solid #ccc;padding:6px 10px;text-align:left}
-      th{background:#f0f0f0;font-weight:700}</style></head>
-      <body><h1>${title}</h1><table>
-      <thead><tr><th>ID</th><th>Empresa</th><th>Responsável</th><th>Regime</th><th>Prioridade</th><th>Progresso (%)</th></tr></thead>
-      <tbody>${rows}</tbody></table></body></html>`;
+    const today = new Date().toLocaleDateString('pt-BR');
+    const summary = exportSummary(filtered);
+    const accent = STATUS_COLORS[initialStatus] || '#7C3AED';
+    const escape = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    const tableRows = filtered.map((c) => {
+      const barColor = c.progress === 100 ? '#00d48a' : isDelayed(c) ? '#ff6b6b' : '#7C3AED';
+      return `<tr>
+        <td class="mono">${escape(c.codigo) || '—'}</td>
+        <td><strong>${escape(c.nome)}</strong></td>
+        <td>${escape(c.responsavel) || '—'}</td>
+        <td>${escape(c.regime) || '—'}</td>
+        <td class="prog">
+          <div class="pbar"><div class="pfill" style="width:${c.progress}%;background:${barColor}"></div></div>
+          <span class="pval">${c.progress}%</span>
+        </td>
+      </tr>`;
+    }).join('');
+
+    const regimeMax = Math.max(1, ...Object.values(summary.byRegime));
+    const regimeBars = Object.entries(summary.byRegime).map(([k, v]) => `
+      <div class="rg-row">
+        <div class="rg-label">${escape(k)}</div>
+        <div class="rg-track"><div class="rg-fill" style="width:${(v / regimeMax) * 100}%;background:${accent}"></div></div>
+        <div class="rg-val">${v}</div>
+      </div>`).join('');
+
+    const bucketEntries = Object.entries(summary.buckets);
+    const bucketMax = Math.max(1, ...bucketEntries.map(([, v]) => v));
+    const bucketBars = bucketEntries.map(([k, v]) => `
+      <div class="rg-row">
+        <div class="rg-label">${k}</div>
+        <div class="rg-track"><div class="rg-fill" style="width:${(v / bucketMax) * 100}%;background:#7C3AED"></div></div>
+        <div class="rg-val">${v}</div>
+      </div>`).join('');
+
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>${escape(title)}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:11px;color:#1a1a1f;background:#fff;padding:0}
+  .page{padding:28px 32px}
+  .header{border-left:6px solid ${accent};padding:6px 0 6px 16px;margin-bottom:22px}
+  .header h1{font-size:20px;font-weight:800;letter-spacing:-0.3px;color:#0d0d12;margin-bottom:4px}
+  .meta{display:flex;gap:18px;font-size:11px;color:#555;flex-wrap:wrap}
+  .meta b{color:#1a1a1f;font-weight:700}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px}
+  .card{border:1px solid #e6e6ea;border-radius:8px;padding:12px 14px;background:#fafafb}
+  .card .label{font-size:9px;font-weight:700;letter-spacing:1.1px;color:#888;text-transform:uppercase;margin-bottom:6px}
+  .card .value{font-size:22px;font-weight:800;color:#0d0d12;letter-spacing:-0.5px;line-height:1.1}
+  .card .value.accent{color:${accent}}
+  .card .hint{font-size:10px;color:#777;margin-top:3px}
+  .charts{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:22px}
+  .chart{border:1px solid #e6e6ea;border-radius:8px;padding:14px 16px;background:#fff}
+  .chart h3{font-size:10px;font-weight:700;letter-spacing:1.1px;color:#666;text-transform:uppercase;margin-bottom:12px}
+  .rg-row{display:grid;grid-template-columns:120px 1fr 32px;gap:10px;align-items:center;margin-bottom:7px}
+  .rg-label{font-size:11px;color:#444;font-weight:600}
+  .rg-track{height:8px;background:#eef0f3;border-radius:4px;overflow:hidden}
+  .rg-fill{height:100%;border-radius:4px}
+  .rg-val{font-size:11px;font-weight:700;color:#1a1a1f;text-align:right}
+  .section-title{font-size:10px;font-weight:700;letter-spacing:1.1px;color:#666;text-transform:uppercase;margin-bottom:8px}
+  table{width:100%;border-collapse:collapse;font-size:10.5px}
+  thead th{background:${accent};color:#fff;font-weight:700;text-align:left;padding:9px 10px;font-size:9.5px;letter-spacing:0.6px;text-transform:uppercase}
+  tbody td{padding:8px 10px;border-bottom:1px solid #eceef1;color:#222}
+  tbody tr:nth-child(even){background:#fafafb}
+  td.mono{font-family:'SFMono-Regular',Menlo,Consolas,monospace;color:${accent};font-weight:600}
+  td.prog{min-width:160px}
+  .pbar{display:inline-block;width:90px;height:6px;background:#eef0f3;border-radius:3px;vertical-align:middle;overflow:hidden;margin-right:8px}
+  .pfill{height:100%;border-radius:3px}
+  .pval{font-weight:700;color:#1a1a1f;font-size:10.5px}
+  .footer{margin-top:24px;padding-top:12px;border-top:1px solid #e6e6ea;font-size:9px;color:#999;text-align:center}
+  @page{size:A4 landscape;margin:14mm}
+  @media print{body{padding:0}.page{padding:0}thead{display:table-header-group}tr{page-break-inside:avoid}}
+</style></head><body><div class="page">
+  <div class="header">
+    <h1>${escape(title)}</h1>
+    <div class="meta">
+      <span><b>Competência:</b> ${escape(competencia)}</span>
+      <span><b>Emissão:</b> ${today}</span>
+      <span><b>Total:</b> ${summary.total} empresa${summary.total !== 1 ? 's' : ''}</span>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="label">Total empresas</div><div class="value">${summary.total}</div><div class="hint">no filtro atual</div></div>
+    <div class="card"><div class="label">Progresso médio</div><div class="value accent">${summary.avg}%</div><div class="hint">files + conciliação</div></div>
+    <div class="card"><div class="label">Concluídas</div><div class="value" style="color:#00d48a">${summary.concluidas}</div><div class="hint">100% do fechamento</div></div>
+    <div class="card"><div class="label">Em progresso parcial</div><div class="value">${summary.buckets['1-49%'] + summary.buckets['50-99%']}</div><div class="hint">entre 1% e 99%</div></div>
+  </div>
+
+  <div class="charts">
+    <div class="chart">
+      <h3>Distribuição por regime</h3>
+      ${regimeBars || '<div style="font-size:11px;color:#999">Sem dados</div>'}
+    </div>
+    <div class="chart">
+      <h3>Faixas de progresso</h3>
+      ${bucketBars}
+    </div>
+  </div>
+
+  <div class="section-title">Empresas (${filtered.length})</div>
+  <table>
+    <thead><tr><th style="width:80px">ID</th><th>Empresa</th><th style="width:160px">Responsável</th><th style="width:140px">Regime</th><th style="width:170px">Progresso</th></tr></thead>
+    <tbody>${tableRows || '<tr><td colspan="5" style="text-align:center;color:#999;padding:24px">Nenhuma empresa</td></tr>'}</tbody>
+  </table>
+
+  <div class="footer">Relatório gerado em ${today} — Acompanhamento Contábil</div>
+</div>
+<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script>
+</body></html>`;
+
     const w = window.open('', '_blank');
     w.document.write(html);
     w.document.close();
-    w.print();
     setExportOpen(false);
   };
 
