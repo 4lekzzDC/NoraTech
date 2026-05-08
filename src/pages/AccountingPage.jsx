@@ -207,7 +207,7 @@ export default function AccountingPage() {
                 competencia={competencia}
                 companies={companies}
                 fileRecords={fileRecords}
-                onChange={reload}
+                setFileRecords={setFileRecords}
               />
             )}
             {activeTab === 'conciliacao' && (
@@ -215,7 +215,7 @@ export default function AccountingPage() {
                 competencia={competencia}
                 companies={companies}
                 reconciliations={reconciliations}
-                onChange={reload}
+                setReconciliations={setReconciliations}
               />
             )}
           </>
@@ -1435,7 +1435,7 @@ function PendenciasModal({ competencia, companies, fileRecords, reconciliations,
 // TAB 2 — ARQUIVOS
 // =============================================================================
 
-function FilesTab({ competencia, companies, fileRecords, onChange }) {
+function FilesTab({ competencia, companies, fileRecords, setFileRecords }) {
   const [editing, setEditing] = useState(null);
   const [editNotes, setEditNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -1452,20 +1452,42 @@ function FilesTab({ competencia, companies, fileRecords, onChange }) {
   const pendenteCells = Math.max(0, totalCells - receivedCells - cobradoCells);
   const pct = totalCells ? Math.round((receivedCells / totalCells) * 100) : 0;
 
+  // Aplica um registro (insert/replace) na lista local — optimistic update.
+  const applyLocal = (rec) => setFileRecords((prev) => {
+    const idx = prev.findIndex((r) =>
+      r.accounting_company_id === rec.accounting_company_id &&
+      r.doc_type === rec.doc_type &&
+      r.competencia === rec.competencia
+    );
+    if (idx >= 0) { const next = prev.slice(); next[idx] = rec; return next; }
+    return [...prev, rec];
+  });
+
   const cycle = async (companyId, docType) => {
     const current = recordsMap[`${companyId}::${docType}`];
     const cur = getFileStatus(current);
     const next = FILE_STATUS_CYCLE[(FILE_STATUS_CYCLE.indexOf(cur) + 1) % FILE_STATUS_CYCLE.length];
+    const snapshot = fileRecords;
+    const optimistic = {
+      ...(current || { accounting_company_id: companyId, doc_type: docType, competencia, notes: null }),
+      file_status: next,
+      received: next === 'recebido',
+      received_at: next === 'recebido' ? new Date().toISOString() : null,
+    };
+    applyLocal(optimistic);
     try {
-      await upsertFileRecord({
+      const saved = await upsertFileRecord({
         accountingCompanyId: companyId,
         docType,
         competencia,
         fileStatus: next,
         notes: current?.notes ?? null,
       });
-      onChange();
-    } catch (e) { alert(e.message); }
+      applyLocal(saved);
+    } catch (e) {
+      setFileRecords(snapshot);
+      alert(e.message);
+    }
   };
 
   const openNotes = (companyId, docType) => {
@@ -1474,20 +1496,28 @@ function FilesTab({ competencia, companies, fileRecords, onChange }) {
     setEditNotes(r?.notes || '');
   };
   const saveNotes = async () => {
+    const current = recordsMap[`${editing.companyId}::${editing.docType}`];
+    const snapshot = fileRecords;
+    const optimistic = {
+      ...(current || { accounting_company_id: editing.companyId, doc_type: editing.docType, competencia, file_status: 'pendente', received: false, received_at: null }),
+      notes: editNotes,
+    };
+    applyLocal(optimistic);
+    setEditing(null);
     setSaving(true);
     try {
-      const current = recordsMap[`${editing.companyId}::${editing.docType}`];
-      await upsertFileRecord({
+      const saved = await upsertFileRecord({
         accountingCompanyId: editing.companyId,
         docType: editing.docType,
         competencia,
         fileStatus: getFileStatus(current),
         notes: editNotes,
       });
-      setEditing(null);
-      onChange();
-    } catch (e) { alert(e.message); }
-    finally { setSaving(false); }
+      applyLocal(saved);
+    } catch (e) {
+      setFileRecords(snapshot);
+      alert(e.message);
+    } finally { setSaving(false); }
   };
 
   if (companies.length === 0) return <Empty>Cadastre empresas no Dashboard antes de marcar arquivos.</Empty>;
@@ -1527,6 +1557,7 @@ function FilesTab({ competencia, companies, fileRecords, onChange }) {
                       <td key={t.id}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 110 }}>
                           <button
+                            type="button"
                             onClick={() => cycle(c.id, t.id)}
                             className="acc-pill"
                             style={{ cursor: 'pointer', background: s.bg, color: s.fg, borderColor: s.bd, width: 'fit-content' }}
@@ -1539,6 +1570,7 @@ function FilesTab({ competencia, companies, fileRecords, onChange }) {
                             </span>
                           )}
                           <button
+                            type="button"
                             onClick={() => openNotes(c.id, t.id)}
                             style={{ background: 'transparent', border: 'none', color: hasNotes ? '#a78bfa' : 'rgba(255,255,255,0.3)', fontSize: '0.7rem', textAlign: 'left', cursor: 'pointer', padding: 0 }}
                           >
@@ -1570,7 +1602,7 @@ function FilesTab({ competencia, companies, fileRecords, onChange }) {
 // TAB 3 — CONCILIAÇÃO
 // =============================================================================
 
-function ReconciliationTab({ competencia, companies, reconciliations, onChange }) {
+function ReconciliationTab({ competencia, companies, reconciliations, setReconciliations }) {
   const [editing, setEditing] = useState(null);
   const [editNotes, setEditNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -1587,18 +1619,37 @@ function ReconciliationTab({ competencia, companies, reconciliations, onChange }
     return { ...cat, pct: Math.round((done / total) * 100) };
   });
 
+  const applyLocal = (rec) => setReconciliations((prev) => {
+    const idx = prev.findIndex((r) =>
+      r.accounting_company_id === rec.accounting_company_id &&
+      r.category === rec.category &&
+      r.competencia === rec.competencia
+    );
+    if (idx >= 0) { const next = prev.slice(); next[idx] = rec; return next; }
+    return [...prev, rec];
+  });
+
   const setStatus = async (companyId, category, status) => {
     const current = reconsMap[`${companyId}::${category}`];
+    const snapshot = reconciliations;
+    const optimistic = {
+      ...(current || { accounting_company_id: companyId, category, competencia, observacoes: null }),
+      status,
+    };
+    applyLocal(optimistic);
     try {
-      await upsertReconciliation({
+      const saved = await upsertReconciliation({
         accountingCompanyId: companyId,
         category,
         competencia,
         status,
         observacoes: current?.observacoes ?? null,
       });
-      onChange();
-    } catch (e) { alert(e.message); }
+      applyLocal(saved);
+    } catch (e) {
+      setReconciliations(snapshot);
+      alert(e.message);
+    }
   };
 
   const openNotes = (companyId, category) => {
@@ -1607,20 +1658,28 @@ function ReconciliationTab({ competencia, companies, reconciliations, onChange }
     setEditNotes(r?.observacoes || '');
   };
   const saveNotes = async () => {
+    const current = reconsMap[`${editing.companyId}::${editing.category}`];
+    const snapshot = reconciliations;
+    const optimistic = {
+      ...(current || { accounting_company_id: editing.companyId, category: editing.category, competencia, status: 'nao_iniciado' }),
+      observacoes: editNotes,
+    };
+    applyLocal(optimistic);
+    setEditing(null);
     setSaving(true);
     try {
-      const current = reconsMap[`${editing.companyId}::${editing.category}`];
-      await upsertReconciliation({
+      const saved = await upsertReconciliation({
         accountingCompanyId: editing.companyId,
         category: editing.category,
         competencia,
         status: current?.status || 'nao_iniciado',
         observacoes: editNotes,
       });
-      setEditing(null);
-      onChange();
-    } catch (e) { alert(e.message); }
-    finally { setSaving(false); }
+      applyLocal(saved);
+    } catch (e) {
+      setReconciliations(snapshot);
+      alert(e.message);
+    } finally { setSaving(false); }
   };
 
   if (companies.length === 0) return <Empty>Cadastre empresas no Dashboard antes de iniciar a conciliação.</Empty>;
