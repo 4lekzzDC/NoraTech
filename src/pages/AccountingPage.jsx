@@ -1290,6 +1290,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
   const [viewCompany, setViewCompany] = useState(null);
   const [sortBy, setSortBy] = useState(initialSort || 'name');
   const [onlyCompleted, setOnlyCompleted] = useState(!!initialOnlyCompleted);
+  const [importOpen, setImportOpen] = useState(false);
 
   const responsaveis = useMemo(
     () => Array.from(new Set(companies.map((c) => c.responsavel).filter(Boolean))).sort(),
@@ -1380,6 +1381,20 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <button className="acc-btn primary" style={{ fontSize: '0.82rem' }} onClick={openCreate}>+ Nova empresa</button>
+              <button
+                type="button"
+                onClick={() => setImportOpen(true)}
+                title="Importar empresas"
+                aria-label="Importar empresas"
+                className="acc-btn"
+                style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              </button>
               <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
             </div>
           </div>
@@ -1510,7 +1525,302 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
           onClose={() => setViewCompany(null)}
         />
       )}
+
+      {importOpen && (
+        <ImportCompaniesModal
+          tenantCompanyId={tenantCompanyId}
+          competencia={competencia}
+          companies={companies}
+          onClose={() => setImportOpen(false)}
+          onChange={onChange}
+        />
+      )}
     </>
+  );
+}
+
+// =============================================================================
+// ImportCompaniesModal — importação em massa via .csv / .xlsx
+// =============================================================================
+
+function normalizeKey(s) {
+  return String(s || '').trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+function matchRegime(value) {
+  const v = normalizeKey(value);
+  if (!v) return '';
+  if (v.includes('simples')) return 'Simples Nacional';
+  if (v.includes('presumido')) return 'Lucro Presumido';
+  if (v.includes('real')) return 'Lucro Real';
+  if (v === 'mei' || v.startsWith('mei ')) return 'MEI';
+  // tenta match exato pelo label original
+  const exact = REGIMES.find((r) => normalizeKey(r) === v);
+  return exact || value.trim();
+}
+
+function ImportCompaniesModal({ tenantCompanyId, competencia, companies, onClose, onChange }) {
+  const [step, setStep] = useState('upload'); // upload | preview | importing | done
+  const [rows, setRows] = useState([]);
+  const [fileName, setFileName] = useState('');
+  const [parseError, setParseError] = useState('');
+  const [progress, setProgress] = useState(0);
+  const [summary, setSummary] = useState(null);
+  const fileRef = useRef(null);
+
+  const codeMap = useMemo(() => {
+    const m = new Map();
+    companies.forEach((c) => {
+      if (c.codigo) m.set(String(c.codigo).trim().toLowerCase(), c);
+    });
+    return m;
+  }, [companies]);
+
+  const handleFile = async (file) => {
+    if (!file) return;
+    setParseError('');
+    setFileName(file.name);
+    try {
+      const XLSX = await import('xlsx');
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      if (!sheet) throw new Error('Nenhuma planilha encontrada no arquivo.');
+      const json = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+      if (json.length === 0) throw new Error('A planilha está vazia.');
+
+      const seenCodes = new Set();
+      const parsed = json.map((r) => {
+        const norm = {};
+        Object.keys(r).forEach((k) => { norm[normalizeKey(k)] = String(r[k] ?? '').trim(); });
+        const codigo = norm['cod'] || norm['codigo'] || '';
+        const nome = norm['empresa'] || norm['nome'] || '';
+        const tributacao = norm['tributacao'] || norm['regime'] || '';
+        const responsavel = norm['responsavel'] || '';
+        const regime = matchRegime(tributacao);
+
+        let error = null;
+        if (!codigo) error = 'Código vazio';
+        else if (!nome) error = 'Empresa vazia';
+        else if (!tributacao) error = 'Tributação vazia';
+        else if (!responsavel) error = 'Responsável vazio';
+        else if (seenCodes.has(codigo.toLowerCase())) error = 'Código duplicado no arquivo';
+        if (codigo) seenCodes.add(codigo.toLowerCase());
+
+        const existing = !error ? codeMap.get(codigo.toLowerCase()) : null;
+        return {
+          codigo, nome, regime, responsavel,
+          action: error ? 'error' : (existing ? 'update' : 'create'),
+          error,
+          existingId: existing?.id ?? null,
+        };
+      });
+      setRows(parsed);
+      setStep('preview');
+    } catch (e) {
+      setParseError('Falha ao ler arquivo: ' + (e.message || e));
+    }
+  };
+
+  const onDrop = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const f = e.dataTransfer?.files?.[0];
+    if (f) handleFile(f);
+  };
+
+  const doImport = async () => {
+    setStep('importing');
+    setProgress(0);
+    let created = 0, updated = 0;
+    const errors = [];
+    const validRows = rows.filter((r) => r.action !== 'error');
+    for (let i = 0; i < validRows.length; i++) {
+      const r = validRows[i];
+      try {
+        const payload = {
+          tenant_company_id: tenantCompanyId,
+          competencia,
+          codigo: r.codigo,
+          nome: r.nome,
+          regime: r.regime,
+          responsavel: r.responsavel,
+          prioridade: 'media',
+          tasks: emptyTasks(),
+        };
+        if (r.action === 'update') payload.id = r.existingId;
+        await upsertCompany(payload);
+        if (r.action === 'create') created++; else updated++;
+      } catch (e) {
+        errors.push({ codigo: r.codigo, nome: r.nome, error: e.message });
+      }
+      setProgress(i + 1);
+    }
+    setSummary({ created, updated, errors, skipped: rows.filter((r) => r.action === 'error').length });
+    setStep('done');
+    onChange();
+  };
+
+  const counts = useMemo(() => {
+    const c = { create: 0, update: 0, error: 0 };
+    rows.forEach((r) => { c[r.action]++; });
+    return c;
+  }, [rows]);
+
+  const validToImport = counts.create + counts.update;
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, overflow: 'auto', background: 'rgba(4,4,8,0.82)', backdropFilter: 'blur(14px) saturate(0.85)', WebkitBackdropFilter: 'blur(14px) saturate(0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5vh 20px', zIndex: 130 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 880, margin: 'auto', background: '#101015', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 30px 80px rgba(0,0,0,0.7)' }}>
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <h2 style={{ fontSize: '1.02rem', fontWeight: 700 }}>Importar empresas</h2>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
+        </div>
+
+        <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 22 }}>
+          {step === 'upload' && (
+            <>
+              <div
+                onClick={() => fileRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#7C3AED'; e.currentTarget.style.background = 'rgba(124,58,237,0.06)'; }}
+                onDragLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
+                onDrop={(e) => { onDrop(e); e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
+                style={{ border: '2px dashed rgba(255,255,255,0.15)', borderRadius: 12, padding: '40px 24px', textAlign: 'center', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', transition: 'all 0.2s' }}
+              >
+                <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 14 }}>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                <div style={{ fontSize: '0.96rem', fontWeight: 700, marginBottom: 6 }}>Arraste o arquivo aqui ou clique para selecionar</div>
+                <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)' }}>Formatos aceitos: <strong>.xlsx</strong> ou <strong>.csv</strong></div>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+                  onChange={(e) => handleFile(e.target.files?.[0])}
+                  style={{ display: 'none' }}
+                />
+              </div>
+
+              <div style={{ marginTop: 22, padding: 16, background: 'rgba(124,58,237,0.05)', border: '1px solid rgba(124,58,237,0.18)', borderRadius: 10 }}>
+                <div className="acc-section-eyebrow" style={{ marginBottom: 8, color: '#a78bfa' }}>Layout esperado</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, overflow: 'hidden', fontSize: '0.78rem' }}>
+                  {['Cód', 'Empresa', 'Tributação', 'Responsável'].map((h) => (
+                    <div key={h} style={{ background: 'rgba(255,255,255,0.04)', padding: '8px 10px', fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>{h}</div>
+                  ))}
+                  {['001', 'Empresa Exemplo Ltda', 'Simples Nacional', 'João Silva'].map((c, i) => (
+                    <div key={i} style={{ background: '#0a0a0e', padding: '8px 10px', color: 'rgba(255,255,255,0.55)' }}>{c}</div>
+                  ))}
+                </div>
+                <div style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.45)', marginTop: 10, lineHeight: 1.5 }}>
+                  Todos os campos são obrigatórios. Se o <strong style={{ color: '#a78bfa' }}>código</strong> já existir, o cadastro será atualizado. Caso contrário, uma nova empresa é criada.
+                </div>
+              </div>
+
+              {parseError && (
+                <div style={{ marginTop: 14, background: 'rgba(255,107,107,0.08)', border: '1px solid rgba(255,107,107,0.25)', color: '#ff9ab4', padding: '10px 14px', borderRadius: 10, fontSize: '0.82rem' }}>
+                  {parseError}
+                </div>
+              )}
+            </>
+          )}
+
+          {step === 'preview' && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+                <div style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.6)' }}>
+                  <strong style={{ color: '#eeede9' }}>{fileName}</strong> · {rows.length} linha{rows.length !== 1 ? 's' : ''}
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {counts.create > 0 && <span className="acc-pill" style={{ background: 'rgba(0,212,138,0.12)', color: '#00d48a', borderColor: 'rgba(0,212,138,0.28)' }}>+ {counts.create} novas</span>}
+                  {counts.update > 0 && <span className="acc-pill" style={{ background: 'rgba(124,58,237,0.14)', color: '#a78bfa', borderColor: 'rgba(124,58,237,0.30)' }}>↻ {counts.update} atualizar</span>}
+                  {counts.error > 0 && <span className="acc-pill" style={{ background: 'rgba(255,107,107,0.12)', color: '#ff6b6b', borderColor: 'rgba(255,107,107,0.30)' }}>⚠ {counts.error} com erro</span>}
+                </div>
+              </div>
+              <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, overflow: 'auto', maxHeight: 380 }}>
+                <table className="acc-table" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th>Cód</th><th>Empresa</th><th>Tributação</th><th>Responsável</th><th>Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r, i) => (
+                      <tr key={i} style={{ background: r.action === 'error' ? 'rgba(255,107,107,0.04)' : undefined }}>
+                        <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.82rem' }}>{r.codigo || <span style={{ color: 'rgba(255,255,255,0.25)' }}>—</span>}</td>
+                        <td>{r.nome || <span style={{ color: 'rgba(255,255,255,0.25)' }}>—</span>}</td>
+                        <td>{r.regime || <span style={{ color: 'rgba(255,255,255,0.25)' }}>—</span>}</td>
+                        <td>{r.responsavel || <span style={{ color: 'rgba(255,255,255,0.25)' }}>—</span>}</td>
+                        <td>
+                          {r.action === 'create' && <span className="acc-pill" style={{ background: 'rgba(0,212,138,0.12)', color: '#00d48a', borderColor: 'rgba(0,212,138,0.28)' }}>Novo</span>}
+                          {r.action === 'update' && <span className="acc-pill" style={{ background: 'rgba(124,58,237,0.14)', color: '#a78bfa', borderColor: 'rgba(124,58,237,0.30)' }}>Atualizar</span>}
+                          {r.action === 'error' && <span className="acc-pill" title={r.error} style={{ background: 'rgba(255,107,107,0.12)', color: '#ff6b6b', borderColor: 'rgba(255,107,107,0.30)' }}>{r.error}</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {step === 'importing' && (
+            <div style={{ padding: '40px 0', textAlign: 'center' }}>
+              <Spinner />
+              <div style={{ marginTop: 16, fontSize: '0.88rem', fontWeight: 700 }}>Importando…</div>
+              <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>{progress} de {validToImport}</div>
+            </div>
+          )}
+
+          {step === 'done' && summary && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 18 }}>
+                <Kpi label="Criadas" value={summary.created} accent="#00d48a" />
+                <Kpi label="Atualizadas" value={summary.updated} accent="#7C3AED" />
+                <Kpi label="Com erro" value={summary.errors.length + summary.skipped} accent={(summary.errors.length + summary.skipped) > 0 ? '#ff6b6b' : '#00d48a'} />
+              </div>
+              {summary.errors.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <div className="acc-section-eyebrow" style={{ marginBottom: 8 }}>Falhas durante a importação</div>
+                  <div style={{ border: '1px solid rgba(255,107,107,0.18)', borderRadius: 10, overflow: 'auto', maxHeight: 240 }}>
+                    <table className="acc-table" style={{ width: '100%' }}>
+                      <thead><tr><th>Cód</th><th>Empresa</th><th>Erro</th></tr></thead>
+                      <tbody>
+                        {summary.errors.map((e, i) => (
+                          <tr key={i}>
+                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.82rem' }}>{e.codigo}</td>
+                            <td>{e.nome}</td>
+                            <td style={{ color: '#ff9ab4' }}>{e.error}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div style={{ padding: '14px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'flex-end', gap: 10, flexShrink: 0 }}>
+          {step === 'upload' && (
+            <button type="button" className="acc-btn" onClick={onClose}>Cancelar</button>
+          )}
+          {step === 'preview' && (
+            <>
+              <button type="button" className="acc-btn" onClick={() => { setStep('upload'); setRows([]); setFileName(''); }}>Voltar</button>
+              <button type="button" className="acc-btn primary" disabled={validToImport === 0} onClick={doImport} style={{ opacity: validToImport === 0 ? 0.5 : 1, cursor: validToImport === 0 ? 'not-allowed' : 'pointer' }}>
+                Importar {validToImport} empresa{validToImport !== 1 ? 's' : ''}
+              </button>
+            </>
+          )}
+          {step === 'done' && (
+            <button type="button" className="acc-btn primary" onClick={onClose}>Concluir</button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
