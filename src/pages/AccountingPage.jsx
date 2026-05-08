@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
-  TASKS, PRIORITY, REGIMES,
+  TASKS, REGIMES,
   RECON_CATEGORIES, RECON_STATUS, RECON_STATUS_ORDER,
   currentCompetencia, emptyTasks, isDelayed,
 } from '../lib/accountingDomain';
@@ -525,11 +525,6 @@ function BarChart({ items, maxValue }) {
   );
 }
 
-function PriorityPill({ value }) {
-  const c = PRIORITY[value] || PRIORITY.media;
-  return <span className="acc-pill" style={{ background: c.bg, color: c.fg, borderColor: c.bd }}>{c.label}</span>;
-}
-
 function StatusDropdown({ value, onChange, options, statusMap }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null); // { top, left, width, dropUp }
@@ -794,7 +789,7 @@ function companyProgress(companyId, fileRecords, reconciliations) {
 // =============================================================================
 
 const EMPTY_FORM = {
-  codigo: '', nome: '', responsavel: '', regime: 'Simples Nacional', prioridade: 'media',
+  codigo: '', nome: '', responsavel: '', regime: 'Simples Nacional',
   prazo: '', observacoes: '', particularidades: '',
 };
 
@@ -1223,7 +1218,6 @@ function CompanyDrawer({ company, fileRecords, reconciliations, competencia, onC
             </div>
             <h2 style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: -0.3, marginBottom: 6 }}>{company.nome}</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <PriorityPill value={company.prioridade} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 120 }}>
                 <ProgressBar pct={prog} color={prog === 100 ? '#00d48a' : isDelayed(company) ? '#ff6b6b' : '#7C3AED'} height={5} />
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.8)', minWidth: 34 }}>{prog}%</span>
@@ -1456,6 +1450,16 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
     atrasado:           '#ff6b6b',
   };
 
+  const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const openPrintWindow = (html) => {
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (w) setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return w;
+  };
+
   const handleExportExcel = async () => {
     const XLSX = await import('xlsx');
     const { utils, writeFile } = XLSX;
@@ -1464,51 +1468,31 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
     const summary = exportSummary(filtered);
     const rows = exportRows(filtered);
 
+    const COLS = ['ID', 'Empresa', 'Responsável', 'Regime', 'Progresso (%)'];
     const aoa = [
-      [`RELATÓRIO — ${title.toUpperCase()}`],
-      [`Competência: ${competencia}`, '', `Emissão: ${today}`, '', `Total: ${summary.total} empresa${summary.total !== 1 ? 's' : ''}`],
+      [title],
+      [`Competência: ${competencia}`, '', `Emissão: ${today}`, '', `Total: ${summary.total}`],
       [],
-      ['RESUMO'],
-      ['Total empresas', 'Progresso médio', 'Concluídas (100%)', 'Faixas de progresso'],
-      [
-        summary.total,
-        `${summary.avg}%`,
-        summary.concluidas,
-        `0%: ${summary.buckets['0%']}  |  1-49%: ${summary.buckets['1-49%']}  |  50-99%: ${summary.buckets['50-99%']}  |  100%: ${summary.buckets['100%']}`,
-      ],
-      [],
-      ['DISTRIBUIÇÃO POR REGIME'],
-      ...Object.entries(summary.byRegime).map(([k, v]) => [k, v]),
-      [],
-      ['EMPRESAS'],
-      ['ID', 'Empresa', 'Responsável', 'Regime', 'Progresso (%)'],
+      COLS,
       ...rows.map((r) => Object.values(r)),
     ];
 
     const ws = utils.aoa_to_sheet(aoa);
 
-    const cols = ['ID', 'Empresa', 'Responsável', 'Regime', 'Progresso (%)'];
-    ws['!cols'] = cols.map((h, i) => {
-      const headerLen = h.length;
-      const maxData = rows.reduce((m, r) => {
-        const v = String(Object.values(r)[i] ?? '');
-        return Math.max(m, v.length);
-      }, 0);
-      return { wch: Math.min(60, Math.max(headerLen + 2, maxData + 2, 12)) };
+    ws['!cols'] = COLS.map((h, i) => {
+      const maxData = rows.reduce((m, r) => Math.max(m, String(Object.values(r)[i] ?? '').length), 0);
+      return { wch: Math.min(60, Math.max(h.length + 2, maxData + 2, 12)) };
     });
 
-    const headerRowIndex = aoa.findIndex((r) => r[0] === 'ID');
+    const lastDataRow = 4 + rows.length;
     ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
-      { s: { r: 3, c: 0 }, e: { r: 3, c: 4 } },
-      { s: { r: 5, c: 3 }, e: { r: 5, c: 4 } },
-      { s: { r: 7, c: 0 }, e: { r: 7, c: 4 } },
-      { s: { r: headerRowIndex - 1, c: 0 }, e: { r: headerRowIndex - 1, c: 4 } },
+      { s: { r: 0, c: 0 }, e: { r: 0, c: COLS.length - 1 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 1 } },
+      { s: { r: 1, c: 2 }, e: { r: 1, c: 3 } },
     ];
-
-    const lastDataRow = headerRowIndex + rows.length;
-    ws['!autofilter'] = { ref: `A${headerRowIndex + 1}:E${lastDataRow + 1}` };
-    ws['!views'] = [{ state: 'frozen', ySplit: headerRowIndex + 1 }];
+    ws['!autofilter'] = { ref: `A4:E${lastDataRow}` };
+    ws['!views'] = [{ state: 'frozen', ySplit: 4 }];
+    ws['!rows'] = [{ hpt: 28 }, { hpt: 18 }];
 
     const wb = utils.book_new();
     utils.book_append_sheet(wb, ws, 'Empresas');
@@ -1516,20 +1500,96 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
     setExportOpen(false);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDFPrint = () => {
     const title = STATUS_MODAL_TITLES[initialStatus] ?? 'Empresas';
     const today = new Date().toLocaleDateString('pt-BR');
     const summary = exportSummary(filtered);
     const accent = STATUS_COLORS[initialStatus] || '#7C3AED';
-    const escape = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-    const tableRows = filtered.map((c) => {
-      const barColor = c.progress === 100 ? '#00d48a' : isDelayed(c) ? '#ff6b6b' : '#7C3AED';
+    const tableRows = filtered.map((c) => `
+      <tr>
+        <td class="mono">${escapeHtml(c.codigo) || '—'}</td>
+        <td><strong>${escapeHtml(c.nome)}</strong></td>
+        <td>${escapeHtml(c.responsavel) || '—'}</td>
+        <td>${escapeHtml(c.regime) || '—'}</td>
+        <td class="prog-cell">${c.progress}%</td>
+      </tr>`).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(title)} — ${escapeHtml(competencia)}</title>
+<style>
+  @page { size: A4; margin: 14mm 12mm 14mm 12mm; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:10px;color:#222;background:#fff}
+  .header{border-bottom:2px solid ${accent};padding-bottom:8px;margin-bottom:12px}
+  .header .row{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
+  .header h1{font-size:15px;font-weight:700;color:#111;letter-spacing:-0.2px}
+  .header .meta{font-size:9.5px;color:#555;display:flex;gap:14px}
+  .header .meta b{color:#222;font-weight:600}
+  .summary{display:flex;gap:16px;margin-bottom:12px;font-size:9.5px;color:#444}
+  .summary span b{color:#111;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:9.5px;table-layout:fixed}
+  thead th{background:#f4f4f6;color:#222;font-weight:700;text-align:left;padding:6px 8px;border-bottom:1.5px solid ${accent};font-size:9px;letter-spacing:0.4px;text-transform:uppercase}
+  tbody td{padding:5px 8px;border-bottom:1px solid #ececef;vertical-align:top;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  tbody tr:nth-child(even){background:#fafafb}
+  td.mono{font-family:'SFMono-Regular',Menlo,Consolas,monospace;color:${accent};font-weight:600}
+  td.prog-cell{font-weight:700;color:#111;text-align:right}
+  .col-id{width:11%}
+  .col-emp{width:34%}
+  .col-resp{width:22%}
+  .col-reg{width:18%}
+  .col-prog{width:15%;text-align:right}
+  thead{display:table-header-group}
+  tr{page-break-inside:avoid}
+  .footer{position:fixed;bottom:6mm;left:12mm;right:12mm;font-size:8px;color:#999;display:flex;justify-content:space-between;border-top:1px solid #e6e6e9;padding-top:4px}
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style></head><body>
+  <div class="header">
+    <div class="row">
+      <h1>${escapeHtml(title)}</h1>
+      <div class="meta">
+        <span><b>Competência:</b> ${escapeHtml(competencia)}</span>
+        <span><b>Emissão:</b> ${today}</span>
+        <span><b>Total:</b> ${summary.total}</span>
+      </div>
+    </div>
+  </div>
+  <div class="summary">
+    <span><b>Progresso médio:</b> ${summary.avg}%</span>
+    <span><b>Concluídas (100%):</b> ${summary.concluidas}</span>
+    <span><b>Parciais (1-99%):</b> ${summary.buckets['1-49%'] + summary.buckets['50-99%']}</span>
+    <span><b>Sem início (0%):</b> ${summary.buckets['0%']}</span>
+  </div>
+  <table>
+    <colgroup><col class="col-id"><col class="col-emp"><col class="col-resp"><col class="col-reg"><col class="col-prog"></colgroup>
+    <thead><tr><th>ID</th><th>Empresa</th><th>Responsável</th><th>Regime</th><th style="text-align:right">Progresso</th></tr></thead>
+    <tbody>${tableRows || '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px">Nenhuma empresa</td></tr>'}</tbody>
+  </table>
+  <div class="footer"><span>${escapeHtml(title)} — Competência ${escapeHtml(competencia)}</span><span>Emitido em ${today}</span></div>
+<script>window.addEventListener('load',function(){setTimeout(function(){window.focus();window.print();},300);});</script>
+</body></html>`;
+
+    openPrintWindow(html);
+    setExportOpen(false);
+  };
+
+  const handleExportPDFPresentation = () => {
+    const title = STATUS_MODAL_TITLES[initialStatus] ?? 'Empresas';
+    const today = new Date().toLocaleDateString('pt-BR');
+    const summary = exportSummary(filtered);
+    const accent = STATUS_COLORS[initialStatus] || '#7C3AED';
+
+    const TOP_N = 14;
+    const top = filtered.slice(0, TOP_N);
+    const rest = Math.max(0, filtered.length - top.length);
+
+    const tableRows = top.map((c) => {
+      const barColor = c.progress === 100 ? '#00d48a' : isDelayed(c) ? '#ff6b6b' : accent;
       return `<tr>
-        <td class="mono">${escape(c.codigo) || '—'}</td>
-        <td><strong>${escape(c.nome)}</strong></td>
-        <td>${escape(c.responsavel) || '—'}</td>
-        <td>${escape(c.regime) || '—'}</td>
+        <td class="mono">${escapeHtml(c.codigo) || '—'}</td>
+        <td class="emp">${escapeHtml(c.nome)}</td>
+        <td>${escapeHtml(c.responsavel) || '—'}</td>
+        <td>${escapeHtml(c.regime) || '—'}</td>
         <td class="prog">
           <div class="pbar"><div class="pfill" style="width:${c.progress}%;background:${barColor}"></div></div>
           <span class="pval">${c.progress}%</span>
@@ -1539,99 +1599,116 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
 
     const regimeMax = Math.max(1, ...Object.values(summary.byRegime));
     const regimeBars = Object.entries(summary.byRegime).map(([k, v]) => `
-      <div class="rg-row">
-        <div class="rg-label">${escape(k)}</div>
-        <div class="rg-track"><div class="rg-fill" style="width:${(v / regimeMax) * 100}%;background:${accent}"></div></div>
-        <div class="rg-val">${v}</div>
-      </div>`).join('');
+      <div class="bar-row">
+        <div class="bar-label">${escapeHtml(k)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(v / regimeMax) * 100}%;background:${accent}"></div></div>
+        <div class="bar-val">${v}</div>
+      </div>`).join('') || '<div class="muted">Sem dados</div>';
 
+    const bucketColors = { '0%': '#9aa0a6', '1-49%': '#60a5fa', '50-99%': '#7C3AED', '100%': '#00d48a' };
     const bucketEntries = Object.entries(summary.buckets);
     const bucketMax = Math.max(1, ...bucketEntries.map(([, v]) => v));
     const bucketBars = bucketEntries.map(([k, v]) => `
-      <div class="rg-row">
-        <div class="rg-label">${k}</div>
-        <div class="rg-track"><div class="rg-fill" style="width:${(v / bucketMax) * 100}%;background:#7C3AED"></div></div>
-        <div class="rg-val">${v}</div>
+      <div class="bar-row">
+        <div class="bar-label">${k}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(v / bucketMax) * 100}%;background:${bucketColors[k]}"></div></div>
+        <div class="bar-val">${v}</div>
       </div>`).join('');
 
-    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>${escape(title)}</title>
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(title)} — ${escapeHtml(competencia)}</title>
 <style>
+  @page { size: 1920px 1080px; margin: 0; }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:11px;color:#1a1a1f;background:#fff;padding:0}
-  .page{padding:28px 32px}
-  .header{border-left:6px solid ${accent};padding:6px 0 6px 16px;margin-bottom:22px}
-  .header h1{font-size:20px;font-weight:800;letter-spacing:-0.3px;color:#0d0d12;margin-bottom:4px}
-  .meta{display:flex;gap:18px;font-size:11px;color:#555;flex-wrap:wrap}
-  .meta b{color:#1a1a1f;font-weight:700}
-  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px}
-  .card{border:1px solid #e6e6ea;border-radius:8px;padding:12px 14px;background:#fafafb}
-  .card .label{font-size:9px;font-weight:700;letter-spacing:1.1px;color:#888;text-transform:uppercase;margin-bottom:6px}
-  .card .value{font-size:22px;font-weight:800;color:#0d0d12;letter-spacing:-0.5px;line-height:1.1}
-  .card .value.accent{color:${accent}}
-  .card .hint{font-size:10px;color:#777;margin-top:3px}
-  .charts{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:22px}
-  .chart{border:1px solid #e6e6ea;border-radius:8px;padding:14px 16px;background:#fff}
-  .chart h3{font-size:10px;font-weight:700;letter-spacing:1.1px;color:#666;text-transform:uppercase;margin-bottom:12px}
-  .rg-row{display:grid;grid-template-columns:120px 1fr 32px;gap:10px;align-items:center;margin-bottom:7px}
-  .rg-label{font-size:11px;color:#444;font-weight:600}
-  .rg-track{height:8px;background:#eef0f3;border-radius:4px;overflow:hidden}
-  .rg-fill{height:100%;border-radius:4px}
-  .rg-val{font-size:11px;font-weight:700;color:#1a1a1f;text-align:right}
-  .section-title{font-size:10px;font-weight:700;letter-spacing:1.1px;color:#666;text-transform:uppercase;margin-bottom:8px}
-  table{width:100%;border-collapse:collapse;font-size:10.5px}
-  thead th{background:${accent};color:#fff;font-weight:700;text-align:left;padding:9px 10px;font-size:9.5px;letter-spacing:0.6px;text-transform:uppercase}
-  tbody td{padding:8px 10px;border-bottom:1px solid #eceef1;color:#222}
-  tbody tr:nth-child(even){background:#fafafb}
-  td.mono{font-family:'SFMono-Regular',Menlo,Consolas,monospace;color:${accent};font-weight:600}
-  td.prog{min-width:160px}
-  .pbar{display:inline-block;width:90px;height:6px;background:#eef0f3;border-radius:3px;vertical-align:middle;overflow:hidden;margin-right:8px}
+  html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Arial,sans-serif;background:#0a0a0e;color:#eeede9;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .slide{width:1920px;height:1080px;padding:54px 64px;background:radial-gradient(ellipse at top right, rgba(124,58,237,0.18) 0%, transparent 60%), #0a0a0e;display:flex;flex-direction:column;gap:32px;position:relative;overflow:hidden}
+  .slide::before{content:'';position:absolute;top:0;left:0;width:100%;height:6px;background:linear-gradient(90deg, ${accent} 0%, #7C3AED 100%)}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+  .head .left .eyebrow{font-size:14px;font-weight:700;letter-spacing:3px;color:${accent};text-transform:uppercase;margin-bottom:8px}
+  .head h1{font-size:54px;font-weight:800;letter-spacing:-1.5px;color:#fff;line-height:1}
+  .head .right{text-align:right;font-size:15px;color:rgba(255,255,255,0.6)}
+  .head .right .big{font-size:26px;font-weight:700;color:#fff;letter-spacing:-0.5px;margin-bottom:4px}
+  .head .right b{color:#eeede9;font-weight:600}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:22px}
+  .card{background:linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:28px 30px;position:relative;overflow:hidden}
+  .card::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:var(--ac, ${accent})}
+  .card .label{font-size:13px;font-weight:700;letter-spacing:1.8px;color:rgba(255,255,255,0.5);text-transform:uppercase;margin-bottom:14px}
+  .card .value{font-size:64px;font-weight:800;color:#fff;letter-spacing:-2px;line-height:1}
+  .card .hint{font-size:13px;color:rgba(255,255,255,0.45);margin-top:10px;font-weight:500}
+  .body{display:grid;grid-template-columns:1.15fr 1fr;gap:28px;flex:1;min-height:0}
+  .panel{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-radius:18px;padding:26px 28px;display:flex;flex-direction:column;min-height:0}
+  .panel h3{font-size:13px;font-weight:700;letter-spacing:1.8px;color:rgba(255,255,255,0.5);text-transform:uppercase;margin-bottom:18px}
+  .charts-wrap{display:flex;flex-direction:column;gap:22px}
+  .bar-row{display:grid;grid-template-columns:170px 1fr 50px;gap:16px;align-items:center;margin-bottom:14px}
+  .bar-label{font-size:15px;color:#eeede9;font-weight:600}
+  .bar-track{height:14px;background:rgba(255,255,255,0.06);border-radius:7px;overflow:hidden}
+  .bar-fill{height:100%;border-radius:7px;box-shadow:0 0 12px currentColor}
+  .bar-val{font-size:18px;font-weight:800;color:#fff;text-align:right}
+  .muted{color:rgba(255,255,255,0.4);font-size:14px}
+  .table-panel{display:flex;flex-direction:column;min-height:0}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  thead th{text-align:left;padding:10px 12px;font-size:11px;font-weight:700;letter-spacing:1.2px;color:rgba(255,255,255,0.5);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.1)}
+  tbody td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.05);color:#eeede9}
+  tbody tr:hover{background:rgba(255,255,255,0.02)}
+  td.mono{font-family:'SFMono-Regular',Menlo,Consolas,monospace;color:${accent};font-weight:600;font-size:13px}
+  td.emp{font-weight:700;color:#fff}
+  td.prog{min-width:170px}
+  .pbar{display:inline-block;width:90px;height:6px;background:rgba(255,255,255,0.08);border-radius:3px;vertical-align:middle;margin-right:10px;overflow:hidden}
   .pfill{height:100%;border-radius:3px}
-  .pval{font-weight:700;color:#1a1a1f;font-size:10.5px}
-  .footer{margin-top:24px;padding-top:12px;border-top:1px solid #e6e6ea;font-size:9px;color:#999;text-align:center}
-  @page{size:A4 landscape;margin:14mm}
-  @media print{body{padding:0}.page{padding:0}thead{display:table-header-group}tr{page-break-inside:avoid}}
-</style></head><body><div class="page">
-  <div class="header">
-    <h1>${escape(title)}</h1>
-    <div class="meta">
-      <span><b>Competência:</b> ${escape(competencia)}</span>
-      <span><b>Emissão:</b> ${today}</span>
-      <span><b>Total:</b> ${summary.total} empresa${summary.total !== 1 ? 's' : ''}</span>
+  .pval{font-weight:700;color:#fff;font-size:13px}
+  .more{margin-top:10px;font-size:13px;color:rgba(255,255,255,0.5);text-align:center;font-style:italic}
+  .footer{display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,0.4);letter-spacing:0.6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.06)}
+</style></head><body>
+<div class="slide">
+  <div class="head">
+    <div class="left">
+      <div class="eyebrow">Acompanhamento Contábil</div>
+      <h1>${escapeHtml(title)}</h1>
+    </div>
+    <div class="right">
+      <div class="big">${escapeHtml(competencia)}</div>
+      <div><b>Emissão:</b> ${today}</div>
+      <div><b>Total:</b> ${summary.total} empresa${summary.total !== 1 ? 's' : ''}</div>
     </div>
   </div>
 
   <div class="cards">
-    <div class="card"><div class="label">Total empresas</div><div class="value">${summary.total}</div><div class="hint">no filtro atual</div></div>
-    <div class="card"><div class="label">Progresso médio</div><div class="value accent">${summary.avg}%</div><div class="hint">files + conciliação</div></div>
-    <div class="card"><div class="label">Concluídas</div><div class="value" style="color:#00d48a">${summary.concluidas}</div><div class="hint">100% do fechamento</div></div>
-    <div class="card"><div class="label">Em progresso parcial</div><div class="value">${summary.buckets['1-49%'] + summary.buckets['50-99%']}</div><div class="hint">entre 1% e 99%</div></div>
+    <div class="card" style="--ac:${accent}"><div class="label">Total empresas</div><div class="value">${summary.total}</div><div class="hint">no filtro atual</div></div>
+    <div class="card" style="--ac:#7C3AED"><div class="label">Progresso médio</div><div class="value" style="color:#a78bfa">${summary.avg}%</div><div class="hint">files + conciliação</div></div>
+    <div class="card" style="--ac:#00d48a"><div class="label">Concluídas</div><div class="value" style="color:#00d48a">${summary.concluidas}</div><div class="hint">100% do fechamento</div></div>
+    <div class="card" style="--ac:#60a5fa"><div class="label">Em progresso</div><div class="value" style="color:#60a5fa">${summary.buckets['1-49%'] + summary.buckets['50-99%']}</div><div class="hint">entre 1% e 99%</div></div>
   </div>
 
-  <div class="charts">
-    <div class="chart">
-      <h3>Distribuição por regime</h3>
-      ${regimeBars || '<div style="font-size:11px;color:#999">Sem dados</div>'}
+  <div class="body">
+    <div class="panel charts-wrap">
+      <div>
+        <h3>Distribuição por regime</h3>
+        ${regimeBars}
+      </div>
+      <div>
+        <h3>Faixas de progresso</h3>
+        ${bucketBars}
+      </div>
     </div>
-    <div class="chart">
-      <h3>Faixas de progresso</h3>
-      ${bucketBars}
+    <div class="panel table-panel">
+      <h3>Empresas — top ${top.length}${rest > 0 ? ` de ${filtered.length}` : ''}</h3>
+      <table>
+        <thead><tr><th style="width:90px">ID</th><th>Empresa</th><th style="width:200px">Responsável</th><th style="width:170px">Regime</th><th style="width:180px">Progresso</th></tr></thead>
+        <tbody>${tableRows || '<tr><td colspan="5" style="text-align:center;color:rgba(255,255,255,0.4);padding:30px">Nenhuma empresa</td></tr>'}</tbody>
+      </table>
+      ${rest > 0 ? `<div class="more">+${rest} empresa${rest !== 1 ? 's' : ''} não exibida${rest !== 1 ? 's' : ''} nesta apresentação</div>` : ''}
     </div>
   </div>
 
-  <div class="section-title">Empresas (${filtered.length})</div>
-  <table>
-    <thead><tr><th style="width:80px">ID</th><th>Empresa</th><th style="width:160px">Responsável</th><th style="width:140px">Regime</th><th style="width:170px">Progresso</th></tr></thead>
-    <tbody>${tableRows || '<tr><td colspan="5" style="text-align:center;color:#999;padding:24px">Nenhuma empresa</td></tr>'}</tbody>
-  </table>
-
-  <div class="footer">Relatório gerado em ${today} — Acompanhamento Contábil</div>
+  <div class="footer">
+    <span>${escapeHtml(title)} · Competência ${escapeHtml(competencia)}</span>
+    <span>Acompanhamento Contábil · Emitido em ${today}</span>
+  </div>
 </div>
-<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script>
+<script>window.addEventListener('load',function(){setTimeout(function(){window.focus();window.print();},300);});</script>
 </body></html>`;
 
-    const w = window.open('', '_blank');
-    w.document.write(html);
-    w.document.close();
+    openPrintWindow(html);
     setExportOpen(false);
   };
 
@@ -1680,7 +1757,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
   const openEdit = (c) => {
     setForm({
       codigo: c.codigo || '', nome: c.nome || '', responsavel: c.responsavel || '',
-      regime: c.regime || 'Simples Nacional', prioridade: c.prioridade || 'media',
+      regime: c.regime || 'Simples Nacional',
       prazo: c.prazo || '', observacoes: c.observacoes || '',
       particularidades: c.particularidades || '',
     });
@@ -1751,16 +1828,21 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
                     </svg>
                   </button>
                   {exportOpen && (
-                    <div style={{ position: 'absolute', right: 0, top: '110%', background: '#18181f', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '6px 0', zIndex: 200, minWidth: 150, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-                      <button onClick={handleExportExcel} style={{ display: 'block', width: '100%', background: 'none', border: 'none', color: '#eeede9', padding: '9px 16px', textAlign: 'left', fontSize: '0.84rem', cursor: 'pointer' }}
+                    <div style={{ position: 'absolute', right: 0, top: '110%', background: '#18181f', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '6px 0', zIndex: 200, minWidth: 220, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+                      <button onClick={handleExportExcel} style={{ display: 'block', width: '100%', background: 'none', border: 'none', color: '#eeede9', padding: '10px 18px', textAlign: 'left', fontSize: '0.84rem', cursor: 'pointer' }}
                         onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'none'}>
                         📊 Exportar Excel
                       </button>
-                      <button onClick={handleExportPDF} style={{ display: 'block', width: '100%', background: 'none', border: 'none', color: '#eeede9', padding: '9px 16px', textAlign: 'left', fontSize: '0.84rem', cursor: 'pointer' }}
+                      <button onClick={handleExportPDFPrint} style={{ display: 'block', width: '100%', background: 'none', border: 'none', color: '#eeede9', padding: '10px 18px', textAlign: 'left', fontSize: '0.84rem', cursor: 'pointer' }}
                         onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'none'}>
-                        🖨️ Exportar PDF
+                        🖨️ PDF para impressão
+                      </button>
+                      <button onClick={handleExportPDFPresentation} style={{ display: 'block', width: '100%', background: 'none', border: 'none', color: '#eeede9', padding: '10px 18px', textAlign: 'left', fontSize: '0.84rem', cursor: 'pointer' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'none'}>
+                        🖥️ PDF para apresentação
                       </button>
                     </div>
                   )}
@@ -1860,14 +1942,13 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
                   </th>
                   <th>Responsável</th>
                   <th>Regime</th>
-                  <th>Prioridade</th>
                   <th style={{ minWidth: 160 }}>Progresso</th>
                   <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={6} style={{ padding: '40px 28px', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
+                  <tr><td colSpan={5} style={{ padding: '40px 28px', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
                     {companies.length === 0
                       ? 'Nenhuma empresa cadastrada. Clique em "+ Nova empresa" para começar.'
                       : 'Nenhuma empresa corresponde aos filtros.'}
@@ -1891,7 +1972,6 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
                     </td>
                     <td style={{ color: 'rgba(255,255,255,0.8)' }}>{c.responsavel || <span style={{ color: 'rgba(255,255,255,0.35)' }}>—</span>}</td>
                     <td><span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)' }}>{c.regime}</span></td>
-                    <td><PriorityPill value={c.prioridade} /></td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ flex: 1 }}>
@@ -1928,11 +2008,6 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
             <Field label="Regime tributário">
               <select className="acc-select" value={form.regime} onChange={(e) => setForm({ ...form, regime: e.target.value })}>
                 {REGIMES.map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
-            </Field>
-            <Field label="Prioridade">
-              <select className="acc-select" value={form.prioridade} onChange={(e) => setForm({ ...form, prioridade: e.target.value })}>
-                <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
               </select>
             </Field>
             <Field label="Prazo"><input className="acc-input" type="date" value={form.prazo || ''} onChange={(e) => setForm({ ...form, prazo: e.target.value })} /></Field>
@@ -2075,7 +2150,6 @@ function ImportCompaniesModal({ tenantCompanyId, competencia, companies, onClose
           nome: r.nome,
           regime: r.regime,
           responsavel: r.responsavel,
-          prioridade: 'media',
           tasks: emptyTasks(),
         };
         if (r.action === 'update') payload.id = r.existingId;

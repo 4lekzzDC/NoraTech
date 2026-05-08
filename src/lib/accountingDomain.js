@@ -24,12 +24,6 @@ export const STATUS_ORDER = [
   'aguardando_revisao', 'concluido', 'atrasado',
 ];
 
-export const PRIORITY = {
-  alta:  { label: 'Alta',  fg: '#ff6b6b', bg: 'rgba(255,107,107,0.14)', bd: 'rgba(255,107,107,0.28)' },
-  media: { label: 'Média', fg: '#ff8a3d', bg: 'rgba(255,138,61,0.14)',  bd: 'rgba(255,138,61,0.28)'  },
-  baixa: { label: 'Baixa', fg: '#60a5fa', bg: 'rgba(37,99,235,0.14)',   bd: 'rgba(37,99,235,0.28)'   },
-};
-
 export const REGIMES = ['Simples Nacional', 'Lucro Presumido', 'Lucro Real', 'MEI'];
 
 export const RECON_CATEGORIES = [
