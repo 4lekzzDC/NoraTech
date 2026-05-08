@@ -364,15 +364,15 @@ function Field({ label, children }) {
 
 function Modal({ title, onClose, onSave, saving, width = 640, children }) {
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 100 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: width, background: '#101015', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, overflow: 'hidden', maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, overflow: 'auto', background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5vh 20px', zIndex: 120 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: width, margin: 'auto', background: '#101015', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,0.65)' }}>
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <h2 style={{ fontSize: '1.02rem', fontWeight: 700 }}>{title}</h2>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
         </div>
-        <div style={{ padding: '20px 22px', overflowY: 'auto' }}>{children}</div>
+        <div style={{ padding: '20px 22px', overflowY: 'auto', flex: 1, minHeight: 0 }}>{children}</div>
         {onSave && (
-          <div style={{ padding: '12px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <div style={{ padding: '12px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
             <button className="acc-btn" onClick={onClose} disabled={saving}>Cancelar</button>
             <button className="acc-btn primary" onClick={onSave} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</button>
           </div>
@@ -1138,9 +1138,9 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
 
   return (
     <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(4,4,8,0.82)', backdropFilter: 'blur(14px) saturate(0.85)', WebkitBackdropFilter: 'blur(14px) saturate(0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 90 }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 1100, background: '#101015', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column', boxShadow: '0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(124,58,237,0.08)' }}>
-          <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, overflow: 'auto', background: 'rgba(4,4,8,0.82)', backdropFilter: 'blur(14px) saturate(0.85)', WebkitBackdropFilter: 'blur(14px) saturate(0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5vh 20px', zIndex: 110 }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 1100, margin: 'auto', background: '#101015', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(124,58,237,0.08)' }}>
+          <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <h2 style={{ fontSize: '1.02rem', fontWeight: 700 }}>🏢 Empresas cadastradas</h2>
               <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)' }}>
@@ -1164,7 +1164,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
             </div>
           </div>
 
-          <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 170px 170px auto', gap: 10, alignItems: 'center' }}>
               <input className="acc-input" placeholder="Buscar por nome, código ou responsável" value={search} onChange={(e) => setSearch(e.target.value)} />
               <select className="acc-select" value={filterResp} onChange={(e) => setFilterResp(e.target.value)}>
@@ -1337,9 +1337,9 @@ function PendenciasModal({ competencia, companies, fileRecords, reconciliations,
   const totalRecons = groups.reduce((s, g) => s + g.pendingRecons.length, 0);
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(4,4,8,0.82)', backdropFilter: 'blur(14px) saturate(0.85)', WebkitBackdropFilter: 'blur(14px) saturate(0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 95 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 880, background: '#101015', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column', boxShadow: '0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,138,61,0.1)' }}>
-        <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, overflow: 'auto', background: 'rgba(4,4,8,0.82)', backdropFilter: 'blur(14px) saturate(0.85)', WebkitBackdropFilter: 'blur(14px) saturate(0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5vh 20px', zIndex: 115 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 880, margin: 'auto', background: '#101015', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,138,61,0.1)' }}>
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <h2 style={{ fontSize: '1.02rem', fontWeight: 700 }}>⚠ Pendências abertas</h2>
             <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)' }}>
@@ -1349,7 +1349,7 @@ function PendenciasModal({ competencia, companies, fileRecords, reconciliations,
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
         </div>
 
-        <div style={{ padding: '14px 22px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        <div style={{ padding: '14px 22px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, flexShrink: 0 }}>
           <CompactStat label="Empresas com pendência" value={groups.length} />
           <CompactStat label="Documentos pendentes" value={totalDocs} color="#ff8a3d" divider />
           <CompactStat label="Conciliações pendentes" value={totalRecons} color="#ff6b6b" divider />
