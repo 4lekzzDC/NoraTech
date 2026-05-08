@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -342,15 +342,93 @@ function PriorityPill({ value }) {
   return <span className="acc-pill" style={{ background: c.bg, color: c.fg, borderColor: c.bd }}>{c.label}</span>;
 }
 
-function ReconStatusSelect({ value, onChange }) {
-  const v = value || 'nao_iniciado';
-  const c = RECON_STATUS[v] || RECON_STATUS.nao_iniciado;
+function StatusDropdown({ value, onChange, options, statusMap }) {
+  const [open, setOpen] = useState(false);
+  const [dropUp, setDropUp] = useState(false);
+  const ref = useRef(null);
+  const v = value || options[0];
+  const c = statusMap[v] || statusMap[options[0]];
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const handleToggle = () => {
+    if (!open && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setDropUp(window.innerHeight - rect.bottom < 200);
+    }
+    setOpen((o) => !o);
+  };
+
   return (
-    <select value={v} onChange={(e) => onChange(e.target.value)} className="acc-select"
-      style={{ padding: '5px 8px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, background: c.bg, color: c.fg, borderColor: c.bd, minWidth: 140 }}>
-      {RECON_STATUS_ORDER.map((s) => <option key={s} value={s}>{RECON_STATUS[s].label}</option>)}
-    </select>
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block', minWidth: 148 }}>
+      <button
+        type="button"
+        onClick={handleToggle}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
+          padding: '5px 10px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6,
+          background: c.bg, color: c.fg, border: `1px solid ${c.bd}`,
+          borderRadius: 8, cursor: 'pointer', outline: 'none', userSelect: 'none',
+          transition: 'filter 0.15s, box-shadow 0.15s',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.18)'; e.currentTarget.style.boxShadow = `0 0 0 2px ${c.bd}`; }}
+        onMouseLeave={(e) => { e.currentTarget.style.filter = ''; e.currentTarget.style.boxShadow = ''; }}
+      >
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.fg, flexShrink: 0, opacity: 0.85 }} />
+          {c.label}
+        </span>
+        <svg width="10" height="10" viewBox="0 0 10 10" style={{ opacity: 0.6, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}>
+          <path d="M1.5 3.5 L5 7 L8.5 3.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute', [dropUp ? 'bottom' : 'top']: 'calc(100% + 6px)', left: 0,
+          minWidth: '100%', background: '#18181f', border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', zIndex: 200,
+          padding: '4px', overflow: 'hidden',
+        }}>
+          {options.map((s) => {
+            const sc = statusMap[s];
+            const selected = s === v;
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => { onChange(s); setOpen(false); }}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '7px 10px', fontSize: '0.7rem', fontWeight: 700,
+                  textTransform: 'uppercase', letterSpacing: 0.6,
+                  background: selected ? sc.bg : 'transparent',
+                  color: selected ? sc.fg : 'rgba(255,255,255,0.65)',
+                  border: 'none', borderRadius: 7, cursor: 'pointer', textAlign: 'left',
+                  transition: 'background 0.12s, color 0.12s',
+                }}
+                onMouseEnter={(e) => { if (!selected) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#fff'; } }}
+                onMouseLeave={(e) => { if (!selected) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.65)'; } }}
+              >
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: sc.fg, flexShrink: 0, opacity: selected ? 1 : 0.55 }} />
+                {sc.label}
+                {selected && <svg width="10" height="10" viewBox="0 0 10 10" style={{ marginLeft: 'auto', opacity: 0.8 }}><path d="M1.5 5 L4 7.5 L8.5 2.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
+}
+
+function ReconStatusSelect({ value, onChange }) {
+  return <StatusDropdown value={value} onChange={onChange} options={RECON_STATUS_ORDER} statusMap={RECON_STATUS} />;
 }
 
 function Field({ label, children }) {
