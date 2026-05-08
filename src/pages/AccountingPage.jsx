@@ -568,94 +568,9 @@ function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, re
         <Kpi label="Alertas ativos" value={dashMetrics.alertasAtivos} accent={dashMetrics.alertasAtivos > 0 ? '#ff6b6b' : '#00d48a'} />
       </div>
 
-      {/* Dois gráficos principais */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: chartFilter ? 12 : 28 }}>
-        {/* Gráfico 1: Situação dos arquivos */}
-        <Card style={{ padding: '22px 26px', display: 'flex', gap: 28, alignItems: 'center' }}>
-          <div style={{ position: 'relative', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-            <DonutChart
-              data={[
-                { value: dashMetrics.totalRecebidos, color: '#00d48a' },
-                { value: dashMetrics.totalCobrados,  color: '#fbbf24' },
-                { value: dashMetrics.totalPendentes,  color: 'rgba(255,255,255,0.08)' },
-              ]}
-              size={140} thickness={28}
-            />
-            <div style={{ position: 'absolute', textAlign: 'center', pointerEvents: 'none' }}>
-              <div style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: -0.8, color: '#eeede9', lineHeight: 1 }}>{dashMetrics.pctRecebido}%</div>
-              <div style={{ fontSize: '0.56rem', color: 'rgba(255,255,255,0.4)', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.8 }}>recebidos</div>
-            </div>
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.3, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 14 }}>
-              Situação da chegada de arquivos
-              <span style={{ marginLeft: 8, color: 'rgba(255,255,255,0.25)', fontWeight: 400, letterSpacing: 0 }}>clique para filtrar</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[
-                { status: 'recebido', color: '#00d48a', label: 'Recebidos', value: dashMetrics.totalRecebidos },
-                { status: 'cobrado',  color: '#fbbf24', label: 'Cobrados',  value: dashMetrics.totalCobrados },
-                { status: 'pendente', color: 'rgba(255,255,255,0.2)', label: 'Pendentes', value: dashMetrics.totalPendentes },
-              ].map(({ status, color, label, value }) => (
-                <LegendItem key={status} color={color} label={label} value={value}
-                  onClick={() => toggleFilter('arquivos', status)}
-                  active={chartFilter?.chart === 'arquivos' ? chartFilter.status === status : undefined}
-                />
-              ))}
-            </div>
-            <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>{dashMetrics.totalEsperado} docs esperados ({TASKS.length} × {dashMetrics.totalEmpresas} emp.)</div>
-              <ProgressBar pct={dashMetrics.pctRecebido} color="#00d48a" height={5} />
-            </div>
-          </div>
-        </Card>
-
-        {/* Gráfico 2: Situação da conciliação */}
-        <Card style={{ padding: '22px 26px', display: 'flex', gap: 28, alignItems: 'center' }}>
-          <div style={{ position: 'relative', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-            <DonutChart
-              data={[
-                { value: dashMetrics.reconConcluido,    color: '#00d48a' },
-                { value: dashMetrics.reconEmAndamento,   color: '#7C3AED' },
-                { value: dashMetrics.reconPendencia,     color: '#ff6b6b' },
-                { value: dashMetrics.reconNaoIniciado,   color: 'rgba(255,255,255,0.08)' },
-              ]}
-              size={140} thickness={28}
-            />
-            <div style={{ position: 'absolute', textAlign: 'center', pointerEvents: 'none' }}>
-              <div style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: -0.8, color: '#eeede9', lineHeight: 1 }}>{dashMetrics.reconPctGeral}%</div>
-              <div style={{ fontSize: '0.56rem', color: 'rgba(255,255,255,0.4)', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.8 }}>conciliado</div>
-            </div>
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.3, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 14 }}>
-              Situação da conciliação das empresas
-              <span style={{ marginLeft: 8, color: 'rgba(255,255,255,0.25)', fontWeight: 400, letterSpacing: 0 }}>clique para filtrar</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[
-                { status: 'conciliado',    color: '#00d48a', label: 'Conciliado',    value: dashMetrics.reconConcluido },
-                { status: 'em_andamento',  color: '#7C3AED', label: 'Em andamento',  value: dashMetrics.reconEmAndamento },
-                { status: 'pendencia',     color: '#ff6b6b', label: 'Pendência',     value: dashMetrics.reconPendencia },
-                { status: 'nao_iniciado',  color: 'rgba(255,255,255,0.2)', label: 'Não iniciado', value: dashMetrics.reconNaoIniciado },
-              ].map(({ status, color, label, value }) => (
-                <LegendItem key={status} color={color} label={label} value={value}
-                  onClick={() => toggleFilter('conciliacao', status)}
-                  active={chartFilter?.chart === 'conciliacao' ? chartFilter.status === status : undefined}
-                />
-              ))}
-            </div>
-            <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>{dashMetrics.reconTotal} categorias ({RECON_CATEGORIES.length} × {dashMetrics.totalEmpresas} emp.)</div>
-              <ProgressBar pct={dashMetrics.reconPctGeral} color="#00d48a" height={5} />
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Painel de detalhes do filtro */}
+      {/* Painel de detalhes do filtro (full width acima das colunas) */}
       {chartFilter && (
-        <Card style={{ padding: '16px 20px', marginBottom: 28, border: '1px solid rgba(255,255,255,0.1)' }}>
+        <Card style={{ padding: '16px 20px', marginBottom: 20, border: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: filterDetails.length > 0 ? 14 : 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ width: 10, height: 10, borderRadius: 3, background: chartFilter.chart === 'arquivos'
@@ -702,41 +617,129 @@ function DashboardTab({ tenantCompanyId, competencia, companies, fileRecords, re
         </Card>
       )}
 
-      {/* Seção Documentos — stats compactos */}
-      <div className="acc-section-eyebrow">Documentos</div>
-      <Card style={{ marginBottom: 28 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-          <CompactStat label="Esperado" value={dashMetrics.totalEsperado} hint={`${TASKS.length}×empresa`} />
-          <CompactStat label="Recebidos" value={dashMetrics.totalRecebidos} color="#00d48a" divider />
-          <CompactStat label="Cobrados" value={dashMetrics.totalCobrados} color="#fbbf24" divider />
-          <CompactStat label="Pendentes" value={dashMetrics.totalPendentes} color={dashMetrics.totalPendentes > 0 ? '#ff8a3d' : '#00d48a'} divider />
-        </div>
-        <div style={{ padding: '0 18px 14px' }}>
-          <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', display: 'flex', marginTop: 12 }}>
-            <div style={{ flex: dashMetrics.totalRecebidos, background: '#00d48a' }} />
-            <div style={{ flex: dashMetrics.totalCobrados, background: '#fbbf24' }} />
-            <div style={{ flex: dashMetrics.totalPendentes, background: 'rgba(255,255,255,0.08)' }} />
-          </div>
-        </div>
-      </Card>
+      {/* Duas colunas: esquerda = arquivos, direita = conciliação */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 18, marginBottom: 28 }}>
 
-      {/* Seção Conciliação — cards por categoria */}
-      <div className="acc-section-eyebrow">Conciliação por categoria</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 28 }}>
-        {dashMetrics.byCategory.map((cat) => (
-          <Card key={cat.id} style={{ padding: '14px 16px' }}>
-            <div style={{ fontSize: '0.64rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 6 }}>{cat.label}</div>
-            <div style={{ fontSize: '1.7rem', fontWeight: 800, color: cat.pct === 100 ? '#00d48a' : cat.pct > 0 ? '#7C3AED' : 'rgba(255,255,255,0.5)', letterSpacing: -0.8, marginBottom: 8 }}>
-              {cat.pct}%
+        {/* COLUNA ESQUERDA: arquivos / documentos */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <Card style={{ padding: '22px 24px', display: 'flex', gap: 22, alignItems: 'center' }}>
+            <div style={{ position: 'relative', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              <DonutChart
+                data={[
+                  { value: dashMetrics.totalRecebidos, color: '#00d48a' },
+                  { value: dashMetrics.totalCobrados,  color: '#fbbf24' },
+                  { value: dashMetrics.totalPendentes,  color: 'rgba(255,255,255,0.08)' },
+                ]}
+                size={130} thickness={26}
+              />
+              <div style={{ position: 'absolute', textAlign: 'center', pointerEvents: 'none' }}>
+                <div style={{ fontSize: '1.65rem', fontWeight: 800, letterSpacing: -0.8, color: '#eeede9', lineHeight: 1 }}>{dashMetrics.pctRecebido}%</div>
+                <div style={{ fontSize: '0.56rem', color: 'rgba(255,255,255,0.4)', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.8 }}>recebidos</div>
+              </div>
             </div>
-            <ProgressBar pct={cat.pct} color={cat.pct === 100 ? '#00d48a' : '#7C3AED'} />
-            <div style={{ display: 'flex', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
-              {cat.concluido > 0 && <span style={{ fontSize: '0.7rem', color: '#00d48a' }}>✓ {cat.concluido}</span>}
-              {cat.emAndamento > 0 && <span style={{ fontSize: '0.7rem', color: '#60a5fa' }}>◎ {cat.emAndamento}</span>}
-              {cat.pendencia > 0 && <span style={{ fontSize: '0.7rem', color: '#ff6b6b' }}>⚠ {cat.pendencia}</span>}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1.3, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 12 }}>
+                Situação da chegada de arquivos
+                <span style={{ marginLeft: 8, color: 'rgba(255,255,255,0.25)', fontWeight: 400, letterSpacing: 0 }}>clique para filtrar</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {[
+                  { status: 'recebido', color: '#00d48a', label: 'Recebidos', value: dashMetrics.totalRecebidos },
+                  { status: 'cobrado',  color: '#fbbf24', label: 'Cobrados',  value: dashMetrics.totalCobrados },
+                  { status: 'pendente', color: 'rgba(255,255,255,0.2)', label: 'Pendentes', value: dashMetrics.totalPendentes },
+                ].map(({ status, color, label, value }) => (
+                  <LegendItem key={status} color={color} label={label} value={value}
+                    onClick={() => toggleFilter('arquivos', status)}
+                    active={chartFilter?.chart === 'arquivos' ? chartFilter.status === status : undefined}
+                  />
+                ))}
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>{dashMetrics.totalEsperado} docs ({TASKS.length} × {dashMetrics.totalEmpresas} emp.)</div>
+                <ProgressBar pct={dashMetrics.pctRecebido} color="#00d48a" height={4} />
+              </div>
             </div>
           </Card>
-        ))}
+
+          <div className="acc-section-eyebrow" style={{ marginBottom: 0 }}>Documentos</div>
+          <Card>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              <CompactStat label="Esperado" value={dashMetrics.totalEsperado} hint={`${TASKS.length}×emp`} />
+              <CompactStat label="Recebidos" value={dashMetrics.totalRecebidos} color="#00d48a" divider />
+              <CompactStat label="Cobrados" value={dashMetrics.totalCobrados} color="#fbbf24" divider />
+              <CompactStat label="Pendentes" value={dashMetrics.totalPendentes} color={dashMetrics.totalPendentes > 0 ? '#ff8a3d' : '#00d48a'} divider />
+            </div>
+            <div style={{ padding: '0 16px 14px' }}>
+              <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', display: 'flex', marginTop: 12 }}>
+                <div style={{ flex: dashMetrics.totalRecebidos, background: '#00d48a' }} />
+                <div style={{ flex: dashMetrics.totalCobrados, background: '#fbbf24' }} />
+                <div style={{ flex: dashMetrics.totalPendentes, background: 'rgba(255,255,255,0.08)' }} />
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* COLUNA DIREITA: conciliação / categorias */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <Card style={{ padding: '22px 24px', display: 'flex', gap: 22, alignItems: 'center' }}>
+            <div style={{ position: 'relative', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              <DonutChart
+                data={[
+                  { value: dashMetrics.reconConcluido,    color: '#00d48a' },
+                  { value: dashMetrics.reconEmAndamento,   color: '#7C3AED' },
+                  { value: dashMetrics.reconPendencia,     color: '#ff6b6b' },
+                  { value: dashMetrics.reconNaoIniciado,   color: 'rgba(255,255,255,0.08)' },
+                ]}
+                size={130} thickness={26}
+              />
+              <div style={{ position: 'absolute', textAlign: 'center', pointerEvents: 'none' }}>
+                <div style={{ fontSize: '1.65rem', fontWeight: 800, letterSpacing: -0.8, color: '#eeede9', lineHeight: 1 }}>{dashMetrics.reconPctGeral}%</div>
+                <div style={{ fontSize: '0.56rem', color: 'rgba(255,255,255,0.4)', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.8 }}>conciliado</div>
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1.3, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 12 }}>
+                Situação da conciliação das empresas
+                <span style={{ marginLeft: 8, color: 'rgba(255,255,255,0.25)', fontWeight: 400, letterSpacing: 0 }}>clique para filtrar</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {[
+                  { status: 'conciliado',    color: '#00d48a', label: 'Conciliado',    value: dashMetrics.reconConcluido },
+                  { status: 'em_andamento',  color: '#7C3AED', label: 'Em andamento',  value: dashMetrics.reconEmAndamento },
+                  { status: 'pendencia',     color: '#ff6b6b', label: 'Pendência',     value: dashMetrics.reconPendencia },
+                  { status: 'nao_iniciado',  color: 'rgba(255,255,255,0.2)', label: 'Não iniciado', value: dashMetrics.reconNaoIniciado },
+                ].map(({ status, color, label, value }) => (
+                  <LegendItem key={status} color={color} label={label} value={value}
+                    onClick={() => toggleFilter('conciliacao', status)}
+                    active={chartFilter?.chart === 'conciliacao' ? chartFilter.status === status : undefined}
+                  />
+                ))}
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>{dashMetrics.reconTotal} cat. ({RECON_CATEGORIES.length} × {dashMetrics.totalEmpresas} emp.)</div>
+                <ProgressBar pct={dashMetrics.reconPctGeral} color="#00d48a" height={4} />
+              </div>
+            </div>
+          </Card>
+
+          <div className="acc-section-eyebrow" style={{ marginBottom: 0 }}>Conciliação por categoria</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+            {dashMetrics.byCategory.map((cat) => (
+              <Card key={cat.id} style={{ padding: '12px 14px' }}>
+                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 6 }}>{cat.label}</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: cat.pct === 100 ? '#00d48a' : cat.pct > 0 ? '#7C3AED' : 'rgba(255,255,255,0.5)', letterSpacing: -0.8, marginBottom: 8 }}>
+                  {cat.pct}%
+                </div>
+                <ProgressBar pct={cat.pct} color={cat.pct === 100 ? '#00d48a' : '#7C3AED'} />
+                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                  {cat.concluido > 0 && <span style={{ fontSize: '0.68rem', color: '#00d48a' }}>✓ {cat.concluido}</span>}
+                  {cat.emAndamento > 0 && <span style={{ fontSize: '0.68rem', color: '#60a5fa' }}>◎ {cat.emAndamento}</span>}
+                  {cat.pendencia > 0 && <span style={{ fontSize: '0.68rem', color: '#ff6b6b' }}>⚠ {cat.pendencia}</span>}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Tabela de empresas */}
