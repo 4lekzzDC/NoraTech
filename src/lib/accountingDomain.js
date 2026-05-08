@@ -50,6 +50,7 @@ export const RECON_STATUS_ORDER = ['nao_iniciado', 'em_andamento', 'conciliado',
 
 export function currentCompetencia() {
   const d = new Date();
+  d.setMonth(d.getMonth() - 1);
   return `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
 
