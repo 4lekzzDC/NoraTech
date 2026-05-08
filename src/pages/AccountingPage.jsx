@@ -764,6 +764,20 @@ function StackedBar({ data, height = 10 }) {
   );
 }
 
+// Derives a single status for a company from its actual fileRecords + reconciliations data.
+// Priority: atrasado > concluido > aguardando_cliente > em_andamento > nao_iniciado
+function deriveStatusGeral(company, compFiles, compRecons) {
+  if (isDelayed(company)) return 'atrasado';
+  const filesReceived = compFiles.filter((r) => getFileStatus(r) === 'recebido').length;
+  const reconDone = compRecons.filter((r) => r.status === 'conciliado').length;
+  if (filesReceived === TASKS.length && reconDone === RECON_CATEGORIES.length) return 'concluido';
+  if (compFiles.some((r) => getFileStatus(r) === 'cobrado')) return 'aguardando_cliente';
+  const hasProgress = compFiles.some((r) => getFileStatus(r) !== 'pendente')
+    || compRecons.some((r) => r.status !== 'nao_iniciado');
+  if (hasProgress) return 'em_andamento';
+  return 'nao_iniciado';
+}
+
 // Computes per-company progress from file records and reconciliations.
 function companyProgress(companyId, fileRecords, reconciliations) {
   const files = fileRecords.filter((r) => r.accounting_company_id === companyId);
@@ -854,10 +868,15 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
     const reconAbertos = Math.max(0, reconTotal - reconConcluido);
     const pendenciasAbertas = docsAbertos + reconAbertos;
 
-    const qtdConcluidas     = filtered.filter((c) => c.status === 'concluido').length;
-    const qtdEmAndamento    = filtered.filter((c) => c.status === 'em_andamento').length;
-    const qtdAguardando     = filtered.filter((c) => c.status === 'aguardando_cliente').length;
-    const qtdAtrasadas      = filtered.filter((c) => c.status === 'atrasado').length;
+    const statusGeral = filtered.map((c) => {
+      const cFiles = fRecs.filter((r) => r.accounting_company_id === c.id);
+      const cRecons = recs.filter((r) => r.accounting_company_id === c.id);
+      return deriveStatusGeral(c, cFiles, cRecons);
+    });
+    const qtdConcluidas  = statusGeral.filter((s) => s === 'concluido').length;
+    const qtdEmAndamento = statusGeral.filter((s) => s === 'em_andamento').length;
+    const qtdAguardando  = statusGeral.filter((s) => s === 'aguardando_cliente').length;
+    const qtdAtrasadas   = statusGeral.filter((s) => s === 'atrasado').length;
 
     return {
       totalEmpresas, totalEsperado, totalRecebidos, totalCobrados, totalPendentes, pctRecebido,
@@ -1397,11 +1416,19 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
 
   const filtered = useMemo(() => {
     const list = companies
-      .map((c) => ({ ...c, progress: companyProgress(c.id, fileRecords, reconciliations) }))
+      .map((c) => {
+        const cFiles = fileRecords.filter((r) => r.accounting_company_id === c.id);
+        const cRecons = reconciliations.filter((r) => r.accounting_company_id === c.id);
+        return {
+          ...c,
+          progress: companyProgress(c.id, fileRecords, reconciliations),
+          statusGeral: deriveStatusGeral(c, cFiles, cRecons),
+        };
+      })
       .filter((c) => {
         if (filterResp && c.responsavel !== filterResp) return false;
         if (filterRegime && c.regime !== filterRegime) return false;
-        if (filterStatus && c.status !== filterStatus) return false;
+        if (filterStatus && c.statusGeral !== filterStatus) return false;
         if (onlyCompleted && c.progress !== 100) return false;
         if (search) {
           const q = search.toLowerCase();
