@@ -240,14 +240,32 @@ export default function AccountingPage() {
       {/* Header */}
       <header style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(8,8,10,0.94)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
 
-        {/* Faixa 1 — global (igual à AreaDoCliente) */}
-        <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', maxWidth: 1380, margin: '0 auto', padding: '0 32px', height: 68, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20, minWidth: 0 }}>
+        {/* Faixa 1 — global: home + NORATECH (esq) | atualização (centro) | admin + avatar (dir) */}
+        <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', maxWidth: 1380, margin: '0 auto', padding: '0 32px', height: 68, display: 'flex', alignItems: 'center', gap: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flexShrink: 0 }}>
+            <Link to="/area-do-cliente" title="Central de Controle" aria-label="Central de Controle" style={{ color: 'rgba(255,255,255,0.45)', textDecoration: 'none', display: 'flex', alignItems: 'center', transition: 'color 0.2s' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.85)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
+                <polyline points="9 21 9 12 15 12 15 21" />
+              </svg>
+            </Link>
+            <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '0.9rem' }}>/</span>
             <Link to="/" style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '0.95rem', color: '#7C3AED', letterSpacing: -0.5, flexShrink: 0 }}>
               NORA<span style={{ color: 'rgba(255,255,255,0.3)' }}>TECH</span>
             </Link>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {/* Centro — Atualizado em */}
+          <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
+            {lastUpdated && (
+              <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap' }}>
+                Atualizado em {lastUpdated.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
             {isAdmin && (
               <Link to="/admin" style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid rgba(124,58,237,0.35)', background: 'rgba(124,58,237,0.08)', color: '#a78bfa', fontSize: '0.78rem', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', textDecoration: 'none', transition: 'all 0.2s' }}>
                 ⚙ Admin
@@ -316,28 +334,21 @@ export default function AccountingPage() {
           </div>
         </div>
 
-        {/* Faixa 2 — módulo: breadcrumb (esq) + atualização (centro) + controles (dir) */}
-        <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', maxWidth: 1380, margin: '0 auto', padding: '0 32px', height: 52, display: 'flex', alignItems: 'center', gap: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flexShrink: 0 }}>
-            <Link to="/area-do-cliente" title="Central de Controle" aria-label="Central de Controle" style={{ color: 'rgba(255,255,255,0.4)', textDecoration: 'none', display: 'flex', alignItems: 'center', transition: 'color 0.2s' }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
-                <polyline points="9 21 9 12 15 12 15 21" />
-              </svg>
-            </Link>
-            <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '0.9rem' }}>/</span>
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#eeede9', whiteSpace: 'nowrap' }}>Acompanhamento contábil</span>
-          </div>
-          {lastUpdated && (
-            <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
-              <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.32)', whiteSpace: 'nowrap' }}>
-                Atualizado em {lastUpdated.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-              </span>
-            </div>
-          )}
+        {/* Faixa 2 — abas (esq) + Competência/Empresas (dir) */}
+        <div style={{ maxWidth: 1380, margin: '0 auto', padding: '0 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+          <nav style={{ display: 'flex', gap: 32 }}>
+            {TABS.map((t) => {
+              const active = activeTab === t.id;
+              return (
+                <button key={t.id} className="acc-tab" onClick={() => setActiveTab(t.id)}
+                  style={{ color: active ? '#7C3AED' : 'rgba(255,255,255,0.45)', fontSize: '0.88rem', fontWeight: active ? 700 : 500, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem', color: active ? 'rgba(124,58,237,0.6)' : 'rgba(255,255,255,0.25)' }}>{t.num}</span>
+                  {t.label}
+                  {active && <span style={{ position: 'absolute', left: 0, right: 0, bottom: -1, height: 2, background: '#7C3AED', borderRadius: 2 }} />}
+                </button>
+              );
+            })}
+          </nav>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Competência</span>
@@ -354,21 +365,6 @@ export default function AccountingPage() {
             </button>
           </div>
         </div>
-
-        {/* Faixa 3 — abas */}
-        <nav style={{ maxWidth: 1380, margin: '0 auto', padding: '0 32px', display: 'flex', gap: 32, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-          {TABS.map((t) => {
-            const active = activeTab === t.id;
-            return (
-              <button key={t.id} className="acc-tab" onClick={() => setActiveTab(t.id)}
-                style={{ color: active ? '#7C3AED' : 'rgba(255,255,255,0.45)', fontSize: '0.88rem', fontWeight: active ? 700 : 500, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem', color: active ? 'rgba(124,58,237,0.6)' : 'rgba(255,255,255,0.25)' }}>{t.num}</span>
-                {t.label}
-                {active && <span style={{ position: 'absolute', left: 0, right: 0, bottom: -1, height: 2, background: '#7C3AED', borderRadius: 2 }} />}
-              </button>
-            );
-          })}
-        </nav>
       </header>
 
       <main style={{ maxWidth: 1380, margin: '0 auto', padding: '24px 32px 80px' }}>
