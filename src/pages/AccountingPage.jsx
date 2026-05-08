@@ -47,6 +47,7 @@ export default function AccountingPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [companiesOpen, setCompaniesOpen] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -71,6 +72,7 @@ export default function AccountingPage() {
       ]);
       setFileRecords(files);
       setReconciliations(recons);
+      setLastUpdated(new Date());
     } catch (e) {
       setErrorMsg(e.message || 'Falha ao carregar dados.');
     } finally {
@@ -180,6 +182,7 @@ export default function AccountingPage() {
                 companies={companies}
                 fileRecords={fileRecords}
                 reconciliations={reconciliations}
+                lastUpdated={lastUpdated}
               />
             )}
             {activeTab === 'arquivos' && (
@@ -428,7 +431,7 @@ const EMPTY_FORM = {
   prazo: '', observacoes: '', particularidades: '',
 };
 
-function DashboardTab({ competencia, companies, fileRecords, reconciliations }) {
+function DashboardTab({ competencia, companies, fileRecords, reconciliations, lastUpdated }) {
   const [search, setSearch] = useState('');
   const [filterResp, setFilterResp] = useState('');
   const [filterPrio, setFilterPrio] = useState('');
@@ -533,6 +536,11 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations }) 
     <>
       {/* Barra de filtros globais */}
       <Card style={{ padding: 12, marginBottom: 18 }}>
+        {lastUpdated && (
+          <div style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.3)', textAlign: 'right', marginBottom: 8 }}>
+            Última atualização: {lastUpdated.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px 200px auto', gap: 10, alignItems: 'center' }}>
           <input
             className="acc-input"
@@ -565,7 +573,7 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations }) 
           label="Pendências abertas"
           value={dashMetrics.pendenciasAbertas}
           accent={dashMetrics.pendenciasAbertas > 0 ? '#ff8a3d' : '#00d48a'}
-          hint={`${dashMetrics.docsAbertos} docs · ${dashMetrics.reconAbertos} concil.`}
+          hint={`${dashMetrics.docsAbertos} documentos + ${dashMetrics.reconAbertos} conciliações`}
         />
       </div>
 
@@ -724,7 +732,7 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations }) 
           </Card>
 
           <div className="acc-section-eyebrow" style={{ marginBottom: 0 }}>Conciliação por categoria</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
             {dashMetrics.byCategory.map((cat) => (
               <Card key={cat.id} style={{ padding: '12px 14px' }}>
                 <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 6 }}>{cat.label}</div>
