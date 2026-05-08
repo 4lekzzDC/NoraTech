@@ -402,3 +402,104 @@ html[data-theme="light"] .system-card:hover {
 
 /* AdminLayout — botão sair (fora do .danger genérico) */
 html[data-theme="light"] [style*="rgb(238, 237, 233)"]:not(button) { color: #18181b !important; }
+
+/* AdminLayout — link Área do Cliente */
+html[data-theme="light"] .admin-back-link {
+  color: rgba(24, 24, 27, 0.52) !important;
+}
+html[data-theme="light"] .admin-back-link:hover {
+  background: rgba(124, 58, 237, 0.06) !important;
+  color: #7C3AED !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ADMIN MODAIS — light mode
+   Fundo escuro #101015 → branco; bordas e textos adaptados.
+   ═══════════════════════════════════════════════════════════ */
+html[data-theme="light"] .admin-modal-overlay {
+  background: rgba(0, 0, 0, 0.35) !important;
+}
+html[data-theme="light"] .admin-modal-content {
+  background: #ffffff !important;
+  border-color: rgba(124, 58, 237, 0.14) !important;
+  box-shadow:
+    0 0 0 1px rgba(124, 58, 237, 0.06),
+    0 24px 48px -12px rgba(80, 50, 150, 0.18),
+    0 8px 20px -6px rgba(0, 0, 0, 0.10) !important;
+  color: #18181b !important;
+}
+html[data-theme="light"] .admin-modal-header {
+  border-bottom-color: rgba(124, 58, 237, 0.10) !important;
+  background: rgba(248, 246, 255, 0.6) !important;
+}
+html[data-theme="light"] .admin-modal-header h2 {
+  color: #18181b !important;
+}
+html[data-theme="light"] .admin-modal-close {
+  color: rgba(24, 24, 27, 0.40) !important;
+}
+html[data-theme="light"] .admin-modal-close:hover {
+  color: #18181b !important;
+}
+html[data-theme="light"] .admin-modal-body {
+  background: #ffffff !important;
+  color: #18181b !important;
+}
+html[data-theme="light"] .admin-modal-footer {
+  border-top-color: rgba(124, 58, 237, 0.10) !important;
+  background: rgba(248, 246, 255, 0.6) !important;
+}
+/* Textos internos dos modais */
+html[data-theme="light"] .admin-modal-body .admin-input,
+html[data-theme="light"] .admin-modal-body .admin-select {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(124, 58, 237, 0.18) !important;
+  color: #18181b !important;
+}
+html[data-theme="light"] .admin-modal-body .admin-input:focus,
+html[data-theme="light"] .admin-modal-body .admin-select:focus {
+  background: #ffffff !important;
+  border-color: #7C3AED !important;
+}
+html[data-theme="light"] .admin-modal-body .admin-input::placeholder {
+  color: rgba(24, 24, 27, 0.38) !important;
+}
+html[data-theme="light"] .admin-modal-body .admin-select option {
+  background: #ffffff !important;
+  color: #18181b !important;
+}
+/* Labels e textos de meta dentro dos modais */
+html[data-theme="light"] .admin-modal-body [style*="rgba(255, 255, 255, 0.5)"],
+html[data-theme="light"] .admin-modal-body [style*="rgba(255,255,255,0.5)"],
+html[data-theme="light"] .admin-modal-body [style*="rgba(255, 255, 255, 0.4)"],
+html[data-theme="light"] .admin-modal-body [style*="rgba(255,255,255,0.4)"],
+html[data-theme="light"] .admin-modal-body [style*="rgba(255, 255, 255, 0.45)"],
+html[data-theme="light"] .admin-modal-body [style*="rgba(255,255,255,0.45)"] {
+  color: rgba(24, 24, 27, 0.52) !important;
+}
+html[data-theme="light"] .admin-modal-body [style*="rgba(255, 255, 255, 0.7)"],
+html[data-theme="light"] .admin-modal-body [style*="rgba(255,255,255,0.7)"],
+html[data-theme="light"] .admin-modal-body [style*="rgba(255, 255, 255, 0.75)"],
+html[data-theme="light"] .admin-modal-body [style*="rgba(255,255,255,0.75)"] {
+  color: rgba(24, 24, 27, 0.82) !important;
+}
+/* Textos monospace (IDs) */
+html[data-theme="light"] .admin-modal-body [style*="monospace"] {
+  color: rgba(24, 24, 27, 0.60) !important;
+  background: rgba(124, 58, 237, 0.05) !important;
+}
+/* Campo de erro dentro dos modais */
+html[data-theme="light"] .admin-modal-body [style*="rgba(255, 107, 107, 0.08)"],
+html[data-theme="light"] .admin-modal-body [style*="rgba(255,107,107,0.08)"] {
+  background: rgba(220, 38, 38, 0.07) !important;
+  border-color: rgba(220, 38, 38, 0.22) !important;
+  color: #dc2626 !important;
+}
+/* Avatares/ícones de role no modal de usuários */
+html[data-theme="light"] .admin-modal-body [style*="rgba(124, 58, 237, 0.15)"],
+html[data-theme="light"] .admin-modal-body [style*="rgba(124,58,237,0.15)"] {
+  background: rgba(124, 58, 237, 0.12) !important;
+}
+html[data-theme="light"] .admin-modal-body [style*="rgba(255, 255, 255, 0.05)"] {
+  background: rgba(24, 24, 27, 0.06) !important;
+}

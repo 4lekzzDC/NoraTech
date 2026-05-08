@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import ThemeToggle from './ThemeToggle';
 
@@ -84,6 +84,7 @@ export default function AdminLayout({ title, subtitle, actions, children }) {
           font-size: 0.7rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
           border: 1px solid transparent;
         }
+        .admin-back-link:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.75) !important; }
         @media (max-width: 920px) {
           .admin-sidebar { position: fixed; inset: 0 auto 0 0; transform: translateX(-100%); z-index: 50; }
           .admin-sidebar.open { transform: translateX(0); }
@@ -138,6 +139,22 @@ export default function AdminLayout({ title, subtitle, actions, children }) {
         </nav>
 
         <div style={{ marginTop: 'auto', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 14 }}>
+          <Link
+            to="/area-do-cliente"
+            className="admin-back-link"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '9px 14px', borderRadius: 10, marginBottom: 8,
+              color: 'rgba(255,255,255,0.45)', textDecoration: 'none',
+              fontSize: '0.85rem', fontWeight: 500,
+              transition: 'background 0.18s, color 0.18s',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10.5 19L3.5 12M3.5 12L10.5 5M3.5 12H20.5" />
+            </svg>
+            Área do Cliente
+          </Link>
           <div style={{ padding: '8px 10px', fontSize: '0.75rem', color: 'rgba(255,255,255,0.55)' }}>
             <div style={{ fontWeight: 600, color: '#eeede9' }}>{user?.name || user?.email}</div>
             <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{user?.email}</div>
@@ -225,6 +242,7 @@ export function Modal({ open, onClose, title, children, footer, width = 520 }) {
   if (!open) return null;
   return (
     <div
+      className="admin-modal-overlay"
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
@@ -233,6 +251,7 @@ export function Modal({ open, onClose, title, children, footer, width = 520 }) {
       }}
     >
       <div
+        className="admin-modal-content"
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%', maxWidth: width,
@@ -241,15 +260,15 @@ export function Modal({ open, onClose, title, children, footer, width = 520 }) {
           maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column',
         }}
       >
-        <div style={{ padding: '18px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="admin-modal-header" style={{ padding: '18px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h2 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>{title}</h2>
-          <button onClick={onClose} aria-label="Fechar" style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
+          <button onClick={onClose} aria-label="Fechar" className="admin-modal-close" style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
         </div>
-        <div style={{ padding: '20px 22px', overflowY: 'auto' }}>
+        <div className="admin-modal-body" style={{ padding: '20px 22px', overflowY: 'auto' }}>
           {children}
         </div>
         {footer && (
-          <div style={{ padding: '14px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <div className="admin-modal-footer" style={{ padding: '14px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
             {footer}
           </div>
         )}
