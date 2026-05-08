@@ -434,7 +434,7 @@ function companyProgress(companyId, fileRecords, reconciliations) {
 // =============================================================================
 
 const EMPTY_FORM = {
-  nome: '', responsavel: '', regime: 'Simples Nacional', prioridade: 'media',
+  codigo: '', nome: '', responsavel: '', regime: 'Simples Nacional', prioridade: 'media',
   prazo: '', observacoes: '', particularidades: '',
 };
 
@@ -457,7 +457,7 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations }) 
     if (filterPrio && c.prioridade !== filterPrio) return false;
     if (search) {
       const q = search.toLowerCase();
-      if (!c.nome?.toLowerCase().includes(q) && !c.responsavel?.toLowerCase().includes(q)) return false;
+      if (!c.nome?.toLowerCase().includes(q) && !c.responsavel?.toLowerCase().includes(q) && !c.codigo?.toLowerCase().includes(q)) return false;
     }
     return true;
   }), [companies, filterResp, filterPrio, search]);
@@ -820,7 +820,9 @@ function CompanyDrawer({ company, fileRecords, reconciliations, competencia, onC
         {/* Header */}
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div>
-            <div style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1.4, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 4 }}>Empresa</div>
+            <div style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1.4, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 4 }}>
+              Empresa{company.codigo && <span style={{ marginLeft: 8, fontFamily: "'JetBrains Mono', monospace", color: '#7C3AED', letterSpacing: 0, fontWeight: 600 }}>#{company.codigo}</span>}
+            </div>
             <h2 style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: -0.3, marginBottom: 6 }}>{company.nome}</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <PriorityPill value={company.prioridade} />
@@ -837,6 +839,7 @@ function CompanyDrawer({ company, fileRecords, reconciliations, competencia, onC
           {/* Informações */}
           <DrawerSection title="Informações">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {company.codigo && <InfoItem label="Código / ID" value={`#${company.codigo}`} accent="#7C3AED" />}
               <InfoItem label="Responsável" value={company.responsavel} />
               <InfoItem label="Regime" value={company.regime} />
               <InfoItem label="Competência" value={competencia} />
@@ -1016,11 +1019,10 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
       if (filterPrio && c.prioridade !== filterPrio) return false;
       if (search) {
         const q = search.toLowerCase();
-        const codigo = (c.id || '').toString().toLowerCase();
         if (
           !c.nome?.toLowerCase().includes(q) &&
           !c.responsavel?.toLowerCase().includes(q) &&
-          !codigo.includes(q)
+          !c.codigo?.toLowerCase().includes(q)
         ) return false;
       }
       return true;
@@ -1032,7 +1034,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
   const openCreate = () => { setForm({ ...EMPTY_FORM }); setEditing('new'); };
   const openEdit = (c) => {
     setForm({
-      nome: c.nome || '', responsavel: c.responsavel || '',
+      codigo: c.codigo || '', nome: c.nome || '', responsavel: c.responsavel || '',
       regime: c.regime || 'Simples Nacional', prioridade: c.prioridade || 'media',
       prazo: c.prazo || '', observacoes: c.observacoes || '',
       particularidades: c.particularidades || '',
@@ -1046,6 +1048,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
     try {
       const payload = {
         ...form,
+        codigo: form.codigo?.trim() || null,
         tenant_company_id: tenantCompanyId,
         competencia,
         prazo: form.prazo || null,
@@ -1101,6 +1104,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
             <table className="acc-table">
               <thead>
                 <tr>
+                  <th style={{ minWidth: 80 }}>ID</th>
                   <th style={{ minWidth: 220 }}>Empresa</th>
                   <th>Responsável</th>
                   <th>Regime</th>
@@ -1119,6 +1123,12 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
                 )}
                 {filtered.map((c) => (
                   <tr key={c.id}>
+                    <td>
+                      {c.codigo
+                        ? <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.78rem', fontWeight: 600, color: '#7C3AED' }}>#{c.codigo}</span>
+                        : <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.78rem' }}>—</span>
+                      }
+                    </td>
                     <td>
                       <div style={{ fontWeight: 700, color: '#eeede9' }}>{c.nome}</div>
                       {c.prazo && (
@@ -1158,6 +1168,9 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
       {editing !== null && (
         <Modal title={editing === 'new' ? 'Nova empresa' : 'Editar empresa'} onClose={closeEdit} onSave={save} saving={saving}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            <Field label="Código / ID">
+              <input className="acc-input" value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} placeholder="Ex.: 001, CLI-42" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
+            </Field>
             <Field label="Empresa"><input className="acc-input" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></Field>
             <Field label="Responsável"><input className="acc-input" value={form.responsavel} onChange={(e) => setForm({ ...form, responsavel: e.target.value })} /></Field>
             <Field label="Regime tributário">
