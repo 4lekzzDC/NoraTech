@@ -367,29 +367,21 @@ function SystemsGrid({ systems, isAdmin }) {
 }
 
 function StatusGauge({ count = 0 }) {
-  const size = 150;
-  const stroke = 4;
+  const size = 96;
+  const stroke = 3.5;
   const radius = (size - stroke) / 2;
   const active = count > 0;
   return (
-    <div style={{ position: 'relative', width: size, height: size }}>
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
       <svg width={size} height={size}>
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={active ? 'rgba(0,212,138,0.35)' : 'rgba(255,255,255,0.08)'}
-          strokeWidth={stroke}
-          strokeDasharray={active ? '0' : '4 8'}
-        />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={active ? 'rgba(0,212,138,0.3)' : 'rgba(255,255,255,0.08)'} strokeWidth={stroke} strokeDasharray={active ? '0' : '4 8'} />
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ fontSize: active ? '2.4rem' : '2.2rem', fontWeight: 800, color: active ? '#00d48a' : 'rgba(255,255,255,0.25)', letterSpacing: -1.5, lineHeight: 1 }}>
+        <div style={{ fontSize: active ? '1.7rem' : '1.5rem', fontWeight: 800, color: active ? '#00d48a' : 'rgba(255,255,255,0.25)', letterSpacing: -1, lineHeight: 1 }}>
           {active ? count : '—'}
         </div>
-        <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 1.4, color: active ? 'rgba(0,212,138,0.7)' : 'rgba(255,255,255,0.35)', marginTop: 6, textTransform: 'uppercase' }}>
-          {active ? (count === 1 ? 'Sistema ativo' : 'Sistemas ativos') : 'Sem operação'}
+        <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: 1.2, color: active ? 'rgba(0,212,138,0.65)' : 'rgba(255,255,255,0.3)', marginTop: 4, textTransform: 'uppercase' }}>
+          {active ? (count === 1 ? 'sistema' : 'sistemas') : 'nenhum'}
         </div>
       </div>
     </div>
@@ -598,32 +590,38 @@ export default function AreaDoClientePage() {
 
         {activeTab === 'cockpit' && (
           <>
-            {/* Hero row: gauge + greeting (compact) */}
-            <section style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 32, marginBottom: 36, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                <StatusGauge count={systems.length} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', color: systems.length > 0 ? 'rgba(0,212,138,0.85)' : 'rgba(255,255,255,0.4)' }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: systems.length > 0 ? '#00d48a' : 'rgba(255,255,255,0.25)', boxShadow: systems.length > 0 ? '0 0 10px rgba(0,212,138,0.6)' : 'none' }} className={systems.length > 0 ? 'live-dot' : ''} />
+            {/* Hero banner */}
+            <section style={{ display: 'flex', alignItems: 'center', gap: 24, padding: '20px 28px', marginBottom: 36, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }}>
+              <StatusGauge count={systems.length} />
+
+              {/* Divider */}
+              <div style={{ width: 1, alignSelf: 'stretch', background: 'rgba(255,255,255,0.07)', flexShrink: 0 }} />
+
+              {/* Greeting + meta */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h1 style={{ fontSize: '1.45rem', fontWeight: 800, letterSpacing: -0.6, lineHeight: 1.15, marginBottom: 4 }}>
+                  Olá, <span style={{ color: '#7C3AED' }}>{firstName}</span>
+                </h1>
+                <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.45)', lineHeight: 1.45, marginBottom: 14 }}>
+                  {systems.length > 0
+                    ? 'Sua central está ativa. Acompanhe seus sistemas, membros e operações em tempo real.'
+                    : 'Sua Central de Controle ainda não tem sistemas ativos. Quando você contratar um serviço, a operação aparece aqui.'}
+                </p>
+                {/* Pills row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: systems.length > 0 ? 'rgba(0,212,138,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${systems.length > 0 ? 'rgba(0,212,138,0.25)' : 'rgba(255,255,255,0.1)'}`, fontSize: '0.71rem', fontWeight: 700, letterSpacing: 0.8, color: systems.length > 0 ? '#00d48a' : 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: systems.length > 0 ? '#00d48a' : 'rgba(255,255,255,0.25)', boxShadow: systems.length > 0 ? '0 0 8px rgba(0,212,138,0.55)' : 'none' }} className={systems.length > 0 ? 'live-dot' : ''} />
                     {systems.length > 0 ? 'Operação ativa' : 'Aguardando ativação'}
-                  </div>
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', fontSize: '0.71rem', fontWeight: 700, letterSpacing: 0.8, color: '#a78bfa', textTransform: 'uppercase' }}>
+                    {systems.length} {systems.length === 1 ? 'sistema ativo' : 'sistemas ativos'}
+                  </span>
                   {memberSince && (
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.66rem', fontWeight: 600, letterSpacing: 0.8, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase' }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem', fontWeight: 500, color: 'rgba(255,255,255,0.3)', letterSpacing: 0.5 }}>
                       Membro desde {memberSince}
                     </span>
                   )}
                 </div>
-              </div>
-
-              <div style={{ textAlign: 'right', maxWidth: 480 }}>
-                <h1 style={{ fontSize: 'clamp(1.4rem, 2.4vw, 1.85rem)', fontWeight: 800, letterSpacing: -0.8, lineHeight: 1.1, marginBottom: 6 }}>
-                  Olá, <span style={{ color: '#7C3AED' }}>{firstName}</span>
-                </h1>
-                <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>
-                  {systems.length > 0
-                    ? `${systems.length} ${systems.length === 1 ? 'sistema ativo' : 'sistemas ativos'} na sua central. Acompanhe membros e operações em tempo real.`
-                    : 'Sua Central de Controle ainda não tem sistemas ativos. Quando você contratar um serviço, a operação aparece aqui.'}
-                </p>
               </div>
             </section>
 
