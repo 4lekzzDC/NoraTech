@@ -1396,6 +1396,13 @@ function InfoItem({ label, value, accent }) {
 // CompaniesModal — gerenciamento de empresas (cadastro/CRUD)
 // =============================================================================
 
+const STATUS_MODAL_TITLES = {
+  concluido:          'Empresas concluídas',
+  em_andamento:       'Empresas em andamento',
+  aguardando_cliente: 'Empresas aguardando cliente',
+  atrasado:           'Empresas atrasadas',
+};
+
 function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, reconciliations,
   search, setSearch, filterResp, setFilterResp, filterRegime, setFilterRegime,
   initialSort, initialOnlyCompleted, initialStatus, onClose, onChange,
@@ -1489,7 +1496,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
         <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 1100, margin: 'auto', background: '#101015', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(124,58,237,0.08)' }}>
           <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <h2 style={{ fontSize: '1.02rem', fontWeight: 700 }}>🏢 Empresas cadastradas</h2>
+              <h2 style={{ fontSize: '1.02rem', fontWeight: 700 }}>{STATUS_MODAL_TITLES[initialStatus] ?? '🏢 Empresas cadastradas'}</h2>
               <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)' }}>
                 {filtered.length} de {companies.length}
               </span>
@@ -1506,7 +1513,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
               )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <button className="acc-btn primary" style={{ fontSize: '0.82rem' }} onClick={openCreate}>+ Nova empresa</button>
+              {!initialStatus && <button className="acc-btn primary" style={{ fontSize: '0.82rem' }} onClick={openCreate}>+ Nova empresa</button>}
               <button
                 type="button"
                 onClick={() => setImportOpen(true)}
