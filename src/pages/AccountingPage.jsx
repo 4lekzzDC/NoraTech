@@ -6,6 +6,7 @@ import {
   RECON_CATEGORIES, RECON_STATUS, RECON_STATUS_ORDER,
   currentCompetencia, emptyTasks, isDelayed,
 } from '../lib/accountingDomain';
+import { useIsAdmin } from '../lib/admin';
 import {
   getCurrentTenantCompanyId,
   listCompanies, upsertCompany, deleteCompany,
@@ -36,7 +37,12 @@ function getFileStatus(record) {
 }
 
 export default function AccountingPage() {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const { isAdmin } = useIsAdmin();
+  const initials = useMemo(
+    () => (user?.name ? user.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase() : '?'),
+    [user]
+  );
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [competencia, setCompetencia] = useState(currentCompetencia());
@@ -139,33 +145,67 @@ export default function AccountingPage() {
       `}</style>
 
       {/* Header */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(8,8,10,0.94)', backdropFilter: 'blur(20px)' }}>
-        <div style={{ maxWidth: 1380, margin: '0 auto', padding: '0 32px', height: 68, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18, minWidth: 0 }}>
-            <Link to="/" style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '0.93rem', color: '#7C3AED', letterSpacing: -0.5 }}>
+      <header style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(8,8,10,0.94)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+
+        {/* Faixa 1 — global (igual à AreaDoCliente) */}
+        <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', maxWidth: 1380, margin: '0 auto', padding: '0 32px', height: 68, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20, minWidth: 0 }}>
+            <Link to="/" style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '0.95rem', color: '#7C3AED', letterSpacing: -0.5, flexShrink: 0 }}>
               NORA<span style={{ color: 'rgba(255,255,255,0.3)' }}>TECH</span>
             </Link>
             <span style={{ color: 'rgba(255,255,255,0.15)' }}>/</span>
-            <Link to="/area-do-cliente" style={{ fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>Central</Link>
-            <span style={{ color: 'rgba(255,255,255,0.15)' }}>/</span>
-            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#eeede9', whiteSpace: 'nowrap' }}>📊 Acompanhamento contábil</span>
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 2, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+              Central de Controle
+            </span>
           </div>
-          {lastUpdated && (
-            <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-              Última atualização: {lastUpdated.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-            </div>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Competência</span>
-              <input className="acc-input" value={competencia} onChange={(e) => setCompetencia(e.target.value)} placeholder="MM/AAAA" style={{ width: 108 }} />
-            </label>
-            <button onClick={() => setCompaniesView({})} className="acc-btn" style={{ fontSize: '0.82rem' }}>🏢 Empresas</button>
-            <button onClick={handleLogout} className="acc-btn" style={{ fontSize: '0.82rem' }}>Sair ↗</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            {isAdmin && (
+              <Link to="/admin" style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid rgba(124,58,237,0.35)', background: 'rgba(124,58,237,0.08)', color: '#a78bfa', fontSize: '0.78rem', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', textDecoration: 'none', transition: 'all 0.2s' }}>
+                ⚙ Admin
+              </Link>
+            )}
+            <Link to="/perfil" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 14px 6px 6px', borderRadius: 40, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', textDecoration: 'none', color: 'inherit', transition: 'all 0.2s' }}>
+              {user?.photoUrl ? (
+                <img src={user.photoUrl} alt="" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(124,58,237,0.15)', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.78rem', fontWeight: 800 }}>
+                  {initials}
+                </div>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{user?.name || 'Usuário'}</span>
+                <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)' }}>{user?.email}</span>
+              </div>
+            </Link>
+            <button onClick={handleLogout} style={{ padding: '9px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'rgba(255,255,255,0.6)', fontFamily: "'Inter', sans-serif", fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
+              Sair ↗
+            </button>
           </div>
         </div>
 
-        <nav style={{ maxWidth: 1380, margin: '0 auto', padding: '0 32px', display: 'flex', gap: 32, borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+        {/* Faixa 2 — módulo: breadcrumb + controles */}
+        <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', maxWidth: 1380, margin: '0 auto', padding: '0 32px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <Link to="/area-do-cliente" style={{ fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}>Central</Link>
+            <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '0.9rem' }}>/</span>
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#eeede9', whiteSpace: 'nowrap' }}>Acompanhamento contábil</span>
+            {lastUpdated && (
+              <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.28)', marginLeft: 6, whiteSpace: 'nowrap' }}>
+                · atualizado {lastUpdated.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Competência</span>
+              <input className="acc-input" value={competencia} onChange={(e) => setCompetencia(e.target.value)} placeholder="MM/AAAA" style={{ width: 108, padding: '6px 10px', fontSize: '0.83rem' }} />
+            </label>
+            <button type="button" onClick={() => setCompaniesView({})} className="acc-btn" style={{ fontSize: '0.8rem', padding: '7px 14px' }}>🏢 Empresas</button>
+          </div>
+        </div>
+
+        {/* Faixa 3 — abas */}
+        <nav style={{ maxWidth: 1380, margin: '0 auto', padding: '0 32px', display: 'flex', gap: 32, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
           {TABS.map((t) => {
             const active = activeTab === t.id;
             return (
