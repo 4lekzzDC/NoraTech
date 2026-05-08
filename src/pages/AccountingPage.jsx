@@ -1642,21 +1642,21 @@ function FilesTab({ competencia, companies, fileRecords, setFileRecords }) {
     <>
       {/* Barra de filtros */}
       <Card style={{ padding: 12, marginBottom: 18 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 160px 160px 160px auto', gap: 10, alignItems: 'center' }}>
-          <input className="acc-input" placeholder="Buscar por empresa, código ou responsável" value={fSearch} onChange={(e) => setFSearch(e.target.value)} />
-          <select className="acc-select" value={fResp} onChange={(e) => setFResp(e.target.value)}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+          <input className="acc-input" placeholder="Buscar por empresa, código ou responsável" value={fSearch} onChange={(e) => setFSearch(e.target.value)} style={{ flex: '2 1 220px', minWidth: 0 }} />
+          <select className="acc-select" value={fResp} onChange={(e) => setFResp(e.target.value)} style={{ flex: '1 1 175px', minWidth: 175 }}>
             <option value="">Todos responsáveis</option>
             {responsaveis.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
-          <select className="acc-select" value={fPrio} onChange={(e) => setFPrio(e.target.value)}>
+          <select className="acc-select" value={fPrio} onChange={(e) => setFPrio(e.target.value)} style={{ flex: '1 1 155px', minWidth: 155 }}>
             <option value="">Todas prioridades</option>
             <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
           </select>
-          <select className="acc-select" value={fDoc} onChange={(e) => setFDoc(e.target.value)}>
+          <select className="acc-select" value={fDoc} onChange={(e) => setFDoc(e.target.value)} style={{ flex: '1 1 185px', minWidth: 185 }}>
             <option value="">Todos documentos</option>
             {TASKS.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
           </select>
-          <select className="acc-select" value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
+          <select className="acc-select" value={fStatus} onChange={(e) => setFStatus(e.target.value)} style={{ flex: '1 1 145px', minWidth: 145 }}>
             <option value="">Todos status</option>
             <option value="recebido">Recebido</option>
             <option value="cobrado">Cobrado</option>
@@ -1872,21 +1872,21 @@ function ReconciliationTab({ competencia, companies, reconciliations, setReconci
     <>
       {/* Barra de filtros */}
       <Card style={{ padding: 12, marginBottom: 18 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 160px 160px 160px auto', gap: 10, alignItems: 'center' }}>
-          <input className="acc-input" placeholder="Buscar por empresa, código ou responsável" value={rSearch} onChange={(e) => setRSearch(e.target.value)} />
-          <select className="acc-select" value={rResp} onChange={(e) => setRResp(e.target.value)}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+          <input className="acc-input" placeholder="Buscar por empresa, código ou responsável" value={rSearch} onChange={(e) => setRSearch(e.target.value)} style={{ flex: '2 1 220px', minWidth: 0 }} />
+          <select className="acc-select" value={rResp} onChange={(e) => setRResp(e.target.value)} style={{ flex: '1 1 175px', minWidth: 175 }}>
             <option value="">Todos responsáveis</option>
             {responsaveis.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
-          <select className="acc-select" value={rPrio} onChange={(e) => setRPrio(e.target.value)}>
+          <select className="acc-select" value={rPrio} onChange={(e) => setRPrio(e.target.value)} style={{ flex: '1 1 155px', minWidth: 155 }}>
             <option value="">Todas prioridades</option>
             <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
           </select>
-          <select className="acc-select" value={rCat} onChange={(e) => setRCat(e.target.value)}>
+          <select className="acc-select" value={rCat} onChange={(e) => setRCat(e.target.value)} style={{ flex: '1 1 180px', minWidth: 180 }}>
             <option value="">Todas categorias</option>
             {RECON_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
-          <select className="acc-select" value={rStatus} onChange={(e) => setRStatus(e.target.value)}>
+          <select className="acc-select" value={rStatus} onChange={(e) => setRStatus(e.target.value)} style={{ flex: '1 1 155px', minWidth: 155 }}>
             <option value="">Todos status</option>
             {RECON_STATUS_ORDER.map((s) => <option key={s} value={s}>{RECON_STATUS[s].label}</option>)}
           </select>
