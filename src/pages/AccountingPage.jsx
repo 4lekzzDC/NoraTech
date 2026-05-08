@@ -142,6 +142,11 @@ export default function AccountingPage() {
             <span style={{ color: 'rgba(255,255,255,0.15)' }}>/</span>
             <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#eeede9', whiteSpace: 'nowrap' }}>📊 Acompanhamento contábil</span>
           </div>
+          {lastUpdated && (
+            <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              Última atualização: {lastUpdated.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+            </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Competência</span>
@@ -182,7 +187,6 @@ export default function AccountingPage() {
                 companies={companies}
                 fileRecords={fileRecords}
                 reconciliations={reconciliations}
-                lastUpdated={lastUpdated}
               />
             )}
             {activeTab === 'arquivos' && (
@@ -431,7 +435,7 @@ const EMPTY_FORM = {
   prazo: '', observacoes: '', particularidades: '',
 };
 
-function DashboardTab({ competencia, companies, fileRecords, reconciliations, lastUpdated }) {
+function DashboardTab({ competencia, companies, fileRecords, reconciliations }) {
   const [search, setSearch] = useState('');
   const [filterResp, setFilterResp] = useState('');
   const [filterPrio, setFilterPrio] = useState('');
@@ -536,11 +540,6 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations, la
     <>
       {/* Barra de filtros globais */}
       <Card style={{ padding: 12, marginBottom: 18 }}>
-        {lastUpdated && (
-          <div style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.3)', textAlign: 'right', marginBottom: 8 }}>
-            Última atualização: {lastUpdated.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-          </div>
-        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px 200px auto', gap: 10, alignItems: 'center' }}>
           <input
             className="acc-input"
