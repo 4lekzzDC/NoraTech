@@ -1415,6 +1415,54 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
   const [onlyCompleted, setOnlyCompleted] = useState(!!initialOnlyCompleted);
   const [filterStatus, setFilterStatus] = useState(initialStatus || '');
   const [importOpen, setImportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef(null);
+  useEffect(() => {
+    if (!exportOpen) return;
+    const handler = (e) => { if (exportRef.current && !exportRef.current.contains(e.target)) setExportOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [exportOpen]);
+
+  const exportRows = (list) => list.map((c) => ({
+    ID: c.codigo || '',
+    Empresa: c.nome || '',
+    Responsável: c.responsavel || '',
+    Regime: c.regime || '',
+    Prioridade: c.prioridade || '',
+    'Progresso (%)': c.progress,
+  }));
+
+  const handleExportExcel = async () => {
+    const { utils, writeFile } = await import('xlsx');
+    const ws = utils.json_to_sheet(exportRows(filtered));
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, 'Empresas');
+    const title = STATUS_MODAL_TITLES[initialStatus] ?? 'Empresas';
+    writeFile(wb, `${title}.xlsx`);
+    setExportOpen(false);
+  };
+
+  const handleExportPDF = () => {
+    const title = STATUS_MODAL_TITLES[initialStatus] ?? 'Empresas';
+    const rows = exportRows(filtered).map((r) =>
+      `<tr>${Object.values(r).map((v) => `<td>${v}</td>`).join('')}</tr>`
+    ).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+      <style>body{font-family:Arial,sans-serif;font-size:12px;padding:24px}
+      h1{font-size:16px;margin-bottom:16px}
+      table{width:100%;border-collapse:collapse}
+      th,td{border:1px solid #ccc;padding:6px 10px;text-align:left}
+      th{background:#f0f0f0;font-weight:700}</style></head>
+      <body><h1>${title}</h1><table>
+      <thead><tr><th>ID</th><th>Empresa</th><th>Responsável</th><th>Regime</th><th>Prioridade</th><th>Progresso (%)</th></tr></thead>
+      <tbody>${rows}</tbody></table></body></html>`;
+    const w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
+    w.print();
+    setExportOpen(false);
+  };
 
   const responsaveis = useMemo(
     () => Array.from(new Set(companies.map((c) => c.responsavel).filter(Boolean))).sort(),
@@ -1449,6 +1497,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
       });
     if (sortBy === 'progress_asc') list.sort((a, b) => a.progress - b.progress || (a.nome || '').localeCompare(b.nome || ''));
     else if (sortBy === 'progress_desc') list.sort((a, b) => b.progress - a.progress || (a.nome || '').localeCompare(b.nome || ''));
+    else if (sortBy === 'name_desc') list.sort((a, b) => (b.nome || '').localeCompare(a.nome || ''));
     else list.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
     return list;
   }, [companies, fileRecords, reconciliations, filterResp, filterRegime, filterStatus, search, sortBy, onlyCompleted]);
@@ -1514,49 +1563,100 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {!initialStatus && <button className="acc-btn primary" style={{ fontSize: '0.82rem' }} onClick={openCreate}>+ Nova empresa</button>}
-              <button
-                type="button"
-                onClick={() => setImportOpen(true)}
-                title="Importar empresas"
-                aria-label="Importar empresas"
-                className="acc-btn"
-                style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-              </button>
+              {initialStatus ? (
+                <div ref={exportRef} style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    onClick={() => setExportOpen((v) => !v)}
+                    title="Exportar"
+                    aria-label="Exportar"
+                    className="acc-btn"
+                    style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  </button>
+                  {exportOpen && (
+                    <div style={{ position: 'absolute', right: 0, top: '110%', background: '#18181f', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '6px 0', zIndex: 200, minWidth: 150, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+                      <button onClick={handleExportExcel} style={{ display: 'block', width: '100%', background: 'none', border: 'none', color: '#eeede9', padding: '9px 16px', textAlign: 'left', fontSize: '0.84rem', cursor: 'pointer' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'none'}>
+                        📊 Exportar Excel
+                      </button>
+                      <button onClick={handleExportPDF} style={{ display: 'block', width: '100%', background: 'none', border: 'none', color: '#eeede9', padding: '9px 16px', textAlign: 'left', fontSize: '0.84rem', cursor: 'pointer' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'none'}>
+                        🖨️ Exportar PDF
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setImportOpen(true)}
+                  title="Importar empresas"
+                  aria-label="Importar empresas"
+                  className="acc-btn"
+                  style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                </button>
+              )}
               <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
             </div>
           </div>
 
           <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 170px 170px auto', gap: 10, alignItems: 'center' }}>
-              <input className="acc-input" placeholder="Buscar por nome, código ou responsável" value={search} onChange={(e) => setSearch(e.target.value)} />
-              <select className="acc-select" value={filterResp} onChange={(e) => setFilterResp(e.target.value)}>
-                <option value="">Todos responsáveis</option>
-                {responsaveis.map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
-              <select className="acc-select" value={filterRegime} onChange={(e) => setFilterRegime(e.target.value)}>
-                <option value="">Todas tributações</option>
-                <option value="Lucro Real">Lucro Real</option>
-                <option value="Lucro Presumido">Lucro Presumido</option>
-                <option value="Simples Nacional">Simples Nacional</option>
-                <option value="MEI">MEI</option>
-                <option value="Associação">Associação</option>
-              </select>
-              <select className="acc-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                <option value="name">Ordenar: A → Z</option>
-                <option value="progress_asc">Ordenar: progresso ↑</option>
-                <option value="progress_desc">Ordenar: progresso ↓</option>
-              </select>
-              {hasFilters
-                ? <button className="acc-btn" onClick={clearFilters} style={{ fontSize: '0.78rem' }}>Limpar</button>
-                : <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>{filtered.length} resultado{filtered.length !== 1 ? 's' : ''}</span>
-              }
-            </div>
+            {initialStatus ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 170px', gap: 10, alignItems: 'center' }}>
+                <input className="acc-input" placeholder="Buscar por nome, código ou responsável" value={search} onChange={(e) => setSearch(e.target.value)} />
+                <select className="acc-select" value={filterResp} onChange={(e) => setFilterResp(e.target.value)}>
+                  <option value="">Todos responsáveis</option>
+                  {responsaveis.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+                <select className="acc-select" value={filterRegime} onChange={(e) => setFilterRegime(e.target.value)}>
+                  <option value="">Todas tributações</option>
+                  <option value="Lucro Real">Lucro Real</option>
+                  <option value="Lucro Presumido">Lucro Presumido</option>
+                  <option value="Simples Nacional">Simples Nacional</option>
+                  <option value="MEI">MEI</option>
+                  <option value="Associação">Associação</option>
+                </select>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 170px 170px auto', gap: 10, alignItems: 'center' }}>
+                <input className="acc-input" placeholder="Buscar por nome, código ou responsável" value={search} onChange={(e) => setSearch(e.target.value)} />
+                <select className="acc-select" value={filterResp} onChange={(e) => setFilterResp(e.target.value)}>
+                  <option value="">Todos responsáveis</option>
+                  {responsaveis.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+                <select className="acc-select" value={filterRegime} onChange={(e) => setFilterRegime(e.target.value)}>
+                  <option value="">Todas tributações</option>
+                  <option value="Lucro Real">Lucro Real</option>
+                  <option value="Lucro Presumido">Lucro Presumido</option>
+                  <option value="Simples Nacional">Simples Nacional</option>
+                  <option value="MEI">MEI</option>
+                  <option value="Associação">Associação</option>
+                </select>
+                <select className="acc-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                  <option value="name">Ordenar: A → Z</option>
+                  <option value="progress_asc">Ordenar: progresso ↑</option>
+                  <option value="progress_desc">Ordenar: progresso ↓</option>
+                </select>
+                {hasFilters
+                  ? <button className="acc-btn" onClick={clearFilters} style={{ fontSize: '0.78rem' }}>Limpar</button>
+                  : <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>{filtered.length} resultado{filtered.length !== 1 ? 's' : ''}</span>
+                }
+              </div>
+            )}
           </div>
 
           <div style={{ overflowY: 'auto', flex: 1 }}>
@@ -1564,7 +1664,29 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
               <thead>
                 <tr>
                   <th style={{ minWidth: 80 }}>ID</th>
-                  <th style={{ minWidth: 220 }}>Empresa</th>
+                  <th style={{ minWidth: 220 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      Empresa
+                      {initialStatus && (
+                        <button
+                          type="button"
+                          onClick={() => setSortBy((s) => (s === 'name_desc' ? 'name' : 'name_desc'))}
+                          title={sortBy === 'name_desc' ? 'Ordenado Z → A' : 'Ordenado A → Z'}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'rgba(255,255,255,0.55)', display: 'flex', alignItems: 'center' }}
+                        >
+                          {sortBy === 'name_desc' ? (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M3 6h12M3 12h8M3 18h4" /><path d="M19 18V6m0 0-3 3m3-3 3 3" />
+                            </svg>
+                          ) : (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M3 6h12M3 12h8M3 18h4" /><path d="M19 6v12m0 0 3-3m-3 3-3-3" />
+                            </svg>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </th>
                   <th>Responsável</th>
                   <th>Regime</th>
                   <th>Prioridade</th>
