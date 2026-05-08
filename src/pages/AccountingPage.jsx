@@ -126,6 +126,9 @@ export default function AccountingPage() {
         .acc-table tr:last-child td { border-bottom: none; }
         .acc-table tr:hover td { background: rgba(255,255,255,0.02); }
         .acc-section-eyebrow { font-size: 0.68rem; font-weight: 700; letter-spacing: 1.6px; color: rgba(255,255,255,0.45); text-transform: uppercase; margin-bottom: 10px; }
+        .acc-count-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 0.73rem; font-weight: 600; color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap; }
+        @media (max-width: 1100px) { .acc-cat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
+        @media (max-width: 760px)  { .acc-cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes drawerIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
       `}</style>
@@ -557,7 +560,7 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations }) 
           </select>
           {hasFilters
             ? <button className="acc-btn" onClick={clearFilters} style={{ fontSize: '0.78rem' }}>Limpar filtros</button>
-            : <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>{filtered.length} empresa{filtered.length !== 1 ? 's' : ''}</span>
+            : <span className="acc-count-badge">{filtered.length} empresa{filtered.length !== 1 ? 's' : ''}</span>
           }
         </div>
       </Card>
@@ -731,10 +734,10 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations }) 
           </Card>
 
           <div className="acc-section-eyebrow" style={{ marginBottom: 0 }}>Conciliação por categoria</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+          <div className="acc-cat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
             {dashMetrics.byCategory.map((cat) => (
-              <Card key={cat.id} style={{ padding: '12px 14px' }}>
-                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 6 }}>{cat.label}</div>
+              <Card key={cat.id} style={{ padding: '14px 16px' }}>
+                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 8, lineHeight: 1.4, minHeight: '1.8em' }}>{cat.label}</div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 800, color: cat.pct === 100 ? '#00d48a' : cat.pct > 0 ? '#7C3AED' : 'rgba(255,255,255,0.5)', letterSpacing: -0.8, marginBottom: 8 }}>
                   {cat.pct}%
                 </div>
