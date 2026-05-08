@@ -914,7 +914,6 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
       </Card>
 
       {/* Seção Visão Geral */}
-      <div className="acc-section-eyebrow">Visão geral</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 28 }}>
         <Kpi
           label="Total empresas"
