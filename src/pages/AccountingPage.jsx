@@ -139,7 +139,7 @@ export default function AccountingPage() {
   // Filtros globais (compartilhados entre dashboard e modal Empresas)
   const [search, setSearch] = useState('');
   const [filterResp, setFilterResp] = useState('');
-  const [filterPrio, setFilterPrio] = useState('');
+  const [filterRegime, setFilterRegime] = useState('');
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -388,7 +388,7 @@ export default function AccountingPage() {
                 reconciliations={reconciliations}
                 search={search} setSearch={setSearch}
                 filterResp={filterResp} setFilterResp={setFilterResp}
-                filterPrio={filterPrio} setFilterPrio={setFilterPrio}
+                filterRegime={filterRegime} setFilterRegime={setFilterRegime}
                 onOpenCompanies={(view) => setCompaniesView(view || {})}
                 onOpenPendencias={() => setPendenciasOpen(true)}
               />
@@ -422,7 +422,7 @@ export default function AccountingPage() {
           reconciliations={reconciliations}
           search={search} setSearch={setSearch}
           filterResp={filterResp} setFilterResp={setFilterResp}
-          filterPrio={filterPrio} setFilterPrio={setFilterPrio}
+          filterRegime={filterRegime} setFilterRegime={setFilterRegime}
           initialSort={companiesView.initialSort}
           initialOnlyCompleted={companiesView.initialOnlyCompleted}
           onClose={() => setCompaniesView(null)}
@@ -437,7 +437,7 @@ export default function AccountingPage() {
           reconciliations={reconciliations}
           search={search}
           filterResp={filterResp}
-          filterPrio={filterPrio}
+          filterRegime={filterRegime}
           onClose={() => setPendenciasOpen(false)}
         />
       )}
@@ -788,7 +788,7 @@ const EMPTY_FORM = {
 };
 
 function DashboardTab({ competencia, companies, fileRecords, reconciliations,
-  search, setSearch, filterResp, setFilterResp, filterPrio, setFilterPrio,
+  search, setSearch, filterResp, setFilterResp, filterRegime, setFilterRegime,
   onOpenCompanies, onOpenPendencias,
 }) {
   const [chartFilter, setChartFilter] = useState(null);
@@ -803,13 +803,13 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
 
   const filtered = useMemo(() => companies.filter((c) => {
     if (filterResp && c.responsavel !== filterResp) return false;
-    if (filterPrio && c.prioridade !== filterPrio) return false;
+    if (filterRegime && c.regime !== filterRegime) return false;
     if (search) {
       const q = search.toLowerCase();
       if (!c.nome?.toLowerCase().includes(q) && !c.responsavel?.toLowerCase().includes(q) && !c.codigo?.toLowerCase().includes(q)) return false;
     }
     return true;
-  }), [companies, filterResp, filterPrio, search]);
+  }), [companies, filterResp, filterRegime, search]);
 
   const dashMetrics = useMemo(() => {
     const filteredIds = new Set(filtered.map((c) => c.id));
@@ -885,8 +885,8 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
     }).filter((x) => x.items.length > 0);
   }, [chartFilter, filtered, fileRecords, reconciliations]);
 
-  const clearFilters = () => { setSearch(''); setFilterResp(''); setFilterPrio(''); };
-  const hasFilters = !!(search || filterResp || filterPrio);
+  const clearFilters = () => { setSearch(''); setFilterResp(''); setFilterRegime(''); };
+  const hasFilters = !!(search || filterResp || filterRegime);
 
   return (
     <>
@@ -903,9 +903,13 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
             <option value="">Todos responsáveis</option>
             {responsaveis.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
-          <select className="acc-select" value={filterPrio} onChange={(e) => setFilterPrio(e.target.value)}>
-            <option value="">Todas prioridades</option>
-            <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
+          <select className="acc-select" value={filterRegime} onChange={(e) => setFilterRegime(e.target.value)}>
+            <option value="">Todas tributações</option>
+            <option value="Lucro Real">Lucro Real</option>
+            <option value="Lucro Presumido">Lucro Presumido</option>
+            <option value="Simples Nacional">Simples Nacional</option>
+            <option value="MEI">MEI</option>
+            <option value="Associação">Associação</option>
           </select>
           {hasFilters && (
             <button className="acc-btn" onClick={clearFilters} style={{ fontSize: '0.78rem', whiteSpace: 'nowrap' }}>Limpar filtros</button>
@@ -1365,7 +1369,7 @@ function InfoItem({ label, value, accent }) {
 // =============================================================================
 
 function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, reconciliations,
-  search, setSearch, filterResp, setFilterResp, filterPrio, setFilterPrio,
+  search, setSearch, filterResp, setFilterResp, filterRegime, setFilterRegime,
   initialSort, initialOnlyCompleted, onClose, onChange,
 }) {
   const [editing, setEditing] = useState(null);
@@ -1386,7 +1390,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
       .map((c) => ({ ...c, progress: companyProgress(c.id, fileRecords, reconciliations) }))
       .filter((c) => {
         if (filterResp && c.responsavel !== filterResp) return false;
-        if (filterPrio && c.prioridade !== filterPrio) return false;
+        if (filterRegime && c.regime !== filterRegime) return false;
         if (onlyCompleted && c.progress !== 100) return false;
         if (search) {
           const q = search.toLowerCase();
@@ -1402,10 +1406,10 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
     else if (sortBy === 'progress_desc') list.sort((a, b) => b.progress - a.progress || (a.nome || '').localeCompare(b.nome || ''));
     else list.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
     return list;
-  }, [companies, fileRecords, reconciliations, filterResp, filterPrio, search, sortBy, onlyCompleted]);
+  }, [companies, fileRecords, reconciliations, filterResp, filterRegime, search, sortBy, onlyCompleted]);
 
-  const clearFilters = () => { setSearch(''); setFilterResp(''); setFilterPrio(''); setOnlyCompleted(false); setSortBy('name'); };
-  const hasFilters = !!(search || filterResp || filterPrio || onlyCompleted || sortBy !== 'name');
+  const clearFilters = () => { setSearch(''); setFilterResp(''); setFilterRegime(''); setOnlyCompleted(false); setSortBy('name'); };
+  const hasFilters = !!(search || filterResp || filterRegime || onlyCompleted || sortBy !== 'name');
 
   const openCreate = () => { setForm({ ...EMPTY_FORM }); setEditing('new'); };
   const openEdit = (c) => {
@@ -1490,9 +1494,13 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
                 <option value="">Todos responsáveis</option>
                 {responsaveis.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
-              <select className="acc-select" value={filterPrio} onChange={(e) => setFilterPrio(e.target.value)}>
-                <option value="">Todas prioridades</option>
-                <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
+              <select className="acc-select" value={filterRegime} onChange={(e) => setFilterRegime(e.target.value)}>
+                <option value="">Todas tributações</option>
+                <option value="Lucro Real">Lucro Real</option>
+                <option value="Lucro Presumido">Lucro Presumido</option>
+                <option value="Simples Nacional">Simples Nacional</option>
+                <option value="MEI">MEI</option>
+                <option value="Associação">Associação</option>
               </select>
               <select className="acc-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
                 <option value="name">Ordenar: A → Z</option>
@@ -1912,10 +1920,10 @@ function ImportCompaniesModal({ tenantCompanyId, competencia, companies, onClose
 // PendenciasModal — detalhe de pendências agrupado por empresa
 // =============================================================================
 
-function PendenciasModal({ competencia, companies, fileRecords, reconciliations, search, filterResp, filterPrio, onClose }) {
+function PendenciasModal({ competencia, companies, fileRecords, reconciliations, search, filterResp, filterRegime, onClose }) {
   const filteredCompanies = useMemo(() => companies.filter((c) => {
     if (filterResp && c.responsavel !== filterResp) return false;
-    if (filterPrio && c.prioridade !== filterPrio) return false;
+    if (filterRegime && c.regime !== filterRegime) return false;
     if (search) {
       const q = search.toLowerCase();
       if (
@@ -1925,7 +1933,7 @@ function PendenciasModal({ competencia, companies, fileRecords, reconciliations,
       ) return false;
     }
     return true;
-  }), [companies, filterResp, filterPrio, search]);
+  }), [companies, filterResp, filterRegime, search]);
 
   const groups = useMemo(() => filteredCompanies.map((company) => {
     const cFiles = fileRecords.filter((r) => r.accounting_company_id === company.id);
@@ -2055,7 +2063,7 @@ function FilesTab({ competencia, companies, fileRecords, setFileRecords }) {
   const [saving, setSaving] = useState(false);
   const [fSearch, setFSearch] = useState('');
   const [fResp, setFResp] = useState('');
-  const [fPrio, setFPrio] = useState('');
+  const [fRegime, setFRegime] = useState('');
   const [fDoc, setFDoc] = useState('');
   const [fStatus, setFStatus] = useState('');
 
@@ -2077,13 +2085,13 @@ function FilesTab({ competencia, companies, fileRecords, setFileRecords }) {
 
   const filteredCompanies = useMemo(() => companies.filter((c) => {
     if (fResp && c.responsavel !== fResp) return false;
-    if (fPrio && c.prioridade !== fPrio) return false;
+    if (fRegime && c.regime !== fRegime) return false;
     if (fSearch) {
       const q = fSearch.toLowerCase();
       if (!c.nome?.toLowerCase().includes(q) && !c.responsavel?.toLowerCase().includes(q) && !c.codigo?.toLowerCase().includes(q)) return false;
     }
     return true;
-  }), [companies, fResp, fPrio, fSearch]);
+  }), [companies, fResp, fRegime, fSearch]);
 
   const filteredRows = useMemo(() => {
     if (!fStatus) return filteredCompanies;
@@ -2101,8 +2109,8 @@ function FilesTab({ competencia, companies, fileRecords, setFileRecords }) {
     return { total, received, cobrado, pending: Math.max(0, total - received - cobrado), pct: total ? Math.round((received / total) * 100) : 0 };
   }, [filteredRows, visibleTasks, recordsMap]);
 
-  const hasFilters = !!(fSearch || fResp || fPrio || fDoc || fStatus);
-  const clearFilters = () => { setFSearch(''); setFResp(''); setFPrio(''); setFDoc(''); setFStatus(''); };
+  const hasFilters = !!(fSearch || fResp || fRegime || fDoc || fStatus);
+  const clearFilters = () => { setFSearch(''); setFResp(''); setFRegime(''); setFDoc(''); setFStatus(''); };
 
   // Aplica um registro (insert/replace) na lista local — optimistic update.
   const applyLocal = (rec) => setFileRecords((prev) => {
@@ -2184,9 +2192,13 @@ function FilesTab({ competencia, companies, fileRecords, setFileRecords }) {
             <option value="">Todos responsáveis</option>
             {responsaveis.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
-          <select className="acc-select" value={fPrio} onChange={(e) => setFPrio(e.target.value)} style={{ flex: '1 1 155px', minWidth: 155 }}>
-            <option value="">Todas prioridades</option>
-            <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
+          <select className="acc-select" value={fRegime} onChange={(e) => setFRegime(e.target.value)} style={{ flex: '1 1 175px', minWidth: 175 }}>
+            <option value="">Todas tributações</option>
+            <option value="Lucro Real">Lucro Real</option>
+            <option value="Lucro Presumido">Lucro Presumido</option>
+            <option value="Simples Nacional">Simples Nacional</option>
+            <option value="MEI">MEI</option>
+            <option value="Associação">Associação</option>
           </select>
           <select className="acc-select" value={fDoc} onChange={(e) => setFDoc(e.target.value)} style={{ flex: '1 1 185px', minWidth: 185 }}>
             <option value="">Todos documentos</option>
@@ -2293,7 +2305,7 @@ function ReconciliationTab({ competencia, companies, reconciliations, setReconci
   const [saving, setSaving] = useState(false);
   const [rSearch, setRSearch] = useState('');
   const [rResp, setRResp] = useState('');
-  const [rPrio, setRPrio] = useState('');
+  const [rRegime, setRRegime] = useState('');
   const [rCat, setRCat] = useState('');
   const [rStatus, setRStatus] = useState('');
 
@@ -2315,13 +2327,13 @@ function ReconciliationTab({ competencia, companies, reconciliations, setReconci
 
   const filteredCompanies = useMemo(() => companies.filter((c) => {
     if (rResp && c.responsavel !== rResp) return false;
-    if (rPrio && c.prioridade !== rPrio) return false;
+    if (rRegime && c.regime !== rRegime) return false;
     if (rSearch) {
       const q = rSearch.toLowerCase();
       if (!c.nome?.toLowerCase().includes(q) && !c.responsavel?.toLowerCase().includes(q) && !c.codigo?.toLowerCase().includes(q)) return false;
     }
     return true;
-  }), [companies, rResp, rPrio, rSearch]);
+  }), [companies, rResp, rRegime, rSearch]);
 
   const filteredRows = useMemo(() => {
     if (!rStatus) return filteredCompanies;
@@ -2336,8 +2348,8 @@ function ReconciliationTab({ competencia, companies, reconciliations, setReconci
     return { ...cat, pct: Math.round((done / total) * 100) };
   }), [filteredRows, visibleCategories, reconsMap]);
 
-  const hasFilters = !!(rSearch || rResp || rPrio || rCat || rStatus);
-  const clearFilters = () => { setRSearch(''); setRResp(''); setRPrio(''); setRCat(''); setRStatus(''); };
+  const hasFilters = !!(rSearch || rResp || rRegime || rCat || rStatus);
+  const clearFilters = () => { setRSearch(''); setRResp(''); setRRegime(''); setRCat(''); setRStatus(''); };
 
   const applyLocal = (rec) => setReconciliations((prev) => {
     const idx = prev.findIndex((r) =>
@@ -2414,9 +2426,13 @@ function ReconciliationTab({ competencia, companies, reconciliations, setReconci
             <option value="">Todos responsáveis</option>
             {responsaveis.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
-          <select className="acc-select" value={rPrio} onChange={(e) => setRPrio(e.target.value)} style={{ flex: '1 1 155px', minWidth: 155 }}>
-            <option value="">Todas prioridades</option>
-            <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
+          <select className="acc-select" value={rRegime} onChange={(e) => setRRegime(e.target.value)} style={{ flex: '1 1 175px', minWidth: 175 }}>
+            <option value="">Todas tributações</option>
+            <option value="Lucro Real">Lucro Real</option>
+            <option value="Lucro Presumido">Lucro Presumido</option>
+            <option value="Simples Nacional">Simples Nacional</option>
+            <option value="MEI">MEI</option>
+            <option value="Associação">Associação</option>
           </select>
           <select className="acc-select" value={rCat} onChange={(e) => setRCat(e.target.value)} style={{ flex: '1 1 180px', minWidth: 180 }}>
             <option value="">Todas categorias</option>
