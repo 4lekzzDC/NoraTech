@@ -102,13 +102,15 @@ export async function listFileRecords({ accountingCompanyIds, competencia }) {
   return data || [];
 }
 
-export async function upsertFileRecord({ accountingCompanyId, docType, competencia, received, notes }) {
+export async function upsertFileRecord({ accountingCompanyId, docType, competencia, fileStatus, notes }) {
+  const isReceived = fileStatus === 'recebido';
   const payload = {
     accounting_company_id: accountingCompanyId,
     doc_type: docType,
     competencia,
-    received: !!received,
-    received_at: received ? new Date().toISOString() : null,
+    file_status: fileStatus || 'pendente',
+    received: isReceived,
+    received_at: isReceived ? new Date().toISOString() : null,
     notes: notes ?? null,
   };
   const { data, error } = await supabase

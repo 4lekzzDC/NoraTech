@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useIsAdmin } from '../lib/admin';
@@ -365,27 +366,22 @@ function SystemsGrid({ systems, isAdmin }) {
   );
 }
 
-function EmptyGauge() {
-  const size = 240;
-  const stroke = 4;
+function StatusGauge({ count = 0 }) {
+  const size = 96;
+  const stroke = 3.5;
   const radius = (size - stroke) / 2;
+  const active = count > 0;
   return (
-    <div style={{ position: 'relative', width: size, height: size }}>
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
       <svg width={size} height={size}>
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="rgba(255,255,255,0.08)"
-          strokeWidth={stroke}
-          strokeDasharray="4 8"
-        />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={active ? 'rgba(0,212,138,0.3)' : 'rgba(255,255,255,0.08)'} strokeWidth={stroke} strokeDasharray={active ? '0' : '4 8'} />
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ fontSize: '3.6rem', fontWeight: 800, color: 'rgba(255,255,255,0.25)', letterSpacing: -2, lineHeight: 1 }}>—</div>
-        <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: 1.5, color: 'rgba(255,255,255,0.35)', marginTop: 8, textTransform: 'uppercase' }}>
-          Sem operação ativa
+        <div style={{ fontSize: active ? '1.7rem' : '1.5rem', fontWeight: 800, color: active ? '#00d48a' : 'rgba(255,255,255,0.25)', letterSpacing: -1, lineHeight: 1 }}>
+          {active ? count : '—'}
+        </div>
+        <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: 1.2, color: active ? 'rgba(0,212,138,0.65)' : 'rgba(255,255,255,0.3)', marginTop: 4, textTransform: 'uppercase' }}>
+          {active ? (count === 1 ? 'sistema' : 'sistemas') : 'nenhum'}
         </div>
       </div>
     </div>
@@ -438,10 +434,26 @@ export default function AreaDoClientePage() {
     return () => { active = false; };
   }, [user?.id]);
 
+  const [profileOpen, setProfileOpen] = useState(false);
+  const avatarRef = useRef(null);
+  const profileMenuRef = useRef(null);
+
   const handleLogout = async () => {
     await logout();
     navigate('/');
   };
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    const handler = (e) => {
+      if (
+        avatarRef.current && !avatarRef.current.contains(e.target) &&
+        profileMenuRef.current && !profileMenuRef.current.contains(e.target)
+      ) setProfileOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [profileOpen]);
 
   return (
     <div style={{ minHeight: '100vh', background: '#08080a', color: '#eeede9', fontFamily: "'Inter', sans-serif" }}>
@@ -490,26 +502,64 @@ export default function AreaDoClientePage() {
                 ⚙ Admin
               </Link>
             )}
-            <Link to="/perfil" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 14px 6px 6px', borderRadius: 40, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', transition: 'all 0.2s' }} className="btn-ghost">
+            {/* Avatar button — click reveals name/email/logout */}
+            <button
+              ref={avatarRef}
+              type="button"
+              onClick={() => setProfileOpen((o) => !o)}
+              title={user?.name || 'Usuário'}
+              aria-label="Menu do usuário"
+              style={{ padding: 0, background: 'transparent', border: 'none', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', outline: 'none' }}
+            >
               {user?.photoUrl ? (
-                <img src={user.photoUrl} alt="" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover' }} />
+                <img src={user.photoUrl} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.1)', transition: 'border-color 0.2s' }} />
               ) : (
-                <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(124, 58, 237,0.15)', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.78rem', fontWeight: 800 }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: profileOpen ? 'rgba(124,58,237,0.25)' : 'rgba(124,58,237,0.15)', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.78rem', fontWeight: 800, border: `2px solid ${profileOpen ? 'rgba(124,58,237,0.5)' : 'rgba(255,255,255,0.1)'}`, transition: 'all 0.2s' }}>
                   {initials}
                 </div>
               )}
-              <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{user?.name || 'Cliente'}</span>
-                <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)' }}>{user?.email}</span>
-              </div>
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="btn-ghost"
-              style={{ padding: '9px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'rgba(255,255,255,0.6)', fontFamily: "'Inter', sans-serif", fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
-            >
-              Sair ↗
             </button>
+            {profileOpen && createPortal(
+              (() => {
+                const rect = avatarRef.current?.getBoundingClientRect();
+                const top = rect ? rect.bottom + 8 : 80;
+                const right = rect ? window.innerWidth - rect.right : 32;
+                return (
+                  <div ref={profileMenuRef} style={{ position: 'fixed', top, right, zIndex: 9999, minWidth: 220, background: '#18181f', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, boxShadow: '0 16px 48px rgba(0,0,0,0.7)', overflow: 'hidden' }}>
+                    <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {user?.photoUrl ? (
+                          <img src={user.photoUrl} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                        ) : (
+                          <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(124,58,237,0.15)', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 800, flexShrink: 0 }}>
+                            {initials}
+                          </div>
+                        )}
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#eeede9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name || 'Usuário'}</div>
+                          <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setProfileOpen(false); handleLogout(); }}
+                      style={{ width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', fontWeight: 500, fontFamily: 'inherit', transition: 'background 0.15s, color 0.15s', textAlign: 'left' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#fff'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
+                      </svg>
+                      Sair
+                    </button>
+                  </div>
+                );
+              })(),
+              document.body
+            )}
           </div>
         </div>
       </header>
@@ -540,28 +590,38 @@ export default function AreaDoClientePage() {
 
         {activeTab === 'cockpit' && (
           <>
-            {/* Hero row: gauge + greeting */}
-            <section style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 320px) 1fr', gap: 56, alignItems: 'center', marginBottom: 44 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-                <EmptyGauge />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(255,255,255,0.25)' }} />
-                  Aguardando ativação
-                </div>
-              </div>
+            {/* Hero banner */}
+            <section style={{ display: 'flex', alignItems: 'center', gap: 24, padding: '20px 28px', marginBottom: 36, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }}>
+              <StatusGauge count={systems.length} />
 
-              <div>
-                {memberSince && (
-                  <span style={{ display: 'inline-block', padding: '6px 12px', border: '1px solid rgba(124, 58, 237,0.25)', background: 'rgba(124, 58, 237,0.06)', color: '#b197ff', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.7rem', fontWeight: 600, letterSpacing: 1, borderRadius: 6, marginBottom: 18 }}>
-                    MEMBRO DESDE {memberSince}
-                  </span>
-                )}
-                <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 800, letterSpacing: -1.5, lineHeight: 1.05, marginBottom: 14 }}>
+              {/* Divider */}
+              <div style={{ width: 1, alignSelf: 'stretch', background: 'rgba(255,255,255,0.07)', flexShrink: 0 }} />
+
+              {/* Greeting + meta */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h1 style={{ fontSize: '1.45rem', fontWeight: 800, letterSpacing: -0.6, lineHeight: 1.15, marginBottom: 4 }}>
                   Olá, <span style={{ color: '#7C3AED' }}>{firstName}</span>
                 </h1>
-                <p style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.5)', maxWidth: 520 }}>
-                  Sua Central de Controle ainda não tem sistemas ativos. Quando você contratar um serviço, a operação aparece aqui em tempo real.
+                <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.45)', lineHeight: 1.45, marginBottom: 14 }}>
+                  {systems.length > 0
+                    ? 'Sua central está ativa. Acompanhe seus sistemas, membros e operações em tempo real.'
+                    : 'Sua Central de Controle ainda não tem sistemas ativos. Quando você contratar um serviço, a operação aparece aqui.'}
                 </p>
+                {/* Pills row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: systems.length > 0 ? 'rgba(0,212,138,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${systems.length > 0 ? 'rgba(0,212,138,0.25)' : 'rgba(255,255,255,0.1)'}`, fontSize: '0.71rem', fontWeight: 700, letterSpacing: 0.8, color: systems.length > 0 ? '#00d48a' : 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: systems.length > 0 ? '#00d48a' : 'rgba(255,255,255,0.25)', boxShadow: systems.length > 0 ? '0 0 8px rgba(0,212,138,0.55)' : 'none' }} className={systems.length > 0 ? 'live-dot' : ''} />
+                    {systems.length > 0 ? 'Operação ativa' : 'Aguardando ativação'}
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', fontSize: '0.71rem', fontWeight: 700, letterSpacing: 0.8, color: '#a78bfa', textTransform: 'uppercase' }}>
+                    {systems.length} {systems.length === 1 ? 'sistema ativo' : 'sistemas ativos'}
+                  </span>
+                  {memberSince && (
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem', fontWeight: 500, color: 'rgba(255,255,255,0.3)', letterSpacing: 0.5 }}>
+                      Membro desde {memberSince}
+                    </span>
+                  )}
+                </div>
               </div>
             </section>
 

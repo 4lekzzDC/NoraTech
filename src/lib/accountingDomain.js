@@ -8,7 +8,6 @@ export const TASKS = [
   { id: 'extratos',       short: 'Extratos',   label: 'Extratos' },
   { id: 'estoques',       short: 'Estoques',   label: 'Estoques' },
   { id: 'apuracao',       short: 'Apuração',   label: 'Apuração' },
-  { id: 'folha',          short: 'Folha',      label: 'Folha' },
 ];
 
 export const STATUS = {
@@ -34,10 +33,11 @@ export const PRIORITY = {
 export const REGIMES = ['Simples Nacional', 'Lucro Presumido', 'Lucro Real', 'MEI'];
 
 export const RECON_CATEGORIES = [
-  { id: 'extrato_aplicacoes',         label: 'Extrato & Aplicações' },
-  { id: 'apuracao',                   label: 'Apuração' },
-  { id: 'folha',                      label: 'Folha' },
-  { id: 'demais_contas_fornecedores', label: 'Demais contas e fornecedores' },
+  { id: 'extrato_aplicacoes', label: 'Extrato & Aplicações' },
+  { id: 'apuracao',           label: 'Apuração' },
+  { id: 'folha',              label: 'Folha' },
+  { id: 'demais_contas',      label: 'Demais contas' },
+  { id: 'fornecedores',       label: 'Fornecedores' },
 ];
 
 export const RECON_STATUS = {
