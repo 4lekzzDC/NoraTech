@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import ThemeToggle from '../components/ThemeToggle';
 
 function FeatureBullet({ icon, title }) {
   return (
@@ -318,7 +319,8 @@ export default function LoginPage() {
 
       <div className="login-split">
         {/* ═══ LEFT: Brand panel (minimal) ═══ */}
-        <aside className="brand-panel">
+        <aside className="brand-panel" style={{ position: 'relative' }}>
+          <ThemeToggle style={{ position: 'absolute', top: 20, right: 20, zIndex: 10 }} />
           <Link to="/" className="fade-up fade-up-d1" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none', position: 'relative', zIndex: 1 }}>
             <span className="wordmark">
               NORA<span className="wordmark-tech">TECH</span>

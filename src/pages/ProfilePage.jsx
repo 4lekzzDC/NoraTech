@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import ThemeToggle from '../components/ThemeToggle';
 
 function Section({ title, children }) {
   return (
@@ -221,6 +222,7 @@ export default function ProfilePage() {
             <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '0.75rem' }}>/</span>
             <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem' }}>Perfil</span>
           </Link>
+          <ThemeToggle />
           <button
             onClick={handleLogout}
             className="btn-ghost"

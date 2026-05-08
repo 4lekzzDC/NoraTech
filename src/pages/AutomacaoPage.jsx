@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
+import ThemeToggle from "../components/ThemeToggle";
 
 export default function AutomacaoPage() {
   useEffect(() => { window.scrollTo(0, 0); }, []);
@@ -78,9 +79,12 @@ export default function AutomacaoPage() {
         <Link to="/" style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: "0.82rem", color: "#7C3AED", letterSpacing: -0.5 }}>
           NORA<span style={{ color: "rgba(255,255,255,0.25)" }}>.tech</span>
         </Link>
-        <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.82rem", color: "rgba(255,255,255,0.45)", padding: "7px 16px", borderRadius: 100, border: "1px solid rgba(255,255,255,0.08)", transition: "all 0.3s" }}>
-          <span style={{ fontSize: "0.9rem" }}>&larr;</span> Voltar ao início
-        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <ThemeToggle />
+          <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.82rem", color: "rgba(255,255,255,0.45)", padding: "7px 16px", borderRadius: 100, border: "1px solid rgba(255,255,255,0.08)", transition: "all 0.3s" }}>
+            <span style={{ fontSize: "0.9rem" }}>&larr;</span> Voltar ao início
+          </Link>
+        </div>
       </header>
 
       {/* Hero */}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import ThemeToggle from './ThemeToggle';
 
 const NAV = [
   { to: '/admin', label: 'Visão geral', end: true, icon: '◎' },
@@ -141,9 +142,12 @@ export default function AdminLayout({ title, subtitle, actions, children }) {
             <div style={{ fontWeight: 600, color: '#eeede9' }}>{user?.name || user?.email}</div>
             <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{user?.email}</div>
           </div>
-          <button className="admin-btn danger" style={{ width: '100%', justifyContent: 'center', marginTop: 6 }} onClick={handleLogout}>
-            Sair
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+            <ThemeToggle style={{ flexShrink: 0 }} />
+            <button className="admin-btn danger" style={{ flex: 1, justifyContent: 'center' }} onClick={handleLogout}>
+              Sair
+            </button>
+          </div>
         </div>
       </aside>
 

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useIsAdmin } from '../lib/admin';
+import ThemeToggle from '../components/ThemeToggle';
 import CockpitCompany from '../components/CockpitCompany';
 import { supabase } from '../lib/supabase';
 import { fetchMyCompany } from '../lib/companies';
@@ -502,6 +503,7 @@ export default function AreaDoClientePage() {
                 ⚙ Admin
               </Link>
             )}
+            <ThemeToggle />
             {/* Avatar button — click reveals name/email/logout */}
             <button
               ref={avatarRef}

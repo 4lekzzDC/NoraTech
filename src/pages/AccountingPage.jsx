@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import ThemeToggle from '../components/ThemeToggle';
 import {
   TASKS, PRIORITY, REGIMES,
   RECON_CATEGORIES, RECON_STATUS, RECON_STATUS_ORDER,
@@ -271,6 +272,7 @@ export default function AccountingPage() {
                 ⚙ Admin
               </Link>
             )}
+            <ThemeToggle />
             {/* Avatar button — click reveals name/email/logout */}
             <button
               ref={avatarRef}
