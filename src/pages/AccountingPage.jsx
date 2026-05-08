@@ -421,6 +421,7 @@ export default function AccountingPage() {
           filterRegime={filterRegime} setFilterRegime={setFilterRegime}
           initialSort={companiesView.initialSort}
           initialOnlyCompleted={companiesView.initialOnlyCompleted}
+          initialStatus={companiesView.initialStatus}
           onClose={() => setCompaniesView(null)}
           onChange={reload}
         />
@@ -853,11 +854,17 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
     const reconAbertos = Math.max(0, reconTotal - reconConcluido);
     const pendenciasAbertas = docsAbertos + reconAbertos;
 
+    const qtdConcluidas     = filtered.filter((c) => c.status === 'concluido').length;
+    const qtdEmAndamento    = filtered.filter((c) => c.status === 'em_andamento').length;
+    const qtdAguardando     = filtered.filter((c) => c.status === 'aguardando_cliente').length;
+    const qtdAtrasadas      = filtered.filter((c) => c.status === 'atrasado').length;
+
     return {
       totalEmpresas, totalEsperado, totalRecebidos, totalCobrados, totalPendentes, pctRecebido,
       byDocType, byCategory, progressoMedio, empresasCompletas,
       pendenciasAbertas, docsAbertos, reconAbertos,
       reconTotal, reconConcluido, reconEmAndamento, reconPendencia, reconNaoIniciado, reconPctGeral,
+      qtdConcluidas, qtdEmAndamento, qtdAguardando, qtdAtrasadas,
     };
   }, [filtered, fileRecords, reconciliations]);
 
@@ -916,31 +923,38 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
       {/* Seção Visão Geral */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 28 }}>
         <Kpi
-          label="Total empresas"
+          label="Todas empresas"
           value={dashMetrics.totalEmpresas}
           hint={`competência ${competencia}`}
           onClick={() => onOpenCompanies({})}
         />
         <Kpi
-          label="Progresso médio"
-          value={`${dashMetrics.progressoMedio}%`}
-          accent="#7C3AED"
-          hint="files + conciliação"
-          onClick={() => onOpenCompanies({ initialSort: 'progress_asc' })}
-        />
-        <Kpi
-          label="Empresas concluídas"
-          value={dashMetrics.empresasCompletas}
+          label="Concluídas"
+          value={dashMetrics.qtdConcluidas}
           accent="#00d48a"
-          hint="100% do fechamento"
-          onClick={() => onOpenCompanies({ initialOnlyCompleted: true })}
+          hint="status concluído"
+          onClick={() => onOpenCompanies({ initialStatus: 'concluido' })}
         />
         <Kpi
-          label="Pendências abertas"
-          value={dashMetrics.pendenciasAbertas}
-          accent={dashMetrics.pendenciasAbertas > 0 ? '#ff8a3d' : '#00d48a'}
-          hint={`${dashMetrics.docsAbertos} documentos + ${dashMetrics.reconAbertos} conciliações`}
-          onClick={() => onOpenPendencias()}
+          label="Em andamento"
+          value={dashMetrics.qtdEmAndamento}
+          accent="#60a5fa"
+          hint="status em andamento"
+          onClick={() => onOpenCompanies({ initialStatus: 'em_andamento' })}
+        />
+        <Kpi
+          label="Aguardando cliente"
+          value={dashMetrics.qtdAguardando}
+          accent="#ff8a3d"
+          hint="status aguardando cliente"
+          onClick={() => onOpenCompanies({ initialStatus: 'aguardando_cliente' })}
+        />
+        <Kpi
+          label="Atrasadas"
+          value={dashMetrics.qtdAtrasadas}
+          accent={dashMetrics.qtdAtrasadas > 0 ? '#ff6b6b' : '#00d48a'}
+          hint="status atrasado"
+          onClick={() => onOpenCompanies({ initialStatus: 'atrasado' })}
         />
       </div>
 
@@ -1365,7 +1379,7 @@ function InfoItem({ label, value, accent }) {
 
 function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, reconciliations,
   search, setSearch, filterResp, setFilterResp, filterRegime, setFilterRegime,
-  initialSort, initialOnlyCompleted, onClose, onChange,
+  initialSort, initialOnlyCompleted, initialStatus, onClose, onChange,
 }) {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -1373,6 +1387,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
   const [viewCompany, setViewCompany] = useState(null);
   const [sortBy, setSortBy] = useState(initialSort || 'name');
   const [onlyCompleted, setOnlyCompleted] = useState(!!initialOnlyCompleted);
+  const [filterStatus, setFilterStatus] = useState(initialStatus || '');
   const [importOpen, setImportOpen] = useState(false);
 
   const responsaveis = useMemo(
@@ -1386,6 +1401,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
       .filter((c) => {
         if (filterResp && c.responsavel !== filterResp) return false;
         if (filterRegime && c.regime !== filterRegime) return false;
+        if (filterStatus && c.status !== filterStatus) return false;
         if (onlyCompleted && c.progress !== 100) return false;
         if (search) {
           const q = search.toLowerCase();
@@ -1401,10 +1417,10 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
     else if (sortBy === 'progress_desc') list.sort((a, b) => b.progress - a.progress || (a.nome || '').localeCompare(b.nome || ''));
     else list.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
     return list;
-  }, [companies, fileRecords, reconciliations, filterResp, filterRegime, search, sortBy, onlyCompleted]);
+  }, [companies, fileRecords, reconciliations, filterResp, filterRegime, filterStatus, search, sortBy, onlyCompleted]);
 
-  const clearFilters = () => { setSearch(''); setFilterResp(''); setFilterRegime(''); setOnlyCompleted(false); setSortBy('name'); };
-  const hasFilters = !!(search || filterResp || filterRegime || onlyCompleted || sortBy !== 'name');
+  const clearFilters = () => { setSearch(''); setFilterResp(''); setFilterRegime(''); setFilterStatus(''); setOnlyCompleted(false); setSortBy('name'); };
+  const hasFilters = !!(search || filterResp || filterRegime || filterStatus || onlyCompleted || sortBy !== 'name');
 
   const openCreate = () => { setForm({ ...EMPTY_FORM }); setEditing('new'); };
   const openEdit = (c) => {
