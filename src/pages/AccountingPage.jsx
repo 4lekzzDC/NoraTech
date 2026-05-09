@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
 import {
-  TASKS, PRIORITY, REGIMES,
+  TASKS, REGIMES,
   RECON_CATEGORIES, RECON_STATUS, RECON_STATUS_ORDER,
   currentCompetencia, emptyTasks, isDelayed,
 } from '../lib/accountingDomain';
@@ -598,11 +598,6 @@ function BarChart({ items, maxValue }) {
   );
 }
 
-function PriorityPill({ value }) {
-  const c = PRIORITY[value] || PRIORITY.media;
-  return <span className="acc-pill" style={{ background: c.bg, color: c.fg, borderColor: c.bd }}>{c.label}</span>;
-}
-
 function StatusDropdown({ value, onChange, options, statusMap }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null); // { top, left, width, dropUp }
@@ -960,8 +955,8 @@ function getDelayReasons(companyId, fileRecords, reconciliations, params) {
 // =============================================================================
 
 const EMPTY_FORM = {
-  codigo: '', nome: '', responsavel: '', regime: 'Simples Nacional', prioridade: 'media',
-  prazo: '', observacoes: '', particularidades: '',
+  codigo: '', nome: '', responsavel: '', regime: 'Simples Nacional',
+  observacoes: '', particularidades: '',
 };
 
 function DashboardTab({ competencia, companies, fileRecords, reconciliations,
@@ -1133,7 +1128,7 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
           label="Atrasadas"
           value={dashMetrics.atrasadas}
           accent={dashMetrics.atrasadas > 0 ? '#ff6b6b' : '#00d48a'}
-          hint="prazo vencido com pendências"
+          hint="conforme parametrização"
           onClick={() => onOpenCompanies({ initialFilter: 'atrasadas' })}
         />
       </div>
@@ -1384,7 +1379,6 @@ function CompanyDrawer({ company, fileRecords, reconciliations, competencia, onC
             </div>
             <h2 style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: -0.3, marginBottom: 6 }}>{company.nome}</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <PriorityPill value={company.prioridade} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 120 }}>
                 <ProgressBar pct={prog} color={prog === 100 ? '#00d48a' : isDelayed(company) ? '#ff6b6b' : '#7C3AED'} height={5} />
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.8)', minWidth: 34 }}>{prog}%</span>
@@ -1402,7 +1396,6 @@ function CompanyDrawer({ company, fileRecords, reconciliations, competencia, onC
               <InfoItem label="Responsável" value={company.responsavel} />
               <InfoItem label="Regime" value={company.regime} />
               <InfoItem label="Competência" value={competencia} />
-              <InfoItem label="Prazo" value={company.prazo || '—'} accent={isDelayed(company) ? '#ff6b6b' : undefined} />
             </div>
           </DrawerSection>
 
@@ -1614,8 +1607,8 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
   const openEdit = (c) => {
     setForm({
       codigo: c.codigo || '', nome: c.nome || '', responsavel: c.responsavel || '',
-      regime: c.regime || 'Simples Nacional', prioridade: c.prioridade || 'media',
-      prazo: c.prazo || '', observacoes: c.observacoes || '',
+      regime: c.regime || 'Simples Nacional',
+      observacoes: c.observacoes || '',
       particularidades: c.particularidades || '',
     });
     setEditing(c.id);
@@ -1630,7 +1623,6 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
         codigo: form.codigo?.trim() || null,
         tenant_company_id: tenantCompanyId,
         competencia,
-        prazo: form.prazo || null,
         tasks: emptyTasks(),
       };
       if (editing !== 'new') payload.id = editing;
@@ -1721,14 +1713,13 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
                   <th style={{ minWidth: 220 }}>Empresa</th>
                   <th>Responsável</th>
                   <th>Regime</th>
-                  <th>Prioridade</th>
                   <th style={{ minWidth: 160 }}>Progresso</th>
                   <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={6} style={{ padding: '40px 28px', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
+                  <tr><td colSpan={5} style={{ padding: '40px 28px', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
                     {companies.length === 0
                       ? 'Nenhuma empresa cadastrada. Clique em "+ Nova empresa" para começar.'
                       : 'Nenhuma empresa corresponde aos filtros.'}
@@ -1756,15 +1747,9 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
                           </div>
                         ) : null;
                       })()}
-                      {statusFilter !== 'atrasadas' && c.prazo && (
-                        <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.45)', marginTop: 3 }}>
-                          Prazo: {c.prazo}
-                        </div>
-                      )}
                     </td>
                     <td style={{ color: 'rgba(255,255,255,0.8)' }}>{c.responsavel || <span style={{ color: 'rgba(255,255,255,0.35)' }}>—</span>}</td>
                     <td><span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)' }}>{c.regime}</span></td>
-                    <td><PriorityPill value={c.prioridade} /></td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ flex: 1 }}>
@@ -1803,12 +1788,6 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
                 {REGIMES.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </Field>
-            <Field label="Prioridade">
-              <select className="acc-select" value={form.prioridade} onChange={(e) => setForm({ ...form, prioridade: e.target.value })}>
-                <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
-              </select>
-            </Field>
-            <Field label="Prazo"><input className="acc-input" type="date" value={form.prazo || ''} onChange={(e) => setForm({ ...form, prazo: e.target.value })} /></Field>
           </div>
           <div style={{ marginTop: 12 }}>
             <Field label="Observações"><textarea className="acc-input" rows={2} style={{ width: '100%', resize: 'vertical' }} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></Field>
@@ -1948,7 +1927,6 @@ function ImportCompaniesModal({ tenantCompanyId, competencia, companies, onClose
           nome: r.nome,
           regime: r.regime,
           responsavel: r.responsavel,
-          prioridade: 'media',
           tasks: emptyTasks(),
         };
         if (r.action === 'update') payload.id = r.existingId;
@@ -2724,17 +2702,43 @@ function ReconciliationTab({ competencia, companies, reconciliations, setReconci
 }
 
 // =============================================================================
-// ParametrizacaoModal — configura thresholds do card "Atrasadas"
+// ParametrizacaoModal — categorias + abas para configurar parâmetros
 // =============================================================================
 
-const PARAM_FIELDS = [
-  { key: 'dia_cobranca',            label: 'Arquivos ainda não foram cobrados até o dia' },
-  { key: 'dia_recebimento',         label: 'Arquivos cobrados mas não recebidos até o dia' },
-  { key: 'dia_extrato_aplicacoes',  label: 'Extrato & Aplicações não conciliado até o dia' },
-  { key: 'dia_apuracao',            label: 'Apuração não conciliada até o dia' },
-  { key: 'dia_folha',               label: 'Folha não importada/conciliada até o dia' },
-  { key: 'dia_demais_contas',       label: 'Demais contas não conciliadas até o dia' },
-  { key: 'dia_fornecedores',        label: 'Fornecedores não conciliados até o dia' },
+const PRAZOS_TABS = [
+  {
+    id: 'arquivos',
+    label: 'Arquivos',
+    description: 'Limites para cobrança e recebimento de documentos do cliente.',
+    fields: [
+      { key: 'dia_cobranca',    label: 'Arquivos ainda não foram cobrados até o dia' },
+      { key: 'dia_recebimento', label: 'Arquivos cobrados ainda não foram recebidos até o dia' },
+    ],
+  },
+  {
+    id: 'conciliacao',
+    label: 'Conciliação',
+    description: 'Limites para conclusão das categorias da aba Conciliação.',
+    fields: [
+      { key: 'dia_extrato_aplicacoes', label: 'Extrato & Aplicações não conciliado até o dia' },
+      { key: 'dia_apuracao',           label: 'Apuração não codificada e conciliada até o dia' },
+      { key: 'dia_folha',              label: 'Folha não importada e conciliada até o dia' },
+      { key: 'dia_demais_contas',      label: 'Demais contas não conciliadas até o dia' },
+      { key: 'dia_fornecedores',       label: 'Fornecedores não conciliados até o dia' },
+    ],
+  },
+  {
+    id: 'impostos',
+    label: 'Impostos',
+    description: 'Reservado para regras futuras de impostos. (Em breve)',
+    fields: [],
+  },
+];
+
+const ALL_PRAZO_KEYS = PRAZOS_TABS.flatMap((t) => t.fields.map((f) => f.key));
+
+const PARAM_CATEGORIES = [
+  { id: 'prazos', label: 'Prazos', icon: '⏱', description: 'Dias-limite para classificar empresas como atrasadas.' },
 ];
 
 function ParametrizacaoModal({ tenantCompanyId, params, canWrite, onClose, onSaved }) {
@@ -2742,13 +2746,15 @@ function ParametrizacaoModal({ tenantCompanyId, params, canWrite, onClose, onSav
   const [form, setForm] = useState({ ...defaultValues, ...(params || {}) });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [activeCategory, setActiveCategory] = useState('prazos');
+  const [activeTab, setActiveTab] = useState('arquivos');
 
   const handleSave = async (e) => {
     e.preventDefault();
     if (!canWrite) { setError('Apenas o dono ou administrador da empresa pode salvar.'); return; }
-    for (const f of PARAM_FIELDS) {
-      const v = Number(form[f.key]);
-      if (v < 0 || v > 31) { setError(`Dia inválido em "${f.label}". Use 0 (desabilitado) a 31.`); return; }
+    for (const k of ALL_PRAZO_KEYS) {
+      const v = Number(form[k]);
+      if (v < 0 || v > 31) { setError(`Dia inválido. Use 0 (desabilitado) a 31.`); return; }
     }
     setSaving(true);
     setError('');
@@ -2766,6 +2772,8 @@ function ParametrizacaoModal({ tenantCompanyId, params, canWrite, onClose, onSav
     } catch (e) { setError(e.message); setSaving(false); }
   };
 
+  const currentTab = PRAZOS_TABS.find((t) => t.id === activeTab) || PRAZOS_TABS[0];
+
   return (
     <div
       onClick={onClose}
@@ -2773,62 +2781,138 @@ function ParametrizacaoModal({ tenantCompanyId, params, canWrite, onClose, onSav
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ width: '100%', maxWidth: 540, background: '#101015', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column' }}
+        className="acc-params-modal"
+        style={{ width: '100%', maxWidth: 880, background: '#101015', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column', maxHeight: '88vh' }}
       >
         {/* Header */}
-        <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
           <div>
             <h2 style={{ fontSize: '1rem', fontWeight: 700 }}>⚙ Parametrização</h2>
             <p style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
-              Defina o dia do mês limite para cada critério do card "Atrasadas". Use 0 para desabilitar.
+              Configure as regras do módulo Acompanhamento Contábil.
             </p>
           </div>
           <button type="button" onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '0 4px', flexShrink: 0 }}>×</button>
         </div>
 
-        {/* Body */}
-        <form id="params-form" onSubmit={handleSave} style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', maxHeight: '60vh' }}>
-          {error && (
-            <div style={{ padding: '10px 14px', background: 'rgba(255,107,107,0.08)', border: '1px solid rgba(255,107,107,0.25)', borderRadius: 10, color: '#ff8a8a', fontSize: '0.82rem' }}>
-              {error}
+        {/* Body: sidebar + content */}
+        <div className="acc-params-body" style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+          {/* Sidebar */}
+          <aside className="acc-params-sidebar" style={{ width: 200, borderRight: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.015)', padding: '14px 10px', display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 1.4, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', padding: '4px 10px 8px' }}>
+              Categorias
             </div>
-          )}
-          {!canWrite && (
-            <div style={{ padding: '10px 14px', background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.25)', borderRadius: 10, color: '#a78bfa', fontSize: '0.78rem' }}>
-              Apenas o <strong>dono</strong> ou um <strong>administrador / gestor</strong> da empresa pode editar a parametrização.
-            </div>
-          )}
-          {params?._missing && (
-            <div style={{ padding: '10px 14px', background: 'rgba(255,184,107,0.08)', border: '1px solid rgba(255,184,107,0.25)', borderRadius: 10, color: '#ffb86b', fontSize: '0.78rem' }}>
-              Tabela <code>accounting_params</code> ainda não existe. Aplique a migração <code>migration_20260509_params_and_roles.sql</code> no Supabase.
-            </div>
-          )}
-          {PARAM_FIELDS.map((f) => (
-            <label key={f.key} style={{ display: 'grid', gridTemplateColumns: '1fr 90px', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: '0.83rem', color: 'rgba(255,255,255,0.75)' }}>{f.label}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <input
-                  className="acc-input"
-                  type="number"
-                  min="0"
-                  max="31"
-                  value={form[f.key]}
-                  onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                  disabled={!canWrite}
-                  style={{ width: '100%', textAlign: 'center', fontWeight: 700, opacity: canWrite ? 1 : 0.6, cursor: canWrite ? 'text' : 'not-allowed' }}
-                />
-              </div>
-            </label>
-          ))}
-          <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>
-            Hoje é dia <strong style={{ color: 'rgba(255,255,255,0.6)' }}>{new Date().getDate()}</strong>. Regras com dia ≥ hoje ainda não estão vencidas.
-          </p>
-        </form>
+            {PARAM_CATEGORIES.map((cat) => {
+              const active = cat.id === activeCategory;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setActiveCategory(cat.id)}
+                  className="acc-params-cat"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 12px', borderRadius: 10, border: 'none',
+                    background: active ? 'rgba(124,58,237,0.14)' : 'transparent',
+                    color: active ? '#c4b3ff' : 'rgba(255,255,255,0.7)',
+                    cursor: 'pointer', fontSize: '0.86rem', fontWeight: active ? 700 : 500,
+                    fontFamily: 'inherit', textAlign: 'left',
+                    transition: 'background 0.15s, color 0.15s',
+                  }}
+                >
+                  <span style={{ fontSize: '0.95rem' }}>{cat.icon}</span>
+                  {cat.label}
+                </button>
+              );
+            })}
+          </aside>
+
+          {/* Content */}
+          <section className="acc-params-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            {activeCategory === 'prazos' && (
+              <>
+                {/* Tabs */}
+                <div className="acc-params-tabs" style={{ display: 'flex', gap: 4, padding: '12px 22px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+                  {PRAZOS_TABS.map((t) => {
+                    const active = t.id === activeTab;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setActiveTab(t.id)}
+                        className="acc-params-tab"
+                        style={{
+                          padding: '10px 14px', border: 'none', background: 'transparent',
+                          color: active ? '#a78bfa' : 'rgba(255,255,255,0.5)',
+                          fontSize: '0.83rem', fontWeight: active ? 700 : 500,
+                          cursor: 'pointer', fontFamily: 'inherit',
+                          borderBottom: active ? '2px solid #7C3AED' : '2px solid transparent',
+                          marginBottom: -1, transition: 'color 0.15s, border-color 0.15s',
+                        }}
+                      >
+                        {t.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Form */}
+                <form id="params-form" onSubmit={handleSave} className="acc-params-form" style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', flex: 1, minHeight: 0 }}>
+                  {error && (
+                    <div style={{ padding: '10px 14px', background: 'rgba(255,107,107,0.08)', border: '1px solid rgba(255,107,107,0.25)', borderRadius: 10, color: '#ff8a8a', fontSize: '0.82rem' }}>
+                      {error}
+                    </div>
+                  )}
+                  {!canWrite && (
+                    <div style={{ padding: '10px 14px', background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.25)', borderRadius: 10, color: '#a78bfa', fontSize: '0.78rem' }}>
+                      Apenas o <strong>dono</strong> ou um <strong>administrador / gestor</strong> da empresa pode editar a parametrização.
+                    </div>
+                  )}
+                  {params?._missing && (
+                    <div style={{ padding: '10px 14px', background: 'rgba(255,184,107,0.08)', border: '1px solid rgba(255,184,107,0.25)', borderRadius: 10, color: '#ffb86b', fontSize: '0.78rem' }}>
+                      Tabela <code>accounting_params</code> ainda não existe. Aplique a migração <code>migration_20260509_params_and_roles.sql</code> no Supabase.
+                    </div>
+                  )}
+
+                  <p style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.5 }}>
+                    {currentTab.description}
+                  </p>
+
+                  {currentTab.fields.length === 0 ? (
+                    <div style={{ padding: '32px 18px', textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 12 }}>
+                      Em breve: parâmetros de impostos (DAS, DARFs, vencimentos por regime, etc.).
+                    </div>
+                  ) : (
+                    currentTab.fields.map((f) => (
+                      <label key={f.key} style={{ display: 'grid', gridTemplateColumns: '1fr 90px', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontSize: '0.83rem', color: 'rgba(255,255,255,0.75)' }}>{f.label}</span>
+                        <input
+                          className="acc-input"
+                          type="number"
+                          min="0"
+                          max="31"
+                          value={form[f.key]}
+                          onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                          disabled={!canWrite}
+                          style={{ width: '100%', textAlign: 'center', fontWeight: 700, opacity: canWrite ? 1 : 0.6, cursor: canWrite ? 'text' : 'not-allowed' }}
+                        />
+                      </label>
+                    ))
+                  )}
+
+                  <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>
+                    Use <strong style={{ color: 'rgba(255,255,255,0.6)' }}>0</strong> para desabilitar uma regra. Hoje é dia <strong style={{ color: 'rgba(255,255,255,0.6)' }}>{new Date().getDate()}</strong>.
+                  </p>
+                </form>
+              </>
+            )}
+          </section>
+        </div>
 
         {/* Footer */}
-        <div style={{ padding: '14px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+        <div style={{ padding: '14px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'flex-end', gap: 10, flexShrink: 0 }}>
           <button type="button" className="acc-btn" onClick={onClose} disabled={saving}>{canWrite ? 'Cancelar' : 'Fechar'}</button>
-          {canWrite && (
+          {canWrite && currentTab.fields.length > 0 && (
             <button type="submit" form="params-form" className="acc-btn primary" disabled={saving}>
               {saving ? 'Salvando...' : 'Salvar'}
             </button>
