@@ -883,11 +883,22 @@ function isDelayedByParams(companyId, fileRecords, reconciliations, params) {
   const today = new Date().getDate();
   const cFiles = fileRecords.filter((r) => r.accounting_company_id === companyId);
   const cRecons = reconciliations.filter((r) => r.accounting_company_id === companyId);
+
+  // Documento "pendente" = sem registro OU registro com status 'pendente'.
+  // Registro ausente significa que o arquivo ainda não foi marcado nem como cobrado nem recebido.
   if (params.dia_cobranca > 0 && today > params.dia_cobranca) {
-    if (cFiles.some((r) => getFileStatus(r) === 'pendente')) return true;
+    const hasPendente = TASKS.some((t) => {
+      const r = cFiles.find((f) => f.doc_type === t.id);
+      return getFileStatus(r) === 'pendente';
+    });
+    if (hasPendente) return true;
   }
   if (params.dia_recebimento > 0 && today > params.dia_recebimento) {
-    if (cFiles.some((r) => getFileStatus(r) === 'cobrado')) return true;
+    const hasCobrado = TASKS.some((t) => {
+      const r = cFiles.find((f) => f.doc_type === t.id);
+      return getFileStatus(r) === 'cobrado';
+    });
+    if (hasCobrado) return true;
   }
   if (params.dia_extrato_aplicacoes > 0 && today > params.dia_extrato_aplicacoes) {
     if (!cRecons.some((r) => r.category === 'extrato_aplicacoes' && r.status === 'conciliado')) return true;
@@ -914,10 +925,23 @@ function getDelayReasons(companyId, fileRecords, reconciliations, params) {
   const cFiles = fileRecords.filter((r) => r.accounting_company_id === companyId);
   const cRecons = reconciliations.filter((r) => r.accounting_company_id === companyId);
   const reasons = [];
-  if (params.dia_cobranca > 0 && today > params.dia_cobranca && cFiles.some((r) => getFileStatus(r) === 'pendente'))
-    reasons.push(`Arquivos não cobrados (limite: dia ${params.dia_cobranca})`);
-  if (params.dia_recebimento > 0 && today > params.dia_recebimento && cFiles.some((r) => getFileStatus(r) === 'cobrado'))
-    reasons.push(`Cobrado não recebido (limite: dia ${params.dia_recebimento})`);
+
+  if (params.dia_cobranca > 0 && today > params.dia_cobranca) {
+    const pendentes = TASKS.filter((t) => {
+      const r = cFiles.find((f) => f.doc_type === t.id);
+      return getFileStatus(r) === 'pendente';
+    });
+    if (pendentes.length > 0)
+      reasons.push(`Não cobrados até dia ${params.dia_cobranca}: ${pendentes.map((t) => t.label).join(', ')}`);
+  }
+  if (params.dia_recebimento > 0 && today > params.dia_recebimento) {
+    const cobrados = TASKS.filter((t) => {
+      const r = cFiles.find((f) => f.doc_type === t.id);
+      return getFileStatus(r) === 'cobrado';
+    });
+    if (cobrados.length > 0)
+      reasons.push(`Cobrado, não recebido até dia ${params.dia_recebimento}: ${cobrados.map((t) => t.label).join(', ')}`);
+  }
   if (params.dia_extrato_aplicacoes > 0 && today > params.dia_extrato_aplicacoes && !cRecons.some((r) => r.category === 'extrato_aplicacoes' && r.status === 'conciliado'))
     reasons.push(`Extrato & Aplicações pendente (limite: dia ${params.dia_extrato_aplicacoes})`);
   if (params.dia_apuracao > 0 && today > params.dia_apuracao && !cRecons.some((r) => r.category === 'apuracao' && r.status === 'conciliado'))
