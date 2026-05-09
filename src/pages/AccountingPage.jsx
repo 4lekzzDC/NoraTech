@@ -776,6 +776,35 @@ function companyProgress(companyId, fileRecords, reconciliations) {
   return Math.round((filesPct + reconPct) / 2);
 }
 
+// Helpers para os cards do Dashboard:
+// "Concluída" (no contexto dos cards) = todas as categorias de Conciliação com status 'conciliado'.
+function isReconCompleted(companyId, reconciliations) {
+  return RECON_CATEGORIES.every((cat) =>
+    reconciliations.some((r) =>
+      r.accounting_company_id === companyId &&
+      r.category === cat.id &&
+      r.status === 'conciliado'
+    )
+  );
+}
+
+// "Em andamento" = tem pelo menos uma conciliação 'em_andamento' OU pelo menos uma 'conciliado',
+// mas ainda não está 100% conciliada.
+function isReconInProgress(companyId, reconciliations) {
+  if (isReconCompleted(companyId, reconciliations)) return false;
+  return reconciliations.some((r) =>
+    r.accounting_company_id === companyId &&
+    (r.status === 'em_andamento' || r.status === 'conciliado')
+  );
+}
+
+// "Aguardando cliente" = tem pelo menos um arquivo com status 'cobrado'.
+function hasFileCobrado(companyId, fileRecords) {
+  return fileRecords.some((r) =>
+    r.accounting_company_id === companyId && getFileStatus(r) === 'cobrado'
+  );
+}
+
 // =============================================================================
 // TAB 1 — DASHBOARD (gerencial, alimentado por Arquivos e Conciliação)
 // =============================================================================
@@ -855,10 +884,15 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
     const reconAbertos = Math.max(0, reconTotal - reconConcluido);
     const pendenciasAbertas = docsAbertos + reconAbertos;
 
-    // Cards gerenciais: status das empresas por estágio
-    const concluidas = perCompany.filter((c) => c.progress === 100).length;
-    const emAndamento = perCompany.filter((c) => c.progress > 0 && c.progress < 100 && !isDelayed(c)).length;
-    const aguardandoCliente = filtered.filter((c) => TASKS.some((t) => c.tasks?.[t.id] === 'aguardando_cliente')).length;
+    // Cards gerenciais: estágio das empresas
+    // Concluídas: todas as categorias da Conciliação como 'conciliado'.
+    const concluidas = filtered.filter((c) => isReconCompleted(c.id, recs)).length;
+    // Em andamento: pelo menos uma conciliação 'em_andamento' OU pelo menos uma 'conciliado',
+    // mas ainda não 100% conciliada.
+    const emAndamento = filtered.filter((c) => isReconInProgress(c.id, recs)).length;
+    // Aguardando cliente: pelo menos um arquivo com status 'cobrado'.
+    const aguardandoCliente = filtered.filter((c) => hasFileCobrado(c.id, fRecs)).length;
+    // Atrasadas: prazo vencido com pendências (lógica original do domínio).
     const atrasadas = filtered.filter((c) => isDelayed(c)).length;
 
     return {
@@ -928,21 +962,21 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
           label="Concluídas"
           value={dashMetrics.concluidas}
           accent="#00d48a"
-          hint="100% do fechamento"
+          hint="todas conciliações concluídas"
           onClick={() => onOpenCompanies({ initialFilter: 'concluidas' })}
         />
         <Kpi
           label="Em andamento"
           value={dashMetrics.emAndamento}
           accent="#60a5fa"
-          hint="progresso parcial, no prazo"
+          hint="conciliações iniciadas"
           onClick={() => onOpenCompanies({ initialFilter: 'em_andamento' })}
         />
         <Kpi
           label="Aguardando cliente"
           value={dashMetrics.aguardandoCliente}
           accent="#ff8a3d"
-          hint="1+ tarefa aguardando"
+          hint="1+ arquivo cobrado"
           onClick={() => onOpenCompanies({ initialFilter: 'aguardando_cliente' })}
         />
         <Kpi
@@ -1403,9 +1437,9 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
       .filter((c) => {
         if (filterResp && c.responsavel !== filterResp) return false;
         if (filterRegime && c.regime !== filterRegime) return false;
-        if (statusFilter === 'concluidas' && c.progress !== 100) return false;
-        if (statusFilter === 'em_andamento' && !(c.progress > 0 && c.progress < 100 && !isDelayed(c))) return false;
-        if (statusFilter === 'aguardando_cliente' && !TASKS.some((t) => c.tasks?.[t.id] === 'aguardando_cliente')) return false;
+        if (statusFilter === 'concluidas' && !isReconCompleted(c.id, reconciliations)) return false;
+        if (statusFilter === 'em_andamento' && !isReconInProgress(c.id, reconciliations)) return false;
+        if (statusFilter === 'aguardando_cliente' && !hasFileCobrado(c.id, fileRecords)) return false;
         if (statusFilter === 'atrasadas' && !isDelayed(c)) return false;
         if (search) {
           const q = search.toLowerCase();
