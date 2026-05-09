@@ -140,7 +140,7 @@ function MemberRow({ member, currentUserId, isOwner, onApprove, onReject, onChan
   const initials = (name || '?').split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
   const isMe = member.user_id === currentUserId;
   const busy = busyId === member.id;
-  const canChangeRole = isOwner && member.status === 'active' && member.role !== 'owner';
+  const canChangeRole = isOwner && !isMe && member.status === 'active' && member.role !== 'owner';
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderTop: '1px solid rgba(255,255,255,0.04)', flexWrap: 'wrap' }}>
@@ -387,9 +387,21 @@ export default function CockpitCompany({ user }) {
   }, [refresh, showToast]);
 
   const handleChangeRole = useCallback(async (memberId, role) => {
+    const member = members.find((m) => m.id === memberId);
+    if (!member) return;
+    if (member.user_id === user?.id || member.role === 'owner' || member.status !== 'active') {
+      showToast('Não é possível alterar o cargo do dono da empresa.', 'error');
+      return;
+    }
+    if (!['admin', 'member'].includes(role)) {
+      showToast('Cargo inválido.', 'error');
+      return;
+    }
+
     try {
       setBusyMemberId(memberId);
-      await setMemberRole(memberId, role);
+      const updated = await setMemberRole(memberId, role);
+      setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, ...updated } : m)));
       showToast(role === 'admin' ? 'Cargo atualizado para Admin / Gestor.' : 'Cargo atualizado para Membro.');
       await refresh();
     } catch (err) {
@@ -397,7 +409,7 @@ export default function CockpitCompany({ user }) {
     } finally {
       setBusyMemberId(null);
     }
-  }, [refresh, showToast]);
+  }, [members, refresh, showToast, user?.id]);
 
   const handleReject = useCallback(async (memberId) => {
     try {
@@ -555,6 +567,7 @@ export default function CockpitCompany({ user }) {
               isOwner={isOwner}
               onApprove={handleApprove}
               onReject={handleReject}
+              onChangeRole={handleChangeRole}
               busyId={busyMemberId}
             />
           ))}
