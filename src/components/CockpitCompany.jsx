@@ -7,7 +7,10 @@ import {
   leaveCompany,
   rejectMember,
   requestJoinCompany,
+  setMemberRole,
 } from '../lib/companies';
+
+const ROLE_LABEL = { owner: 'Dono', admin: 'Administrador / Gestor', member: 'Membro' };
 
 const PURPLE = '#7C3AED';
 const CARD_BG = 'rgba(255,255,255,0.02)';
@@ -131,15 +134,16 @@ function CodePill({ code }) {
   );
 }
 
-function MemberRow({ member, currentUserId, isOwner, onApprove, onReject, busyId }) {
+function MemberRow({ member, currentUserId, isOwner, onApprove, onReject, onChangeRole, busyId }) {
   const profile = member.profile;
   const name = profile?.name || 'Convidado';
   const initials = (name || '?').split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
   const isMe = member.user_id === currentUserId;
   const busy = busyId === member.id;
+  const canChangeRole = isOwner && member.status === 'active' && member.role !== 'owner';
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderTop: '1px solid rgba(255,255,255,0.04)', flexWrap: 'wrap' }}>
       {profile?.photo_url ? (
         <img src={profile.photo_url} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover' }} />
       ) : (
@@ -152,10 +156,28 @@ function MemberRow({ member, currentUserId, isOwner, onApprove, onReject, busyId
           {name}{isMe && <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}> · você</span>}
         </div>
         <div style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 1, marginTop: 2 }}>
-          {member.role === 'owner' ? 'Dono' : 'Membro'}
+          {ROLE_LABEL[member.role] || 'Membro'}
           {member.status === 'pending' && ' · Aguardando'}
         </div>
       </div>
+      {canChangeRole && (
+        <select
+          value={member.role}
+          onChange={(e) => onChangeRole(member.id, e.target.value)}
+          disabled={busy}
+          aria-label={`Alterar cargo de ${name}`}
+          style={{
+            padding: '8px 10px', borderRadius: 10,
+            background: 'rgba(0,0,0,0.28)', border: '1px solid rgba(255,255,255,0.12)',
+            color: '#eeede9', fontSize: '0.78rem', fontFamily: "'Inter', sans-serif",
+            outline: 'none', cursor: busy ? 'wait' : 'pointer',
+            opacity: busy ? 0.6 : 1,
+          }}
+        >
+          <option value="member">Membro</option>
+          <option value="admin">Admin / Gestor</option>
+        </select>
+      )}
       {isOwner && member.status === 'pending' && (
         <div style={{ display: 'flex', gap: 8 }}>
           <button
@@ -364,6 +386,19 @@ export default function CockpitCompany({ user }) {
     }
   }, [refresh, showToast]);
 
+  const handleChangeRole = useCallback(async (memberId, role) => {
+    try {
+      setBusyMemberId(memberId);
+      await setMemberRole(memberId, role);
+      showToast(role === 'admin' ? 'Cargo atualizado para Admin / Gestor.' : 'Cargo atualizado para Membro.');
+      await refresh();
+    } catch (err) {
+      showToast(err.message || 'Erro ao alterar cargo', 'error');
+    } finally {
+      setBusyMemberId(null);
+    }
+  }, [refresh, showToast]);
+
   const handleReject = useCallback(async (memberId) => {
     try {
       setBusyMemberId(memberId);
@@ -433,7 +468,7 @@ export default function CockpitCompany({ user }) {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap', marginBottom: 18 }}>
           <div style={{ minWidth: 0 }}>
             <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: 1.5, color: PURPLE, textTransform: 'uppercase' }}>
-              Empresa · {isOwner ? 'Dono' : 'Membro'}
+              Empresa · {ROLE_LABEL[data.membership?.role] || 'Membro'}
             </span>
             <h3 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: -0.6, marginTop: 6 }}>
               {data.company.name}
@@ -498,6 +533,7 @@ export default function CockpitCompany({ user }) {
                 isOwner
                 onApprove={handleApprove}
                 onReject={handleReject}
+                onChangeRole={handleChangeRole}
                 busyId={busyMemberId}
               />
             ))}

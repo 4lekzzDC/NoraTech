@@ -11,6 +11,7 @@ import {
 import { useIsAdmin } from '../lib/admin';
 import {
   getCurrentTenantCompanyId,
+  getCurrentMembership,
   listCompanies, upsertCompany, deleteCompany,
   listFileRecords, upsertFileRecord,
   listReconciliations, upsertReconciliation,
@@ -127,6 +128,7 @@ export default function AccountingPage() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [competencia, setCompetencia] = useState(currentCompetencia());
   const [tenantCompanyId, setTenantCompanyId] = useState(null);
+  const [companyRole, setCompanyRole] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [fileRecords, setFileRecords] = useState([]);
   const [reconciliations, setReconciliations] = useState([]);
@@ -152,8 +154,10 @@ export default function AccountingPage() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const tid = await getCurrentTenantCompanyId();
+      const ms = await getCurrentMembership();
+      const tid = ms?.tenantCompanyId || null;
       setTenantCompanyId(tid);
+      setCompanyRole(ms?.role || null);
       if (!tid) {
         setCompanies([]); setFileRecords([]); setReconciliations([]);
         return;
@@ -405,7 +409,7 @@ export default function AccountingPage() {
                     </svg>
                     Empresas
                   </button>
-                  {isAdmin && (
+                  {(isAdmin || companyRole === 'owner' || companyRole === 'admin') && (
                     <button
                       type="button"
                       onClick={() => { setConfigMenuOpen(false); setParamsOpen(true); }}
@@ -490,6 +494,7 @@ export default function AccountingPage() {
         <ParametrizacaoModal
           tenantCompanyId={tenantCompanyId}
           params={params}
+          canWrite={isAdmin || companyRole === 'owner' || companyRole === 'admin'}
           onClose={() => setParamsOpen(false)}
           onSaved={(p) => { setParams(p); setParamsOpen(false); }}
         />
@@ -2708,7 +2713,7 @@ const PARAM_FIELDS = [
   { key: 'dia_fornecedores',        label: 'Fornecedores não conciliados até o dia' },
 ];
 
-function ParametrizacaoModal({ tenantCompanyId, params, onClose, onSaved }) {
+function ParametrizacaoModal({ tenantCompanyId, params, canWrite, onClose, onSaved }) {
   const defaultValues = { dia_cobranca: 0, dia_recebimento: 0, dia_extrato_aplicacoes: 0, dia_apuracao: 0, dia_folha: 0, dia_demais_contas: 0, dia_fornecedores: 0 };
   const [form, setForm] = useState({ ...defaultValues, ...(params || {}) });
   const [saving, setSaving] = useState(false);
@@ -2716,6 +2721,7 @@ function ParametrizacaoModal({ tenantCompanyId, params, onClose, onSaved }) {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    if (!canWrite) { setError('Apenas o dono ou administrador da empresa pode salvar.'); return; }
     for (const f of PARAM_FIELDS) {
       const v = Number(form[f.key]);
       if (v < 0 || v > 31) { setError(`Dia inválido em "${f.label}". Use 0 (desabilitado) a 31.`); return; }
@@ -2763,6 +2769,16 @@ function ParametrizacaoModal({ tenantCompanyId, params, onClose, onSaved }) {
               {error}
             </div>
           )}
+          {!canWrite && (
+            <div style={{ padding: '10px 14px', background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.25)', borderRadius: 10, color: '#a78bfa', fontSize: '0.78rem' }}>
+              Apenas o <strong>dono</strong> ou um <strong>administrador / gestor</strong> da empresa pode editar a parametrização.
+            </div>
+          )}
+          {params?._missing && (
+            <div style={{ padding: '10px 14px', background: 'rgba(255,184,107,0.08)', border: '1px solid rgba(255,184,107,0.25)', borderRadius: 10, color: '#ffb86b', fontSize: '0.78rem' }}>
+              Tabela <code>accounting_params</code> ainda não existe. Aplique a migração <code>migration_20260509_params_and_roles.sql</code> no Supabase.
+            </div>
+          )}
           {PARAM_FIELDS.map((f) => (
             <label key={f.key} style={{ display: 'grid', gridTemplateColumns: '1fr 90px', alignItems: 'center', gap: 12 }}>
               <span style={{ fontSize: '0.83rem', color: 'rgba(255,255,255,0.75)' }}>{f.label}</span>
@@ -2774,7 +2790,8 @@ function ParametrizacaoModal({ tenantCompanyId, params, onClose, onSaved }) {
                   max="31"
                   value={form[f.key]}
                   onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                  style={{ width: '100%', textAlign: 'center', fontWeight: 700 }}
+                  disabled={!canWrite}
+                  style={{ width: '100%', textAlign: 'center', fontWeight: 700, opacity: canWrite ? 1 : 0.6, cursor: canWrite ? 'text' : 'not-allowed' }}
                 />
               </div>
             </label>
@@ -2786,10 +2803,12 @@ function ParametrizacaoModal({ tenantCompanyId, params, onClose, onSaved }) {
 
         {/* Footer */}
         <div style={{ padding: '14px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button type="button" className="acc-btn" onClick={onClose} disabled={saving}>Cancelar</button>
-          <button type="submit" form="params-form" className="acc-btn primary" disabled={saving}>
-            {saving ? 'Salvando...' : 'Salvar'}
-          </button>
+          <button type="button" className="acc-btn" onClick={onClose} disabled={saving}>{canWrite ? 'Cancelar' : 'Fechar'}</button>
+          {canWrite && (
+            <button type="submit" form="params-form" className="acc-btn primary" disabled={saving}>
+              {saving ? 'Salvando...' : 'Salvar'}
+            </button>
+          )}
         </div>
       </div>
     </div>

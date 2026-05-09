@@ -17,6 +17,17 @@ export async function getCurrentTenantCompanyId() {
   return my?.company?.id || null;
 }
 
+// Retorna o cargo do usuário na empresa-tenant atual: 'owner' | 'admin' | 'member' | null
+export async function getCurrentMembership() {
+  const my = await fetchMyCompany();
+  if (!my?.company?.id) return null;
+  return {
+    tenantCompanyId: my.company.id,
+    role: my.membership?.role || 'member',
+    status: my.membership?.status || 'active',
+  };
+}
+
 // =============================================================================
 // accounting_companies
 // =============================================================================
@@ -176,7 +187,14 @@ export async function listAccountingParams(tenantCompanyId) {
     .select('*')
     .eq('tenant_company_id', tenantCompanyId)
     .maybeSingle();
-  if (error) throw new Error(translate(error));
+  if (error) {
+    // Se a tabela ainda não existe (migração não aplicada), retorna default
+    // em vez de quebrar o dashboard.
+    if (/relation .* does not exist|could not find table|does not exist/i.test(error.message || '')) {
+      return { ...DEFAULT_PARAMS, _missing: true };
+    }
+    throw new Error(translate(error));
+  }
   if (!data) return { ...DEFAULT_PARAMS };
   return { ...DEFAULT_PARAMS, ...data };
 }
