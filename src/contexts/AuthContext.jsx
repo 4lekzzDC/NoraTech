@@ -22,15 +22,19 @@ function mapProfile(authUser, profile) {
     email: authUser.email,
     name: profile?.name || authUser.user_metadata?.name || '',
     photoUrl: profile?.photo_url || null,
+    bannerUrl: profile?.banner_url || null,
+    statusMessage: profile?.status_message || null,
+    statusExpiresAt: profile?.status_expires_at || null,
     company: profile?.company || null,
     createdAt: authUser.created_at || null,
+    emailVerified: Boolean(authUser.email_confirmed_at || authUser.confirmed_at),
   };
 }
 
 async function fetchProfileRow(authUser) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('name, photo_url, company')
+    .select('name, photo_url, banner_url, status_message, status_expires_at, company')
     .eq('id', authUser.id)
     .maybeSingle();
   if (error && error.code !== 'PGRST116') {
