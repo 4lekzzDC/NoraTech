@@ -156,6 +156,43 @@ export async function upsertReconciliation({ accountingCompanyId, category, comp
 }
 
 // =============================================================================
+// accounting_params — thresholds do card "Atrasadas"
+// =============================================================================
+
+const DEFAULT_PARAMS = {
+  dia_cobranca: 0,
+  dia_recebimento: 0,
+  dia_extrato_aplicacoes: 0,
+  dia_apuracao: 0,
+  dia_folha: 0,
+  dia_demais_contas: 0,
+  dia_fornecedores: 0,
+};
+
+export async function listAccountingParams(tenantCompanyId) {
+  if (!tenantCompanyId) return { ...DEFAULT_PARAMS };
+  const { data, error } = await supabase
+    .from('accounting_params')
+    .select('*')
+    .eq('tenant_company_id', tenantCompanyId)
+    .maybeSingle();
+  if (error) throw new Error(translate(error));
+  if (!data) return { ...DEFAULT_PARAMS };
+  return { ...DEFAULT_PARAMS, ...data };
+}
+
+export async function upsertAccountingParams(tenantCompanyId, params) {
+  const payload = { tenant_company_id: tenantCompanyId, ...params };
+  const { data, error } = await supabase
+    .from('accounting_params')
+    .upsert(payload, { onConflict: 'tenant_company_id' })
+    .select('*')
+    .single();
+  if (error) throw new Error(translate(error));
+  return { ...DEFAULT_PARAMS, ...data };
+}
+
+// =============================================================================
 // Subscription gate — usado por SubscriptionRoute
 // =============================================================================
 

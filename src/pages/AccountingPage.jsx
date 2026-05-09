@@ -14,6 +14,7 @@ import {
   listCompanies, upsertCompany, deleteCompany,
   listFileRecords, upsertFileRecord,
   listReconciliations, upsertReconciliation,
+  listAccountingParams, upsertAccountingParams,
 } from '../lib/accounting';
 
 // =============================================================================
@@ -131,8 +132,13 @@ export default function AccountingPage() {
   const [reconciliations, setReconciliations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
-  const [companiesView, setCompaniesView] = useState(null); // null | { initialSort?, initialOnlyCompleted? }
+  const [companiesView, setCompaniesView] = useState(null);
   const [pendenciasOpen, setPendenciasOpen] = useState(false);
+  const [paramsOpen, setParamsOpen] = useState(false);
+  const [params, setParams] = useState(null);
+  const [configMenuOpen, setConfigMenuOpen] = useState(false);
+  const configBtnRef = useRef(null);
+  const configMenuRef = useRef(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const avatarRef = useRef(null);
   const profileMenuRef = useRef(null);
@@ -152,6 +158,7 @@ export default function AccountingPage() {
         setCompanies([]); setFileRecords([]); setReconciliations([]);
         return;
       }
+      listAccountingParams(tid).then(setParams).catch(() => {});
       const list = await listCompanies({ tenantCompanyId: tid, competencia });
       setCompanies(list);
       const ids = list.map((c) => c.id);
@@ -188,6 +195,18 @@ export default function AccountingPage() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [profileOpen]);
+
+  useEffect(() => {
+    if (!configMenuOpen) return;
+    const handler = (e) => {
+      if (
+        configBtnRef.current && !configBtnRef.current.contains(e.target) &&
+        configMenuRef.current && !configMenuRef.current.contains(e.target)
+      ) setConfigMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [configMenuOpen]);
 
   return (
     <div style={{ minHeight: '100vh', background: '#08080a', color: '#eeede9', fontFamily: "'Inter', sans-serif" }}>
@@ -356,15 +375,53 @@ export default function AccountingPage() {
               <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Competência</span>
               <CompetenciaPicker value={competencia} onChange={setCompetencia} />
             </label>
-            <button type="button" onClick={() => setCompaniesView({})} className="acc-btn" style={{ fontSize: '0.8rem', padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 7 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="7" width="20" height="15" rx="1" />
-                <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
-                <line x1="12" y1="12" x2="12" y2="17" />
-                <line x1="9" y1="14.5" x2="15" y2="14.5" />
-              </svg>
-              Empresas
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button
+                ref={configBtnRef}
+                type="button"
+                onClick={() => setConfigMenuOpen((o) => !o)}
+                className="acc-btn"
+                style={{ fontSize: '0.8rem', padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 7 }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+                Configurações
+                <svg width="10" height="10" viewBox="0 0 10 10" style={{ opacity: 0.5, transform: configMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s', marginLeft: -2 }}>
+                  <path d="M1.5 3.5 L5 7 L8.5 3.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              {configMenuOpen && (
+                <div ref={configMenuRef} style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, minWidth: 180, background: '#18181f', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', zIndex: 300, overflow: 'hidden' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setConfigMenuOpen(false); setCompaniesView({}); }}
+                    style={{ width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', fontWeight: 500, fontFamily: 'inherit', textAlign: 'left', transition: 'background 0.15s' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+                      <rect x="2" y="7" width="20" height="15" rx="1" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                    </svg>
+                    Empresas
+                  </button>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => { setConfigMenuOpen(false); setParamsOpen(true); }}
+                      style={{ width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', fontWeight: 500, fontFamily: 'inherit', textAlign: 'left', borderTop: '1px solid rgba(255,255,255,0.06)', transition: 'background 0.15s' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+                        <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                      </svg>
+                      Parametrização
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -389,6 +446,7 @@ export default function AccountingPage() {
                 filterRegime={filterRegime} setFilterRegime={setFilterRegime}
                 onOpenCompanies={(view) => setCompaniesView(view || {})}
                 onOpenPendencias={() => setPendenciasOpen(true)}
+                params={params}
               />
             )}
             {activeTab === 'arquivos' && (
@@ -425,6 +483,15 @@ export default function AccountingPage() {
           initialFilter={companiesView.initialFilter}
           onClose={() => setCompaniesView(null)}
           onChange={reload}
+          params={params}
+        />
+      )}
+      {paramsOpen && tenantCompanyId && (
+        <ParametrizacaoModal
+          tenantCompanyId={tenantCompanyId}
+          params={params}
+          onClose={() => setParamsOpen(false)}
+          onSaved={(p) => { setParams(p); setParamsOpen(false); }}
         />
       )}
       {pendenciasOpen && (
@@ -805,6 +872,60 @@ function hasFileCobrado(companyId, fileRecords) {
   );
 }
 
+// Retorna true se a empresa está atrasada segundo os parâmetros configuráveis.
+function isDelayedByParams(companyId, fileRecords, reconciliations, params) {
+  if (!params) return false;
+  const today = new Date().getDate();
+  const cFiles = fileRecords.filter((r) => r.accounting_company_id === companyId);
+  const cRecons = reconciliations.filter((r) => r.accounting_company_id === companyId);
+  if (params.dia_cobranca > 0 && today > params.dia_cobranca) {
+    if (cFiles.some((r) => getFileStatus(r) === 'pendente')) return true;
+  }
+  if (params.dia_recebimento > 0 && today > params.dia_recebimento) {
+    if (cFiles.some((r) => getFileStatus(r) === 'cobrado')) return true;
+  }
+  if (params.dia_extrato_aplicacoes > 0 && today > params.dia_extrato_aplicacoes) {
+    if (!cRecons.some((r) => r.category === 'extrato_aplicacoes' && r.status === 'conciliado')) return true;
+  }
+  if (params.dia_apuracao > 0 && today > params.dia_apuracao) {
+    if (!cRecons.some((r) => r.category === 'apuracao' && r.status === 'conciliado')) return true;
+  }
+  if (params.dia_folha > 0 && today > params.dia_folha) {
+    if (!cRecons.some((r) => r.category === 'folha' && r.status === 'conciliado')) return true;
+  }
+  if (params.dia_demais_contas > 0 && today > params.dia_demais_contas) {
+    if (!cRecons.some((r) => r.category === 'demais_contas' && r.status === 'conciliado')) return true;
+  }
+  if (params.dia_fornecedores > 0 && today > params.dia_fornecedores) {
+    if (!cRecons.some((r) => r.category === 'fornecedores' && r.status === 'conciliado')) return true;
+  }
+  return false;
+}
+
+// Retorna array de motivos de atraso para exibição no modal.
+function getDelayReasons(companyId, fileRecords, reconciliations, params) {
+  if (!params) return [];
+  const today = new Date().getDate();
+  const cFiles = fileRecords.filter((r) => r.accounting_company_id === companyId);
+  const cRecons = reconciliations.filter((r) => r.accounting_company_id === companyId);
+  const reasons = [];
+  if (params.dia_cobranca > 0 && today > params.dia_cobranca && cFiles.some((r) => getFileStatus(r) === 'pendente'))
+    reasons.push(`Arquivos não cobrados (limite: dia ${params.dia_cobranca})`);
+  if (params.dia_recebimento > 0 && today > params.dia_recebimento && cFiles.some((r) => getFileStatus(r) === 'cobrado'))
+    reasons.push(`Cobrado não recebido (limite: dia ${params.dia_recebimento})`);
+  if (params.dia_extrato_aplicacoes > 0 && today > params.dia_extrato_aplicacoes && !cRecons.some((r) => r.category === 'extrato_aplicacoes' && r.status === 'conciliado'))
+    reasons.push(`Extrato & Aplicações pendente (limite: dia ${params.dia_extrato_aplicacoes})`);
+  if (params.dia_apuracao > 0 && today > params.dia_apuracao && !cRecons.some((r) => r.category === 'apuracao' && r.status === 'conciliado'))
+    reasons.push(`Apuração pendente (limite: dia ${params.dia_apuracao})`);
+  if (params.dia_folha > 0 && today > params.dia_folha && !cRecons.some((r) => r.category === 'folha' && r.status === 'conciliado'))
+    reasons.push(`Folha pendente (limite: dia ${params.dia_folha})`);
+  if (params.dia_demais_contas > 0 && today > params.dia_demais_contas && !cRecons.some((r) => r.category === 'demais_contas' && r.status === 'conciliado'))
+    reasons.push(`Demais contas pendentes (limite: dia ${params.dia_demais_contas})`);
+  if (params.dia_fornecedores > 0 && today > params.dia_fornecedores && !cRecons.some((r) => r.category === 'fornecedores' && r.status === 'conciliado'))
+    reasons.push(`Fornecedores pendentes (limite: dia ${params.dia_fornecedores})`);
+  return reasons;
+}
+
 // =============================================================================
 // TAB 1 — DASHBOARD (gerencial, alimentado por Arquivos e Conciliação)
 // =============================================================================
@@ -816,7 +937,7 @@ const EMPTY_FORM = {
 
 function DashboardTab({ competencia, companies, fileRecords, reconciliations,
   search, setSearch, filterResp, setFilterResp, filterRegime, setFilterRegime,
-  onOpenCompanies, onOpenPendencias,
+  onOpenCompanies, onOpenPendencias, params,
 }) {
   const [chartFilter, setChartFilter] = useState(null);
 
@@ -892,8 +1013,8 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
     const emAndamento = filtered.filter((c) => isReconInProgress(c.id, recs)).length;
     // Aguardando cliente: pelo menos um arquivo com status 'cobrado'.
     const aguardandoCliente = filtered.filter((c) => hasFileCobrado(c.id, fRecs)).length;
-    // Atrasadas: prazo vencido com pendências (lógica original do domínio).
-    const atrasadas = filtered.filter((c) => isDelayed(c)).length;
+    // Atrasadas: usa thresholds configuráveis via Parametrização.
+    const atrasadas = filtered.filter((c) => isDelayedByParams(c.id, fRecs, recs, params)).length;
 
     return {
       totalEmpresas, totalEsperado, totalRecebidos, totalCobrados, totalPendentes, pctRecebido,
@@ -902,7 +1023,7 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
       reconTotal, reconConcluido, reconEmAndamento, reconPendencia, reconNaoIniciado, reconPctGeral,
       concluidas, emAndamento, aguardandoCliente, atrasadas,
     };
-  }, [filtered, fileRecords, reconciliations]);
+  }, [filtered, fileRecords, reconciliations, params]);
 
   const filterDetails = useMemo(() => {
     if (!chartFilter) return [];
@@ -1416,7 +1537,7 @@ const STATUS_FILTER_LABELS = {
 
 function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, reconciliations,
   search, setSearch, filterResp, setFilterResp, filterRegime, setFilterRegime,
-  initialSort, initialFilter, onClose, onChange,
+  initialSort, initialFilter, onClose, onChange, params,
 }) {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -1440,7 +1561,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
         if (statusFilter === 'concluidas' && !isReconCompleted(c.id, reconciliations)) return false;
         if (statusFilter === 'em_andamento' && !isReconInProgress(c.id, reconciliations)) return false;
         if (statusFilter === 'aguardando_cliente' && !hasFileCobrado(c.id, fileRecords)) return false;
-        if (statusFilter === 'atrasadas' && !isDelayed(c)) return false;
+        if (statusFilter === 'atrasadas' && !isDelayedByParams(c.id, fileRecords, reconciliations, params)) return false;
         if (search) {
           const q = search.toLowerCase();
           if (
@@ -1455,7 +1576,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
     else if (sortBy === 'progress_desc') list.sort((a, b) => b.progress - a.progress || (a.nome || '').localeCompare(b.nome || ''));
     else list.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
     return list;
-  }, [companies, fileRecords, reconciliations, filterResp, filterRegime, search, sortBy, statusFilter]);
+  }, [companies, fileRecords, reconciliations, filterResp, filterRegime, search, sortBy, statusFilter, params]);
 
   const clearFilters = () => { setSearch(''); setFilterResp(''); setFilterRegime(''); setStatusFilter(''); setSortBy('name'); };
   const hasFilters = !!(search || filterResp || filterRegime || statusFilter || sortBy !== 'name');
@@ -1594,9 +1715,21 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
                     </td>
                     <td>
                       <div style={{ fontWeight: 700, color: '#eeede9' }}>{c.nome}</div>
-                      {c.prazo && (
-                        <div style={{ fontSize: '0.72rem', color: isDelayed(c) ? '#ff6b6b' : 'rgba(255,255,255,0.45)', marginTop: 3 }}>
-                          {isDelayed(c) ? '⚠ ' : ''}Prazo: {c.prazo}
+                      {statusFilter === 'atrasadas' && (() => {
+                        const reasons = getDelayReasons(c.id, fileRecords, reconciliations, params);
+                        return reasons.length > 0 ? (
+                          <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {reasons.map((r) => (
+                              <span key={r} style={{ fontSize: '0.68rem', color: '#ff8a8a', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ fontSize: '0.6rem' }}>⚠</span>{r}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null;
+                      })()}
+                      {statusFilter !== 'atrasadas' && c.prazo && (
+                        <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.45)', marginTop: 3 }}>
+                          Prazo: {c.prazo}
                         </div>
                       )}
                     </td>
@@ -1606,7 +1739,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ flex: 1 }}>
-                          <ProgressBar pct={c.progress} color={c.progress === 100 ? '#00d48a' : isDelayed(c) ? '#ff6b6b' : '#7C3AED'} height={6} />
+                          <ProgressBar pct={c.progress} color={c.progress === 100 ? '#00d48a' : isDelayedByParams(c.id, fileRecords, reconciliations, params) ? '#ff6b6b' : '#7C3AED'} height={6} />
                         </div>
                         <span style={{ fontSize: '0.8rem', fontWeight: 700, minWidth: 36, textAlign: 'right', color: c.progress === 100 ? '#00d48a' : 'rgba(255,255,255,0.8)' }}>
                           {c.progress}%
@@ -2558,5 +2691,107 @@ function ReconciliationTab({ competencia, companies, reconciliations, setReconci
         </Modal>
       )}
     </>
+  );
+}
+
+// =============================================================================
+// ParametrizacaoModal — configura thresholds do card "Atrasadas"
+// =============================================================================
+
+const PARAM_FIELDS = [
+  { key: 'dia_cobranca',            label: 'Arquivos ainda não foram cobrados até o dia' },
+  { key: 'dia_recebimento',         label: 'Arquivos cobrados mas não recebidos até o dia' },
+  { key: 'dia_extrato_aplicacoes',  label: 'Extrato & Aplicações não conciliado até o dia' },
+  { key: 'dia_apuracao',            label: 'Apuração não conciliada até o dia' },
+  { key: 'dia_folha',               label: 'Folha não importada/conciliada até o dia' },
+  { key: 'dia_demais_contas',       label: 'Demais contas não conciliadas até o dia' },
+  { key: 'dia_fornecedores',        label: 'Fornecedores não conciliados até o dia' },
+];
+
+function ParametrizacaoModal({ tenantCompanyId, params, onClose, onSaved }) {
+  const defaultValues = { dia_cobranca: 0, dia_recebimento: 0, dia_extrato_aplicacoes: 0, dia_apuracao: 0, dia_folha: 0, dia_demais_contas: 0, dia_fornecedores: 0 };
+  const [form, setForm] = useState({ ...defaultValues, ...(params || {}) });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    for (const f of PARAM_FIELDS) {
+      const v = Number(form[f.key]);
+      if (v < 0 || v > 31) { setError(`Dia inválido em "${f.label}". Use 0 (desabilitado) a 31.`); return; }
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const saved = await upsertAccountingParams(tenantCompanyId, {
+        dia_cobranca: Number(form.dia_cobranca),
+        dia_recebimento: Number(form.dia_recebimento),
+        dia_extrato_aplicacoes: Number(form.dia_extrato_aplicacoes),
+        dia_apuracao: Number(form.dia_apuracao),
+        dia_folha: Number(form.dia_folha),
+        dia_demais_contas: Number(form.dia_demais_contas),
+        dia_fornecedores: Number(form.dia_fornecedores),
+      });
+      onSaved(saved);
+    } catch (e) { setError(e.message); setSaving(false); }
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(4,4,8,0.82)', backdropFilter: 'blur(14px) saturate(0.85)', WebkitBackdropFilter: 'blur(14px) saturate(0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5vh 20px', zIndex: 120 }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ width: '100%', maxWidth: 540, background: '#101015', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column' }}
+      >
+        {/* Header */}
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <h2 style={{ fontSize: '1rem', fontWeight: 700 }}>⚙ Parametrização</h2>
+            <p style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
+              Defina o dia do mês limite para cada critério do card "Atrasadas". Use 0 para desabilitar.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '0 4px', flexShrink: 0 }}>×</button>
+        </div>
+
+        {/* Body */}
+        <form id="params-form" onSubmit={handleSave} style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', maxHeight: '60vh' }}>
+          {error && (
+            <div style={{ padding: '10px 14px', background: 'rgba(255,107,107,0.08)', border: '1px solid rgba(255,107,107,0.25)', borderRadius: 10, color: '#ff8a8a', fontSize: '0.82rem' }}>
+              {error}
+            </div>
+          )}
+          {PARAM_FIELDS.map((f) => (
+            <label key={f.key} style={{ display: 'grid', gridTemplateColumns: '1fr 90px', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: '0.83rem', color: 'rgba(255,255,255,0.75)' }}>{f.label}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input
+                  className="acc-input"
+                  type="number"
+                  min="0"
+                  max="31"
+                  value={form[f.key]}
+                  onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                  style={{ width: '100%', textAlign: 'center', fontWeight: 700 }}
+                />
+              </div>
+            </label>
+          ))}
+          <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>
+            Hoje é dia <strong style={{ color: 'rgba(255,255,255,0.6)' }}>{new Date().getDate()}</strong>. Regras com dia ≥ hoje ainda não estão vencidas.
+          </p>
+        </form>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button type="button" className="acc-btn" onClick={onClose} disabled={saving}>Cancelar</button>
+          <button type="submit" form="params-form" className="acc-btn primary" disabled={saving}>
+            {saving ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
