@@ -503,3 +503,62 @@ html[data-theme="light"] .admin-modal-body [style*="rgba(124,58,237,0.15)"] {
 html[data-theme="light"] .admin-modal-body [style*="rgba(255, 255, 255, 0.05)"] {
   background: rgba(24, 24, 27, 0.06) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   ADMIN DROPDOWN (AdminUsersPage edit modal)
+   Modern combobox/select — light mode overrides.
+   ═══════════════════════════════════════════════════════════ */
+html[data-theme="light"] .admin-dd-trigger {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(124, 58, 237, 0.18) !important;
+  color: #18181b !important;
+}
+html[data-theme="light"] .admin-dd-trigger:hover {
+  border-color: rgba(124, 58, 237, 0.45) !important;
+  background: #ffffff !important;
+}
+html[data-theme="light"] .admin-dd.open .admin-dd-trigger {
+  border-color: #7C3AED !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15) !important;
+}
+html[data-theme="light"] .admin-dd-input { color: #18181b !important; }
+html[data-theme="light"] .admin-dd-input::placeholder { color: rgba(24, 24, 27, 0.40) !important; }
+html[data-theme="light"] .admin-dd-arrow-btn {
+  color: rgba(24, 24, 27, 0.50) !important;
+  border-left-color: rgba(124, 58, 237, 0.10) !important;
+}
+html[data-theme="light"] .admin-dd-arrow-btn:hover {
+  color: #7C3AED !important;
+  background: rgba(124, 58, 237, 0.06) !important;
+}
+html[data-theme="light"] .admin-dd-arrow { color: rgba(24, 24, 27, 0.50) !important; }
+html[data-theme="light"] .admin-dd-trigger-btn .admin-dd-arrow { color: rgba(24, 24, 27, 0.50) !important; }
+html[data-theme="light"] .admin-dd-arrow.open { color: #7C3AED !important; }
+html[data-theme="light"] .admin-dd-value { color: #18181b !important; }
+html[data-theme="light"] .admin-dd-value.placeholder { color: rgba(24, 24, 27, 0.40) !important; }
+html[data-theme="light"] .admin-dd-panel {
+  background: #ffffff !important;
+  border-color: rgba(124, 58, 237, 0.16) !important;
+  box-shadow:
+    0 12px 32px -8px rgba(80, 50, 150, 0.20),
+    0 0 0 1px rgba(124, 58, 237, 0.06),
+    0 6px 16px -6px rgba(124, 58, 237, 0.16) !important;
+}
+html[data-theme="light"] .admin-dd-option {
+  color: rgba(24, 24, 27, 0.85) !important;
+}
+html[data-theme="light"] .admin-dd-option:hover,
+html[data-theme="light"] .admin-dd-option.active {
+  background: rgba(124, 58, 237, 0.10) !important;
+  color: #18181b !important;
+}
+html[data-theme="light"] .admin-dd-option.selected {
+  background: rgba(124, 58, 237, 0.16) !important;
+  color: #5b21b6 !important;
+}
+html[data-theme="light"] .admin-dd-option.selected svg { color: #7C3AED !important; }
+html[data-theme="light"] .admin-dd-empty { color: rgba(24, 24, 27, 0.45) !important; }
+html[data-theme="light"] .admin-dd-panel::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.25) !important;
+}
