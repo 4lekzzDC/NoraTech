@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
+import UserProfileMenu from '../components/UserProfileMenu';
 import {
   TASKS, REGIMES,
   RECON_CATEGORIES, RECON_STATUS, RECON_STATUS_ORDER,
@@ -296,6 +297,7 @@ export default function AccountingPage() {
               </Link>
             )}
             <ThemeToggle />
+            <UserProfileMenu />
             {/* Avatar button — click reveals name/email/logout */}
             <button
               ref={avatarRef}
@@ -303,7 +305,7 @@ export default function AccountingPage() {
               onClick={() => setProfileOpen((o) => !o)}
               title={user?.name || 'Usuário'}
               aria-label="Menu do usuário"
-              style={{ padding: 0, background: 'transparent', border: 'none', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', outline: 'none' }}
+              style={{ display: 'none', padding: 0, background: 'transparent', border: 'none', borderRadius: '50%', cursor: 'pointer', alignItems: 'center', justifyContent: 'center', outline: 'none' }}
             >
               {user?.photoUrl ? (
                 <img src={user.photoUrl} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.1)', transition: 'border-color 0.2s' }} />
