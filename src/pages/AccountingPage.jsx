@@ -2,17 +2,20 @@ import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import ThemeToggle from '../components/ThemeToggle';
 import {
-  TASKS, PRIORITY, REGIMES,
+  TASKS, REGIMES,
   RECON_CATEGORIES, RECON_STATUS, RECON_STATUS_ORDER,
   currentCompetencia, emptyTasks, isDelayed,
 } from '../lib/accountingDomain';
 import { useIsAdmin } from '../lib/admin';
 import {
   getCurrentTenantCompanyId,
+  getCurrentMembership,
   listCompanies, upsertCompany, deleteCompany,
   listFileRecords, upsertFileRecord,
   listReconciliations, upsertReconciliation,
+  listAccountingParams, upsertAccountingParams,
 } from '../lib/accounting';
 
 // =============================================================================
@@ -125,13 +128,19 @@ export default function AccountingPage() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [competencia, setCompetencia] = useState(currentCompetencia());
   const [tenantCompanyId, setTenantCompanyId] = useState(null);
+  const [companyRole, setCompanyRole] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [fileRecords, setFileRecords] = useState([]);
   const [reconciliations, setReconciliations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
-  const [companiesView, setCompaniesView] = useState(null); // null | { initialSort?, initialOnlyCompleted? }
+  const [companiesView, setCompaniesView] = useState(null);
   const [pendenciasOpen, setPendenciasOpen] = useState(false);
+  const [paramsOpen, setParamsOpen] = useState(false);
+  const [params, setParams] = useState(null);
+  const [configMenuOpen, setConfigMenuOpen] = useState(false);
+  const configBtnRef = useRef(null);
+  const configMenuRef = useRef(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const avatarRef = useRef(null);
   const profileMenuRef = useRef(null);
@@ -145,12 +154,15 @@ export default function AccountingPage() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const tid = await getCurrentTenantCompanyId();
+      const ms = await getCurrentMembership();
+      const tid = ms?.tenantCompanyId || null;
       setTenantCompanyId(tid);
+      setCompanyRole(ms?.role || null);
       if (!tid) {
         setCompanies([]); setFileRecords([]); setReconciliations([]);
         return;
       }
+      listAccountingParams(tid).then(setParams).catch(() => {});
       const list = await listCompanies({ tenantCompanyId: tid, competencia });
       setCompanies(list);
       const ids = list.map((c) => c.id);
@@ -187,6 +199,18 @@ export default function AccountingPage() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [profileOpen]);
+
+  useEffect(() => {
+    if (!configMenuOpen) return;
+    const handler = (e) => {
+      if (
+        configBtnRef.current && !configBtnRef.current.contains(e.target) &&
+        configMenuRef.current && !configMenuRef.current.contains(e.target)
+      ) setConfigMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [configMenuOpen]);
 
   return (
     <div style={{ minHeight: '100vh', background: '#08080a', color: '#eeede9', fontFamily: "'Inter', sans-serif" }}>
@@ -271,6 +295,7 @@ export default function AccountingPage() {
                 ⚙ Admin
               </Link>
             )}
+            <ThemeToggle />
             {/* Avatar button — click reveals name/email/logout */}
             <button
               ref={avatarRef}
@@ -354,15 +379,53 @@ export default function AccountingPage() {
               <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Competência</span>
               <CompetenciaPicker value={competencia} onChange={setCompetencia} />
             </label>
-            <button type="button" onClick={() => setCompaniesView({})} className="acc-btn" style={{ fontSize: '0.8rem', padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 7 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="7" width="20" height="15" rx="1" />
-                <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
-                <line x1="12" y1="12" x2="12" y2="17" />
-                <line x1="9" y1="14.5" x2="15" y2="14.5" />
-              </svg>
-              Empresas
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button
+                ref={configBtnRef}
+                type="button"
+                onClick={() => setConfigMenuOpen((o) => !o)}
+                className="acc-btn"
+                style={{ fontSize: '0.8rem', padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 7 }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+                Configurações
+                <svg width="10" height="10" viewBox="0 0 10 10" style={{ opacity: 0.5, transform: configMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s', marginLeft: -2 }}>
+                  <path d="M1.5 3.5 L5 7 L8.5 3.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              {configMenuOpen && (
+                <div ref={configMenuRef} style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, minWidth: 180, background: '#18181f', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', zIndex: 300, overflow: 'hidden' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setConfigMenuOpen(false); setCompaniesView({}); }}
+                    style={{ width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', fontWeight: 500, fontFamily: 'inherit', textAlign: 'left', transition: 'background 0.15s' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+                      <rect x="2" y="7" width="20" height="15" rx="1" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                    </svg>
+                    Empresas
+                  </button>
+                  {(isAdmin || companyRole === 'owner' || companyRole === 'admin') && (
+                    <button
+                      type="button"
+                      onClick={() => { setConfigMenuOpen(false); setParamsOpen(true); }}
+                      style={{ width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', fontWeight: 500, fontFamily: 'inherit', textAlign: 'left', borderTop: '1px solid rgba(255,255,255,0.06)', transition: 'background 0.15s' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+                        <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                      </svg>
+                      Parametrização
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -387,6 +450,7 @@ export default function AccountingPage() {
                 filterRegime={filterRegime} setFilterRegime={setFilterRegime}
                 onOpenCompanies={(view) => setCompaniesView(view || {})}
                 onOpenPendencias={() => setPendenciasOpen(true)}
+                params={params}
               />
             )}
             {activeTab === 'arquivos' && (
@@ -420,9 +484,19 @@ export default function AccountingPage() {
           filterResp={filterResp} setFilterResp={setFilterResp}
           filterRegime={filterRegime} setFilterRegime={setFilterRegime}
           initialSort={companiesView.initialSort}
-          initialOnlyCompleted={companiesView.initialOnlyCompleted}
+          initialFilter={companiesView.initialFilter}
           onClose={() => setCompaniesView(null)}
           onChange={reload}
+          params={params}
+        />
+      )}
+      {paramsOpen && tenantCompanyId && (
+        <ParametrizacaoModal
+          tenantCompanyId={tenantCompanyId}
+          params={params}
+          canWrite={isAdmin || companyRole === 'owner' || companyRole === 'admin'}
+          onClose={() => setParamsOpen(false)}
+          onSaved={(p) => { setParams(p); setParamsOpen(false); }}
         />
       )}
       {pendenciasOpen && (
@@ -522,11 +596,6 @@ function BarChart({ items, maxValue }) {
       ))}
     </div>
   );
-}
-
-function PriorityPill({ value }) {
-  const c = PRIORITY[value] || PRIORITY.media;
-  return <span className="acc-pill" style={{ background: c.bg, color: c.fg, borderColor: c.bd }}>{c.label}</span>;
 }
 
 function StatusDropdown({ value, onChange, options, statusMap }) {
@@ -774,18 +843,125 @@ function companyProgress(companyId, fileRecords, reconciliations) {
   return Math.round((filesPct + reconPct) / 2);
 }
 
+// Helpers para os cards do Dashboard:
+// "Concluída" (no contexto dos cards) = todas as categorias de Conciliação com status 'conciliado'.
+function isReconCompleted(companyId, reconciliations) {
+  return RECON_CATEGORIES.every((cat) =>
+    reconciliations.some((r) =>
+      r.accounting_company_id === companyId &&
+      r.category === cat.id &&
+      r.status === 'conciliado'
+    )
+  );
+}
+
+// "Em andamento" = tem pelo menos uma conciliação 'em_andamento' OU pelo menos uma 'conciliado',
+// mas ainda não está 100% conciliada.
+function isReconInProgress(companyId, reconciliations) {
+  if (isReconCompleted(companyId, reconciliations)) return false;
+  return reconciliations.some((r) =>
+    r.accounting_company_id === companyId &&
+    (r.status === 'em_andamento' || r.status === 'conciliado')
+  );
+}
+
+// "Aguardando cliente" = tem pelo menos um arquivo com status 'cobrado'.
+function hasFileCobrado(companyId, fileRecords) {
+  return fileRecords.some((r) =>
+    r.accounting_company_id === companyId && getFileStatus(r) === 'cobrado'
+  );
+}
+
+// Retorna true se a empresa está atrasada segundo os parâmetros configuráveis.
+function isDelayedByParams(companyId, fileRecords, reconciliations, params) {
+  if (!params) return false;
+  const today = new Date().getDate();
+  const cFiles = fileRecords.filter((r) => r.accounting_company_id === companyId);
+  const cRecons = reconciliations.filter((r) => r.accounting_company_id === companyId);
+
+  // Documento "pendente" = sem registro OU registro com status 'pendente'.
+  // Registro ausente significa que o arquivo ainda não foi marcado nem como cobrado nem recebido.
+  if (params.dia_cobranca > 0 && today > params.dia_cobranca) {
+    const hasPendente = TASKS.some((t) => {
+      const r = cFiles.find((f) => f.doc_type === t.id);
+      return getFileStatus(r) === 'pendente';
+    });
+    if (hasPendente) return true;
+  }
+  if (params.dia_recebimento > 0 && today > params.dia_recebimento) {
+    const hasCobrado = TASKS.some((t) => {
+      const r = cFiles.find((f) => f.doc_type === t.id);
+      return getFileStatus(r) === 'cobrado';
+    });
+    if (hasCobrado) return true;
+  }
+  if (params.dia_extrato_aplicacoes > 0 && today > params.dia_extrato_aplicacoes) {
+    if (!cRecons.some((r) => r.category === 'extrato_aplicacoes' && r.status === 'conciliado')) return true;
+  }
+  if (params.dia_apuracao > 0 && today > params.dia_apuracao) {
+    if (!cRecons.some((r) => r.category === 'apuracao' && r.status === 'conciliado')) return true;
+  }
+  if (params.dia_folha > 0 && today > params.dia_folha) {
+    if (!cRecons.some((r) => r.category === 'folha' && r.status === 'conciliado')) return true;
+  }
+  if (params.dia_demais_contas > 0 && today > params.dia_demais_contas) {
+    if (!cRecons.some((r) => r.category === 'demais_contas' && r.status === 'conciliado')) return true;
+  }
+  if (params.dia_fornecedores > 0 && today > params.dia_fornecedores) {
+    if (!cRecons.some((r) => r.category === 'fornecedores' && r.status === 'conciliado')) return true;
+  }
+  return false;
+}
+
+// Retorna array de motivos de atraso para exibição no modal.
+function getDelayReasons(companyId, fileRecords, reconciliations, params) {
+  if (!params) return [];
+  const today = new Date().getDate();
+  const cFiles = fileRecords.filter((r) => r.accounting_company_id === companyId);
+  const cRecons = reconciliations.filter((r) => r.accounting_company_id === companyId);
+  const reasons = [];
+
+  if (params.dia_cobranca > 0 && today > params.dia_cobranca) {
+    const pendentes = TASKS.filter((t) => {
+      const r = cFiles.find((f) => f.doc_type === t.id);
+      return getFileStatus(r) === 'pendente';
+    });
+    if (pendentes.length > 0)
+      reasons.push(`Não cobrados até dia ${params.dia_cobranca}: ${pendentes.map((t) => t.label).join(', ')}`);
+  }
+  if (params.dia_recebimento > 0 && today > params.dia_recebimento) {
+    const cobrados = TASKS.filter((t) => {
+      const r = cFiles.find((f) => f.doc_type === t.id);
+      return getFileStatus(r) === 'cobrado';
+    });
+    if (cobrados.length > 0)
+      reasons.push(`Cobrado, não recebido até dia ${params.dia_recebimento}: ${cobrados.map((t) => t.label).join(', ')}`);
+  }
+  if (params.dia_extrato_aplicacoes > 0 && today > params.dia_extrato_aplicacoes && !cRecons.some((r) => r.category === 'extrato_aplicacoes' && r.status === 'conciliado'))
+    reasons.push(`Extrato & Aplicações pendente (limite: dia ${params.dia_extrato_aplicacoes})`);
+  if (params.dia_apuracao > 0 && today > params.dia_apuracao && !cRecons.some((r) => r.category === 'apuracao' && r.status === 'conciliado'))
+    reasons.push(`Apuração pendente (limite: dia ${params.dia_apuracao})`);
+  if (params.dia_folha > 0 && today > params.dia_folha && !cRecons.some((r) => r.category === 'folha' && r.status === 'conciliado'))
+    reasons.push(`Folha pendente (limite: dia ${params.dia_folha})`);
+  if (params.dia_demais_contas > 0 && today > params.dia_demais_contas && !cRecons.some((r) => r.category === 'demais_contas' && r.status === 'conciliado'))
+    reasons.push(`Demais contas pendentes (limite: dia ${params.dia_demais_contas})`);
+  if (params.dia_fornecedores > 0 && today > params.dia_fornecedores && !cRecons.some((r) => r.category === 'fornecedores' && r.status === 'conciliado'))
+    reasons.push(`Fornecedores pendentes (limite: dia ${params.dia_fornecedores})`);
+  return reasons;
+}
+
 // =============================================================================
 // TAB 1 — DASHBOARD (gerencial, alimentado por Arquivos e Conciliação)
 // =============================================================================
 
 const EMPTY_FORM = {
-  codigo: '', nome: '', responsavel: '', regime: 'Simples Nacional', prioridade: 'media',
-  prazo: '', observacoes: '', particularidades: '',
+  codigo: '', nome: '', responsavel: '', regime: 'Simples Nacional',
+  observacoes: '', particularidades: '',
 };
 
 function DashboardTab({ competencia, companies, fileRecords, reconciliations,
   search, setSearch, filterResp, setFilterResp, filterRegime, setFilterRegime,
-  onOpenCompanies, onOpenPendencias,
+  onOpenCompanies, onOpenPendencias, params,
 }) {
   const [chartFilter, setChartFilter] = useState(null);
 
@@ -853,13 +1029,25 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
     const reconAbertos = Math.max(0, reconTotal - reconConcluido);
     const pendenciasAbertas = docsAbertos + reconAbertos;
 
+    // Cards gerenciais: estágio das empresas
+    // Concluídas: todas as categorias da Conciliação como 'conciliado'.
+    const concluidas = filtered.filter((c) => isReconCompleted(c.id, recs)).length;
+    // Em andamento: pelo menos uma conciliação 'em_andamento' OU pelo menos uma 'conciliado',
+    // mas ainda não 100% conciliada.
+    const emAndamento = filtered.filter((c) => isReconInProgress(c.id, recs)).length;
+    // Aguardando cliente: pelo menos um arquivo com status 'cobrado'.
+    const aguardandoCliente = filtered.filter((c) => hasFileCobrado(c.id, fRecs)).length;
+    // Atrasadas: usa thresholds configuráveis via Parametrização.
+    const atrasadas = filtered.filter((c) => isDelayedByParams(c.id, fRecs, recs, params)).length;
+
     return {
       totalEmpresas, totalEsperado, totalRecebidos, totalCobrados, totalPendentes, pctRecebido,
       byDocType, byCategory, progressoMedio, empresasCompletas,
       pendenciasAbertas, docsAbertos, reconAbertos,
       reconTotal, reconConcluido, reconEmAndamento, reconPendencia, reconNaoIniciado, reconPctGeral,
+      concluidas, emAndamento, aguardandoCliente, atrasadas,
     };
-  }, [filtered, fileRecords, reconciliations]);
+  }, [filtered, fileRecords, reconciliations, params]);
 
   const filterDetails = useMemo(() => {
     if (!chartFilter) return [];
@@ -913,34 +1101,35 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
         </div>
       </Card>
 
-      {/* Seção Visão Geral */}
+      {/* Cards gerenciais: estágio das empresas */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 28 }}>
         <Kpi
-          label="Total empresas"
-          value={dashMetrics.totalEmpresas}
-          hint={`competência ${competencia}`}
-          onClick={() => onOpenCompanies({})}
-        />
-        <Kpi
-          label="Progresso médio"
-          value={`${dashMetrics.progressoMedio}%`}
-          accent="#7C3AED"
-          hint="files + conciliação"
-          onClick={() => onOpenCompanies({ initialSort: 'progress_asc' })}
-        />
-        <Kpi
-          label="Empresas concluídas"
-          value={dashMetrics.empresasCompletas}
+          label="Concluídas"
+          value={dashMetrics.concluidas}
           accent="#00d48a"
-          hint="100% do fechamento"
-          onClick={() => onOpenCompanies({ initialOnlyCompleted: true })}
+          hint="todas conciliações concluídas"
+          onClick={() => onOpenCompanies({ initialFilter: 'concluidas' })}
         />
         <Kpi
-          label="Pendências abertas"
-          value={dashMetrics.pendenciasAbertas}
-          accent={dashMetrics.pendenciasAbertas > 0 ? '#ff8a3d' : '#00d48a'}
-          hint={`${dashMetrics.docsAbertos} documentos + ${dashMetrics.reconAbertos} conciliações`}
-          onClick={() => onOpenPendencias()}
+          label="Em andamento"
+          value={dashMetrics.emAndamento}
+          accent="#60a5fa"
+          hint="conciliações iniciadas"
+          onClick={() => onOpenCompanies({ initialFilter: 'em_andamento' })}
+        />
+        <Kpi
+          label="Aguardando cliente"
+          value={dashMetrics.aguardandoCliente}
+          accent="#ff8a3d"
+          hint="1+ arquivo cobrado"
+          onClick={() => onOpenCompanies({ initialFilter: 'aguardando_cliente' })}
+        />
+        <Kpi
+          label="Atrasadas"
+          value={dashMetrics.atrasadas}
+          accent={dashMetrics.atrasadas > 0 ? '#ff6b6b' : '#00d48a'}
+          hint="conforme parametrização"
+          onClick={() => onOpenCompanies({ initialFilter: 'atrasadas' })}
         />
       </div>
 
@@ -1190,7 +1379,6 @@ function CompanyDrawer({ company, fileRecords, reconciliations, competencia, onC
             </div>
             <h2 style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: -0.3, marginBottom: 6 }}>{company.nome}</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <PriorityPill value={company.prioridade} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 120 }}>
                 <ProgressBar pct={prog} color={prog === 100 ? '#00d48a' : isDelayed(company) ? '#ff6b6b' : '#7C3AED'} height={5} />
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.8)', minWidth: 34 }}>{prog}%</span>
@@ -1208,7 +1396,6 @@ function CompanyDrawer({ company, fileRecords, reconciliations, competencia, onC
               <InfoItem label="Responsável" value={company.responsavel} />
               <InfoItem label="Regime" value={company.regime} />
               <InfoItem label="Competência" value={competencia} />
-              <InfoItem label="Prazo" value={company.prazo || '—'} accent={isDelayed(company) ? '#ff6b6b' : undefined} />
             </div>
           </DrawerSection>
 
@@ -1363,16 +1550,23 @@ function InfoItem({ label, value, accent }) {
 // CompaniesModal — gerenciamento de empresas (cadastro/CRUD)
 // =============================================================================
 
+const STATUS_FILTER_LABELS = {
+  concluidas:        { label: '✓ Apenas concluídas (100%)',  color: '#00d48a', bg: 'rgba(0,212,138,0.12)',   bd: 'rgba(0,212,138,0.28)'   },
+  em_andamento:      { label: '⟳ Em andamento',              color: '#60a5fa', bg: 'rgba(37,99,235,0.12)',   bd: 'rgba(37,99,235,0.28)'   },
+  aguardando_cliente:{ label: '⏳ Aguardando cliente',        color: '#ff8a3d', bg: 'rgba(255,138,61,0.12)',  bd: 'rgba(255,138,61,0.28)'  },
+  atrasadas:         { label: '⚠ Atrasadas',                 color: '#ff6b6b', bg: 'rgba(255,107,107,0.12)', bd: 'rgba(255,107,107,0.28)' },
+};
+
 function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, reconciliations,
   search, setSearch, filterResp, setFilterResp, filterRegime, setFilterRegime,
-  initialSort, initialOnlyCompleted, onClose, onChange,
+  initialSort, initialFilter, onClose, onChange, params,
 }) {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [viewCompany, setViewCompany] = useState(null);
   const [sortBy, setSortBy] = useState(initialSort || 'name');
-  const [onlyCompleted, setOnlyCompleted] = useState(!!initialOnlyCompleted);
+  const [statusFilter, setStatusFilter] = useState(initialFilter || '');
   const [importOpen, setImportOpen] = useState(false);
 
   const responsaveis = useMemo(
@@ -1386,7 +1580,10 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
       .filter((c) => {
         if (filterResp && c.responsavel !== filterResp) return false;
         if (filterRegime && c.regime !== filterRegime) return false;
-        if (onlyCompleted && c.progress !== 100) return false;
+        if (statusFilter === 'concluidas' && !isReconCompleted(c.id, reconciliations)) return false;
+        if (statusFilter === 'em_andamento' && !isReconInProgress(c.id, reconciliations)) return false;
+        if (statusFilter === 'aguardando_cliente' && !hasFileCobrado(c.id, fileRecords)) return false;
+        if (statusFilter === 'atrasadas' && !isDelayedByParams(c.id, fileRecords, reconciliations, params)) return false;
         if (search) {
           const q = search.toLowerCase();
           if (
@@ -1401,17 +1598,17 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
     else if (sortBy === 'progress_desc') list.sort((a, b) => b.progress - a.progress || (a.nome || '').localeCompare(b.nome || ''));
     else list.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
     return list;
-  }, [companies, fileRecords, reconciliations, filterResp, filterRegime, search, sortBy, onlyCompleted]);
+  }, [companies, fileRecords, reconciliations, filterResp, filterRegime, search, sortBy, statusFilter, params]);
 
-  const clearFilters = () => { setSearch(''); setFilterResp(''); setFilterRegime(''); setOnlyCompleted(false); setSortBy('name'); };
-  const hasFilters = !!(search || filterResp || filterRegime || onlyCompleted || sortBy !== 'name');
+  const clearFilters = () => { setSearch(''); setFilterResp(''); setFilterRegime(''); setStatusFilter(''); setSortBy('name'); };
+  const hasFilters = !!(search || filterResp || filterRegime || statusFilter || sortBy !== 'name');
 
   const openCreate = () => { setForm({ ...EMPTY_FORM }); setEditing('new'); };
   const openEdit = (c) => {
     setForm({
       codigo: c.codigo || '', nome: c.nome || '', responsavel: c.responsavel || '',
-      regime: c.regime || 'Simples Nacional', prioridade: c.prioridade || 'media',
-      prazo: c.prazo || '', observacoes: c.observacoes || '',
+      regime: c.regime || 'Simples Nacional',
+      observacoes: c.observacoes || '',
       particularidades: c.particularidades || '',
     });
     setEditing(c.id);
@@ -1426,7 +1623,6 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
         codigo: form.codigo?.trim() || null,
         tenant_company_id: tenantCompanyId,
         competencia,
-        prazo: form.prazo || null,
         tasks: emptyTasks(),
       };
       if (editing !== 'new') payload.id = editing;
@@ -1450,10 +1646,10 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
               <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)' }}>
                 {filtered.length} de {companies.length}
               </span>
-              {onlyCompleted && (
-                <span onClick={() => setOnlyCompleted(false)} className="acc-pill"
-                  style={{ cursor: 'pointer', background: 'rgba(0,212,138,0.12)', color: '#00d48a', borderColor: 'rgba(0,212,138,0.28)' }}>
-                  ✓ Apenas concluídas (100%) ×
+              {statusFilter && STATUS_FILTER_LABELS[statusFilter] && (
+                <span onClick={() => setStatusFilter('')} className="acc-pill"
+                  style={{ cursor: 'pointer', background: STATUS_FILTER_LABELS[statusFilter].bg, color: STATUS_FILTER_LABELS[statusFilter].color, borderColor: STATUS_FILTER_LABELS[statusFilter].bd }}>
+                  {STATUS_FILTER_LABELS[statusFilter].label} ×
                 </span>
               )}
               {sortBy === 'progress_asc' && (
@@ -1517,14 +1713,13 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
                   <th style={{ minWidth: 220 }}>Empresa</th>
                   <th>Responsável</th>
                   <th>Regime</th>
-                  <th>Prioridade</th>
                   <th style={{ minWidth: 160 }}>Progresso</th>
                   <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={6} style={{ padding: '40px 28px', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
+                  <tr><td colSpan={5} style={{ padding: '40px 28px', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
                     {companies.length === 0
                       ? 'Nenhuma empresa cadastrada. Clique em "+ Nova empresa" para começar.'
                       : 'Nenhuma empresa corresponde aos filtros.'}
@@ -1540,19 +1735,25 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
                     </td>
                     <td>
                       <div style={{ fontWeight: 700, color: '#eeede9' }}>{c.nome}</div>
-                      {c.prazo && (
-                        <div style={{ fontSize: '0.72rem', color: isDelayed(c) ? '#ff6b6b' : 'rgba(255,255,255,0.45)', marginTop: 3 }}>
-                          {isDelayed(c) ? '⚠ ' : ''}Prazo: {c.prazo}
-                        </div>
-                      )}
+                      {statusFilter === 'atrasadas' && (() => {
+                        const reasons = getDelayReasons(c.id, fileRecords, reconciliations, params);
+                        return reasons.length > 0 ? (
+                          <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {reasons.map((r) => (
+                              <span key={r} style={{ fontSize: '0.68rem', color: '#ff8a8a', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ fontSize: '0.6rem' }}>⚠</span>{r}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null;
+                      })()}
                     </td>
                     <td style={{ color: 'rgba(255,255,255,0.8)' }}>{c.responsavel || <span style={{ color: 'rgba(255,255,255,0.35)' }}>—</span>}</td>
                     <td><span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)' }}>{c.regime}</span></td>
-                    <td><PriorityPill value={c.prioridade} /></td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ flex: 1 }}>
-                          <ProgressBar pct={c.progress} color={c.progress === 100 ? '#00d48a' : isDelayed(c) ? '#ff6b6b' : '#7C3AED'} height={6} />
+                          <ProgressBar pct={c.progress} color={c.progress === 100 ? '#00d48a' : isDelayedByParams(c.id, fileRecords, reconciliations, params) ? '#ff6b6b' : '#7C3AED'} height={6} />
                         </div>
                         <span style={{ fontSize: '0.8rem', fontWeight: 700, minWidth: 36, textAlign: 'right', color: c.progress === 100 ? '#00d48a' : 'rgba(255,255,255,0.8)' }}>
                           {c.progress}%
@@ -1587,12 +1788,6 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
                 {REGIMES.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </Field>
-            <Field label="Prioridade">
-              <select className="acc-select" value={form.prioridade} onChange={(e) => setForm({ ...form, prioridade: e.target.value })}>
-                <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
-              </select>
-            </Field>
-            <Field label="Prazo"><input className="acc-input" type="date" value={form.prazo || ''} onChange={(e) => setForm({ ...form, prazo: e.target.value })} /></Field>
           </div>
           <div style={{ marginTop: 12 }}>
             <Field label="Observações"><textarea className="acc-input" rows={2} style={{ width: '100%', resize: 'vertical' }} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></Field>
@@ -1732,7 +1927,6 @@ function ImportCompaniesModal({ tenantCompanyId, competencia, companies, onClose
           nome: r.nome,
           regime: r.regime,
           responsavel: r.responsavel,
-          prioridade: 'media',
           tasks: emptyTasks(),
         };
         if (r.action === 'update') payload.id = r.existingId;
@@ -2504,5 +2698,227 @@ function ReconciliationTab({ competencia, companies, reconciliations, setReconci
         </Modal>
       )}
     </>
+  );
+}
+
+// =============================================================================
+// ParametrizacaoModal — categorias + abas para configurar parâmetros
+// =============================================================================
+
+const PRAZOS_TABS = [
+  {
+    id: 'arquivos',
+    label: 'Arquivos',
+    description: 'Limites para cobrança e recebimento de documentos do cliente.',
+    fields: [
+      { key: 'dia_cobranca',    label: 'Arquivos ainda não foram cobrados até o dia' },
+      { key: 'dia_recebimento', label: 'Arquivos cobrados ainda não foram recebidos até o dia' },
+    ],
+  },
+  {
+    id: 'conciliacao',
+    label: 'Conciliação',
+    description: 'Limites para conclusão das categorias da aba Conciliação.',
+    fields: [
+      { key: 'dia_extrato_aplicacoes', label: 'Extrato & Aplicações não conciliado até o dia' },
+      { key: 'dia_apuracao',           label: 'Apuração não codificada e conciliada até o dia' },
+      { key: 'dia_folha',              label: 'Folha não importada e conciliada até o dia' },
+      { key: 'dia_demais_contas',      label: 'Demais contas não conciliadas até o dia' },
+      { key: 'dia_fornecedores',       label: 'Fornecedores não conciliados até o dia' },
+    ],
+  },
+  {
+    id: 'impostos',
+    label: 'Impostos',
+    description: 'Reservado para regras futuras de impostos. (Em breve)',
+    fields: [],
+  },
+];
+
+const ALL_PRAZO_KEYS = PRAZOS_TABS.flatMap((t) => t.fields.map((f) => f.key));
+
+const PARAM_CATEGORIES = [
+  { id: 'prazos', label: 'Prazos', icon: '⏱', description: 'Dias-limite para classificar empresas como atrasadas.' },
+];
+
+function ParametrizacaoModal({ tenantCompanyId, params, canWrite, onClose, onSaved }) {
+  const defaultValues = { dia_cobranca: 0, dia_recebimento: 0, dia_extrato_aplicacoes: 0, dia_apuracao: 0, dia_folha: 0, dia_demais_contas: 0, dia_fornecedores: 0 };
+  const [form, setForm] = useState({ ...defaultValues, ...(params || {}) });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [activeCategory, setActiveCategory] = useState('prazos');
+  const [activeTab, setActiveTab] = useState('arquivos');
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    if (!canWrite) { setError('Apenas o dono ou administrador da empresa pode salvar.'); return; }
+    for (const k of ALL_PRAZO_KEYS) {
+      const v = Number(form[k]);
+      if (v < 0 || v > 31) { setError(`Dia inválido. Use 0 (desabilitado) a 31.`); return; }
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const saved = await upsertAccountingParams(tenantCompanyId, {
+        dia_cobranca: Number(form.dia_cobranca),
+        dia_recebimento: Number(form.dia_recebimento),
+        dia_extrato_aplicacoes: Number(form.dia_extrato_aplicacoes),
+        dia_apuracao: Number(form.dia_apuracao),
+        dia_folha: Number(form.dia_folha),
+        dia_demais_contas: Number(form.dia_demais_contas),
+        dia_fornecedores: Number(form.dia_fornecedores),
+      });
+      onSaved(saved);
+    } catch (e) { setError(e.message); setSaving(false); }
+  };
+
+  const currentTab = PRAZOS_TABS.find((t) => t.id === activeTab) || PRAZOS_TABS[0];
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(4,4,8,0.82)', backdropFilter: 'blur(14px) saturate(0.85)', WebkitBackdropFilter: 'blur(14px) saturate(0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5vh 20px', zIndex: 120 }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="acc-params-modal"
+        style={{ width: '100%', maxWidth: 880, background: '#101015', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column', maxHeight: '88vh' }}
+      >
+        {/* Header */}
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
+          <div>
+            <h2 style={{ fontSize: '1rem', fontWeight: 700 }}>⚙ Parametrização</h2>
+            <p style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
+              Configure as regras do módulo Acompanhamento Contábil.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '0 4px', flexShrink: 0 }}>×</button>
+        </div>
+
+        {/* Body: sidebar + content */}
+        <div className="acc-params-body" style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+          {/* Sidebar */}
+          <aside className="acc-params-sidebar" style={{ width: 200, borderRight: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.015)', padding: '14px 10px', display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 1.4, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', padding: '4px 10px 8px' }}>
+              Categorias
+            </div>
+            {PARAM_CATEGORIES.map((cat) => {
+              const active = cat.id === activeCategory;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setActiveCategory(cat.id)}
+                  className="acc-params-cat"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 12px', borderRadius: 10, border: 'none',
+                    background: active ? 'rgba(124,58,237,0.14)' : 'transparent',
+                    color: active ? '#c4b3ff' : 'rgba(255,255,255,0.7)',
+                    cursor: 'pointer', fontSize: '0.86rem', fontWeight: active ? 700 : 500,
+                    fontFamily: 'inherit', textAlign: 'left',
+                    transition: 'background 0.15s, color 0.15s',
+                  }}
+                >
+                  <span style={{ fontSize: '0.95rem' }}>{cat.icon}</span>
+                  {cat.label}
+                </button>
+              );
+            })}
+          </aside>
+
+          {/* Content */}
+          <section className="acc-params-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            {activeCategory === 'prazos' && (
+              <>
+                {/* Tabs */}
+                <div className="acc-params-tabs" style={{ display: 'flex', gap: 4, padding: '12px 22px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+                  {PRAZOS_TABS.map((t) => {
+                    const active = t.id === activeTab;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setActiveTab(t.id)}
+                        className="acc-params-tab"
+                        style={{
+                          padding: '10px 14px', border: 'none', background: 'transparent',
+                          color: active ? '#a78bfa' : 'rgba(255,255,255,0.5)',
+                          fontSize: '0.83rem', fontWeight: active ? 700 : 500,
+                          cursor: 'pointer', fontFamily: 'inherit',
+                          borderBottom: active ? '2px solid #7C3AED' : '2px solid transparent',
+                          marginBottom: -1, transition: 'color 0.15s, border-color 0.15s',
+                        }}
+                      >
+                        {t.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Form */}
+                <form id="params-form" onSubmit={handleSave} className="acc-params-form" style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', flex: 1, minHeight: 0 }}>
+                  {error && (
+                    <div style={{ padding: '10px 14px', background: 'rgba(255,107,107,0.08)', border: '1px solid rgba(255,107,107,0.25)', borderRadius: 10, color: '#ff8a8a', fontSize: '0.82rem' }}>
+                      {error}
+                    </div>
+                  )}
+                  {!canWrite && (
+                    <div style={{ padding: '10px 14px', background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.25)', borderRadius: 10, color: '#a78bfa', fontSize: '0.78rem' }}>
+                      Apenas o <strong>dono</strong> ou um <strong>administrador / gestor</strong> da empresa pode editar a parametrização.
+                    </div>
+                  )}
+                  {params?._missing && (
+                    <div style={{ padding: '10px 14px', background: 'rgba(255,184,107,0.08)', border: '1px solid rgba(255,184,107,0.25)', borderRadius: 10, color: '#ffb86b', fontSize: '0.78rem' }}>
+                      Tabela <code>accounting_params</code> ainda não existe. Aplique a migração <code>migration_20260509_params_and_roles.sql</code> no Supabase.
+                    </div>
+                  )}
+
+                  <p style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.5 }}>
+                    {currentTab.description}
+                  </p>
+
+                  {currentTab.fields.length === 0 ? (
+                    <div style={{ padding: '32px 18px', textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 12 }}>
+                      Em breve: parâmetros de impostos (DAS, DARFs, vencimentos por regime, etc.).
+                    </div>
+                  ) : (
+                    currentTab.fields.map((f) => (
+                      <label key={f.key} style={{ display: 'grid', gridTemplateColumns: '1fr 90px', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontSize: '0.83rem', color: 'rgba(255,255,255,0.75)' }}>{f.label}</span>
+                        <input
+                          className="acc-input"
+                          type="number"
+                          min="0"
+                          max="31"
+                          value={form[f.key]}
+                          onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                          disabled={!canWrite}
+                          style={{ width: '100%', textAlign: 'center', fontWeight: 700, opacity: canWrite ? 1 : 0.6, cursor: canWrite ? 'text' : 'not-allowed' }}
+                        />
+                      </label>
+                    ))
+                  )}
+
+                  <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>
+                    Use <strong style={{ color: 'rgba(255,255,255,0.6)' }}>0</strong> para desabilitar uma regra. Hoje é dia <strong style={{ color: 'rgba(255,255,255,0.6)' }}>{new Date().getDate()}</strong>.
+                  </p>
+                </form>
+              </>
+            )}
+          </section>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'flex-end', gap: 10, flexShrink: 0 }}>
+          <button type="button" className="acc-btn" onClick={onClose} disabled={saving}>{canWrite ? 'Cancelar' : 'Fechar'}</button>
+          {canWrite && currentTab.fields.length > 0 && (
+            <button type="submit" form="params-form" className="acc-btn primary" disabled={saving}>
+              {saving ? 'Salvando...' : 'Salvar'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

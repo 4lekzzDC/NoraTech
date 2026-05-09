@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminLayout, { Card, Modal, Spinner, EmptyState, StatusPill } from '../../components/AdminLayout';
+import { Dropdown, DropdownStyles } from '../../components/AdminDropdown';
 import { supabase } from '../../lib/supabase';
 import { formatBRL, formatDate } from '../../lib/admin';
 import { SYSTEMS, getSystem } from '../../lib/systems';
@@ -236,35 +237,28 @@ export default function AdminSubscriptionsPage() {
         {editing && (
           <form id="sub-form" onSubmit={handleSave} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <Field label="Empresa" full>
-              <select className="admin-select" value={editing.company_id} onChange={(e) => setEditing({ ...editing, company_id: e.target.value })} required>
-                <option value="">Selecione...</option>
-                {companies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}{c.code ? ` (${c.code})` : ''}
-                  </option>
-                ))}
-              </select>
+              <Dropdown
+                searchable
+                value={editing.company_id}
+                onChange={(v) => setEditing({ ...editing, company_id: v })}
+                options={companies.map((c) => ({ value: c.id, label: c.name + (c.code ? ` (${c.code})` : '') }))}
+                placeholder="Selecione uma empresa..."
+                emptyText="Nenhuma empresa encontrada"
+              />
             </Field>
             <Field label="Sistema" full>
-              <select
-                className="admin-select"
+              <Dropdown
                 value={editing.system_slug}
-                onChange={(e) => {
-                  const slug = e.target.value;
+                onChange={(slug) => {
                   const sys = getSystem(slug);
-                  setEditing({
-                    ...editing,
-                    system_slug: slug,
-                    plan: editing.plan || sys?.name || '',
-                  });
+                  setEditing({ ...editing, system_slug: slug, plan: editing.plan || sys?.name || '' });
                 }}
-                required
-              >
-                <option value="">Selecione um sistema...</option>
-                {SYSTEMS.map((s) => (
-                  <option key={s.slug} value={s.slug}>{s.icon} {s.name}</option>
-                ))}
-              </select>
+                options={[
+                  { value: '', label: 'Selecione um sistema...' },
+                  ...SYSTEMS.map((s) => ({ value: s.slug, label: `${s.icon} ${s.name}` })),
+                ]}
+                placeholder="Selecione um sistema..."
+              />
             </Field>
             <Field label="Plano (rótulo interno)" full>
               <input
@@ -281,20 +275,28 @@ export default function AdminSubscriptionsPage() {
               <input className="admin-input" value={editing.currency} onChange={(e) => setEditing({ ...editing, currency: e.target.value.toUpperCase() })} maxLength={3} />
             </Field>
             <Field label="Ciclo">
-              <select className="admin-select" value={editing.billing_cycle} onChange={(e) => setEditing({ ...editing, billing_cycle: e.target.value })}>
-                <option value="monthly">Mensal</option>
-                <option value="yearly">Anual</option>
-                <option value="one_time">Único</option>
-              </select>
+              <Dropdown
+                value={editing.billing_cycle}
+                onChange={(v) => setEditing({ ...editing, billing_cycle: v })}
+                options={[
+                  { value: 'monthly',  label: 'Mensal' },
+                  { value: 'yearly',   label: 'Anual' },
+                  { value: 'one_time', label: 'Único' },
+                ]}
+              />
             </Field>
             <Field label="Status">
-              <select className="admin-select" value={editing.status} onChange={(e) => setEditing({ ...editing, status: e.target.value })}>
-                <option value="active">Ativa</option>
-                <option value="trialing">Trial</option>
-                <option value="paused">Pausada</option>
-                <option value="past_due">Atrasada</option>
-                <option value="canceled">Cancelada</option>
-              </select>
+              <Dropdown
+                value={editing.status}
+                onChange={(v) => setEditing({ ...editing, status: v })}
+                options={[
+                  { value: 'active',   label: 'Ativa' },
+                  { value: 'trialing', label: 'Trial' },
+                  { value: 'paused',   label: 'Pausada' },
+                  { value: 'past_due', label: 'Atrasada' },
+                  { value: 'canceled', label: 'Cancelada' },
+                ]}
+              />
             </Field>
             <Field label="Próxima cobrança" full>
               <input className="admin-input" type="date" value={editing.current_period_end || ''} onChange={(e) => setEditing({ ...editing, current_period_end: e.target.value })} />
@@ -305,6 +307,8 @@ export default function AdminSubscriptionsPage() {
           </form>
         )}
       </Modal>
+
+      <DropdownStyles />
     </AdminLayout>
   );
 }

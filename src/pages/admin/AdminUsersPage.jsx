@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminLayout, { Card, Modal, Spinner, EmptyState } from '../../components/AdminLayout';
+import { Dropdown, DropdownStyles } from '../../components/AdminDropdown';
 import { supabase } from '../../lib/supabase';
 import { formatDate } from '../../lib/admin';
 import { useAuth } from '../../contexts/AuthContext';
@@ -203,25 +204,29 @@ export default function AdminUsersPage() {
               <input className="admin-input" value={editing.name || ''} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
             </Field>
             <Field label="Empresa">
-              <input
-                className="admin-input"
-                list="admin-companies-list"
+              <Dropdown
+                searchable
+                freeInput
                 value={editing.company || ''}
-                onChange={(e) => setEditing({ ...editing, company: e.target.value })}
+                onChange={(v) => setEditing({ ...editing, company: v })}
+                options={companies.map((c) => ({ value: c.name, label: c.name }))}
                 placeholder={companies.length ? 'Selecione ou digite...' : 'Nenhuma empresa cadastrada'}
+                emptyText={companies.length ? 'Nenhuma empresa encontrada' : 'Nenhuma empresa cadastrada'}
               />
-              <datalist id="admin-companies-list">
-                {companies.map((c) => <option key={c.id} value={c.name} />)}
-              </datalist>
               <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
-                Empresas cadastradas em <em>Empresas</em> aparecem como sugestão.
+                Empresas cadastradas em <em>Empresas</em> aparecem na lista. Você pode digitar um valor livre.
               </span>
             </Field>
             <Field label="Role">
-              <select className="admin-select" value={editing.role || 'user'} onChange={(e) => setEditing({ ...editing, role: e.target.value })} disabled={editing.id === me?.id}>
-                <option value="user">user</option>
-                <option value="admin">admin</option>
-              </select>
+              <Dropdown
+                value={editing.role || 'user'}
+                onChange={(v) => setEditing({ ...editing, role: v })}
+                options={[
+                  { value: 'user',  label: 'user'  },
+                  { value: 'admin', label: 'admin' },
+                ]}
+                disabled={editing.id === me?.id}
+              />
             </Field>
             <Field label="ID">
               <input className="admin-input" value={editing.id} disabled style={{ fontFamily: 'monospace', fontSize: '0.78rem' }} />
@@ -229,6 +234,8 @@ export default function AdminUsersPage() {
           </form>
         )}
       </Modal>
+
+      <DropdownStyles />
     </AdminLayout>
   );
 }

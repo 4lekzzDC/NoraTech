@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminLayout, { Card, Modal, Spinner, EmptyState } from '../../components/AdminLayout';
+import { Dropdown, DropdownStyles } from '../../components/AdminDropdown';
 import { supabase } from '../../lib/supabase';
 import { formatDate } from '../../lib/admin';
 
@@ -189,20 +190,23 @@ export default function AdminCompaniesPage() {
               />
             </Field>
             <Field label="Dono">
-              <select
-                className="admin-select"
+              <Dropdown
+                searchable
                 value={editing.owner_id || ''}
-                onChange={(e) => setEditing({ ...editing, owner_id: e.target.value })}
-              >
-                <option value="">{editing.id ? '(manter atual)' : 'Você (admin)'}</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name || u.id.slice(0, 8)}</option>
-                ))}
-              </select>
+                onChange={(v) => setEditing({ ...editing, owner_id: v })}
+                options={[
+                  { value: '', label: editing.id ? '(manter atual)' : 'Você (admin)' },
+                  ...users.map((u) => ({ value: u.id, label: u.name || u.id.slice(0, 8) })),
+                ]}
+                placeholder="Selecione o dono..."
+                emptyText="Nenhum usuário encontrado"
+              />
             </Field>
           </form>
         )}
       </Modal>
+
+      <DropdownStyles />
     </AdminLayout>
   );
 }

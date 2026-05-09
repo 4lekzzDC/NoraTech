@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminLayout, { Card, Modal, Spinner, EmptyState, StatusPill } from '../../components/AdminLayout';
+import { Dropdown, DropdownStyles } from '../../components/AdminDropdown';
 import { supabase } from '../../lib/supabase';
 import { formatBRL, formatDate } from '../../lib/admin';
 
@@ -223,16 +224,27 @@ export default function AdminInvoicesPage() {
         {editing && (
           <form id="inv-form" onSubmit={handleSave} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <Field label="Cliente" full>
-              <select className="admin-select" value={editing.user_id} onChange={(e) => setEditing({ ...editing, user_id: e.target.value, subscription_id: '' })} required>
-                <option value="">Selecione...</option>
-                {users.map((u) => <option key={u.id} value={u.id}>{u.name || u.id.slice(0, 8)}</option>)}
-              </select>
+              <Dropdown
+                searchable
+                value={editing.user_id}
+                onChange={(v) => setEditing({ ...editing, user_id: v, subscription_id: '' })}
+                options={users.map((u) => ({ value: u.id, label: u.name || u.id.slice(0, 8) }))}
+                placeholder="Selecione um cliente..."
+                emptyText="Nenhum cliente encontrado"
+              />
             </Field>
             <Field label="Vincular a assinatura (opcional)" full>
-              <select className="admin-select" value={editing.subscription_id} onChange={(e) => setEditing({ ...editing, subscription_id: e.target.value })}>
-                <option value="">— sem vínculo —</option>
-                {subs.map((s) => <option key={s.id} value={s.id}>{s.plan}</option>)}
-              </select>
+              <Dropdown
+                searchable
+                value={editing.subscription_id}
+                onChange={(v) => setEditing({ ...editing, subscription_id: v })}
+                options={[
+                  { value: '', label: '— sem vínculo —' },
+                  ...subs.map((s) => ({ value: s.id, label: s.plan })),
+                ]}
+                placeholder="— sem vínculo —"
+                emptyText="Nenhuma assinatura encontrada"
+              />
             </Field>
             <Field label="Descrição" full>
               <input className="admin-input" value={editing.description} onChange={(e) => setEditing({ ...editing, description: e.target.value })} required placeholder="Ex: Mensalidade Setembro/2026" />
@@ -241,13 +253,17 @@ export default function AdminInvoicesPage() {
               <input className="admin-input" type="number" step="0.01" value={editing.amount} onChange={(e) => setEditing({ ...editing, amount: e.target.value })} required />
             </Field>
             <Field label="Status">
-              <select className="admin-select" value={editing.status} onChange={(e) => setEditing({ ...editing, status: e.target.value })}>
-                <option value="pending">Pendente</option>
-                <option value="paid">Paga</option>
-                <option value="overdue">Vencida</option>
-                <option value="canceled">Cancelada</option>
-                <option value="refunded">Reembolso</option>
-              </select>
+              <Dropdown
+                value={editing.status}
+                onChange={(v) => setEditing({ ...editing, status: v })}
+                options={[
+                  { value: 'pending',  label: 'Pendente' },
+                  { value: 'paid',     label: 'Paga' },
+                  { value: 'overdue',  label: 'Vencida' },
+                  { value: 'canceled', label: 'Cancelada' },
+                  { value: 'refunded', label: 'Reembolso' },
+                ]}
+              />
             </Field>
             <Field label="Vencimento">
               <input className="admin-input" type="date" value={editing.due_date || ''} onChange={(e) => setEditing({ ...editing, due_date: e.target.value })} />
@@ -264,6 +280,8 @@ export default function AdminInvoicesPage() {
           </form>
         )}
       </Modal>
+
+      <DropdownStyles />
     </AdminLayout>
   );
 }

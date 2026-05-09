@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import MeetingScheduler from "./components/MeetingScheduler";
+import ThemeToggle from "./components/ThemeToggle";
 import { useAuth } from "./contexts/AuthContext";
+import { useTheme } from "./contexts/ThemeContext";
 
 // ═══════════════════════════════════════════════════════════════
 // Noratech — Institutional website
@@ -182,6 +184,7 @@ export default function App() {
   const [hoveredProduct, setHoveredProduct] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [schedulerOpen, setSchedulerOpen] = useState(false);
+  const { theme } = useTheme();
 
   useEffect(() => {
     const onScroll = () => { setScrollY(window.scrollY); setNavScrolled(window.scrollY > 60); };
@@ -333,6 +336,7 @@ export default function App() {
           .mockup-stats-3 { grid-template-columns: 1fr 1fr !important; }
           .mockup-stats-4 { grid-template-columns: 1fr 1fr !important; }
         }
+
       `}</style>
 
       {/* ═══ ATMOSPHERE ═══ */}
@@ -383,6 +387,7 @@ export default function App() {
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eeede9" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
           </button>
+          <ThemeToggle style={{ marginLeft: 2 }} />
           <Link to={user ? "/area-do-cliente" : "/login"} title={user ? "Central de Controle" : "Acesso admin"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: user ? "rgba(124, 58, 237,0.1)" : "rgba(255,255,255,0.04)", border: `1px solid ${user ? "rgba(124, 58, 237,0.2)" : "rgba(255,255,255,0.08)"}`, marginLeft: 2, overflow: "hidden", flexShrink: 0 }}>
             {user?.photoUrl
               ? <img src={user.photoUrl} alt="perfil" style={{ width: "100%", height: "100%", objectFit: "cover" }} />

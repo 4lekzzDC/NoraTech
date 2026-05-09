@@ -17,6 +17,17 @@ export async function getCurrentTenantCompanyId() {
   return my?.company?.id || null;
 }
 
+// Retorna o cargo do usuário na empresa-tenant atual: 'owner' | 'admin' | 'member' | null
+export async function getCurrentMembership() {
+  const my = await fetchMyCompany();
+  if (!my?.company?.id) return null;
+  return {
+    tenantCompanyId: my.company.id,
+    role: my.membership?.role || 'member',
+    status: my.membership?.status || 'active',
+  };
+}
+
 // =============================================================================
 // accounting_companies
 // =============================================================================
@@ -153,6 +164,50 @@ export async function upsertReconciliation({ accountingCompanyId, category, comp
     .single();
   if (error) throw new Error(translate(error));
   return data;
+}
+
+// =============================================================================
+// accounting_params — thresholds do card "Atrasadas"
+// =============================================================================
+
+const DEFAULT_PARAMS = {
+  dia_cobranca: 0,
+  dia_recebimento: 0,
+  dia_extrato_aplicacoes: 0,
+  dia_apuracao: 0,
+  dia_folha: 0,
+  dia_demais_contas: 0,
+  dia_fornecedores: 0,
+};
+
+export async function listAccountingParams(tenantCompanyId) {
+  if (!tenantCompanyId) return { ...DEFAULT_PARAMS };
+  const { data, error } = await supabase
+    .from('accounting_params')
+    .select('*')
+    .eq('tenant_company_id', tenantCompanyId)
+    .maybeSingle();
+  if (error) {
+    // Se a tabela ainda não existe (migração não aplicada), retorna default
+    // em vez de quebrar o dashboard.
+    if (/relation .* does not exist|could not find table|does not exist/i.test(error.message || '')) {
+      return { ...DEFAULT_PARAMS, _missing: true };
+    }
+    throw new Error(translate(error));
+  }
+  if (!data) return { ...DEFAULT_PARAMS };
+  return { ...DEFAULT_PARAMS, ...data };
+}
+
+export async function upsertAccountingParams(tenantCompanyId, params) {
+  const payload = { tenant_company_id: tenantCompanyId, ...params };
+  const { data, error } = await supabase
+    .from('accounting_params')
+    .upsert(payload, { onConflict: 'tenant_company_id' })
+    .select('*')
+    .single();
+  if (error) throw new Error(translate(error));
+  return { ...DEFAULT_PARAMS, ...data };
 }
 
 // =============================================================================

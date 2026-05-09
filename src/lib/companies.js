@@ -86,3 +86,11 @@ export async function leaveCompany(companyId) {
   const { error } = await supabase.rpc('leave_company', { p_company_id: companyId });
   if (error) throw new Error(translate(error));
 }
+
+export async function setMemberRole(memberId, role) {
+  const { error } = await supabase.rpc('set_member_role', {
+    p_member_id: memberId,
+    p_role: role,
+  });
+  if (error) throw new Error(translate(error));
+}

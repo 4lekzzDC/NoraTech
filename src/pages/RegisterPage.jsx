@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import ThemeToggle from '../components/ThemeToggle';
 
 function Star({ size = 12, color = 'rgba(124, 58, 237,0.3)', style = {} }) {
   return (
@@ -192,6 +193,8 @@ export default function RegisterPage() {
         <Star size={8} color="rgba(124, 58, 237,0.1)" style={{ position: 'absolute', top: '75%', right: '8%', animation: 'float1 11s ease-in-out infinite' }} />
         <Diamond size={8} color="rgba(255,138,61,0.12)" style={{ position: 'absolute', top: '20%', right: '25%', animation: 'float2 10s ease-in-out infinite' }} />
       </div>
+
+      <ThemeToggle style={{ position: 'fixed', top: 20, right: 20, zIndex: 100 }} />
 
       {/* ═══ BACK TO SITE BUTTON ═══ */}
       <Link to="/" className="back-site-btn" aria-label="Voltar ao site">
