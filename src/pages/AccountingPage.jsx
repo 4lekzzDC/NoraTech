@@ -422,7 +422,7 @@ export default function AccountingPage() {
           filterResp={filterResp} setFilterResp={setFilterResp}
           filterRegime={filterRegime} setFilterRegime={setFilterRegime}
           initialSort={companiesView.initialSort}
-          initialOnlyCompleted={companiesView.initialOnlyCompleted}
+          initialFilter={companiesView.initialFilter}
           onClose={() => setCompaniesView(null)}
           onChange={reload}
         />
@@ -855,11 +855,18 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
     const reconAbertos = Math.max(0, reconTotal - reconConcluido);
     const pendenciasAbertas = docsAbertos + reconAbertos;
 
+    // Cards gerenciais: status das empresas por estágio
+    const concluidas = perCompany.filter((c) => c.progress === 100).length;
+    const emAndamento = perCompany.filter((c) => c.progress > 0 && c.progress < 100 && !isDelayed(c)).length;
+    const aguardandoCliente = filtered.filter((c) => TASKS.some((t) => c.tasks?.[t.id] === 'aguardando_cliente')).length;
+    const atrasadas = filtered.filter((c) => isDelayed(c)).length;
+
     return {
       totalEmpresas, totalEsperado, totalRecebidos, totalCobrados, totalPendentes, pctRecebido,
       byDocType, byCategory, progressoMedio, empresasCompletas,
       pendenciasAbertas, docsAbertos, reconAbertos,
       reconTotal, reconConcluido, reconEmAndamento, reconPendencia, reconNaoIniciado, reconPctGeral,
+      concluidas, emAndamento, aguardandoCliente, atrasadas,
     };
   }, [filtered, fileRecords, reconciliations]);
 
@@ -915,34 +922,35 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
         </div>
       </Card>
 
-      {/* Seção Visão Geral */}
+      {/* Cards gerenciais: estágio das empresas */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 28 }}>
         <Kpi
-          label="Total empresas"
-          value={dashMetrics.totalEmpresas}
-          hint={`competência ${competencia}`}
-          onClick={() => onOpenCompanies({})}
-        />
-        <Kpi
-          label="Progresso médio"
-          value={`${dashMetrics.progressoMedio}%`}
-          accent="#7C3AED"
-          hint="files + conciliação"
-          onClick={() => onOpenCompanies({ initialSort: 'progress_asc' })}
-        />
-        <Kpi
-          label="Empresas concluídas"
-          value={dashMetrics.empresasCompletas}
+          label="Concluídas"
+          value={dashMetrics.concluidas}
           accent="#00d48a"
           hint="100% do fechamento"
-          onClick={() => onOpenCompanies({ initialOnlyCompleted: true })}
+          onClick={() => onOpenCompanies({ initialFilter: 'concluidas' })}
         />
         <Kpi
-          label="Pendências abertas"
-          value={dashMetrics.pendenciasAbertas}
-          accent={dashMetrics.pendenciasAbertas > 0 ? '#ff8a3d' : '#00d48a'}
-          hint={`${dashMetrics.docsAbertos} documentos + ${dashMetrics.reconAbertos} conciliações`}
-          onClick={() => onOpenPendencias()}
+          label="Em andamento"
+          value={dashMetrics.emAndamento}
+          accent="#60a5fa"
+          hint="progresso parcial, no prazo"
+          onClick={() => onOpenCompanies({ initialFilter: 'em_andamento' })}
+        />
+        <Kpi
+          label="Aguardando cliente"
+          value={dashMetrics.aguardandoCliente}
+          accent="#ff8a3d"
+          hint="1+ tarefa aguardando"
+          onClick={() => onOpenCompanies({ initialFilter: 'aguardando_cliente' })}
+        />
+        <Kpi
+          label="Atrasadas"
+          value={dashMetrics.atrasadas}
+          accent={dashMetrics.atrasadas > 0 ? '#ff6b6b' : '#00d48a'}
+          hint="prazo vencido com pendências"
+          onClick={() => onOpenCompanies({ initialFilter: 'atrasadas' })}
         />
       </div>
 
@@ -1365,16 +1373,23 @@ function InfoItem({ label, value, accent }) {
 // CompaniesModal — gerenciamento de empresas (cadastro/CRUD)
 // =============================================================================
 
+const STATUS_FILTER_LABELS = {
+  concluidas:        { label: '✓ Apenas concluídas (100%)',  color: '#00d48a', bg: 'rgba(0,212,138,0.12)',   bd: 'rgba(0,212,138,0.28)'   },
+  em_andamento:      { label: '⟳ Em andamento',              color: '#60a5fa', bg: 'rgba(37,99,235,0.12)',   bd: 'rgba(37,99,235,0.28)'   },
+  aguardando_cliente:{ label: '⏳ Aguardando cliente',        color: '#ff8a3d', bg: 'rgba(255,138,61,0.12)',  bd: 'rgba(255,138,61,0.28)'  },
+  atrasadas:         { label: '⚠ Atrasadas',                 color: '#ff6b6b', bg: 'rgba(255,107,107,0.12)', bd: 'rgba(255,107,107,0.28)' },
+};
+
 function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, reconciliations,
   search, setSearch, filterResp, setFilterResp, filterRegime, setFilterRegime,
-  initialSort, initialOnlyCompleted, onClose, onChange,
+  initialSort, initialFilter, onClose, onChange,
 }) {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [viewCompany, setViewCompany] = useState(null);
   const [sortBy, setSortBy] = useState(initialSort || 'name');
-  const [onlyCompleted, setOnlyCompleted] = useState(!!initialOnlyCompleted);
+  const [statusFilter, setStatusFilter] = useState(initialFilter || '');
   const [importOpen, setImportOpen] = useState(false);
 
   const responsaveis = useMemo(
@@ -1388,7 +1403,10 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
       .filter((c) => {
         if (filterResp && c.responsavel !== filterResp) return false;
         if (filterRegime && c.regime !== filterRegime) return false;
-        if (onlyCompleted && c.progress !== 100) return false;
+        if (statusFilter === 'concluidas' && c.progress !== 100) return false;
+        if (statusFilter === 'em_andamento' && !(c.progress > 0 && c.progress < 100 && !isDelayed(c))) return false;
+        if (statusFilter === 'aguardando_cliente' && !TASKS.some((t) => c.tasks?.[t.id] === 'aguardando_cliente')) return false;
+        if (statusFilter === 'atrasadas' && !isDelayed(c)) return false;
         if (search) {
           const q = search.toLowerCase();
           if (
@@ -1403,10 +1421,10 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
     else if (sortBy === 'progress_desc') list.sort((a, b) => b.progress - a.progress || (a.nome || '').localeCompare(b.nome || ''));
     else list.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
     return list;
-  }, [companies, fileRecords, reconciliations, filterResp, filterRegime, search, sortBy, onlyCompleted]);
+  }, [companies, fileRecords, reconciliations, filterResp, filterRegime, search, sortBy, statusFilter]);
 
-  const clearFilters = () => { setSearch(''); setFilterResp(''); setFilterRegime(''); setOnlyCompleted(false); setSortBy('name'); };
-  const hasFilters = !!(search || filterResp || filterRegime || onlyCompleted || sortBy !== 'name');
+  const clearFilters = () => { setSearch(''); setFilterResp(''); setFilterRegime(''); setStatusFilter(''); setSortBy('name'); };
+  const hasFilters = !!(search || filterResp || filterRegime || statusFilter || sortBy !== 'name');
 
   const openCreate = () => { setForm({ ...EMPTY_FORM }); setEditing('new'); };
   const openEdit = (c) => {
@@ -1452,10 +1470,10 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
               <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)' }}>
                 {filtered.length} de {companies.length}
               </span>
-              {onlyCompleted && (
-                <span onClick={() => setOnlyCompleted(false)} className="acc-pill"
-                  style={{ cursor: 'pointer', background: 'rgba(0,212,138,0.12)', color: '#00d48a', borderColor: 'rgba(0,212,138,0.28)' }}>
-                  ✓ Apenas concluídas (100%) ×
+              {statusFilter && STATUS_FILTER_LABELS[statusFilter] && (
+                <span onClick={() => setStatusFilter('')} className="acc-pill"
+                  style={{ cursor: 'pointer', background: STATUS_FILTER_LABELS[statusFilter].bg, color: STATUS_FILTER_LABELS[statusFilter].color, borderColor: STATUS_FILTER_LABELS[statusFilter].bd }}>
+                  {STATUS_FILTER_LABELS[statusFilter].label} ×
                 </span>
               )}
               {sortBy === 'progress_asc' && (
