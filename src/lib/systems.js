@@ -1,5 +1,13 @@
 // Catálogo de sistemas oferecidos. O `slug` é a chave usada em
 // subscriptions.system_slug para vincular uma assinatura a um sistema.
+// `aliases` cobre slugs legados após renomeações: getSystem(alias) também resolve.
+
+import {
+  SOLUCOES_CONTABEIS_SLUG,
+  SOLUCOES_CONTABEIS_LEGACY_SLUGS,
+  SOLUCOES_CONTABEIS_ROUTE,
+  SOLUCOES_CONTABEIS_NAME,
+} from '../modules/solucoes-contabeis';
 
 export const SYSTEMS = [
   {
@@ -11,17 +19,22 @@ export const SYSTEMS = [
     url: 'https://falahub.noratech.com.br',
   },
   {
-    slug: 'acompanhamento-contabil',
-    name: 'Acompanhamento contábil',
+    slug: SOLUCOES_CONTABEIS_SLUG,
+    aliases: SOLUCOES_CONTABEIS_LEGACY_SLUGS,
+    name: SOLUCOES_CONTABEIS_NAME,
     icon: '📊',
     color: '#7C3AED',
     description: 'Gestão operacional do fechamento mensal — status de tarefas, alertas de pendências e visão gerencial por empresa.',
-    url: '/acompanhamento-contabil',
+    url: SOLUCOES_CONTABEIS_ROUTE,
     internal: true,
   },
 ];
 
-export const SYSTEMS_BY_SLUG = Object.fromEntries(SYSTEMS.map((s) => [s.slug, s]));
+export const SYSTEMS_BY_SLUG = SYSTEMS.reduce((acc, sys) => {
+  acc[sys.slug] = sys;
+  (sys.aliases || []).forEach((alias) => { acc[alias] = sys; });
+  return acc;
+}, {});
 
 export function getSystem(slug) {
   return SYSTEMS_BY_SLUG[slug] || null;

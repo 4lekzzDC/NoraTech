@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useIsAdmin } from '../lib/admin';
-import { hasActiveSubscription } from '../lib/accounting';
+import { hasActiveSubscription } from '../lib/subscriptions';
 
 function LoadingScreen() {
   return (
@@ -13,11 +13,12 @@ function LoadingScreen() {
   );
 }
 
-export default function SubscriptionRoute({ systemSlug, children }) {
+export default function SubscriptionRoute({ systemSlug, legacySlugs, children }) {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   const [checking, setChecking] = useState(true);
   const [allowed, setAllowed] = useState(false);
+  const legacyKey = (legacySlugs || []).join(',');
 
   useEffect(() => {
     let active = true;
@@ -26,7 +27,7 @@ export default function SubscriptionRoute({ systemSlug, children }) {
     if (isAdmin) { setAllowed(true); setChecking(false); return; }
     (async () => {
       try {
-        const { hasAccess } = await hasActiveSubscription(systemSlug);
+        const { hasAccess } = await hasActiveSubscription(systemSlug, { legacySlugs });
         if (!active) return;
         setAllowed(hasAccess);
       } finally {
@@ -34,7 +35,7 @@ export default function SubscriptionRoute({ systemSlug, children }) {
       }
     })();
     return () => { active = false; };
-  }, [user, isAdmin, authLoading, adminLoading, systemSlug]);
+  }, [user, isAdmin, authLoading, adminLoading, systemSlug, legacyKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (authLoading || adminLoading || checking) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;

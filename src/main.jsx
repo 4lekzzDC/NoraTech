@@ -16,7 +16,13 @@ import AdminUsersPage from './pages/admin/AdminUsersPage.jsx'
 import AdminCompaniesPage from './pages/admin/AdminCompaniesPage.jsx'
 import AdminSubscriptionsPage from './pages/admin/AdminSubscriptionsPage.jsx'
 import AdminInvoicesPage from './pages/admin/AdminInvoicesPage.jsx'
-import AccountingPage from './pages/AccountingPage.jsx'
+import {
+  SolucoesContabeisPage,
+  SOLUCOES_CONTABEIS_SLUG,
+  SOLUCOES_CONTABEIS_LEGACY_SLUGS,
+  SOLUCOES_CONTABEIS_ROUTE,
+  SOLUCOES_CONTABEIS_LEGACY_ROUTE,
+} from './modules/solucoes-contabeis'
 import AdminRoute from './components/AdminRoute.jsx'
 import SubscriptionRoute from './components/SubscriptionRoute.jsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
@@ -54,8 +60,19 @@ createRoot(document.getElementById('root')).render(
           <Route path="/admin/assinaturas" element={<AdminRoute><AdminSubscriptionsPage /></AdminRoute>} />
           <Route path="/admin/faturas" element={<AdminRoute><AdminInvoicesPage /></AdminRoute>} />
           <Route
-            path="/acompanhamento-contabil"
-            element={<SubscriptionRoute systemSlug="acompanhamento-contabil"><AccountingPage /></SubscriptionRoute>}
+            path={SOLUCOES_CONTABEIS_ROUTE}
+            element={
+              <SubscriptionRoute
+                systemSlug={SOLUCOES_CONTABEIS_SLUG}
+                legacySlugs={SOLUCOES_CONTABEIS_LEGACY_SLUGS}
+              >
+                <SolucoesContabeisPage />
+              </SubscriptionRoute>
+            }
+          />
+          <Route
+            path={SOLUCOES_CONTABEIS_LEGACY_ROUTE}
+            element={<Navigate to={SOLUCOES_CONTABEIS_ROUTE} replace />}
           />
         </Routes>
       </AuthProvider>

@@ -1,4 +1,4 @@
-// Domínio compartilhado do módulo Acompanhamento Contábil.
+// Domínio compartilhado do módulo Soluções Contábeis.
 // Constantes e funções puras usadas pelas três abas (Dashboard, Arquivos, Conciliação).
 
 export const TASKS = [

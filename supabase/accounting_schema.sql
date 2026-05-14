@@ -1,5 +1,6 @@
 -- =========================================================================
--- Schema do módulo Acompanhamento Contábil
+-- Schema do módulo Soluções Contábeis
+-- (slug canônico: solucoes-contabeis; aceita também o legado acompanhamento-contabil)
 -- =========================================================================
 -- Pré-requisitos:
 --   - admin_schema.sql aplicado (função is_admin)
@@ -25,7 +26,7 @@ as $$
         select 1
         from public.subscriptions s
         where s.company_id = p_company_id
-          and s.system_slug = 'acompanhamento-contabil'
+          and s.system_slug in ('solucoes-contabeis', 'acompanhamento-contabil')
           and s.status in ('active', 'trialing')
       )
     );
