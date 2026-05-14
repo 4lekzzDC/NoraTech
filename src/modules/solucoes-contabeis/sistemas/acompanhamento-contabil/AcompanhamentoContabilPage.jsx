@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../../contexts/AuthContext';
-import ThemeToggle from '../../../components/ThemeToggle';
-import UserProfileMenu from '../../../components/UserProfileMenu';
+import { useAuth } from '../../../../contexts/AuthContext';
+import ThemeToggle from '../../../../components/ThemeToggle';
+import UserProfileMenu from '../../../../components/UserProfileMenu';
 import {
   TASKS, REGIMES,
   RECON_CATEGORIES, RECON_STATUS, RECON_STATUS_ORDER,
   currentCompetencia, emptyTasks, isDelayed,
-} from '../domain';
-import { useIsAdmin } from '../../../lib/admin';
+} from '../../domain';
+import { useIsAdmin } from '../../../../lib/admin';
 import {
   getCurrentTenantCompanyId,
   getCurrentMembership,
@@ -17,11 +17,11 @@ import {
   listFileRecords, upsertFileRecord,
   listReconciliations, upsertReconciliation,
   listAccountingParams, upsertAccountingParams,
-} from '../services/accounting.service';
+} from '../../services/accounting.service';
 
 // =============================================================================
-// Página: /solucoes-contabeis
-// 3 abas: Dashboard (gerencial), Arquivos, Conciliação
+// Página: /solucoes-contabeis/acompanhamento-contabil
+// Módulo da suite "Soluções Contábeis" — 3 abas: Dashboard, Arquivos, Conciliação.
 // =============================================================================
 
 const TABS = [
@@ -118,7 +118,7 @@ function getFileStatus(record) {
   return record?.file_status || (record?.received ? 'recebido' : 'pendente');
 }
 
-export default function SolucoesContabeisPage() {
+export default function AcompanhamentoContabilPage() {
   const { user, logout } = useAuth();
   const { isAdmin } = useIsAdmin();
   const initials = useMemo(

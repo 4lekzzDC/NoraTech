@@ -1,14 +1,20 @@
-// Barrel do módulo "Soluções Contábeis".
-//
-// Concentra o ponto de entrada usado pelo router e o catálogo de sistemas
-// (src/lib/systems.js). Tudo o que é interno ao módulo permanece encapsulado
-// — fora do módulo, importe apenas a partir deste arquivo.
+// Barrel público do módulo "Soluções Contábeis".
+// Tudo o que é interno ao módulo permanece encapsulado — fora do módulo,
+// importe apenas a partir deste arquivo.
 
-export { default as SolucoesContabeisPage } from './pages/SolucoesContabeisPage.jsx';
+export { default as SolucoesContabeisHub } from './pages/SolucoesContabeisHub.jsx';
+export { default as SistemaEmConstrucao } from './pages/SistemaEmConstrucao.jsx';
+export { default as AcompanhamentoContabilPage } from './sistemas/acompanhamento-contabil/AcompanhamentoContabilPage.jsx';
+
 export {
   SOLUCOES_CONTABEIS_SLUG,
   SOLUCOES_CONTABEIS_LEGACY_SLUGS,
-  SOLUCOES_CONTABEIS_ROUTE,
-  SOLUCOES_CONTABEIS_LEGACY_ROUTE,
   SOLUCOES_CONTABEIS_NAME,
+  SOLUCOES_CONTABEIS_ROUTE,
+  ACOMPANHAMENTO_CONTABIL_LEGACY_ROUTE,
+  HUB_MODULES,
+  HUB_SECTIONS,
+  HUB_MODULES_BY_SLUG,
+  getHubModule,
+  moduleRoute,
 } from './constants.js';
