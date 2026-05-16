@@ -16,7 +16,22 @@ import AdminUsersPage from './pages/admin/AdminUsersPage.jsx'
 import AdminCompaniesPage from './pages/admin/AdminCompaniesPage.jsx'
 import AdminSubscriptionsPage from './pages/admin/AdminSubscriptionsPage.jsx'
 import AdminInvoicesPage from './pages/admin/AdminInvoicesPage.jsx'
-import AccountingPage from './pages/AccountingPage.jsx'
+import {
+  SolucoesContabeisHub,
+  SistemaEmConstrucao,
+  AcompanhamentoContabilPage,
+  SOLUCOES_CONTABEIS_SLUG,
+  SOLUCOES_CONTABEIS_LEGACY_SLUGS,
+  SOLUCOES_CONTABEIS_ROUTE,
+  ACOMPANHAMENTO_CONTABIL_LEGACY_ROUTE,
+} from './modules/solucoes-contabeis'
+import CodificadorPage from './modules/solucoes-contabeis/sistemas/codificador/CodificadorPage.jsx'
+import ConciliadorExtratosPage from './modules/solucoes-contabeis/sistemas/conciliador-extratos/ConciliadorExtratosPage.jsx'
+import ConciliadorFornecedoresPage from './modules/solucoes-contabeis/sistemas/conciliador-fornecedores/ConciliadorFornecedoresPage.jsx'
+import GestaoClientesPage from './modules/solucoes-contabeis/sistemas/gestao-clientes/GestaoClientesPage.jsx'
+import PrazosPage from './modules/solucoes-contabeis/sistemas/prazos/PrazosPage.jsx'
+import AnaliseDemonstracoesPage from './modules/solucoes-contabeis/sistemas/analise-demonstracoes/AnaliseDemonstracoesPage.jsx'
+import TransformadorExtratoPage from './modules/solucoes-contabeis/sistemas/transformador-extrato/TransformadorExtratoPage.jsx'
 import AdminRoute from './components/AdminRoute.jsx'
 import SubscriptionRoute from './components/SubscriptionRoute.jsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
@@ -31,6 +46,19 @@ function ProtectedRoute({ children }) {
     </div>
   )
   return user ? children : <Navigate to="/login" replace />
+}
+
+// Wrapper que aplica o gate de assinatura `solucoes-contabeis` (aceita
+// também o slug legado `acompanhamento-contabil`) a qualquer rota da suite.
+function SolucoesContabeisRoute({ children }) {
+  return (
+    <SubscriptionRoute
+      systemSlug={SOLUCOES_CONTABEIS_SLUG}
+      legacySlugs={SOLUCOES_CONTABEIS_LEGACY_SLUGS}
+    >
+      {children}
+    </SubscriptionRoute>
+  )
 }
 
 createRoot(document.getElementById('root')).render(
@@ -53,9 +81,54 @@ createRoot(document.getElementById('root')).render(
           <Route path="/admin/empresas" element={<AdminRoute><AdminCompaniesPage /></AdminRoute>} />
           <Route path="/admin/assinaturas" element={<AdminRoute><AdminSubscriptionsPage /></AdminRoute>} />
           <Route path="/admin/faturas" element={<AdminRoute><AdminInvoicesPage /></AdminRoute>} />
+          {/* Hub da suite Soluções Contábeis */}
           <Route
-            path="/acompanhamento-contabil"
-            element={<SubscriptionRoute systemSlug="acompanhamento-contabil"><AccountingPage /></SubscriptionRoute>}
+            path={SOLUCOES_CONTABEIS_ROUTE}
+            element={<SolucoesContabeisRoute><SolucoesContabeisHub /></SolucoesContabeisRoute>}
+          />
+          {/* Módulo real já migrado */}
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/acompanhamento-contabil`}
+            element={<SolucoesContabeisRoute><AcompanhamentoContabilPage /></SolucoesContabeisRoute>}
+          />
+          {/* Placeholders dos módulos do Autonomy em migração */}
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/codificador`}
+            element={<SolucoesContabeisRoute><CodificadorPage /></SolucoesContabeisRoute>}
+          />
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/conciliador-extratos`}
+            element={<SolucoesContabeisRoute><ConciliadorExtratosPage /></SolucoesContabeisRoute>}
+          />
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/conciliador-fornecedores`}
+            element={<SolucoesContabeisRoute><ConciliadorFornecedoresPage /></SolucoesContabeisRoute>}
+          />
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/gestao-clientes`}
+            element={<SolucoesContabeisRoute><GestaoClientesPage /></SolucoesContabeisRoute>}
+          />
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/prazos`}
+            element={<SolucoesContabeisRoute><PrazosPage /></SolucoesContabeisRoute>}
+          />
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/analise-demonstracoes`}
+            element={<SolucoesContabeisRoute><AnaliseDemonstracoesPage /></SolucoesContabeisRoute>}
+          />
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/transformador-extrato`}
+            element={<SolucoesContabeisRoute><TransformadorExtratoPage /></SolucoesContabeisRoute>}
+          />
+          {/* Catch-all: itens do catálogo sem rota dedicada caem aqui */}
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/:slug`}
+            element={<SolucoesContabeisRoute><SistemaEmConstrucao /></SolucoesContabeisRoute>}
+          />
+          {/* Compatibilidade: rota antiga que ia direto ao Acompanhamento Contábil */}
+          <Route
+            path={ACOMPANHAMENTO_CONTABIL_LEGACY_ROUTE}
+            element={<Navigate to={`${SOLUCOES_CONTABEIS_ROUTE}/acompanhamento-contabil`} replace />}
           />
         </Routes>
       </AuthProvider>

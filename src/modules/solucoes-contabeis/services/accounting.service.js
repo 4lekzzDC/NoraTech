@@ -1,31 +1,14 @@
-import { supabase } from './supabase';
-import { fetchMyCompany } from './companies';
-import { emptyTasks } from './accountingDomain';
+import { supabase } from '../../../lib/supabase';
+import { getCurrentTenantCompanyId, getCurrentMembership } from '../../../lib/subscriptions';
+import { emptyTasks } from '../domain';
+
+export { getCurrentTenantCompanyId, getCurrentMembership };
 
 function translate(error) {
   if (!error) return 'Erro desconhecido';
   const msg = error.message || '';
   if (/network|fetch|failed to fetch/i.test(msg)) return 'Erro de conexão. Tente novamente.';
   return msg;
-}
-
-// Resolve a empresa-tenant (escritório contábil) do usuário atual.
-// Para admin, espera-se que o admin também tenha sua company; se não tiver,
-// retorna null e a UI deve avisar.
-export async function getCurrentTenantCompanyId() {
-  const my = await fetchMyCompany();
-  return my?.company?.id || null;
-}
-
-// Retorna o cargo do usuário na empresa-tenant atual: 'owner' | 'admin' | 'member' | null
-export async function getCurrentMembership() {
-  const my = await fetchMyCompany();
-  if (!my?.company?.id) return null;
-  return {
-    tenantCompanyId: my.company.id,
-    role: my.membership?.role || 'member',
-    status: my.membership?.status || 'active',
-  };
 }
 
 // =============================================================================
@@ -210,21 +193,3 @@ export async function upsertAccountingParams(tenantCompanyId, params) {
   return { ...DEFAULT_PARAMS, ...data };
 }
 
-// =============================================================================
-// Subscription gate — usado por SubscriptionRoute
-// =============================================================================
-
-export async function hasActiveSubscription(systemSlug) {
-  const tenantId = await getCurrentTenantCompanyId();
-  if (!tenantId) return { hasAccess: false, tenantId: null };
-
-  const { data, error } = await supabase
-    .from('subscriptions')
-    .select('id, status')
-    .eq('company_id', tenantId)
-    .eq('system_slug', systemSlug)
-    .in('status', ['active', 'trialing'])
-    .limit(1);
-  if (error) return { hasAccess: false, tenantId };
-  return { hasAccess: (data || []).length > 0, tenantId };
-}

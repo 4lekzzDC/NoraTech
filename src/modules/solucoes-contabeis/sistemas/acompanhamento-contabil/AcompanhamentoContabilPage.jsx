@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import ThemeToggle from '../components/ThemeToggle';
-import UserProfileMenu from '../components/UserProfileMenu';
+import { useAuth } from '../../../../contexts/AuthContext';
+import ThemeToggle from '../../../../components/ThemeToggle';
+import UserProfileMenu from '../../../../components/UserProfileMenu';
 import {
   TASKS, REGIMES,
   RECON_CATEGORIES, RECON_STATUS, RECON_STATUS_ORDER,
   currentCompetencia, emptyTasks, isDelayed,
-} from '../lib/accountingDomain';
-import { useIsAdmin } from '../lib/admin';
+} from '../../domain';
+import { useIsAdmin } from '../../../../lib/admin';
 import {
   getCurrentTenantCompanyId,
   getCurrentMembership,
@@ -17,11 +17,11 @@ import {
   listFileRecords, upsertFileRecord,
   listReconciliations, upsertReconciliation,
   listAccountingParams, upsertAccountingParams,
-} from '../lib/accounting';
+} from '../../services/accounting.service';
 
 // =============================================================================
-// Página: /acompanhamento-contabil
-// 3 abas: Dashboard (gerencial), Arquivos, Conciliação
+// Página: /solucoes-contabeis/acompanhamento-contabil
+// Módulo da suite "Soluções Contábeis" — 3 abas: Dashboard, Arquivos, Conciliação.
 // =============================================================================
 
 const TABS = [
@@ -118,7 +118,7 @@ function getFileStatus(record) {
   return record?.file_status || (record?.received ? 'recebido' : 'pendente');
 }
 
-export default function AccountingPage() {
+export default function AcompanhamentoContabilPage() {
   const { user, logout } = useAuth();
   const { isAdmin } = useIsAdmin();
   const initials = useMemo(
@@ -2791,7 +2791,7 @@ function ParametrizacaoModal({ tenantCompanyId, params, canWrite, onClose, onSav
           <div>
             <h2 style={{ fontSize: '1rem', fontWeight: 700 }}>⚙ Parametrização</h2>
             <p style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
-              Configure as regras do módulo Acompanhamento Contábil.
+              Configure as regras do módulo Soluções Contábeis.
             </p>
           </div>
           <button type="button" onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '0 4px', flexShrink: 0 }}>×</button>
