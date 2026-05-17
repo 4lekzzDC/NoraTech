@@ -11,6 +11,7 @@ import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import AreaDoClientePage from './pages/AreaDoClientePage.jsx'
+import FinanceiroPage from './pages/FinanceiroPage.jsx'
 import AdminOverviewPage from './pages/admin/AdminOverviewPage.jsx'
 import AdminUsersPage from './pages/admin/AdminUsersPage.jsx'
 import AdminCompaniesPage from './pages/admin/AdminCompaniesPage.jsx'
@@ -20,6 +21,7 @@ import {
   SolucoesContabeisHub,
   SistemaEmConstrucao,
   AcompanhamentoContabilPage,
+  ContabilPage,
   SOLUCOES_CONTABEIS_SLUG,
   SOLUCOES_CONTABEIS_LEGACY_SLUGS,
   SOLUCOES_CONTABEIS_ROUTE,
@@ -76,6 +78,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/registro" element={<RegisterPage />} />
           <Route path="/perfil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/area-do-cliente" element={<ProtectedRoute><AreaDoClientePage /></ProtectedRoute>} />
+          <Route path="/area-do-cliente/financeiro" element={<ProtectedRoute><FinanceiroPage /></ProtectedRoute>} />
           <Route path="/admin" element={<AdminRoute><AdminOverviewPage /></AdminRoute>} />
           <Route path="/admin/usuarios" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
           <Route path="/admin/empresas" element={<AdminRoute><AdminCompaniesPage /></AdminRoute>} />
@@ -90,6 +93,11 @@ createRoot(document.getElementById('root')).render(
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/acompanhamento-contabil`}
             element={<SolucoesContabeisRoute><AcompanhamentoContabilPage /></SolucoesContabeisRoute>}
+          />
+          {/* Categoria "Contábil" — grid de subcategorias migrado do Autonomy */}
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/contabil`}
+            element={<SolucoesContabeisRoute><ContabilPage /></SolucoesContabeisRoute>}
           />
           {/* Placeholders dos módulos do Autonomy em migração */}
           <Route

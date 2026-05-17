@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+  <defs>
+    <linearGradient id="nora-n-grad" x1="6" y1="40" x2="42" y2="8" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7C3AED"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="nora-accent-grad" x1="30" y1="6" x2="42" y2="22" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+  </defs>
+  <path d="M10 40 V10 H17 L32 30 V10 H38 V40 H31 L16 20 V40 Z" fill="url(#nora-n-grad)"/>
+  <path d="M32 10 H38 V22 L32 16 Z" fill="url(#nora-accent-grad)" opacity="0.85"/>
+</svg>

@@ -3,27 +3,26 @@ import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useIsAdmin } from '../lib/admin';
+import { useTheme } from '../contexts/ThemeContext';
 import ThemeToggle from '../components/ThemeToggle';
 import CockpitCompany from '../components/CockpitCompany';
 import UserProfileMenu from '../components/UserProfileMenu';
 import { supabase, AVATARS_BUCKET } from '../lib/supabase';
-import { fetchMyCompany } from '../lib/companies';
+import { fetchMyCompany, fetchCompanyMembers } from '../lib/companies';
 import { getSystem, SYSTEMS } from '../lib/systems';
-
-const TABS = [
-  { id: 'cockpit', num: '01', label: 'Cockpit' },
-  { id: 'operacao', num: '02', label: 'Operação' },
-  { id: 'financeiro', num: '03', label: 'Financeiro' },
-  { id: 'oportunidades', num: '04', label: 'Oportunidades' },
-  { id: 'comando', num: '05', label: 'Comando' },
-];
+import { getPalette, FONT_INTER, FONT_MONO } from '../modules/solucoes-contabeis/theme';
 
 const MONTHS_PT = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
 const COMPANY_ROLE_LABEL = { owner: 'Dono', admin: 'Admin / Gestor', member: 'Membro' };
+const ROLE_BADGE = {
+  owner:  { label: 'DONO',  bg: 'rgba(124,58,237,0.14)', bd: 'rgba(124,58,237,0.3)',  color: '#7C3AED' },
+  admin:  { label: 'ADMIN', bg: 'rgba(245,158,11,0.1)',  bd: 'rgba(245,158,11,0.28)', color: '#d97706' },
+  member: { label: 'MEMBRO',bg: 'transparent',           bd: 'var(--p-border)',        color: 'var(--p-muted)' },
+};
 const PRESENCE = {
-  online: { label: 'Online', color: '#22c55e', bg: 'rgba(34,197,94,0.1)', bd: 'rgba(34,197,94,0.26)' },
-  busy: { label: 'Ocupado', color: '#ef4444', bg: 'rgba(239,68,68,0.1)', bd: 'rgba(239,68,68,0.28)' },
-  away: { label: 'Ausente', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', bd: 'rgba(245,158,11,0.3)' },
+  online:    { label: 'Online',    color: '#22c55e', bg: 'rgba(34,197,94,0.1)',   bd: 'rgba(34,197,94,0.26)'   },
+  busy:      { label: 'Ocupado',   color: '#ef4444', bg: 'rgba(239,68,68,0.1)',   bd: 'rgba(239,68,68,0.28)'   },
+  away:      { label: 'Ausente',   color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  bd: 'rgba(245,158,11,0.3)'   },
   invisible: { label: 'Invisível', color: '#9ca3af', bg: 'rgba(156,163,175,0.1)', bd: 'rgba(156,163,175,0.28)' },
 };
 
@@ -32,6 +31,20 @@ function formatMemberSince(isoDate) {
   const d = new Date(isoDate);
   if (Number.isNaN(d.getTime())) return null;
   return `${MONTHS_PT[d.getMonth()]}/${d.getFullYear()}`;
+}
+
+function formatRelativeDate(isoDate) {
+  if (!isoDate) return '';
+  const d = new Date(isoDate);
+  if (Number.isNaN(d.getTime())) return '';
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = Math.floor((today - target) / 86400000);
+  const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  if (diff === 0) return `Hoje, ${hhmm}`;
+  if (diff === 1) return `Ontem, ${hhmm}`;
+  return `${String(d.getDate()).padStart(2, '0')}/${MONTHS_PT[d.getMonth()]}/${d.getFullYear()}, ${hhmm}`;
 }
 
 function isActiveStatus(user) {
@@ -61,6 +74,8 @@ function VerifiedBadge() {
   );
 }
 
+// ─── UserProfileModal (dark, always) ────────────────────────────────────────
+
 function UserProfileModal({ user, companyInfo, initials, onClose, onUserUpdate }) {
   const avatarInputRef = useRef(null);
   const bannerInputRef = useRef(null);
@@ -86,123 +101,72 @@ function UserProfileModal({ user, companyInfo, initials, onClose, onUserUpdate }
     const maxMb = kind === 'avatar' ? 2 : 5;
     const validationError = validateProfileImage(file, maxMb);
     if (validationError) { setMessage({ type: 'error', text: validationError }); return; }
-
     try {
-      setSaving(kind);
-      setMessage(null);
+      setSaving(kind); setMessage(null);
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
       const path = `${user.id}/${kind}-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from(AVATARS_BUCKET)
-        .upload(path, file, { upsert: true, contentType: file.type });
+      const { error: uploadError } = await supabase.storage.from(AVATARS_BUCKET).upload(path, file, { upsert: true, contentType: file.type });
       if (uploadError) throw uploadError;
-
       const { data: publicData } = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(path);
       const publicUrl = publicData.publicUrl;
       const column = kind === 'avatar' ? 'photo_url' : 'banner_url';
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ [column]: publicUrl, updated_at: new Date().toISOString() })
-        .eq('id', user.id);
+      const { error: updateError } = await supabase.from('profiles').update({ [column]: publicUrl, updated_at: new Date().toISOString() }).eq('id', user.id);
       if (updateError) throw updateError;
-
       onUserUpdate(kind === 'avatar' ? { photoUrl: publicUrl } : { bannerUrl: publicUrl });
       setMessage({ type: 'success', text: kind === 'avatar' ? 'Foto atualizada.' : 'Banner atualizado.' });
     } catch (err) {
       setMessage({ type: 'error', text: err.message || 'Erro ao enviar imagem.' });
-    } finally {
-      setSaving('');
-    }
+    } finally { setSaving(''); }
   };
 
   const saveStatus = async (e) => {
     e.preventDefault();
     const trimmed = statusDraft.trim();
-    if (trimmed.length > 80) {
-      setMessage({ type: 'error', text: 'Status deve ter no máximo 80 caracteres.' });
-      return;
-    }
-
+    if (trimmed.length > 80) { setMessage({ type: 'error', text: 'Status deve ter no máximo 80 caracteres.' }); return; }
     try {
-      setSaving('status');
-      setMessage(null);
+      setSaving('status'); setMessage(null);
       const payload = trimmed
         ? { status_message: trimmed, status_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), updated_at: new Date().toISOString() }
         : { status_message: null, status_expires_at: null, updated_at: new Date().toISOString() };
       const { error } = await supabase.from('profiles').update(payload).eq('id', user.id);
       if (error) throw error;
       onUserUpdate({ statusMessage: payload.status_message, statusExpiresAt: payload.status_expires_at });
-      setStatusText(trimmed);
-      setStatusEditing(false);
+      setStatusText(trimmed); setStatusEditing(false);
       setMessage({ type: 'success', text: trimmed ? 'Status salvo por 24h.' : 'Status removido.' });
     } catch (err) {
       setMessage({ type: 'error', text: err.message || 'Erro ao salvar status.' });
-    } finally {
-      setSaving('');
-    }
+    } finally { setSaving(''); }
   };
 
   useEffect(() => {
     if (!statusEditing && !presenceOpen) return undefined;
     const handler = (e) => {
-      if (statusEditing && statusEditorRef.current && !statusEditorRef.current.contains(e.target)) {
-        setStatusDraft(statusText);
-        setStatusEditing(false);
-      }
-      if (presenceOpen && presenceMenuRef.current && !presenceMenuRef.current.contains(e.target)) {
-        setPresenceOpen(false);
-      }
+      if (statusEditing && statusEditorRef.current && !statusEditorRef.current.contains(e.target)) { setStatusDraft(statusText); setStatusEditing(false); }
+      if (presenceOpen && presenceMenuRef.current && !presenceMenuRef.current.contains(e.target)) setPresenceOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [presenceOpen, statusEditing, statusText]);
 
   return createPortal(
-    <div
-      role="presentation"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label="Meu perfil"
-        style={{ width: 'min(640px, 100%)', background: '#111116', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, boxShadow: '0 28px 90px rgba(0,0,0,0.78)', overflow: 'hidden', color: '#eeede9', position: 'relative', fontFamily: "'Inter', sans-serif" }}
-      >
+    <div role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <section role="dialog" aria-modal="true" aria-label="Meu perfil"
+        style={{ width: 'min(640px, 100%)', background: '#111116', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, boxShadow: '0 28px 90px rgba(0,0,0,0.78)', overflow: 'hidden', color: '#eeede9', position: 'relative', fontFamily: "'Inter', sans-serif" }}>
         <style>{`
-          .profile-avatar-edit .profile-avatar-overlay,
-          .profile-banner-edit .profile-banner-overlay {
-            opacity: 0;
-            transition: opacity 0.18s ease, background 0.18s ease;
-          }
-          .profile-avatar-edit:hover .profile-avatar-overlay,
-          .profile-avatar-edit:focus-visible .profile-avatar-overlay,
-          .profile-banner-edit:hover .profile-banner-overlay,
-          .profile-banner-edit:focus-visible .profile-banner-overlay {
-            opacity: 1;
-          }
+          .profile-avatar-edit .profile-avatar-overlay, .profile-banner-edit .profile-banner-overlay { opacity: 0; transition: opacity 0.18s ease; }
+          .profile-avatar-edit:hover .profile-avatar-overlay, .profile-avatar-edit:focus-visible .profile-avatar-overlay,
+          .profile-banner-edit:hover .profile-banner-overlay, .profile-banner-edit:focus-visible .profile-banner-overlay { opacity: 1; }
         `}</style>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Fechar perfil"
-          style={{ position: 'absolute', top: 14, right: 14, zIndex: 2, width: 34, height: 34, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(0,0,0,0.34)', color: 'rgba(255,255,255,0.78)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}
-        >
-          ×
-        </button>
+        <button type="button" onClick={onClose} aria-label="Fechar perfil"
+          style={{ position: 'absolute', top: 14, right: 14, zIndex: 2, width: 34, height: 34, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(0,0,0,0.34)', color: 'rgba(255,255,255,0.78)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>×</button>
 
         <div className="profile-banner-edit" style={{ height: 156, borderBottom: '1px solid rgba(255,255,255,0.08)', position: 'relative', overflow: 'hidden', cursor: 'pointer', ...bannerStyle }}>
-          <button
-            type="button"
-            onClick={() => bannerInputRef.current?.click()}
-            disabled={saving === 'banner'}
-            style={{ position: 'absolute', inset: 0, border: 'none', background: 'transparent', color: '#fff', cursor: saving === 'banner' ? 'wait' : 'pointer', zIndex: 1 }}
-          >
-            <span className="profile-banner-overlay" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px 18px', background: 'rgba(0,0,0,0.34)' }}>
+          <button type="button" onClick={() => bannerInputRef.current?.click()} disabled={saving === 'banner'}
+            style={{ position: 'absolute', inset: 0, border: 'none', background: 'transparent', color: '#fff', cursor: saving === 'banner' ? 'wait' : 'pointer', zIndex: 1 }}>
+            <span className="profile-banner-overlay" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.34)' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 11px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(0,0,0,0.42)', fontSize: '0.74rem', fontWeight: 800, backdropFilter: 'blur(10px)' }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                </svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
                 {saving === 'banner' ? 'Enviando...' : 'Alterar banner'}
               </span>
             </span>
@@ -212,21 +176,11 @@ function UserProfileModal({ user, companyInfo, initials, onClose, onUserUpdate }
 
         <div style={{ padding: '0 28px 28px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 18, marginTop: -46, flexWrap: 'wrap' }}>
-            <button
-              className="profile-avatar-edit"
-              type="button"
-              onClick={() => avatarInputRef.current?.click()}
-              disabled={saving === 'avatar'}
-              title="Alterar foto"
-              style={{ position: 'relative', width: 104, height: 104, borderRadius: '50%', padding: 6, background: '#111116', boxShadow: '0 0 0 1px rgba(255,255,255,0.08)', border: 'none', cursor: saving === 'avatar' ? 'wait' : 'pointer' }}
-            >
-              {user?.photoUrl ? (
-                <img src={user.photoUrl} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-              ) : (
-                <div style={{ width: '100%', height: '100%', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(124,58,237,0.18)', color: '#a78bfa', fontSize: '1.6rem', fontWeight: 900 }}>
-                  {initials}
-                </div>
-              )}
+            <button className="profile-avatar-edit" type="button" onClick={() => avatarInputRef.current?.click()} disabled={saving === 'avatar'} title="Alterar foto"
+              style={{ position: 'relative', width: 104, height: 104, borderRadius: '50%', padding: 6, background: '#111116', boxShadow: '0 0 0 1px rgba(255,255,255,0.08)', border: 'none', cursor: saving === 'avatar' ? 'wait' : 'pointer' }}>
+              {user?.photoUrl
+                ? <img src={user.photoUrl} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                : <div style={{ width: '100%', height: '100%', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(124,58,237,0.18)', color: '#a78bfa', fontSize: '1.6rem', fontWeight: 900 }}>{initials}</div>}
               <span className="profile-avatar-overlay" style={{ position: 'absolute', inset: 6, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.48)', color: '#fff', fontSize: '0.72rem', fontWeight: 800 }}>
                 {saving === 'avatar' ? '...' : 'Editar'}
               </span>
@@ -237,25 +191,16 @@ function UserProfileModal({ user, companyInfo, initials, onClose, onUserUpdate }
             <div style={{ minWidth: 0, flex: 1, paddingBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
                 <div ref={presenceMenuRef} style={{ position: 'relative' }}>
-                  <button
-                    type="button"
-                    onClick={() => setPresenceOpen((v) => !v)}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 10px', borderRadius: 999, background: presenceConfig.bg, border: `1px solid ${presenceConfig.bd}`, color: presenceConfig.color, fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, cursor: 'pointer', fontFamily: 'inherit' }}
-                  >
-                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: presenceConfig.color }} />
-                    {presenceConfig.label}
+                  <button type="button" onClick={() => setPresenceOpen((v) => !v)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 10px', borderRadius: 999, background: presenceConfig.bg, border: `1px solid ${presenceConfig.bd}`, color: presenceConfig.color, fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: presenceConfig.color }} />{presenceConfig.label}
                   </button>
                   {presenceOpen && (
                     <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 5, minWidth: 150, padding: 6, borderRadius: 12, background: '#18181f', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 16px 40px rgba(0,0,0,0.55)' }}>
                       {Object.entries(PRESENCE).map(([key, item]) => (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => { setPresence(key); setPresenceOpen(false); }}
-                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 9px', borderRadius: 9, border: 'none', background: key === presence ? 'rgba(255,255,255,0.06)' : 'transparent', color: 'rgba(255,255,255,0.82)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem', textAlign: 'left' }}
-                        >
-                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: item.color }} />
-                          {item.label}
+                        <button key={key} type="button" onClick={() => { setPresence(key); setPresenceOpen(false); }}
+                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 9px', borderRadius: 9, border: 'none', background: key === presence ? 'rgba(255,255,255,0.06)' : 'transparent', color: 'rgba(255,255,255,0.82)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem', textAlign: 'left' }}>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: item.color }} />{item.label}
                         </button>
                       ))}
                     </div>
@@ -263,34 +208,20 @@ function UserProfileModal({ user, companyInfo, initials, onClose, onUserUpdate }
                 </div>
 
                 <div ref={statusEditorRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                  <span style={{ color: 'rgba(255,255,255,0.42)', fontSize: '0.76rem' }}>
-                    {activeStatus || 'Status 24h não configurado'}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label="Editar status 24h"
-                    onClick={() => { setStatusDraft(activeStatus || ''); setStatusEditing((v) => !v); }}
-                    style={{ width: 24, height: 24, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.55)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                    </svg>
+                  <span style={{ color: 'rgba(255,255,255,0.42)', fontSize: '0.76rem' }}>{activeStatus || 'Status 24h não configurado'}</span>
+                  <button type="button" aria-label="Editar status 24h" onClick={() => { setStatusDraft(activeStatus || ''); setStatusEditing((v) => !v); }}
+                    style={{ width: 24, height: 24, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.55)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
                   </button>
                   {statusEditing && (
                     <form onSubmit={saveStatus} style={{ position: 'absolute', top: 'calc(100% + 10px)', left: '50%', transform: 'translateX(-50%)', zIndex: 6, width: 300, maxWidth: 'calc(100vw - 56px)', padding: 12, borderRadius: 14, background: '#18181f', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 18px 44px rgba(0,0,0,0.62)' }}>
-                      <input
-                        autoFocus
-                        value={statusDraft}
-                        onChange={(e) => setStatusDraft(e.target.value)}
-                        maxLength={80}
-                        placeholder="Ex.: Em reunião, Focado, Ausente"
-                        style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.26)', color: '#eeede9', outline: 'none', fontFamily: 'inherit', marginBottom: 10 }}
-                      />
+                      <input autoFocus value={statusDraft} onChange={(e) => setStatusDraft(e.target.value)} maxLength={80} placeholder="Ex.: Em reunião, Focado, Ausente"
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.26)', color: '#eeede9', outline: 'none', fontFamily: 'inherit', marginBottom: 10 }} />
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                        <button type="button" onClick={() => { setStatusDraft(statusText); setStatusEditing(false); }} style={{ padding: '8px 10px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.62)', cursor: 'pointer', fontFamily: 'inherit' }}>
-                          Cancelar
-                        </button>
-                        <button type="submit" disabled={saving === 'status'} style={{ padding: '8px 11px', borderRadius: 9, border: '1px solid rgba(124,58,237,0.34)', background: 'rgba(124,58,237,0.16)', color: '#ddd6fe', fontWeight: 800, cursor: saving === 'status' ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                        <button type="button" onClick={() => { setStatusDraft(statusText); setStatusEditing(false); }}
+                          style={{ padding: '8px 10px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.62)', cursor: 'pointer', fontFamily: 'inherit' }}>Cancelar</button>
+                        <button type="submit" disabled={saving === 'status'}
+                          style={{ padding: '8px 11px', borderRadius: 9, border: '1px solid rgba(124,58,237,0.34)', background: 'rgba(124,58,237,0.16)', color: '#ddd6fe', fontWeight: 800, cursor: saving === 'status' ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
                           {saving === 'status' ? 'Salvando...' : 'Salvar'}
                         </button>
                       </div>
@@ -304,22 +235,14 @@ function UserProfileModal({ user, companyInfo, initials, onClose, onUserUpdate }
           <div style={{ marginTop: 18, display: 'grid', gap: 16 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-                <h2 style={{ fontSize: '1.55rem', fontWeight: 850, letterSpacing: -0.6, lineHeight: 1.1 }}>
-                  {user?.name || 'Usuário'}
-                </h2>
-                <span style={{ color: '#a78bfa', fontSize: '0.88rem', fontWeight: 700 }}>
-                  {companyName}
-                </span>
+                <h2 style={{ fontSize: '1.55rem', fontWeight: 850, letterSpacing: -0.6, lineHeight: 1.1 }}>{user?.name || 'Usuário'}</h2>
+                <span style={{ color: '#a78bfa', fontSize: '0.88rem', fontWeight: 700 }}>{companyName}</span>
               </div>
-              <div style={{ marginTop: 6, color: 'rgba(255,255,255,0.46)', fontSize: '0.9rem' }}>
-                {user?.email}
-              </div>
+              <div style={{ marginTop: 6, color: 'rgba(255,255,255,0.46)', fontSize: '0.9rem' }}>{user?.email}</div>
             </div>
 
             <div style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 16 }}>
-              <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'rgba(255,255,255,0.38)', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 12 }}>
-                Badges
-              </div>
+              <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'rgba(255,255,255,0.38)', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 12 }}>Badges</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {user?.emailVerified ? <VerifiedBadge /> : <span style={{ color: 'rgba(255,255,255,0.38)', fontSize: '0.82rem' }}>Nenhuma badge disponível.</span>}
               </div>
@@ -349,374 +272,101 @@ function UserProfileModal({ user, companyInfo, initials, onClose, onUserUpdate }
   );
 }
 
-function SectionHeader({ eyebrow, title, description }) {
-  return (
-    <div style={{ marginBottom: 24 }}>
-      <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.5, color: '#7C3AED', textTransform: 'uppercase' }}>
-        {eyebrow}
-      </span>
-      <h2 style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: -0.8, marginTop: 6, marginBottom: description ? 8 : 0 }}>
-        {title}
-      </h2>
-      {description && (
-        <p style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,0.55)', maxWidth: 620 }}>{description}</p>
-      )}
-    </div>
-  );
-}
-
-function StatCard({ label, value, hint, accent = '#7C3AED' }) {
-  return (
-    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '22px 24px' }}>
-      <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.5, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase' }}>
-        {label}
-      </span>
-      <div style={{ fontSize: '1.9rem', fontWeight: 800, letterSpacing: -1, marginTop: 8, color: accent }}>
-        {value}
-      </div>
-      {hint && (
-        <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', marginTop: 6 }}>{hint}</div>
-      )}
-    </div>
-  );
-}
-
-function OperacaoTab() {
-  return (
-    <>
-      <SectionHeader
-        eyebrow="Operação"
-        title="Monitoramento em tempo real"
-        description="Acompanhe a saúde dos seus sistemas, eventos e indicadores operacionais assim que sua automação for ativada."
-      />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 32 }}>
-        <StatCard label="Uptime 30d" value="—" hint="Sem operação ativa" />
-        <StatCard label="Execuções hoje" value="0" hint="Nenhum evento processado" />
-        <StatCard label="Tempo médio" value="—" hint="Aguardando coleta" />
-        <StatCard label="Incidentes" value="0" hint="Nenhum registro" accent="#7dff7d" />
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
-        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '22px 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Eventos recentes</h3>
-            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: 1, textTransform: 'uppercase' }}>
-              Últimas 24h
-            </span>
-          </div>
-          <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.45)', padding: '20px 0', textAlign: 'center' }}>
-            Nenhum evento registrado.
-          </div>
-        </div>
-
-        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '22px 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Serviços conectados</h3>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.3)' }} />
-              0 ativos
-            </span>
-          </div>
-          <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.45)', padding: '20px 0', textAlign: 'center' }}>
-            Nenhuma integração configurada ainda.
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function FinanceiroTab() {
-  return (
-    <>
-      <SectionHeader
-        eyebrow="Financeiro"
-        title="Plano, faturas e pagamentos"
-        description="Consulte o seu plano atual, histórico de faturas e método de pagamento em um único lugar."
-      />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 32 }}>
-        <StatCard label="Plano atual" value="Free" hint="Nenhum serviço contratado" />
-        <StatCard label="Mensalidade" value="R$ 0,00" hint="Ativa ao contratar um serviço" />
-        <StatCard label="Próxima fatura" value="—" hint="Sem cobrança programada" />
-        <StatCard label="Status" value="Em dia" hint="Sem pendências" accent="#7dff7d" />
-      </div>
-
-      <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '22px 24px', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Histórico de faturas</h3>
-          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: 1, textTransform: 'uppercase' }}>
-            0 faturas
-          </span>
-        </div>
-        <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.45)', padding: '24px 0', textAlign: 'center' }}>
-          Você ainda não possui faturas emitidas.
-        </div>
-      </div>
-
-      <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '22px 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
-          <div>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 4 }}>Método de pagamento</h3>
-            <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)' }}>
-              Nenhum cartão ou método cadastrado.
-            </p>
-          </div>
-          <Link
-            to="/#contato"
-            className="btn-ghost"
-            style={{ padding: '10px 18px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: 'rgba(255,255,255,0.85)', fontSize: '0.85rem', fontWeight: 600, transition: 'all 0.2s' }}
-          >
-            Configurar
-          </Link>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function OportunidadesTab() {
-  const opportunities = [
-    {
-      tag: 'Automação',
-      title: 'Automação de atendimento 24/7',
-      description: 'Implante um agente inteligente para responder leads e clientes com tom humano e integração direta ao seu CRM.',
-      to: '/servicos/automacao-ia',
-    },
-    {
-      tag: 'Sistemas',
-      title: 'Sistema sob medida para a sua operação',
-      description: 'Plataforma web exclusiva, desenhada para os fluxos do seu negócio — sem planilhas, sem gambiarras.',
-      to: '/servicos/sistemas-sob-medida',
-    },
-    {
-      tag: 'Estratégia',
-      title: 'Diagnóstico gratuito de operação',
-      description: 'Agende uma conversa de 30 minutos com a Noratech para mapear gargalos e oportunidades de automação.',
-      to: '/#contato',
-    },
-  ];
-
-  return (
-    <>
-      <SectionHeader
-        eyebrow="Oportunidades"
-        title="Próximos passos sugeridos"
-        description="Uma curadoria de serviços e melhorias que podem acelerar seus resultados."
-      />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
-        {opportunities.map((op) => (
-          <Link
-            key={op.title}
-            to={op.to}
-            className="system-card"
-            style={{ display: 'flex', flexDirection: 'column', gap: 10, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '22px 24px', transition: 'all 0.2s' }}
-          >
-            <span style={{ alignSelf: 'flex-start', fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.5, color: '#7C3AED', textTransform: 'uppercase', padding: '4px 10px', border: '1px solid rgba(124, 58, 237,0.25)', background: 'rgba(124, 58, 237,0.06)', borderRadius: 6 }}>
-              {op.tag}
-            </span>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: -0.3, marginTop: 4 }}>
-              {op.title}
-            </h3>
-            <p style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.5 }}>
-              {op.description}
-            </p>
-            <span style={{ marginTop: 'auto', fontSize: '0.82rem', fontWeight: 700, color: '#b197ff' }}>
-              Saiba mais ↗
-            </span>
-          </Link>
-        ))}
-      </div>
-    </>
-  );
-}
-
-function ComandoTab({ user, onLogout }) {
-  const actions = [
-    {
-      title: 'Editar perfil',
-      description: 'Atualize nome, foto e informações da sua conta.',
-      cta: 'Abrir perfil',
-      to: '/perfil',
-      external: false,
-    },
-    {
-      title: 'Falar com suporte',
-      description: 'Tire dúvidas, abra chamados ou peça ajustes na operação.',
-      cta: 'Enviar mensagem',
-      to: '/#contato',
-      external: false,
-    },
-    {
-      title: 'Solicitar novo projeto',
-      description: 'Conte o que você precisa construir e receba uma proposta.',
-      cta: 'Iniciar briefing',
-      to: '/#contato',
-      external: false,
-    },
-  ];
-
-  return (
-    <>
-      <SectionHeader
-        eyebrow="Comando"
-        title="Ações rápidas e configurações"
-        description="Centralize os comandos da sua conta e fale com a Noratech em poucos cliques."
-      />
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 28 }}>
-        {actions.map((a) => (
-          <div
-            key={a.title}
-            className="system-card"
-            style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 10, transition: 'all 0.2s' }}
-          >
-            <h3 style={{ fontSize: '1.02rem', fontWeight: 800, letterSpacing: -0.3 }}>
-              {a.title}
-            </h3>
-            <p style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.5 }}>
-              {a.description}
-            </p>
-            <Link
-              to={a.to}
-              style={{ marginTop: 'auto', alignSelf: 'flex-start', padding: '9px 16px', background: '#7C3AED', borderRadius: 10, color: '#fff', fontSize: '0.82rem', fontWeight: 700 }}
-            >
-              {a.cta}
-            </Link>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '22px 24px', marginBottom: 16 }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 14 }}>Resumo da conta</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
-          <div>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.5, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 4 }}>Nome</div>
-            <div style={{ fontSize: '0.92rem', fontWeight: 600 }}>{user?.name || '—'}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.5, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 4 }}>E-mail</div>
-            <div style={{ fontSize: '0.92rem', fontWeight: 600, wordBreak: 'break-all' }}>{user?.email || '—'}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.5, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 4 }}>Empresa</div>
-            <div style={{ fontSize: '0.92rem', fontWeight: 600 }}>{user?.company || '—'}</div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, background: 'rgba(255,0,80,0.04)', border: '1px solid rgba(255,0,80,0.18)', borderRadius: 14, padding: '18px 22px' }}>
-        <div>
-          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: 4 }}>Encerrar sessão</h3>
-          <p style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.5)' }}>
-            Você pode entrar novamente a qualquer momento com seu e-mail e senha.
-          </p>
-        </div>
-        <button
-          onClick={onLogout}
-          style={{ padding: '10px 18px', background: 'transparent', border: '1px solid rgba(255,0,80,0.35)', borderRadius: 10, color: '#ff9ab4', fontFamily: "'Inter', sans-serif", fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}
-        >
-          Sair ↗
-        </button>
-      </div>
-    </>
-  );
-}
-
-const BASE_CARD_STYLE = { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '20px 22px', transition: 'all 0.2s', cursor: 'pointer', display: 'block' };
+// ─── System cards ─────────────────────────────────────────────────────────────
 
 function SystemCard({ s }) {
   const isTrial = s.subscription?.status === 'trialing';
-  const statusColor = isTrial ? '#60a5fa' : '#7dff7d';
+  const statusColor = isTrial ? '#60a5fa' : '#22c55e';
   const statusLabel = isTrial ? 'Trial' : 'Ativa';
+
   const inner = (
-    <>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <span style={{ fontSize: '1rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: '1.1rem' }}>{s.icon}</span> {s.name}
-        </span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', fontWeight: 700, color: statusColor, textTransform: 'uppercase', letterSpacing: 1 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor }} />
-          {statusLabel}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--p-primary-soft)', border: '1px solid var(--p-primary-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', flexShrink: 0 }}>
+            {s.icon}
+          </div>
+          <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--p-text)', lineHeight: 1.2 }}>{s.name}</span>
+        </div>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.65rem', fontWeight: 700, color: statusColor, textTransform: 'uppercase', letterSpacing: 0.8, padding: '3px 8px', background: `${statusColor}18`, border: `1px solid ${statusColor}35`, borderRadius: 999, flexShrink: 0 }}>
+          + {statusLabel}
         </span>
       </div>
-      <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', marginBottom: 14 }}>{s.description}</p>
-      <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.78rem', color: '#7C3AED' }}>
+      <p style={{ fontSize: '0.82rem', color: 'var(--p-muted)', lineHeight: 1.5 }}>{s.description}</p>
+      <span style={{ fontFamily: FONT_MONO, fontSize: '0.75rem', color: 'var(--p-primary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
         {s.url ? 'Abrir sistema ↗' : s.subscription?.plan || ''}
-      </p>
-    </>
+      </span>
+    </div>
   );
-  if (!s.url) return <div className="system-card" style={BASE_CARD_STYLE}>{inner}</div>;
-  if (s.internal) return <Link to={s.url} className="system-card" style={BASE_CARD_STYLE}>{inner}</Link>;
-  return <a href={s.url} target="_blank" rel="noopener noreferrer" className="system-card" style={BASE_CARD_STYLE}>{inner}</a>;
+
+  const cardStyle = { background: 'var(--p-surface2)', border: '1px solid var(--p-border)', boxShadow: 'var(--p-shadow)', borderRadius: 14, padding: '18px 20px', transition: 'all 0.2s', cursor: 'pointer', display: 'block' };
+  if (!s.url) return <div className="system-card" style={cardStyle}>{inner}</div>;
+  if (s.internal) return <Link to={s.url} className="system-card" style={cardStyle}>{inner}</Link>;
+  return <a href={s.url} target="_blank" rel="noopener noreferrer" className="system-card" style={cardStyle}>{inner}</a>;
 }
 
 function SystemsGrid({ systems, isAdmin }) {
-  // Admin tem bypass: vê todos os sistemas internos do catálogo, mesmo sem assinatura.
   const adminInternals = isAdmin
-    ? SYSTEMS
-        .filter((s) => s.internal && !systems.some((sub) => sub.slug === s.slug))
-        .map((s) => ({ ...s, subscription: { status: 'active' } }))
+    ? SYSTEMS.filter((s) => s.internal && !systems.some((sub) => sub.slug === s.slug)).map((s) => ({ ...s, subscription: { status: 'active' } }))
     : [];
   const all = [...systems, ...adminInternals];
 
   if (all.length === 0) {
     return (
-      <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 16, padding: '40px 32px', textAlign: 'center' }}>
-        <span style={{ display: 'inline-block', fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.5, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 10 }}>
-          Nenhum sistema contratado
-        </span>
-        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: -0.4, marginBottom: 10 }}>
-          Você ainda não tem sistemas ativos
-        </h3>
-        <p style={{ fontSize: '0.92rem', color: 'rgba(255,255,255,0.55)', maxWidth: 520, margin: '0 auto 22px' }}>
-          Explore nossos serviços ou fale com a Noratech para começar sua operação.
-        </p>
+      <div style={{ background: 'var(--p-surface2)', border: '1px dashed var(--p-border2)', borderRadius: 14, padding: '28px 24px', textAlign: 'center' }}>
+        <div style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.5, color: 'var(--p-muted)', textTransform: 'uppercase', marginBottom: 8 }}>Nenhum sistema contratado</div>
+        <h3 style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: -0.3, marginBottom: 8, color: 'var(--p-text)' }}>Ainda sem sistemas ativos</h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--p-muted)', maxWidth: 400, margin: '0 auto 18px' }}>Explore nossos serviços ou fale com a Noratech para começar.</p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link to="/servicos/sistemas-sob-medida" className="btn-ghost" style={{ padding: '10px 18px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', fontWeight: 600, transition: 'all 0.2s' }}>
-            Ver serviços
-          </Link>
-          <Link to="/#contato" style={{ padding: '10px 18px', background: '#7C3AED', borderRadius: 10, color: '#fff', fontSize: '0.85rem', fontWeight: 700 }}>
-            Falar com a Noratech
-          </Link>
+          <Link to="/servicos/sistemas-sob-medida" style={{ padding: '8px 16px', border: '1px solid var(--p-border2)', borderRadius: 10, color: 'var(--p-text)', fontSize: '0.82rem', fontWeight: 600 }}>Ver serviços</Link>
+          <Link to="/#contato" style={{ padding: '8px 16px', background: 'var(--p-primary)', borderRadius: 10, color: '#fff', fontSize: '0.82rem', fontWeight: 700 }}>Falar com a Noratech</Link>
         </div>
       </div>
     );
   }
-
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
       {all.map((s) => <SystemCard key={s.slug} s={s} />)}
     </div>
   );
 }
 
-function StatusGauge({ count = 0 }) {
+function StatusGauge({ count = 0, primaryColor = '#7C3AED' }) {
   const size = 96;
-  const stroke = 3.5;
+  const stroke = 7;
   const radius = (size - stroke) / 2;
-  const active = count > 0;
+  const circumference = 2 * Math.PI * radius;
+  const fill = count > 0 ? Math.min(0.85, 0.45 + count * 0.12) : 0;
+  const dashOffset = circumference - fill * circumference;
   return (
     <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-      <svg width={size} height={size}>
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={active ? 'rgba(0,212,138,0.3)' : 'rgba(255,255,255,0.08)'} strokeWidth={stroke} strokeDasharray={active ? '0' : '4 8'} />
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--p-border2)" strokeWidth={stroke} />
+        {count > 0 && (
+          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={primaryColor} strokeWidth={stroke}
+            strokeDasharray={circumference} strokeDashoffset={dashOffset} strokeLinecap="round" />
+        )}
       </svg>
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ fontSize: active ? '1.7rem' : '1.5rem', fontWeight: 800, color: active ? '#00d48a' : 'rgba(255,255,255,0.25)', letterSpacing: -1, lineHeight: 1 }}>
-          {active ? count : '—'}
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+        <div style={{ fontSize: '1.7rem', fontWeight: 800, color: count > 0 ? primaryColor : 'var(--p-muted2)', letterSpacing: -1, lineHeight: 1 }}>
+          {count > 0 ? count : '—'}
         </div>
-        <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: 1.2, color: active ? 'rgba(0,212,138,0.65)' : 'rgba(255,255,255,0.3)', marginTop: 4, textTransform: 'uppercase' }}>
-          {active ? (count === 1 ? 'sistema' : 'sistemas') : 'nenhum'}
+        <div style={{ fontSize: '0.48rem', fontWeight: 700, letterSpacing: 1.4, color: 'var(--p-muted)', textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.4 }}>
+          SISTEMAS<br />ativos
         </div>
       </div>
     </div>
   );
 }
 
+// ─── Main page ────────────────────────────────────────────────────────────────
+
 export default function AreaDoClientePage() {
   const { user, logout, updateUser } = useAuth();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('cockpit');
+  const { theme } = useTheme();
+  const P = getPalette(theme);
 
   const firstName = useMemo(() => (user?.name || '').split(' ')[0] || 'você', [user]);
   const initials = useMemo(
@@ -727,6 +377,10 @@ export default function AreaDoClientePage() {
 
   const [systems, setSystems] = useState([]);
   const [companyInfo, setCompanyInfo] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [showOrgManage, setShowOrgManage] = useState(false);
+  const [joinCodeCopied, setJoinCodeCopied] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -739,7 +393,7 @@ export default function AreaDoClientePage() {
         if (companyId) {
           const { data, error } = await supabase
             .from('subscriptions')
-            .select('id, system_slug, plan, status, current_period_end')
+            .select('id, system_slug, plan, status, current_period_end, created_at')
             .eq('company_id', companyId)
             .in('status', ['active', 'trialing']);
           if (active && !error) {
@@ -751,268 +405,448 @@ export default function AreaDoClientePage() {
               list.push({ ...sys, subscription: s });
             });
           }
+          try {
+            const membersData = await fetchCompanyMembers(companyId);
+            if (active) setMembers(membersData || []);
+          } catch { /* keep empty */ }
         }
         if (active) setSystems(list);
       } catch {
-        if (active) setCompanyInfo(null);
-        if (active) setSystems([]);
+        if (active) { setCompanyInfo(null); setSystems([]); }
       }
     })();
     return () => { active = false; };
   }, [user?.id]);
 
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const avatarRef = useRef(null);
-  const profileMenuRef = useRef(null);
+  const handleLogout = async () => { await logout(); navigate('/'); };
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/');
+  const companyName = companyInfo?.company?.name || user?.company || null;
+  const companyRole = companyInfo?.membership?.role || null;
+  const roleLabel = COMPANY_ROLE_LABEL[companyRole] || 'Membro';
+  const joinCode = companyInfo?.company?.join_code || null;
+  const hasCompany = Boolean(companyInfo?.company?.id);
+
+  const approvedMembers = useMemo(() => members.filter((m) => m.status !== 'pending'), [members]);
+  const pendingCount = useMemo(() => members.filter((m) => m.status === 'pending').length, [members]);
+
+  const activity = useMemo(() => {
+    const events = [];
+    members.forEach((m) => {
+      if (m.created_at) events.push({ id: 'mbr_' + m.id, label: m.profile?.name || 'Membro', sublabel: 'entrou na organização', date: m.created_at, type: 'member' });
+    });
+    systems.forEach((s) => {
+      if (s.subscription?.created_at) events.push({ id: 'sys_' + s.slug, label: s.name, sublabel: 'sistema ativado', date: s.subscription.created_at, type: 'system' });
+    });
+    return events.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
+  }, [members, systems]);
+
+  const handleCopyCode = () => {
+    if (!joinCode) return;
+    navigator.clipboard.writeText(joinCode)
+      .then(() => { setJoinCodeCopied(true); setTimeout(() => setJoinCodeCopied(false), 2000); })
+      .catch(() => {});
   };
 
-  useEffect(() => {
-    if (!profileOpen) return;
-    const handler = (e) => {
-      if (
-        avatarRef.current && !avatarRef.current.contains(e.target) &&
-        profileMenuRef.current && !profileMenuRef.current.contains(e.target)
-      ) setProfileOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [profileOpen]);
+  const cssVars = {
+    '--p-bg': P.bg, '--p-surface': P.surface, '--p-surface2': P.surface2, '--p-surface-solid': P.surfaceSolid,
+    '--p-text': P.text, '--p-muted': P.muted, '--p-muted2': P.muted2,
+    '--p-border': P.border, '--p-border2': P.border2,
+    '--p-primary': P.primary, '--p-primary-soft': P.primarySoft, '--p-primary-border': P.primaryBorder,
+    '--p-input-bg': P.inputBg, '--p-shadow': P.shadow, '--p-row-hover': P.rowHover,
+  };
+
+  const CARD = { background: 'var(--p-surface)', border: '1px solid var(--p-border)', boxShadow: 'var(--p-shadow)', borderRadius: 16, padding: '20px 24px' };
+  const EYEBROW = { fontSize: '0.65rem', fontWeight: 700, letterSpacing: 1.5, color: 'var(--p-primary)', textTransform: 'uppercase' };
+  const CARD_H = { fontSize: '1.15rem', fontWeight: 800, letterSpacing: -0.4, marginTop: 2, color: 'var(--p-text)' };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#08080a', color: '#eeede9', fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: P.bg, color: P.text, fontFamily: FONT_INTER, ...cssVars }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         body { -webkit-font-smoothing: antialiased; }
         a { text-decoration: none; color: inherit; }
-        .tab-btn { background: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; padding: 14px 4px; position: relative; transition: color 0.2s; }
-        .tab-btn:hover { color: rgba(255,255,255,0.9); }
-        .btn-ghost:hover { background: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.2) !important; }
-        .btn-primary:hover { background: #d4ff33 !important; transform: translateY(-1px); }
-        .system-card:hover { border-color: rgba(124, 58, 237,0.25) !important; background: rgba(255,255,255,0.03) !important; }
-        .tabs-nav { scrollbar-width: none; -ms-overflow-style: none; }
-        .tabs-nav::-webkit-scrollbar { display: none; width: 0; height: 0; }
-        @keyframes pulse { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.4; } }
-        .live-dot { animation: pulse 1.6s ease-in-out infinite; }
+
+        /* Dark header — uses class so index.css [style*="rgb(8,8,10)"] override doesn't apply */
+        .adc-header { position:sticky;top:0;z-index:100;background:#08080A;border-bottom:1px solid rgba(139,61,255,0.25);box-shadow:0 8px 30px rgba(0,0,0,0.28); }
+        .adc-back { display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);color:#fff;text-decoration:none;transition:background 0.17s,border-color 0.17s; }
+        .adc-back:hover { background:rgba(139,61,255,0.14);border-color:#8B3DFF; }
+        .adc-crumb { display:inline-flex;align-items:center;height:26px;padding:0 7px;border-radius:6px;font-size:13px;font-weight:500;white-space:nowrap;color:rgba(255,255,255,0.68);text-decoration:none;transition:color 0.15s,background 0.15s; }
+        .adc-crumb-link:hover { color:#fff;background:rgba(139,61,255,0.14); }
+        .adc-crumb-current { color:#fff;font-weight:600; }
+        .adc-crumb-sep { display:inline-flex;align-items:center;padding:0 5px;font-size:13px;color:rgba(139,61,255,0.75);user-select:none; }
+        .adc-toggle-slot button.theme-toggle,.adc-toggle-slot [class*="theme-toggle"] { width:34px!important;height:34px!important;border-radius:10px!important;background:rgba(255,255,255,0.06)!important;border:1px solid rgba(255,255,255,0.14)!important;color:#fff!important;transition:background 0.17s,border-color 0.17s!important; }
+        .adc-toggle-slot button.theme-toggle:hover,.adc-toggle-slot [class*="theme-toggle"]:hover { background:rgba(139,61,255,0.14)!important;border-color:#8B3DFF!important; }
+        .adc-admin-btn { display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1px solid rgba(124,58,237,0.4);background:rgba(124,58,237,0.1);color:#a78bfa;font-size:0.75rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;text-decoration:none;transition:background 0.15s,border-color 0.15s; }
+        .adc-admin-btn:hover { background:rgba(124,58,237,0.2);border-color:rgba(124,58,237,0.6); }
+
+        /* Content */
+        .system-card:hover { border-color:var(--p-primary-border)!important;background:var(--p-primary-soft)!important; }
+        .adc-member-row { border-radius:10px;transition:background 0.13s; }
+        .adc-member-row:hover { background:var(--p-row-hover); }
+        .adc-qa-row { display:flex;align-items:center;gap:12px;width:100%;padding:9px 8px;border-radius:12px;background:transparent;border:none;cursor:pointer;font-family:inherit;text-align:left;transition:background 0.13s; }
+        .adc-qa-row:hover { background:var(--p-primary-soft); }
+        .adc-qa-row:disabled { opacity:0.45;cursor:default; }
+        .adc-expand-btn { display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:9px 12px;border-radius:10px;background:transparent;border:1px solid var(--p-border);color:var(--p-muted);font-family:inherit;font-size:0.8rem;font-weight:600;cursor:pointer;transition:all 0.15s; }
+        .adc-expand-btn:hover { background:var(--p-primary-soft);border-color:var(--p-primary-border);color:var(--p-primary); }
+        @keyframes pulse { 0%,100% { opacity:0.9; } 50% { opacity:0.4; } }
+        .live-dot { animation:pulse 1.6s ease-in-out infinite; }
+        @media (max-width:960px) { .adc-grid { grid-template-columns:1fr!important; } .adc-sidebar { order:-1; } }
+        @media (max-width:600px) { .adc-main { padding:16px 16px 64px!important; } }
       `}</style>
 
-      {/* Background glow */}
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
-        <div style={{ position: 'absolute', width: 720, height: 720, top: '-20%', right: '-10%', background: 'radial-gradient(circle, rgba(124, 58, 237,0.035) 0%, transparent 60%)', filter: 'blur(50px)' }} />
-        <div style={{ position: 'absolute', width: 520, height: 520, bottom: '-10%', left: '-10%', background: 'radial-gradient(circle, rgba(37, 99, 235,0.025) 0%, transparent 60%)', filter: 'blur(50px)' }} />
-      </div>
-
-      {/* Header */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(8,8,10,0.9)', backdropFilter: 'blur(20px)' }}>
-        <div style={{ maxWidth: 1240, margin: '0 auto', padding: '0 32px', height: 72, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20, minWidth: 0 }}>
-            <Link to="/" style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '0.95rem', color: '#7C3AED', letterSpacing: -0.5, flexShrink: 0 }}>
-              NORA<span style={{ color: 'rgba(255,255,255,0.3)' }}>TECH</span>
+      {/* ── Header (always dark) ── */}
+      <header className="adc-header">
+        <div style={{ maxWidth: 1240, margin: '0 auto', padding: '0 32px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+            <Link to="/" aria-label="Voltar ao site" className="adc-back">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
             </Link>
-            <span style={{ color: 'rgba(255,255,255,0.15)' }}>/</span>
-            <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 2, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-              Central de Controle
-            </span>
+            <nav aria-label="Breadcrumb" style={{ display: 'flex', alignItems: 'center' }}>
+              <Link to="/" className="adc-crumb adc-crumb-link" style={{ fontFamily: FONT_MONO, letterSpacing: -0.2 }}>Noratech</Link>
+              <span className="adc-crumb-sep">/</span>
+              <Link to="/area-do-cliente" className="adc-crumb adc-crumb-link">Central de Controle</Link>
+              <span className="adc-crumb-sep">/</span>
+              <span className="adc-crumb adc-crumb-current">Cockpit</span>
+            </nav>
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {isAdmin && (
-              <Link
-                to="/admin"
-                className="btn-ghost"
-                style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid rgba(124, 58, 237,0.35)', background: 'rgba(124, 58, 237,0.08)', color: '#a78bfa', fontSize: '0.78rem', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', transition: 'all 0.2s' }}
-              >
-                ⚙ Admin
+              <Link to="/admin" className="adc-admin-btn">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
+                </svg>
+                Admin
               </Link>
             )}
-            <ThemeToggle />
+            <span className="adc-toggle-slot" style={{ display: 'inline-flex' }}><ThemeToggle /></span>
             <UserProfileMenu />
-            {/* Avatar button — click reveals name/email/logout */}
-            <button
-              ref={avatarRef}
-              type="button"
-              onClick={() => setProfileOpen((o) => !o)}
-              title={user?.name || 'Usuário'}
-              aria-label="Menu do usuário"
-              style={{ display: 'none', padding: 0, background: 'transparent', border: 'none', borderRadius: '50%', cursor: 'pointer', alignItems: 'center', justifyContent: 'center', outline: 'none' }}
-            >
-              {user?.photoUrl ? (
-                <img src={user.photoUrl} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.1)', transition: 'border-color 0.2s' }} />
-              ) : (
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: profileOpen ? 'rgba(124,58,237,0.25)' : 'rgba(124,58,237,0.15)', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.78rem', fontWeight: 800, border: `2px solid ${profileOpen ? 'rgba(124,58,237,0.5)' : 'rgba(255,255,255,0.1)'}`, transition: 'all 0.2s' }}>
-                  {initials}
-                </div>
-              )}
-            </button>
-            {profileOpen && createPortal(
-              (() => {
-                const rect = avatarRef.current?.getBoundingClientRect();
-                const top = rect ? rect.bottom + 8 : 80;
-                const right = rect ? window.innerWidth - rect.right : 32;
-                return (
-                  <div ref={profileMenuRef} style={{ position: 'fixed', top, right, zIndex: 9999, minWidth: 220, background: '#18181f', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, boxShadow: '0 16px 48px rgba(0,0,0,0.7)', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
-                    <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        {user?.photoUrl ? (
-                          <img src={user.photoUrl} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                        ) : (
-                          <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(124,58,237,0.15)', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 800, flexShrink: 0 }}>
-                            {initials}
-                          </div>
-                        )}
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#eeede9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name || 'Usuário'}</div>
-                          <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => { setProfileOpen(false); setProfileModalOpen(true); }}
-                      style={{ width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.78)', fontSize: '0.85rem', fontWeight: 600, fontFamily: 'inherit', transition: 'background 0.15s, color 0.15s', textAlign: 'left' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(124,58,237,0.08)'; e.currentTarget.style.color = '#fff'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.78)'; }}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.72 }}>
-                        <path d="M20 21a8 8 0 0 0-16 0" />
-                        <circle cx="12" cy="7" r="4" />
-                      </svg>
-                      Meu perfil
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setProfileOpen(false); handleLogout(); }}
-                      style={{ width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', fontWeight: 500, fontFamily: 'inherit', transition: 'background 0.15s, color 0.15s', textAlign: 'left' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#fff'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; }}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                        <polyline points="16 17 21 12 16 7" />
-                        <line x1="21" y1="12" x2="9" y2="12" />
-                      </svg>
-                      Sair
-                    </button>
-                  </div>
-                );
-              })(),
-              document.body
-            )}
-            {profileModalOpen && (
-              <UserProfileModal
-                user={user}
-                companyInfo={companyInfo}
-                initials={initials}
-                onClose={() => setProfileModalOpen(false)}
-                onUserUpdate={updateUser}
-              />
-            )}
           </div>
         </div>
       </header>
 
-      <main style={{ position: 'relative', zIndex: 1, maxWidth: 1240, margin: '0 auto', padding: '28px 32px 96px' }}>
-        {/* Tabs */}
-        <nav className="tabs-nav" style={{ display: 'flex', gap: 36, borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 56, overflowX: 'auto', overflowY: 'hidden' }}>
-          {TABS.map((t) => {
-            const active = activeTab === t.id;
-            return (
-              <button
-                key={t.id}
-                className="tab-btn"
-                onClick={() => setActiveTab(t.id)}
-                style={{ color: active ? '#7C3AED' : 'rgba(255,255,255,0.45)', fontSize: '0.92rem', fontWeight: active ? 700 : 500, display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap' }}
-              >
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.72rem', color: active ? 'rgba(124, 58, 237,0.6)' : 'rgba(255,255,255,0.25)' }}>
-                  {t.num}
-                </span>
-                {t.label}
-                {active && (
-                  <span style={{ position: 'absolute', left: 0, right: 0, bottom: -1, height: 2, background: '#7C3AED', borderRadius: 2 }} />
-                )}
-              </button>
-            );
-          })}
-        </nav>
+      {/* ── Main content ── */}
+      <main className="adc-main" style={{ maxWidth: 1240, margin: '0 auto', padding: '28px 32px 80px' }}>
+        <div className="adc-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 290px', gap: 20, alignItems: 'start' }}>
 
-        {activeTab === 'cockpit' && (
-          <>
-            {/* Hero banner */}
-            <section style={{ display: 'flex', alignItems: 'center', gap: 24, padding: '20px 28px', marginBottom: 36, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }}>
-              <StatusGauge count={systems.length} />
+          {/* ════ Left column ════ */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-              {/* Divider */}
-              <div style={{ width: 1, alignSelf: 'stretch', background: 'rgba(255,255,255,0.07)', flexShrink: 0 }} />
-
-              {/* Greeting + meta */}
+            {/* Welcome card */}
+            <div style={{ ...CARD, display: 'flex', alignItems: 'center', gap: 20, padding: '20px 24px' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <h1 style={{ fontSize: '1.45rem', fontWeight: 800, letterSpacing: -0.6, lineHeight: 1.15, marginBottom: 4 }}>
-                  Olá, <span style={{ color: '#7C3AED' }}>{firstName}</span>
+                <h1 style={{ fontSize: '1.55rem', fontWeight: 800, letterSpacing: -0.6, lineHeight: 1.1, marginBottom: 6 }}>
+                  Olá, <span style={{ color: P.primary }}>{firstName}</span>
                 </h1>
-                <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.45)', lineHeight: 1.45, marginBottom: 14 }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--p-muted)', lineHeight: 1.5, marginBottom: 14 }}>
                   {systems.length > 0
-                    ? 'Sua central está ativa. Acompanhe seus sistemas, membros e operações em tempo real.'
-                    : 'Sua Central de Controle ainda não tem sistemas ativos. Quando você contratar um serviço, a operação aparece aqui.'}
+                    ? 'Sua central está ativa. Acompanhe o que importa e tome decisões com confiança.'
+                    : 'Ainda sem sistemas ativos. Contrate um serviço e a operação aparece aqui.'}
                 </p>
-                {/* Pills row */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: systems.length > 0 ? 'rgba(0,212,138,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${systems.length > 0 ? 'rgba(0,212,138,0.25)' : 'rgba(255,255,255,0.1)'}`, fontSize: '0.71rem', fontWeight: 700, letterSpacing: 0.8, color: systems.length > 0 ? '#00d48a' : 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>
-                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: systems.length > 0 ? '#00d48a' : 'rgba(255,255,255,0.25)', boxShadow: systems.length > 0 ? '0 0 8px rgba(0,212,138,0.55)' : 'none' }} className={systems.length > 0 ? 'live-dot' : ''} />
-                    {systems.length > 0 ? 'Operação ativa' : 'Aguardando ativação'}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: systems.length > 0 ? 'rgba(0,212,138,0.1)' : 'var(--p-surface2)', border: `1px solid ${systems.length > 0 ? 'rgba(0,212,138,0.25)' : 'var(--p-border)'}`, fontSize: '0.68rem', fontWeight: 700, letterSpacing: 0.8, color: systems.length > 0 ? '#00d48a' : 'var(--p-muted)', textTransform: 'uppercase' }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: systems.length > 0 ? '#00d48a' : 'var(--p-muted2)', boxShadow: systems.length > 0 ? '0 0 8px rgba(0,212,138,0.55)' : 'none' }} className={systems.length > 0 ? 'live-dot' : ''} />
+                    {systems.length > 0 ? 'Operação ativa' : 'Sem operação'}
                   </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', fontSize: '0.71rem', fontWeight: 700, letterSpacing: 0.8, color: '#a78bfa', textTransform: 'uppercase' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999, background: 'var(--p-primary-soft)', border: '1px solid var(--p-primary-border)', fontSize: '0.68rem', fontWeight: 700, letterSpacing: 0.8, color: 'var(--p-primary)', textTransform: 'uppercase' }}>
                     {systems.length} {systems.length === 1 ? 'sistema ativo' : 'sistemas ativos'}
                   </span>
                   {memberSince && (
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem', fontWeight: 500, color: 'rgba(255,255,255,0.3)', letterSpacing: 0.5 }}>
+                    <span style={{ fontFamily: FONT_MONO, fontSize: '0.66rem', fontWeight: 500, color: 'var(--p-muted2)', letterSpacing: 0.3 }}>
                       Membro desde {memberSince}
                     </span>
                   )}
                 </div>
               </div>
-            </section>
+              <StatusGauge count={systems.length} primaryColor={P.primary} />
+            </div>
 
-            {/* Empresa */}
-            <section style={{ marginBottom: 48 }}>
-              <div style={{ marginBottom: 22 }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.5, color: '#7C3AED', textTransform: 'uppercase' }}>
-                  Empresa
-                </span>
-                <h2 style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: -0.8, marginTop: 6 }}>
-                  Sua organização
-                </h2>
-              </div>
-              <CockpitCompany user={user} />
-            </section>
-
-            {/* Systems */}
-            <section>
-              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 22, gap: 16, flexWrap: 'wrap' }}>
+            {/* Organization card */}
+            <div style={CARD}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--p-primary-soft)', border: '1px solid var(--p-primary-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--p-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" />
+                  </svg>
+                </div>
                 <div>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.5, color: '#7C3AED', textTransform: 'uppercase' }}>
-                    Operação
-                  </span>
-                  <h2 style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: -0.8, marginTop: 6 }}>
-                    Seus sistemas em tempo real
-                  </h2>
+                  <span style={EYEBROW}>Organização</span>
+                  <h2 style={{ ...CARD_H, marginTop: 1 }}>{companyName || 'Sua organização'}</h2>
                 </div>
               </div>
 
-              {SystemsGrid({ systems, isAdmin })}
-            </section>
-          </>
-        )}
+              {hasCompany ? (
+                <>
+                  {joinCode && (
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 1.2, color: 'var(--p-muted2)', textTransform: 'uppercase', marginBottom: 6 }}>Código de ingresso</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontFamily: FONT_MONO, fontSize: '0.95rem', fontWeight: 700, letterSpacing: 3, padding: '7px 14px', background: 'var(--p-surface2)', border: '1px solid var(--p-border)', borderRadius: 8, color: 'var(--p-text)' }}>
+                          {joinCode.toUpperCase()}
+                        </span>
+                        <button type="button" onClick={handleCopyCode}
+                          style={{ padding: '7px 14px', background: joinCodeCopied ? 'rgba(34,197,94,0.1)' : 'var(--p-primary-soft)', border: `1px solid ${joinCodeCopied ? 'rgba(34,197,94,0.3)' : 'var(--p-primary-border)'}`, borderRadius: 8, color: joinCodeCopied ? '#22c55e' : 'var(--p-primary)', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
+                          {joinCodeCopied ? '✓ Copiado' : 'Copiar'}
+                        </button>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--p-muted)', fontStyle: 'italic' }}>
+                          Compartilhe com quem quiser ingressar.
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
-        {activeTab === 'operacao' && <OperacaoTab />}
-        {activeTab === 'financeiro' && <FinanceiroTab />}
-        {activeTab === 'oportunidades' && <OportunidadesTab />}
-        {activeTab === 'comando' && <ComandoTab user={user} onLogout={handleLogout} />}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                    {[
+                      {
+                        label: 'Membros ativos', value: approvedMembers.length,
+                        icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>,
+                      },
+                      {
+                        label: 'Sistemas contratados', value: systems.length,
+                        icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>,
+                      },
+                      {
+                        label: 'Solicitações pendentes', value: pendingCount,
+                        icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
+                      },
+                    ].map(({ label, value, icon }) => (
+                      <div key={label} style={{ textAlign: 'center', padding: '14px 8px', background: 'var(--p-surface2)', border: '1px solid var(--p-border)', borderRadius: 12 }}>
+                        <div style={{ fontSize: '1.7rem', fontWeight: 800, color: 'var(--p-text)', letterSpacing: -0.8, lineHeight: 1, marginBottom: 8 }}>{value}</div>
+                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--p-primary-soft)', border: '1px solid var(--p-primary-border)', color: 'var(--p-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 6px' }}>{icon}</div>
+                        <div style={{ fontSize: '0.6rem', color: 'var(--p-muted)', textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1.3 }}>{label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button type="button" onClick={() => setShowOrgManage((v) => !v)} className="adc-expand-btn" style={{ marginTop: 14 }}>
+                    {showOrgManage
+                      ? <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15" /></svg> Fechar gerenciamento</>
+                      : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></svg> Gerenciar organização</>}
+                  </button>
+
+                  {showOrgManage && (
+                    <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--p-border)' }}>
+                      <CockpitCompany user={user} />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <CockpitCompany user={user} />
+              )}
+            </div>
+
+            {/* Systems card */}
+            <div style={CARD}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--p-primary-soft)', border: '1px solid var(--p-primary-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--p-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <span style={EYEBROW}>Operação</span>
+                    <h2 style={{ ...CARD_H, marginTop: 1 }}>Sistemas em operação</h2>
+                  </div>
+                </div>
+                {systems.length > 0 && (
+                  <span style={{ fontFamily: FONT_MONO, fontSize: '0.7rem', color: 'var(--p-muted)' }}>
+                    {systems.length} ativo{systems.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+              <SystemsGrid systems={systems} isAdmin={isAdmin} />
+            </div>
+
+            {/* Activity card */}
+            <div style={CARD}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--p-primary-soft)', border: '1px solid var(--p-primary-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--p-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                  </svg>
+                </div>
+                <div>
+                  <span style={EYEBROW}>Histórico</span>
+                  <h2 style={{ ...CARD_H, marginTop: 1 }}>Atividade recente</h2>
+                </div>
+              </div>
+
+              {activity.length === 0 ? (
+                <p style={{ color: 'var(--p-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '20px 0' }}>
+                  Nenhuma atividade registrada ainda.
+                </p>
+              ) : (
+                <div>
+                  {activity.map((ev, i) => (
+                    <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < activity.length - 1 ? '1px solid var(--p-border)' : 'none' }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: ev.type === 'member' ? 'rgba(99,102,241,0.12)' : 'rgba(16,185,129,0.12)', border: ev.type === 'member' ? '1px solid rgba(99,102,241,0.25)' : '1px solid rgba(16,185,129,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {ev.type === 'member' ? (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={ev.type === 'member' ? '#6366f1' : '#10b981'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21a8 8 0 0 0-16 0" /><circle cx="12" cy="7" r="4" /></svg>
+                        ) : (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
+                        )}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--p-text)' }}>{ev.label}</span>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--p-muted)', marginLeft: 6 }}>{ev.sublabel}</span>
+                      </div>
+                      <span style={{ fontSize: '0.68rem', color: 'var(--p-muted2)', whiteSpace: 'nowrap', fontFamily: FONT_MONO }}>
+                        {formatRelativeDate(ev.date)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ════ Right sidebar ════ */}
+          <div className="adc-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* Team card */}
+            <div style={{ ...CARD, padding: '18px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div>
+                  <span style={EYEBROW}>Equipe</span>
+                  <h2 style={{ ...CARD_H, fontSize: '1rem', marginTop: 1 }}>Membros</h2>
+                </div>
+                <span style={{ fontFamily: FONT_MONO, fontSize: '0.75rem', fontWeight: 700, color: 'var(--p-muted)', padding: '2px 8px', background: 'var(--p-surface2)', border: '1px solid var(--p-border)', borderRadius: 20 }}>
+                  {approvedMembers.length}
+                </span>
+              </div>
+
+              {approvedMembers.length === 0 ? (
+                <p style={{ color: 'var(--p-muted)', fontSize: '0.82rem', textAlign: 'center', padding: '12px 0' }}>Nenhum membro ainda.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginBottom: 12 }}>
+                  {approvedMembers.map((m) => {
+                    const name = m.profile?.name || 'Membro';
+                    const mi = name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
+                    const badge = ROLE_BADGE[m.role] || ROLE_BADGE.member;
+                    return (
+                      <div key={m.id} className="adc-member-row" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 8px' }}>
+                        {m.profile?.photo_url
+                          ? <img src={m.profile.photo_url} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                          : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--p-primary-soft)', border: '1px solid var(--p-primary-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 800, color: 'var(--p-primary)', flexShrink: 0 }}>{mi}</div>}
+                        <span style={{ flex: 1, minWidth: 0, fontSize: '0.84rem', fontWeight: 600, color: 'var(--p-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                        <span style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.6, padding: '2px 7px', borderRadius: 6, background: badge.bg, border: `1px solid ${badge.bd}`, color: badge.color, flexShrink: 0 }}>
+                          {badge.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <button type="button" onClick={() => setShowOrgManage(true)} className="adc-expand-btn" style={{ fontSize: '0.78rem' }}>
+                Gerenciar equipe →
+              </button>
+            </div>
+
+            {/* Quick actions card */}
+            <div style={{ ...CARD, padding: '18px 20px' }}>
+              <span style={EYEBROW}>Ações rápidas</span>
+              <h2 style={{ ...CARD_H, fontSize: '1rem', marginBottom: 10 }}>Comandos</h2>
+
+              {[
+                {
+                  title: 'Convidar membro',
+                  desc: 'Enviar convite para novos integrantes',
+                  action: () => setShowOrgManage(true),
+                  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--p-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" /></svg>,
+                },
+                {
+                  title: 'Copiar código de ingresso',
+                  desc: joinCodeCopied ? '✓ Código copiado!' : 'Compartilhar código da organização',
+                  action: handleCopyCode,
+                  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--p-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>,
+                  disabled: !joinCode,
+                },
+                {
+                  title: 'Gerenciar equipe',
+                  desc: 'Funções, permissões e acessos',
+                  action: () => setShowOrgManage(true),
+                  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--p-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>,
+                },
+                {
+                  title: 'Gerenciar assinaturas',
+                  desc: 'Visualize e administre os sistemas contratados',
+                  action: () => navigate('/area-do-cliente/financeiro'),
+                  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--p-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>,
+                },
+                {
+                  title: 'Editar perfil',
+                  desc: 'Avatar, banner e status da conta',
+                  action: () => setProfileModalOpen(true),
+                  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--p-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21a8 8 0 0 0-16 0" /><circle cx="12" cy="7" r="4" /></svg>,
+                },
+              ].map(({ title, desc, action, icon, disabled }) => (
+                <button key={title} type="button" onClick={action} disabled={disabled} className="adc-qa-row">
+                  <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--p-primary-soft)', border: '1px solid var(--p-primary-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {icon}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--p-text)' }}>{title}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--p-muted)' }}>{desc}</div>
+                  </div>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--p-muted2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+              ))}
+            </div>
+
+            {/* Resumo rápido card */}
+            <div style={{ ...CARD, padding: '18px 20px' }}>
+              <span style={EYEBROW}>Resumo rápido</span>
+              <h2 style={{ ...CARD_H, fontSize: '1rem', marginBottom: 16 }}>Visão geral</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                {[
+                  { value: systems.length, label: 'Sistemas\nativos', pct: systems.length > 0 ? '100%' : '—', pctColor: systems.length > 0 ? '#22c55e' : 'var(--p-muted2)' },
+                  { value: approvedMembers.length, label: 'Membros\nativos', pct: approvedMembers.length > 0 ? '100%' : '—', pctColor: approvedMembers.length > 0 ? '#22c55e' : 'var(--p-muted2)' },
+                  { value: pendingCount, label: 'Pendências', pct: pendingCount === 0 ? '0%' : `${pendingCount}`, pctColor: pendingCount > 0 ? '#f59e0b' : 'var(--p-muted2)' },
+                ].map(({ value, label, pct, pctColor }) => (
+                  <div key={label} style={{ textAlign: 'center', padding: '12px 4px', background: 'var(--p-surface2)', border: '1px solid var(--p-border)', borderRadius: 12 }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--p-primary)', letterSpacing: -0.5, lineHeight: 1 }}>{value}</div>
+                    <div style={{ fontSize: '0.58rem', color: 'var(--p-muted)', textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 5, lineHeight: 1.4, whiteSpace: 'pre-line' }}>{label}</div>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 700, color: pctColor, marginTop: 4 }}>{pct}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--p-border)' }}>
+                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 1.2, color: 'var(--p-muted2)', textTransform: 'uppercase', marginBottom: 10 }}>Conta</div>
+                {[
+                  { label: 'Nome',  value: user?.name || '—' },
+                  { label: 'Cargo', value: companyRole ? roleLabel : 'Não definido' },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--p-muted)' }}>{label}</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--p-text)', textAlign: 'right', wordBreak: 'break-all' }}>{value}</span>
+                  </div>
+                ))}
+                <button type="button" onClick={handleLogout}
+                  style={{ width: '100%', marginTop: 10, padding: '8px', background: 'transparent', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 9, color: 'rgba(220,38,38,0.75)', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(220,38,38,0.07)'; e.currentTarget.style.borderColor = 'rgba(220,38,38,0.4)'; e.currentTarget.style.color = '#dc2626'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(220,38,38,0.25)'; e.currentTarget.style.color = 'rgba(220,38,38,0.75)'; }}>
+                  Encerrar sessão
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
+
+      {profileModalOpen && (
+        <UserProfileModal
+          user={user}
+          companyInfo={companyInfo}
+          initials={initials}
+          onClose={() => setProfileModalOpen(false)}
+          onUserUpdate={updateUser}
+        />
+      )}
     </div>
   );
 }

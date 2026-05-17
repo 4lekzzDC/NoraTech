@@ -1,27 +1,34 @@
 import { Link } from 'react-router-dom';
+import { useTheme } from '../../../contexts/ThemeContext';
 import { moduleRoute } from '../constants';
+import { getPalette, FONT_MONO } from '../theme';
 
 // Card de um módulo do hub Soluções Contábeis.
-// Reaproveita o estilo do SystemCard usado em /area-do-cliente para manter
-// a identidade visual da NoraTech.
-
-const BASE_CARD_STYLE = {
-  background: 'rgba(255,255,255,0.02)',
-  border: '1px solid rgba(255,255,255,0.07)',
-  borderRadius: 14,
-  padding: '20px 22px',
-  transition: 'all 0.2s',
-  display: 'block',
-  height: '100%',
-};
 
 export default function SolucaoCard({ module }) {
+  const { theme } = useTheme();
+  const P = getPalette(theme);
   const available = module.status === 'available';
-  const statusColor = available ? '#00d48a' : '#a78bfa';
+  const statusColor = available ? P.green : P.primary;
   const statusLabel = available ? 'Disponível' : 'Em migração';
 
-  const inner = (
-    <>
+  return (
+    <Link
+      to={moduleRoute(module.slug)}
+      className="solucao-card"
+      style={{
+        background: P.surface,
+        border: `1px solid ${P.border}`,
+        borderRadius: 14,
+        padding: '20px 22px',
+        transition: 'all 0.2s',
+        display: 'block',
+        height: '100%',
+        textDecoration: 'none',
+        color: 'inherit',
+        boxShadow: P.shadow,
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 10 }}>
         <span style={{ fontSize: '1rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: '1.1rem' }}>{module.icon}</span> {module.name}
@@ -36,22 +43,12 @@ export default function SolucaoCard({ module }) {
           {statusLabel}
         </span>
       </div>
-      <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', marginBottom: 14, minHeight: 38 }}>
+      <p style={{ fontSize: '0.85rem', color: P.muted, marginBottom: 14, minHeight: 38 }}>
         {module.description}
       </p>
-      <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.78rem', color: available ? '#7C3AED' : 'rgba(255,255,255,0.35)' }}>
+      <p style={{ fontFamily: FONT_MONO, fontSize: '0.78rem', color: available ? P.primary : P.muted2 }}>
         {available ? 'Abrir sistema ↗' : 'Acessar painel ↗'}
       </p>
-    </>
-  );
-
-  return (
-    <Link
-      to={moduleRoute(module.slug)}
-      className="solucao-card"
-      style={{ ...BASE_CARD_STYLE, textDecoration: 'none', color: 'inherit' }}
-    >
-      {inner}
     </Link>
   );
 }
