@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../../../contexts/AuthContext';
-import ThemeToggle from '../../../../components/ThemeToggle';
-import UserProfileMenu from '../../../../components/UserProfileMenu';
+import { useTheme } from '../../../../contexts/ThemeContext';
+import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
+import SolucoesHeader from '../../components/SolucoesHeader';
 import {
   TASKS, REGIMES,
   RECON_CATEGORIES, RECON_STATUS, RECON_STATUS_ORDER,
@@ -32,7 +31,7 @@ const TABS = [
 
 const MONTHS_SHORT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
-function CompetenciaPicker({ value, onChange }) {
+function CompetenciaPicker({ value, onChange, isDark = true }) {
   const [open, setOpen] = useState(false);
   const [dropUp, setDropUp] = useState(false);
   const ref = useRef(null);
@@ -79,24 +78,31 @@ function CompetenciaPicker({ value, onChange }) {
       {open && (
         <div style={{
           position: 'absolute', [dropUp ? 'bottom' : 'top']: 'calc(100% + 6px)', right: 0,
-          width: 220, background: '#18181f', border: '1px solid rgba(255,255,255,0.12)',
-          borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', zIndex: 300, overflow: 'hidden',
+          width: 220,
+          background: isDark ? '#18181f' : '#ffffff',
+          border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(15,17,21,0.14)',
+          borderRadius: 12,
+          boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.6)' : '0 8px 32px rgba(0,0,0,0.12)',
+          zIndex: 300, overflow: 'hidden',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderBottom: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(15,17,21,0.07)' }}>
             <button type="button" onClick={() => setPickerYear((y) => y - 1)}
-              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, fontSize: '1.1rem', lineHeight: 1 }}>‹</button>
-            <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#eeede9' }}>{pickerYear}</span>
+              style={{ background: 'none', border: 'none', color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(15,17,21,0.55)', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, fontSize: '1.1rem', lineHeight: 1 }}>‹</button>
+            <span style={{ fontWeight: 700, fontSize: '0.88rem', color: isDark ? '#eeede9' : '#0f1115' }}>{pickerYear}</span>
             <button type="button" onClick={() => setPickerYear((y) => y + 1)}
-              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, fontSize: '1.1rem', lineHeight: 1 }}>›</button>
+              style={{ background: 'none', border: 'none', color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(15,17,21,0.55)', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, fontSize: '1.1rem', lineHeight: 1 }}>›</button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, padding: 8 }}>
             {MONTHS_SHORT.map((m, i) => {
               const sel = (i + 1) === curMonth && pickerYear === curYear;
+              const mutedColor = isDark ? 'rgba(255,255,255,0.65)' : 'rgba(15,17,21,0.6)';
+              const hoverBg = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(15,17,21,0.06)';
+              const hoverColor = isDark ? '#fff' : '#0f1115';
               return (
                 <button key={m} type="button" onClick={() => selectMonth(i + 1)}
-                  style={{ padding: '8px 4px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: sel ? 700 : 500, background: sel ? '#7C3AED' : 'transparent', color: sel ? '#fff' : 'rgba(255,255,255,0.65)', transition: 'background 0.12s, color 0.12s' }}
-                  onMouseEnter={(e) => { if (!sel) { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = '#fff'; } }}
-                  onMouseLeave={(e) => { if (!sel) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.65)'; } }}
+                  style={{ padding: '8px 4px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: sel ? 700 : 500, background: sel ? '#7C3AED' : 'transparent', color: sel ? '#fff' : mutedColor, transition: 'background 0.12s, color 0.12s' }}
+                  onMouseEnter={(e) => { if (!sel) { e.currentTarget.style.background = hoverBg; e.currentTarget.style.color = hoverColor; } }}
+                  onMouseLeave={(e) => { if (!sel) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = mutedColor; } }}
                 >{m}</button>
               );
             })}
@@ -119,13 +125,10 @@ function getFileStatus(record) {
 }
 
 export default function AcompanhamentoContabilPage() {
-  const { user, logout } = useAuth();
   const { isAdmin } = useIsAdmin();
-  const initials = useMemo(
-    () => (user?.name ? user.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase() : '?'),
-    [user]
-  );
-  const navigate = useNavigate();
+  const { theme } = useTheme();
+  const P = getPalette(theme);
+  const isDark = theme === 'dark';
   const [activeTab, setActiveTab] = useState('dashboard');
   const [competencia, setCompetencia] = useState(currentCompetencia());
   const [tenantCompanyId, setTenantCompanyId] = useState(null);
@@ -142,9 +145,6 @@ export default function AcompanhamentoContabilPage() {
   const [configMenuOpen, setConfigMenuOpen] = useState(false);
   const configBtnRef = useRef(null);
   const configMenuRef = useRef(null);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const avatarRef = useRef(null);
-  const profileMenuRef = useRef(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   // Filtros globais (compartilhados entre dashboard e modal Empresas)
   const [search, setSearch] = useState('');
@@ -187,20 +187,6 @@ export default function AcompanhamentoContabilPage() {
 
   useEffect(() => { reload(); }, [reload]);
 
-  const handleLogout = async () => { await logout(); navigate('/'); };
-
-  useEffect(() => {
-    if (!profileOpen) return;
-    const handler = (e) => {
-      if (
-        avatarRef.current && !avatarRef.current.contains(e.target) &&
-        profileMenuRef.current && !profileMenuRef.current.contains(e.target)
-      ) setProfileOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [profileOpen]);
-
   useEffect(() => {
     if (!configMenuOpen) return;
     const handler = (e) => {
@@ -214,32 +200,41 @@ export default function AcompanhamentoContabilPage() {
   }, [configMenuOpen]);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#08080a', color: '#eeede9', fontFamily: "'Inter', sans-serif" }}>
+    <div style={{
+      minHeight: '100vh', background: P.bg, color: P.text, fontFamily: FONT_INTER,
+      '--p-bg': P.bg, '--p-surface': P.surface, '--p-surface2': P.surface2,
+      '--p-text': P.text, '--p-muted': P.muted, '--p-muted2': P.muted2,
+      '--p-border': P.border, '--p-border2': P.border2,
+      '--p-primary': P.primary, '--p-primary-soft': P.primarySoft,
+      '--p-primary-border': P.primaryBorder, '--p-input-bg': P.inputBg,
+      '--p-shadow': P.shadow, '--p-row-hover': P.rowHover,
+      '--p-surface-solid': P.surfaceSolid,
+    }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         a { text-decoration: none; color: inherit; }
         .acc-tab { background: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; padding: 14px 4px; position: relative; transition: color 0.2s; }
-        .acc-tab:hover { color: rgba(255,255,255,0.9); }
+        .acc-tab:hover { color: var(--p-text); }
         .acc-input, .acc-select {
           padding: 9px 12px; border-radius: 10px;
-          background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
-          color: #eeede9; font-size: 0.88rem; outline: none; font-family: inherit;
+          background: var(--p-input-bg); border: 1px solid var(--p-border);
+          color: var(--p-text); font-size: 0.88rem; outline: none; font-family: inherit;
           transition: border-color 0.18s, background 0.18s;
         }
-        .acc-input:focus, .acc-select:focus { border-color: #7C3AED; background: rgba(255,255,255,0.05); }
-        .acc-input::placeholder { color: rgba(255,255,255,0.3); }
-        .acc-select option { background: #15151a; color: #eeede9; }
+        .acc-input:focus, .acc-select:focus { border-color: var(--p-primary); background: var(--p-surface2); }
+        .acc-input::placeholder { color: var(--p-muted2); }
+        .acc-select option { background: var(--p-surface); color: var(--p-text); }
         .acc-btn {
           display: inline-flex; align-items: center; gap: 8px;
-          padding: 9px 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
-          background: rgba(255,255,255,0.02); color: #eeede9;
+          padding: 9px 16px; border-radius: 10px; border: 1px solid var(--p-border);
+          background: var(--p-surface2); color: var(--p-text);
           font-size: 0.85rem; font-weight: 600; cursor: pointer;
           transition: all 0.18s; font-family: inherit;
         }
-        .acc-btn:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.2); }
-        .acc-btn.primary { background: #7C3AED; border-color: #7C3AED; color: #fff; }
-        .acc-btn.primary:hover { background: #6d28d9; }
+        .acc-btn:hover { background: var(--p-surface); border-color: var(--p-border2); }
+        .acc-btn.primary { background: var(--p-primary); border-color: var(--p-primary); color: #fff; }
+        .acc-btn.primary:hover { filter: brightness(1.1); }
         .acc-btn.danger { color: #ff6b6b; border-color: rgba(255,107,107,0.25); }
         .acc-btn.danger:hover { background: rgba(255,107,107,0.08); }
         .acc-btn.view { color: #60a5fa; border-color: rgba(37,99,235,0.25); }
@@ -250,144 +245,46 @@ export default function AcompanhamentoContabilPage() {
           border: 1px solid transparent;
         }
         .acc-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
-        .acc-table th { text-align: left; padding: 12px 16px; font-size: 0.69rem; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: rgba(255,255,255,0.45); border-bottom: 1px solid rgba(255,255,255,0.08); background: #0d0d12; }
-        .acc-table td { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); color: rgba(255,255,255,0.85); vertical-align: middle; }
+        .acc-table th { text-align: left; padding: 12px 16px; font-size: 0.69rem; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--p-muted); border-bottom: 1px solid var(--p-border); background: var(--p-surface2); }
+        .acc-table td { padding: 12px 16px; border-bottom: 1px solid var(--p-border); color: var(--p-text); vertical-align: middle; }
         .acc-table tr:last-child td { border-bottom: none; }
-        .acc-table tr:hover td { background: rgba(255,255,255,0.02); }
-        .acc-section-eyebrow { font-size: 0.68rem; font-weight: 700; letter-spacing: 1.6px; color: rgba(255,255,255,0.45); text-transform: uppercase; margin-bottom: 10px; }
-        .acc-count-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 0.73rem; font-weight: 600; color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap; }
+        .acc-table tr:hover td { background: var(--p-row-hover); }
+        .acc-section-eyebrow { font-size: 0.68rem; font-weight: 700; letter-spacing: 1.6px; color: var(--p-muted); text-transform: uppercase; margin-bottom: 10px; }
+        .acc-count-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 0.73rem; font-weight: 600; color: var(--p-muted); background: var(--p-surface2); border: 1px solid var(--p-border); white-space: nowrap; }
         @media (max-width: 1100px) { .acc-cat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
         @media (max-width: 760px)  { .acc-cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes drawerIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
       `}</style>
 
-      {/* Header */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(8,8,10,0.94)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+      {/* Header padrão da suite */}
+      <SolucoesHeader />
 
-        {/* Faixa 1 — global: home + NORATECH (esq) | atualização (centro) | admin + avatar (dir) */}
-        <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', maxWidth: 1380, margin: '0 auto', padding: '0 32px', height: 68, display: 'flex', alignItems: 'center', gap: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flexShrink: 0 }}>
-            <Link to="/area-do-cliente" title="Central de Controle" aria-label="Central de Controle" style={{ color: 'rgba(255,255,255,0.45)', textDecoration: 'none', display: 'flex', alignItems: 'center', transition: 'color 0.2s' }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.85)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
-                <polyline points="9 21 9 12 15 12 15 21" />
+      {/* Sub-header: ícone do módulo + título + competência + configurações */}
+      <div style={{ background: P.surface, borderBottom: `1px solid ${P.border}`, boxShadow: P.shadow }}>
+        <div style={{ maxWidth: 1380, margin: '0 auto', padding: '0 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, minHeight: 68 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: P.primarySoft, border: `1px solid ${P.primaryBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: P.primary, flexShrink: 0 }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
               </svg>
-            </Link>
-            <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '0.9rem' }}>/</span>
-            <Link to="/" style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: '0.95rem', color: '#7C3AED', letterSpacing: -0.5, flexShrink: 0 }}>
-              NORA<span style={{ color: 'rgba(255,255,255,0.3)' }}>TECH</span>
-            </Link>
+            </div>
+            <div>
+              <h1 style={{ fontSize: '1.05rem', fontWeight: 800, color: P.text, letterSpacing: -0.3, lineHeight: 1.2 }}>Acompanhamento Contábil</h1>
+              <p style={{ fontSize: '0.78rem', color: P.muted, marginTop: 2, lineHeight: 1 }}>Status mensal por empresa: arquivos, conciliação e prazos</p>
+            </div>
           </div>
-          {/* Centro — Atualizado em */}
-          <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
-            {lastUpdated && (
-              <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap' }}>
-                Atualizado em {lastUpdated.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-              </span>
-            )}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
-            {isAdmin && (
-              <Link to="/admin" style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid rgba(124,58,237,0.35)', background: 'rgba(124,58,237,0.08)', color: '#a78bfa', fontSize: '0.78rem', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', textDecoration: 'none', transition: 'all 0.2s' }}>
-                ⚙ Admin
-              </Link>
-            )}
-            <ThemeToggle />
-            <UserProfileMenu />
-            {/* Avatar button — click reveals name/email/logout */}
-            <button
-              ref={avatarRef}
-              type="button"
-              onClick={() => setProfileOpen((o) => !o)}
-              title={user?.name || 'Usuário'}
-              aria-label="Menu do usuário"
-              style={{ display: 'none', padding: 0, background: 'transparent', border: 'none', borderRadius: '50%', cursor: 'pointer', alignItems: 'center', justifyContent: 'center', outline: 'none' }}
-            >
-              {user?.photoUrl ? (
-                <img src={user.photoUrl} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.1)', transition: 'border-color 0.2s' }} />
-              ) : (
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: profileOpen ? 'rgba(124,58,237,0.25)' : 'rgba(124,58,237,0.15)', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.78rem', fontWeight: 800, border: `2px solid ${profileOpen ? 'rgba(124,58,237,0.5)' : 'rgba(255,255,255,0.1)'}`, transition: 'all 0.2s' }}>
-                  {initials}
-                </div>
-              )}
-            </button>
-            {profileOpen && createPortal(
-              (() => {
-                const rect = avatarRef.current?.getBoundingClientRect();
-                const top = rect ? rect.bottom + 8 : 80;
-                const right = rect ? window.innerWidth - rect.right : 32;
-                return (
-                  <div ref={profileMenuRef} style={{ position: 'fixed', top, right, zIndex: 9999, minWidth: 220, background: '#18181f', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, boxShadow: '0 16px 48px rgba(0,0,0,0.7)', overflow: 'hidden' }}>
-                    {/* User info */}
-                    <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        {user?.photoUrl ? (
-                          <img src={user.photoUrl} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                        ) : (
-                          <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(124,58,237,0.15)', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 800, flexShrink: 0 }}>
-                            {initials}
-                          </div>
-                        )}
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#eeede9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name || 'Usuário'}</div>
-                          <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
-                        </div>
-                      </div>
-                    </div>
-                    {/* Sair */}
-                    <button
-                      type="button"
-                      onClick={() => { setProfileOpen(false); handleLogout(); }}
-                      style={{ width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', fontWeight: 500, fontFamily: 'inherit', transition: 'background 0.15s, color 0.15s', textAlign: 'left' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#fff'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; }}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                        <polyline points="16 17 21 12 16 7" />
-                        <line x1="21" y1="12" x2="9" y2="12" />
-                      </svg>
-                      Sair
-                    </button>
-                  </div>
-                );
-              })(),
-              document.body
-            )}
-          </div>
-        </div>
-
-        {/* Faixa 2 — abas (esq) + Competência/Empresas (dir) */}
-        <div style={{ maxWidth: 1380, margin: '0 auto', padding: '0 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-          <nav style={{ display: 'flex', gap: 32 }}>
-            {TABS.map((t) => {
-              const active = activeTab === t.id;
-              return (
-                <button key={t.id} className="acc-tab" onClick={() => setActiveTab(t.id)}
-                  style={{ color: active ? '#7C3AED' : 'rgba(255,255,255,0.45)', fontSize: '0.88rem', fontWeight: active ? 700 : 500, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem', color: active ? 'rgba(124,58,237,0.6)' : 'rgba(255,255,255,0.25)' }}>{t.num}</span>
-                  {t.label}
-                  {active && <span style={{ position: 'absolute', left: 0, right: 0, bottom: -1, height: 2, background: '#7C3AED', borderRadius: 2 }} />}
-                </button>
-              );
-            })}
-          </nav>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Competência</span>
-              <CompetenciaPicker value={competencia} onChange={setCompetencia} />
+              <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.2, color: P.muted, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Competência</span>
+              <CompetenciaPicker value={competencia} onChange={setCompetencia} isDark={isDark} />
             </label>
             <div style={{ position: 'relative' }}>
               <button
                 ref={configBtnRef}
                 type="button"
                 onClick={() => setConfigMenuOpen((o) => !o)}
-                className="acc-btn"
-                style={{ fontSize: '0.8rem', padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 7 }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 10, border: `1px solid ${P.border}`, background: P.surface2, color: P.text, fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.18s' }}
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
@@ -398,12 +295,12 @@ export default function AcompanhamentoContabilPage() {
                 </svg>
               </button>
               {configMenuOpen && (
-                <div ref={configMenuRef} style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, minWidth: 180, background: '#18181f', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', zIndex: 300, overflow: 'hidden' }}>
+                <div ref={configMenuRef} style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, minWidth: 180, background: isDark ? '#18181f' : '#ffffff', border: `1px solid ${P.border2}`, borderRadius: 12, boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.6)' : '0 8px 32px rgba(0,0,0,0.12)', zIndex: 300, overflow: 'hidden' }}>
                   <button
                     type="button"
                     onClick={() => { setConfigMenuOpen(false); setCompaniesView({}); }}
-                    style={{ width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', fontWeight: 500, fontFamily: 'inherit', textAlign: 'left', transition: 'background 0.15s' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+                    style={{ width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, color: P.text, fontSize: '0.85rem', fontWeight: 500, fontFamily: 'inherit', textAlign: 'left', transition: 'background 0.15s' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = P.surface2; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
@@ -415,8 +312,8 @@ export default function AcompanhamentoContabilPage() {
                     <button
                       type="button"
                       onClick={() => { setConfigMenuOpen(false); setParamsOpen(true); }}
-                      style={{ width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', fontWeight: 500, fontFamily: 'inherit', textAlign: 'left', borderTop: '1px solid rgba(255,255,255,0.06)', transition: 'background 0.15s' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+                      style={{ width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, color: P.text, fontSize: '0.85rem', fontWeight: 500, fontFamily: 'inherit', textAlign: 'left', borderTop: `1px solid ${P.border}`, transition: 'background 0.15s' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = P.surface2; }}
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
@@ -430,9 +327,26 @@ export default function AcompanhamentoContabilPage() {
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      <main style={{ maxWidth: 1380, margin: '0 auto', padding: '24px 32px 80px' }}>
+      {/* Tabs: Dashboard / Arquivos / Conciliação */}
+      <div style={{ background: P.surface, borderBottom: `1px solid ${P.border}` }}>
+        <div style={{ maxWidth: 1380, margin: '0 auto', padding: '0 32px', display: 'flex', alignItems: 'center', gap: 0 }}>
+          {TABS.map((t) => {
+            const active = activeTab === t.id;
+            return (
+              <button key={t.id} className="acc-tab" onClick={() => setActiveTab(t.id)}
+                style={{ color: active ? P.primary : P.muted, fontSize: '0.88rem', fontWeight: active ? 700 : 500, display: 'flex', alignItems: 'center', gap: 10, marginRight: 28 }}>
+                <span style={{ fontFamily: FONT_MONO, fontSize: '0.68rem', color: active ? P.primaryBorder : P.muted2 }}>{t.num}</span>
+                {t.label}
+                {active && <span style={{ position: 'absolute', left: 0, right: 0, bottom: -1, height: 2, background: P.primary, borderRadius: 2 }} />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <main style={{ maxWidth: 1380, margin: '0 auto', padding: '28px 32px 80px' }}>
         {errorMsg && (
           <div style={{ background: 'rgba(255,107,107,0.06)', border: '1px solid rgba(255,107,107,0.25)', color: '#ff9ab4', padding: '12px 16px', borderRadius: 12, marginBottom: 16 }}>
             {errorMsg}
@@ -542,7 +456,7 @@ function NoTenantWarning() {
 
 function Card({ children, style = {}, ...rest }) {
   return (
-    <div {...rest} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, ...style }}>
+    <div {...rest} style={{ background: 'var(--p-surface)', border: '1px solid var(--p-border)', borderRadius: 14, boxShadow: 'var(--p-shadow)', ...style }}>
       {children}
     </div>
   );
@@ -557,20 +471,19 @@ function Kpi({ label, value, accent = '#7C3AED', hint, small = false, onClick })
       onMouseEnter={interactive ? () => setHover(true) : undefined}
       onMouseLeave={interactive ? () => setHover(false) : undefined}
       style={{
-        padding: small ? '14px 16px' : '16px 18px',
+        padding: small ? '14px 16px' : '18px 20px',
         cursor: interactive ? 'pointer' : 'default',
-        transition: 'transform 0.18s, border-color 0.18s, background 0.18s',
-        transform: interactive && hover ? 'translateY(-1px)' : 'none',
-        background: interactive && hover ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.02)',
-        borderColor: interactive && hover ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)',
+        transition: 'transform 0.18s, border-color 0.18s, box-shadow 0.18s',
+        transform: interactive && hover ? 'translateY(-2px)' : 'none',
+        borderColor: interactive && hover ? 'var(--p-primary-border)' : 'var(--p-border)',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1.4, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' }}>{label}</div>
-        {interactive && <span style={{ fontSize: '0.78rem', color: hover ? '#7C3AED' : 'rgba(255,255,255,0.25)', transition: 'color 0.18s' }}>›</span>}
+        <div style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1.4, color: 'var(--p-muted)', textTransform: 'uppercase' }}>{label}</div>
+        {interactive && <span style={{ fontSize: '0.78rem', color: hover ? accent : 'var(--p-muted2)', transition: 'color 0.18s' }}>›</span>}
       </div>
-      <div style={{ fontSize: small ? '1.5rem' : '1.75rem', fontWeight: 800, color: accent, marginTop: 4, letterSpacing: -0.6 }}>{value}</div>
-      {hint && <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.45)', marginTop: 4 }}>{hint}</div>}
+      <div style={{ fontSize: small ? '1.5rem' : '2rem', fontWeight: 800, color: accent, marginTop: 6, letterSpacing: -0.8 }}>{value}</div>
+      {hint && <div style={{ fontSize: '0.7rem', color: 'var(--p-muted)', marginTop: 4 }}>{hint}</div>}
     </Card>
   );
 }
@@ -736,15 +649,15 @@ function Field({ label, children }) {
 
 function Modal({ title, onClose, onSave, saving, width = 640, children }) {
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, overflow: 'auto', background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5vh 20px', zIndex: 120 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: width, margin: 'auto', background: '#101015', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,0.65)' }}>
-        <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <h2 style={{ fontSize: '1.02rem', fontWeight: 700 }}>{title}</h2>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, overflow: 'auto', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5vh 20px', zIndex: 120 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: width, margin: 'auto', background: 'var(--p-surface-solid)', border: '1px solid var(--p-border2)', borderRadius: 16, overflow: 'hidden', maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--p-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <h2 style={{ fontSize: '1.02rem', fontWeight: 700, color: 'var(--p-text)' }}>{title}</h2>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--p-muted)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
         </div>
         <div style={{ padding: '20px 22px', overflowY: 'auto', flex: 1, minHeight: 0 }}>{children}</div>
         {onSave && (
-          <div style={{ padding: '12px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
+          <div style={{ padding: '12px 22px', borderTop: '1px solid var(--p-border)', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
             <button className="acc-btn" onClick={onClose} disabled={saving}>Cancelar</button>
             <button className="acc-btn primary" onClick={onSave} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</button>
           </div>
@@ -775,7 +688,7 @@ function DonutChart({ data, size = 120, thickness = 24 }) {
   }, []);
   return (
     <svg width={size} height={size} style={{ transform: 'rotate(-90deg)', display: 'block' }}>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={thickness} />
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--p-border)" strokeWidth={thickness} />
       {data.map((d, i) => {
         const len = (d.value / total) * circ;
         const dashOffset = i === 0 ? 0 : offsets[i - 1];
@@ -794,10 +707,10 @@ function DonutChart({ data, size = 120, thickness = 24 }) {
 
 function CompactStat({ label, value, color, hint, divider }) {
   return (
-    <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderLeft: divider ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
-      <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 3 }}>{label}</div>
-      <div style={{ fontSize: '1.3rem', fontWeight: 800, color: color || '#eeede9', letterSpacing: -0.3, lineHeight: 1 }}>{value}</div>
-      {hint && <div style={{ fontSize: '0.63rem', color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>{hint}</div>}
+    <div style={{ padding: '10px 14px', background: 'var(--p-surface2)', borderLeft: divider ? '1px solid var(--p-border)' : 'none' }}>
+      <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 1.2, color: 'var(--p-muted)', textTransform: 'uppercase', marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: '1.3rem', fontWeight: 800, color: color || 'var(--p-text)', letterSpacing: -0.3, lineHeight: 1 }}>{value}</div>
+      {hint && <div style={{ fontSize: '0.63rem', color: 'var(--p-muted2)', marginTop: 2 }}>{hint}</div>}
     </div>
   );
 }
@@ -810,15 +723,15 @@ function LegendItem({ color, label, value, onClick, active }) {
         display: 'flex', alignItems: 'center', gap: 7,
         cursor: onClick ? 'pointer' : 'default',
         padding: '4px 8px', margin: '-4px -8px', borderRadius: 7,
-        background: active ? 'rgba(255,255,255,0.07)' : 'transparent',
+        background: active ? 'var(--p-surface2)' : 'transparent',
         opacity: active === false ? 0.35 : 1,
         transition: 'background 0.15s, opacity 0.15s',
-        outline: active ? `1px solid rgba(255,255,255,0.12)` : 'none',
+        outline: active ? `1px solid var(--p-border2)` : 'none',
       }}
     >
       <span style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />
-      <span style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.6)' }}>{label}</span>
-      {value !== undefined && <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'rgba(255,255,255,0.85)', marginLeft: 'auto' }}>{value}</span>}
+      <span style={{ fontSize: '0.74rem', color: 'var(--p-muted)' }}>{label}</span>
+      {value !== undefined && <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--p-text)', marginLeft: 'auto' }}>{value}</span>}
     </div>
   );
 }
@@ -1137,28 +1050,28 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
 
       {/* Painel de detalhes do filtro (full width acima das colunas) */}
       {chartFilter && (
-        <Card style={{ padding: '16px 20px', marginBottom: 20, border: '1px solid rgba(255,255,255,0.1)' }}>
+        <Card style={{ padding: '16px 20px', marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: filterDetails.length > 0 ? 14 : 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ width: 10, height: 10, borderRadius: 3, background: chartFilter.chart === 'arquivos'
                 ? (FILE_STATUS[chartFilter.status]?.fg || '#aaa')
                 : (RECON_STATUS[chartFilter.status]?.fg || '#aaa'), flexShrink: 0 }} />
-              <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#eeede9' }}>
+              <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--p-text)' }}>
                 {chartFilter.chart === 'arquivos'
                   ? `Arquivos — ${FILE_STATUS[chartFilter.status]?.label}`
                   : `Conciliação — ${RECON_STATUS[chartFilter.status]?.label}`}
               </span>
-              <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--p-muted)' }}>
                 {filterDetails.length === 0 ? 'Nenhuma empresa neste status' : `${filterDetails.length} empresa${filterDetails.length !== 1 ? 's' : ''}`}
               </span>
             </div>
-            <button onClick={() => setChartFilter(null)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 20, cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}>×</button>
+            <button onClick={() => setChartFilter(null)} style={{ background: 'transparent', border: 'none', color: 'var(--p-muted2)', fontSize: 20, cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}>×</button>
           </div>
           {filterDetails.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {filterDetails.map(({ company, items }) => (
-                <div key={company.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div style={{ minWidth: 160, fontWeight: 700, fontSize: '0.88rem', color: '#eeede9' }}>{company.nome}</div>
+                <div key={company.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '10px 14px', background: 'var(--p-surface2)', borderRadius: 10, border: '1px solid var(--p-border)' }}>
+                  <div style={{ minWidth: 160, fontWeight: 700, fontSize: '0.88rem', color: 'var(--p-text)' }}>{company.nome}</div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {items.map((item) => {
                       const fg = chartFilter.chart === 'arquivos'
@@ -1200,14 +1113,14 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
                 size={130} thickness={26}
               />
               <div style={{ position: 'absolute', textAlign: 'center', pointerEvents: 'none' }}>
-                <div style={{ fontSize: '1.65rem', fontWeight: 800, letterSpacing: -0.8, color: '#eeede9', lineHeight: 1 }}>{dashMetrics.pctRecebido}%</div>
-                <div style={{ fontSize: '0.56rem', color: 'rgba(255,255,255,0.4)', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.8 }}>recebidos</div>
+                <div style={{ fontSize: '1.65rem', fontWeight: 800, letterSpacing: -0.8, color: 'var(--p-text)', lineHeight: 1 }}>{dashMetrics.pctRecebido}%</div>
+                <div style={{ fontSize: '0.56rem', color: 'var(--p-muted)', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.8 }}>recebidos</div>
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1.3, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 12 }}>
+              <div style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1.3, color: 'var(--p-muted)', textTransform: 'uppercase', marginBottom: 12 }}>
                 Situação dos Arquivos
-                <span style={{ marginLeft: 8, color: 'rgba(255,255,255,0.25)', fontWeight: 400, letterSpacing: 0 }}>clique para filtrar</span>
+                <span style={{ marginLeft: 8, color: 'var(--p-muted2)', fontWeight: 400, letterSpacing: 0 }}>clique para filtrar</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {[
@@ -1222,7 +1135,7 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
                 ))}
               </div>
               <div style={{ marginTop: 12 }}>
-                <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>{dashMetrics.totalEsperado} docs ({TASKS.length} × {dashMetrics.totalEmpresas} emp.)</div>
+                <div style={{ fontSize: '0.62rem', color: 'var(--p-muted2)', marginBottom: 5 }}>{dashMetrics.totalEsperado} docs ({TASKS.length} × {dashMetrics.totalEmpresas} emp.)</div>
                 <ProgressBar pct={dashMetrics.pctRecebido} color="#00d48a" height={4} />
               </div>
             </div>
@@ -1260,14 +1173,14 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
                 size={130} thickness={26}
               />
               <div style={{ position: 'absolute', textAlign: 'center', pointerEvents: 'none' }}>
-                <div style={{ fontSize: '1.65rem', fontWeight: 800, letterSpacing: -0.8, color: '#eeede9', lineHeight: 1 }}>{dashMetrics.reconPctGeral}%</div>
-                <div style={{ fontSize: '0.56rem', color: 'rgba(255,255,255,0.4)', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.8 }}>conciliado</div>
+                <div style={{ fontSize: '1.65rem', fontWeight: 800, letterSpacing: -0.8, color: 'var(--p-text)', lineHeight: 1 }}>{dashMetrics.reconPctGeral}%</div>
+                <div style={{ fontSize: '0.56rem', color: 'var(--p-muted)', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.8 }}>conciliado</div>
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1.3, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 12 }}>
+              <div style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1.3, color: 'var(--p-muted)', textTransform: 'uppercase', marginBottom: 12 }}>
                 Situação das Empresas
-                <span style={{ marginLeft: 8, color: 'rgba(255,255,255,0.25)', fontWeight: 400, letterSpacing: 0 }}>clique para filtrar</span>
+                <span style={{ marginLeft: 8, color: 'var(--p-muted2)', fontWeight: 400, letterSpacing: 0 }}>clique para filtrar</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {[
@@ -1283,7 +1196,7 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
                 ))}
               </div>
               <div style={{ marginTop: 12 }}>
-                <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>{dashMetrics.reconTotal} cat. ({RECON_CATEGORIES.length} × {dashMetrics.totalEmpresas} emp.)</div>
+                <div style={{ fontSize: '0.62rem', color: 'var(--p-muted2)', marginBottom: 5 }}>{dashMetrics.reconTotal} cat. ({RECON_CATEGORIES.length} × {dashMetrics.totalEmpresas} emp.)</div>
                 <ProgressBar pct={dashMetrics.reconPctGeral} color="#00d48a" height={4} />
               </div>
             </div>
@@ -1293,8 +1206,8 @@ function DashboardTab({ competencia, companies, fileRecords, reconciliations,
           <div className="acc-cat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10, flex: 1, alignContent: 'start' }}>
             {dashMetrics.byCategory.map((cat) => (
               <Card key={cat.id} style={{ padding: '14px 16px' }}>
-                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 8, lineHeight: 1.4, minHeight: '1.8em' }}>{cat.label}</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: cat.pct === 100 ? '#00d48a' : cat.pct > 0 ? '#7C3AED' : 'rgba(255,255,255,0.5)', letterSpacing: -0.8, marginBottom: 8 }}>
+                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 1.2, color: 'var(--p-muted)', textTransform: 'uppercase', marginBottom: 8, lineHeight: 1.4, minHeight: '1.8em' }}>{cat.label}</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: cat.pct === 100 ? '#00d48a' : cat.pct > 0 ? 'var(--p-primary)' : 'var(--p-muted)', letterSpacing: -0.8, marginBottom: 8 }}>
                   {cat.pct}%
                 </div>
                 <ProgressBar pct={cat.pct} color={cat.pct === 100 ? '#00d48a' : '#7C3AED'} />
@@ -1570,6 +1483,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
   const [sortBy, setSortBy] = useState(initialSort || 'name');
   const [statusFilter, setStatusFilter] = useState(initialFilter || '');
   const [importOpen, setImportOpen] = useState(false);
+  const [gcImportOpen, setGcImportOpen] = useState(false);
 
   const responsaveis = useMemo(
     () => Array.from(new Set(companies.map((c) => c.responsavel).filter(Boolean))).sort(),
@@ -1640,12 +1554,12 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
 
   return (
     <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, overflow: 'auto', background: 'rgba(4,4,8,0.82)', backdropFilter: 'blur(14px) saturate(0.85)', WebkitBackdropFilter: 'blur(14px) saturate(0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5vh 20px', zIndex: 110 }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 1100, margin: 'auto', background: '#101015', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, overflow: 'hidden', maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(124,58,237,0.08)' }}>
-          <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, overflow: 'auto', background: 'rgba(4,4,8,0.65)', backdropFilter: 'blur(14px) saturate(0.85)', WebkitBackdropFilter: 'blur(14px) saturate(0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5vh 20px', zIndex: 110 }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 1100, margin: 'auto', background: 'var(--p-surface-solid)', border: '1px solid var(--p-border2)', borderRadius: 16, overflow: 'hidden', maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 30px 80px rgba(0,0,0,0.35)', color: 'var(--p-text)' }}>
+          <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--p-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <h2 style={{ fontSize: '1.02rem', fontWeight: 700 }}>🏢 Empresas cadastradas</h2>
-              <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)' }}>
+              <h2 style={{ fontSize: '1.02rem', fontWeight: 700, color: 'var(--p-text)' }}>Empresas cadastradas</h2>
+              <span style={{ fontSize: '0.78rem', color: 'var(--p-muted)' }}>
                 {filtered.length} de {companies.length}
               </span>
               {statusFilter && STATUS_FILTER_LABELS[statusFilter] && (
@@ -1664,9 +1578,21 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
               <button className="acc-btn primary" style={{ fontSize: '0.82rem' }} onClick={openCreate}>+ Nova empresa</button>
               <button
                 type="button"
+                onClick={() => setGcImportOpen(true)}
+                title="Importar do Gestão de Clientes"
+                className="acc-btn"
+                style={{ fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                Gestão de Clientes
+              </button>
+              <button
+                type="button"
                 onClick={() => setImportOpen(true)}
-                title="Importar empresas"
-                aria-label="Importar empresas"
+                title="Importar via CSV/Excel"
+                aria-label="Importar via CSV/Excel"
                 className="acc-btn"
                 style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
@@ -1676,11 +1602,11 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
                   <line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
               </button>
-              <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
+              <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--p-muted)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
             </div>
           </div>
 
-          <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
+          <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--p-border)', flexShrink: 0 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 170px 170px auto', gap: 10, alignItems: 'center' }}>
               <input className="acc-input" placeholder="Buscar por nome, código ou responsável" value={search} onChange={(e) => setSearch(e.target.value)} />
               <select className="acc-select" value={filterResp} onChange={(e) => setFilterResp(e.target.value)}>
@@ -1702,7 +1628,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
               </select>
               {hasFilters
                 ? <button className="acc-btn" onClick={clearFilters} style={{ fontSize: '0.78rem' }}>Limpar</button>
-                : <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>{filtered.length} resultado{filtered.length !== 1 ? 's' : ''}</span>
+                : <span style={{ fontSize: '0.78rem', color: 'var(--p-muted)', whiteSpace: 'nowrap' }}>{filtered.length} resultado{filtered.length !== 1 ? 's' : ''}</span>
               }
             </div>
           </div>
@@ -1721,7 +1647,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
               </thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={5} style={{ padding: '40px 28px', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
+                  <tr><td colSpan={5} style={{ padding: '40px 28px', textAlign: 'center', color: 'var(--p-muted)' }}>
                     {companies.length === 0
                       ? 'Nenhuma empresa cadastrada. Clique em "+ Nova empresa" para começar.'
                       : 'Nenhuma empresa corresponde aos filtros.'}
@@ -1731,12 +1657,12 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
                   <tr key={c.id}>
                     <td>
                       {c.codigo
-                        ? <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.78rem', fontWeight: 600, color: '#7C3AED' }}>#{c.codigo}</span>
-                        : <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.78rem' }}>—</span>
+                        ? <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.78rem', fontWeight: 600, color: 'var(--p-primary)' }}>#{c.codigo}</span>
+                        : <span style={{ color: 'var(--p-muted2)', fontSize: '0.78rem' }}>—</span>
                       }
                     </td>
                     <td>
-                      <div style={{ fontWeight: 700, color: '#eeede9' }}>{c.nome}</div>
+                      <div style={{ fontWeight: 700, color: 'var(--p-text)' }}>{c.nome}</div>
                       {statusFilter === 'atrasadas' && (() => {
                         const reasons = getDelayReasons(c.id, fileRecords, reconciliations, params);
                         return reasons.length > 0 ? (
@@ -1750,14 +1676,14 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
                         ) : null;
                       })()}
                     </td>
-                    <td style={{ color: 'rgba(255,255,255,0.8)' }}>{c.responsavel || <span style={{ color: 'rgba(255,255,255,0.35)' }}>—</span>}</td>
-                    <td><span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)' }}>{c.regime}</span></td>
+                    <td style={{ color: 'var(--p-text)' }}>{c.responsavel || <span style={{ color: 'var(--p-muted2)' }}>—</span>}</td>
+                    <td><span style={{ fontSize: '0.78rem', color: 'var(--p-text)' }}>{c.regime}</span></td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ flex: 1 }}>
                           <ProgressBar pct={c.progress} color={c.progress === 100 ? '#00d48a' : isDelayedByParams(c.id, fileRecords, reconciliations, params) ? '#ff6b6b' : '#7C3AED'} height={6} />
                         </div>
-                        <span style={{ fontSize: '0.8rem', fontWeight: 700, minWidth: 36, textAlign: 'right', color: c.progress === 100 ? '#00d48a' : 'rgba(255,255,255,0.8)' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700, minWidth: 36, textAlign: 'right', color: c.progress === 100 ? '#00d48a' : 'var(--p-text)' }}>
                           {c.progress}%
                         </span>
                       </div>
@@ -1819,7 +1745,197 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
           onChange={onChange}
         />
       )}
+
+      {gcImportOpen && (
+        <GCImportModal
+          tenantCompanyId={tenantCompanyId}
+          competencia={competencia}
+          companies={companies}
+          onClose={() => setGcImportOpen(false)}
+          onChange={onChange}
+        />
+      )}
     </>
+  );
+}
+
+// =============================================================================
+// GCImportModal — importa clientes do Gestão de Clientes (localStorage)
+// =============================================================================
+
+function mapTributacao(tributacao) {
+  if (!tributacao) return 'Simples Nacional';
+  const t = tributacao.trim();
+  if (t === 'MEI') return 'MEI';
+  if (t === 'Simples Nacional') return 'Simples Nacional';
+  if (t === 'Lucro Presumido') return 'Lucro Presumido';
+  if (t === 'Lucro Real') return 'Lucro Real';
+  return 'Simples Nacional';
+}
+
+function GCImportModal({ tenantCompanyId, competencia, companies, onClose, onChange }) {
+  const [gcClients, setGcClients] = useState([]);
+  const [selected, setSelected] = useState(new Set());
+  const [importing, setImporting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('gestao_clientes') || '[]');
+      setGcClients(raw);
+    } catch { setGcClients([]); }
+  }, []);
+
+  const existingNames = useMemo(
+    () => new Set(companies.map((c) => (c.nome || '').toLowerCase().trim())),
+    [companies]
+  );
+
+  const notYetAdded = useMemo(
+    () => gcClients.filter((c) => !existingNames.has((c.name || '').toLowerCase().trim())),
+    [gcClients, existingNames]
+  );
+
+  const alreadyAdded = useMemo(
+    () => gcClients.filter((c) => existingNames.has((c.name || '').toLowerCase().trim())),
+    [gcClients, existingNames]
+  );
+
+  const toggleAll = () => {
+    if (selected.size === notYetAdded.length) setSelected(new Set());
+    else setSelected(new Set(notYetAdded.map((c) => c.id)));
+  };
+
+  const toggle = (id) => setSelected((prev) => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  const handleImport = async () => {
+    if (selected.size === 0) return;
+    setImporting(true);
+    const toImport = gcClients.filter((c) => selected.has(c.id));
+    for (const c of toImport) {
+      await upsertCompany({
+        nome: c.name || '',
+        codigo: null,
+        responsavel: c.responsavel || '',
+        regime: mapTributacao(c.tributacao),
+        observacoes: '',
+        particularidades: '',
+        tenant_company_id: tenantCompanyId,
+        competencia,
+        tasks: emptyTasks(),
+      });
+    }
+    setImporting(false);
+    setDone(true);
+    onChange();
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5vh 20px', zIndex: 130 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 620, background: 'var(--p-surface-solid)', border: '1px solid var(--p-border2)', borderRadius: 16, overflow: 'hidden', maxHeight: '82vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,0.4)', color: 'var(--p-text)' }}>
+
+        {/* Cabeçalho */}
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--p-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div>
+            <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--p-text)' }}>Importar do Gestão de Clientes</h2>
+            <p style={{ fontSize: '0.76rem', color: 'var(--p-muted)', marginTop: 2 }}>
+              {gcClients.length === 0
+                ? 'Nenhum cliente encontrado no Gestão de Clientes.'
+                : `${notYetAdded.length} cliente${notYetAdded.length !== 1 ? 's' : ''} disponível${notYetAdded.length !== 1 ? 'is' : ''} para importar`}
+            </p>
+          </div>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--p-muted)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
+        </div>
+
+        {/* Corpo */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: '16px 22px' }}>
+          {done ? (
+            <div style={{ textAlign: 'center', padding: '32px 0' }}>
+              <div style={{ fontSize: '2rem', marginBottom: 8 }}>✓</div>
+              <div style={{ fontWeight: 700, color: '#00d48a', fontSize: '1rem' }}>{selected.size} empresa{selected.size !== 1 ? 's' : ''} importada{selected.size !== 1 ? 's' : ''} com sucesso!</div>
+              <button className="acc-btn primary" style={{ marginTop: 20 }} onClick={onClose}>Fechar</button>
+            </div>
+          ) : gcClients.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--p-muted)' }}>
+              <p style={{ marginBottom: 8 }}>Nenhum cliente cadastrado no Gestão de Clientes.</p>
+              <p style={{ fontSize: '0.8rem' }}>Acesse <strong>Soluções Contábeis → Gestão → Gestão de Clientes</strong> para adicionar clientes.</p>
+            </div>
+          ) : (
+            <>
+              {notYetAdded.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.2, color: 'var(--p-muted)', textTransform: 'uppercase' }}>
+                      Disponíveis para importar
+                    </span>
+                    <button className="acc-btn" style={{ fontSize: '0.76rem', padding: '4px 10px' }} onClick={toggleAll}>
+                      {selected.size === notYetAdded.length ? 'Desmarcar todos' : 'Selecionar todos'}
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {notYetAdded.map((c) => {
+                      const sel = selected.has(c.id);
+                      return (
+                        <div
+                          key={c.id}
+                          onClick={() => toggle(c.id)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, border: `1px solid ${sel ? 'var(--p-primary-border)' : 'var(--p-border)'}`, background: sel ? 'var(--p-primary-soft)' : 'var(--p-surface2)', cursor: 'pointer', transition: 'all 0.15s' }}
+                        >
+                          <div style={{ width: 18, height: 18, borderRadius: 5, border: `2px solid ${sel ? 'var(--p-primary)' : 'var(--p-border2)'}`, background: sel ? 'var(--p-primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+                            {sel && <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1.5 5 L4 7.5 L8.5 2.5" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--p-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name || '—'}</div>
+                            <div style={{ fontSize: '0.73rem', color: 'var(--p-muted)', marginTop: 1 }}>
+                              {[c.tributacao, c.responsavel].filter(Boolean).join(' · ') || 'Sem detalhes'}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {alreadyAdded.length > 0 && (
+                <div style={{ marginTop: notYetAdded.length > 0 ? 20 : 0 }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.2, color: 'var(--p-muted2)', textTransform: 'uppercase', marginBottom: 8 }}>
+                    Já adicionados ({alreadyAdded.length})
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {alreadyAdded.map((c) => (
+                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--p-border)', background: 'var(--p-surface2)', opacity: 0.55 }}>
+                        <svg width="14" height="14" viewBox="0 0 14 14" style={{ color: '#00d48a', flexShrink: 0 }}><path d="M2 7 L5.5 10.5 L12 3.5" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        <span style={{ fontSize: '0.86rem', color: 'var(--p-text)' }}>{c.name || '—'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Rodapé */}
+        {!done && notYetAdded.length > 0 && (
+          <div style={{ padding: '12px 22px', borderTop: '1px solid var(--p-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--p-muted)' }}>
+              {selected.size === 0 ? 'Nenhuma empresa selecionada' : `${selected.size} selecionada${selected.size !== 1 ? 's' : ''}`}
+            </span>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="acc-btn" onClick={onClose} disabled={importing}>Cancelar</button>
+              <button className="acc-btn primary" onClick={handleImport} disabled={importing || selected.size === 0}>
+                {importing ? 'Importando...' : `Importar ${selected.size > 0 ? selected.size : ''}`}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

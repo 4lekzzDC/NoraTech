@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Admin v2 — Autonomy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #060708;
+            --s1: #0c0e11;
+            --s2: #12151a;
+            --s3: #1a1f27;
+            --s4: #222833;
+            --b1: rgba(255,255,255,0.055);
+            --b2: rgba(255,255,255,0.1);
+            --b3: rgba(255,255,255,0.16);
+            --tx: #e8edf2;
+            --tx2: #a0adb8;
+            --tx3: #5a6a7a;
+            --gold: #f0b429;
+            --gold2: #ffd166;
+            --teal: #0fd4b0;
+            --red: #ff5c5c;
+            --blue: #4a9eff;
+            --green: #34d399;
+            --orange: #fb923c;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: 'Bricolage Grotesque', sans-serif;
+            background: var(--bg);
+            color: var(--tx);
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Login Screen */
+        .login-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #060708 0%, #0c0e11 100%);
+        }
+
+        .login-box {
+            background: var(--s1);
+            border: 1px solid var(--b2);
+            border-radius: 16px;
+            padding: 48px 40px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        }
+
+        .login-box h1 {
+            font-size: 1.75rem;
+            margin-bottom: 8px;
+            color: var(--gold);
+        }
+
+        .login-box p {
+            color: var(--tx3);
+            margin-bottom: 32px;
+            font-size: 0.875rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--tx2);
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--b2);
+            border-radius: 10px;
+            background: var(--s2);
+            color: var(--tx);
+            font-family: inherit;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: var(--gold);
+            background: var(--s3);
+            box-shadow: 0 0 0 3px rgba(240, 180, 41, 0.1);
+        }
+
+        .btn {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--gold), #e0870a);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(240, 180, 41, 0.35);
+        }
+
+        .btn-secondary {
+            background: var(--s3);
+            color: var(--tx);
+            border: 1px solid var(--b2);
+        }
+
+        .btn-secondary:hover {
+            background: var(--s4);
+            border-color: var(--b3);
+        }
+
+        .btn-danger {
+            background: rgba(255, 92, 92, 0.1);
+            color: var(--red);
+            border: 1px solid rgba(255, 92, 92, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: rgba(255, 92, 92, 0.2);
+        }
+
+        .btn-small {
+            padding: 8px 12px;
+            font-size: 0.75rem;
+            width: auto;
+        }
+
+        /* Main Layout */
+        #app {
+            display: flex;
+            height: 100vh;
+            gap: 0;
+        }
+
+        .sidebar {
+            width: 260px;
+            background: var(--s1);
+            border-right: 1px solid var(--b1);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 20px 0;
+        }
+
+        .sidebar-brand {
+            padding: 20px;
+            border-bottom: 1px solid var(--b1);
+            margin-bottom: 10px;
+        }
+
+        .sidebar-brand h2 {
+            font-size: 1rem;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .sidebar-brand p {
+            font-size: 0.65rem;
+            color: var(--tx3);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 0 10px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            margin-bottom: 4px;
+            border-radius: 10px;
+            cursor: pointer;
+            color: var(--tx2);
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .nav-item:hover {
+            background: var(--s3);
+            color: var(--tx);
+        }
+
+        .nav-item.active {
+            background: rgba(240, 180, 41, 0.1);
+            color: var(--gold);
+            border-left: 2px solid var(--gold);
+            padding-left: 12px;
+        }
+
+        .nav-icon {
+            font-size: 1.2rem;
+            width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            padding: 10px;
+            border-top: 1px solid var(--b1);
+            margin-top: auto;
+        }
+
+        .logout-btn {
+            width: 100%;
+            padding: 10px;
+            background: rgba(255, 92, 92, 0.1);
+            color: var(--red);
+            border: 1px solid rgba(255, 92, 92, 0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 92, 92, 0.2);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .topbar {
+            height: 60px;
+            border-bottom: 1px solid var(--b1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 32px;
+            background: var(--s1);
+        }
+
+        .topbar h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .topbar-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 32px;
+        }
+
+        .panel {
+            display: none;
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        /* Cards and Components */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: var(--s2);
+            border: 1px solid var(--b2);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .stat-label {
+            color: var(--tx3);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .stat-change {
+            font-size: 0.75rem;
+            color: var(--green);
+        }
+
+        /* Table */
+        .table-container {
+            background: var(--s2);
+            border: 1px solid var(--b2);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .table-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--b1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .table-header h2 {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .table-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            padding: 12px 20px;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--tx3);
+            border-bottom: 1px solid var(--b1);
+            background: var(--s3);
+        }
+
+        td {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--b1);
+            font-size: 0.875rem;
+        }
+
+        tbody tr:hover {
+            background: var(--s3);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .badge-success {
+            background: rgba(52, 211, 153, 0.15);
+            color: var(--green);
+        }
+
+        .badge-warning {
+            background: rgba(251, 146, 60, 0.15);
+            color: var(--orange);
+        }
+
+        .badge-danger {
+            background: rgba(255, 92, 92, 0.15);
+            color: var(--red);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--s1);
+            border: 1px solid var(--b2);
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--tx3);
+            cursor: pointer;
+            font-size: 1.5rem;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            justify-content: flex-end;
+        }
+
+        /* Search Bar */
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .search-bar {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 10px 16px;
+            border: 1px solid var(--b2);
+            border-radius: 10px;
+            background: var(--s2);
+            color: var(--tx);
+            font-family: inherit;
+        }
+
+        .search-bar input:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px rgba(240, 180, 41, 0.1);
+        }
+
+        /* Charts Container */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        .chart-container {
+            background: var(--s2);
+            border: 1px solid var(--b2);
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            height: 300px;
+        }
+
+        .chart-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .chart-canvas {
+            position: relative;
+            height: 250px;
+        }
+
+        /* Dropdown menu */
+        .dropdown {
+            position: relative;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: var(--s1);
+            border: 1px solid var(--b2);
+            border-radius: 10px;
+            min-width: 180px;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .dropdown-menu.active {
+            display: block;
+        }
+
+        .dropdown-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--b1);
+            transition: all 0.2s;
+            color: var(--tx2);
+            font-size: 0.875rem;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .dropdown-item:hover {
+            background: var(--s3);
+            color: var(--tx);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--s1);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--b2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--b3);
+        }
+
+        /* Alert */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .alert-success {
+            background: rgba(52, 211, 153, 0.1);
+            color: var(--green);
+            border: 1px solid rgba(52, 211, 153, 0.3);
+        }
+
+        .alert-info {
+            background: rgba(74, 158, 255, 0.1);
+            color: var(--blue);
+            border: 1px solid rgba(74, 158, 255, 0.3);
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        @media (max-width: 768px) {
+            .two-column {
+                grid-template-columns: 1fr;
+            }
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-box">
+            <h1>🔐 Admin Panel v2</h1>
+            <p>Painel Administrativo Avançado</p>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" placeholder="seu@email.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Senha</label>
+                    <input type="password" id="password" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Entrar</button>
+            </form>
+            <p style="margin-top: 16px; font-size: 0.75rem; color: var(--tx3); text-align: center;">
+                ℹ️ Demo: admin@autonomy.com / 123456
+            </p>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" style="display: none;">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-brand">
+                <h2>Autonomy Admin</h2>
+                <p>v2.0</p>
+            </div>
+
+            <div class="sidebar-nav">
+                <div class="nav-item active" data-panel="dashboard">
+                    <span class="nav-icon">📊</span>
+                    Dashboard
+                </div>
+                <div class="nav-item" data-panel="usuarios">
+                    <span class="nav-icon">👥</span>
+                    Usuários
+                </div>
+                <div class="nav-item" data-panel="faturas">
+                    <span class="nav-icon">📄</span>
+                    Faturas
+                </div>
+                <div class="nav-item" data-panel="assinaturas">
+                    <span class="nav-icon">📋</span>
+                    Assinaturas
+                </div>
+                <div class="nav-item" data-panel="relatorios">
+                    <span class="nav-icon">📈</span>
+                    Relatórios
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <button class="logout-btn" id="logoutBtn">🚪 Sair</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Topbar -->
+            <div class="topbar">
+                <h1 id="panelTitle">Dashboard</h1>
+                <div class="topbar-actions">
+                    <div class="dropdown">
+                        <button class="btn btn-secondary btn-small" id="exportBtn">⬇️ Exportar</button>
+                        <div class="dropdown-menu" id="exportMenu">
+                            <div class="dropdown-item" onclick="exportToCSV('usuarios')">Exportar Usuários (CSV)</div>
+                            <div class="dropdown-item" onclick="exportToCSV('faturas')">Exportar Faturas (CSV)</div>
+                            <div class="dropdown-item" onclick="exportToCSV('assinaturas')">Exportar Assinaturas (CSV)</div>
+                            <div class="dropdown-item" onclick="exportToJSON()">Exportar Tudo (JSON)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="content">
+                <!-- Dashboard Panel -->
+                <div id="dashboard" class="panel active">
+                    <div class="alert alert-info">
+                        <span>ℹ️</span>
+                        <span>Dashboard com dados em tempo real e gráficos analíticos</span>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Total de Usuários</div>
+                            <div class="stat-value" id="totalUsers">0</div>
+                            <div class="stat-change">+12% este mês</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Receita Total</div>
+                            <div class="stat-value" id="totalRevenue">R$ 0</div>
+                            <div class="stat-change">Este mês</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Faturas Pendentes</div>
+                            <div class="stat-value" id="pendingInvoices">0</div>
+                            <div class="stat-change" id="pendingAmount">R$ 0,00</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Assinaturas Ativas</div>
+                            <div class="stat-value" id="activeSubscriptions">0</div>
+                            <div class="stat-change">100% ativas</div>
+                        </div>
+                    </div>
+
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <div class="chart-title">📈 Receita Mensal</div>
+                            <div class="chart-canvas">
+                                <canvas id="revenueChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-container">
+                            <div class="chart-title">📊 Distribuição de Planos</div>
+                            <div class="chart-canvas">
+                                <canvas id="plansChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 20px;">
+                        <div class="table-container">
+                            <div class="table-header">
+                                <h2>Últimas Faturas</h2>
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Usuário</th>
+                                        <th>Valor</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recentInvoicesTable">
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="table-container">
+                            <div class="table-header">
+                                <h2>Assinaturas Próximas Renovação</h2>
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Usuário</th>
+                                        <th>Plano</th>
+                                        <th>Renovação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="upcomingRenewalsTable">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Usuários Panel -->
+                <div id="usuarios" class="panel">
+                    <div class="toolbar">
+                        <div class="search-bar">
+                            <input type="text" id="searchUsers" placeholder="Buscar usuários...">
+                        </div>
+                        <button class="btn btn-primary btn-small" id="newUserBtn">+ Novo Usuário</button>
+                    </div>
+
+                    <div class="table-container">
+                        <div class="table-header">
+                            <h2>Gestão de Usuários</h2>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Email</th>
+                                    <th>Telefone</th>
+                                    <th>Empresa</th>
+                                    <th>Status</th>
+                                    <th>Data de Cadastro</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTable">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Faturas Panel -->
+                <div id="faturas" class="panel">
+                    <div class="toolbar">
+                        <div class="search-bar">
+                            <input type="text" id="searchInvoices" placeholder="Buscar faturas...">
+                        </div>
+                        <button class="btn btn-primary btn-small" id="newInvoiceBtn">+ Nova Fatura</button>
+                    </div>
+
+                    <div class="table-container">
+                        <div class="table-header">
+                            <h2>Gestão de Faturas</h2>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Usuário</th>
+                                    <th>Valor</th>
+                                    <th>Data de Emissão</th>
+                                    <th>Vencimento</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="invoicesTable">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Assinaturas Panel -->
+                <div id="assinaturas" class="panel">
+                    <div class="toolbar">
+                        <div class="search-bar">
+                            <input type="text" id="searchSubscriptions" placeholder="Buscar assinaturas...">
+                        </div>
+                        <button class="btn btn-primary btn-small" id="newSubscriptionBtn">+ Nova Assinatura</button>
+                    </div>
+
+                    <div class="table-container">
+                        <div class="table-header">
+                            <h2>Gestão de Assinaturas</h2>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Usuário</th>
+                                    <th>Plano</th>
+                                    <th>Valor/Mês</th>
+                                    <th>Início</th>
+                                    <th>Renovação</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="subscriptionsTable">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Relatórios Panel -->
+                <div id="relatorios" class="panel">
+                    <div class="alert alert-info">
+                        <span>📊</span>
+                        <span>Relatórios analíticos detalhados sobre seu negócio</span>
+                    </div>
+
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <div class="chart-title">💰 Receita por Mês</div>
+                            <div class="chart-canvas">
+                                <canvas id="monthlyRevenueChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-container">
+                            <div class="chart-title">👥 Crescimento de Usuários</div>
+                            <div class="chart-canvas">
+                                <canvas id="userGrowthChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-container">
+                            <div class="chart-title">📋 Status de Faturas</div>
+                            <div class="chart-canvas">
+                                <canvas id="invoiceStatusChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-container">
+                            <div class="chart-title">📈 Taxa de Cancelamento</div>
+                            <div class="chart-canvas">
+                                <canvas id="churnChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-container" style="margin-top: 20px;">
+                        <div class="table-header">
+                            <h2>Resumo Financeiro</h2>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Métrica</th>
+                                    <th>Valor</th>
+                                    <th>Variação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summaryTable">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Usuário -->
+    <div id="userModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <span id="userModalTitle">Novo Usuário</span>
+                <button class="modal-close" onclick="closeModal('userModal')">✕</button>
+            </div>
+            <form id="userForm">
+                <div class="form-group">
+                    <label for="userName">Nome Completo</label>
+                    <input type="text" id="userName" required>
+                </div>
+                <div class="form-group">
+                    <label for="userEmail">Email</label>
+                    <input type="email" id="userEmail" required>
+                </div>
+                <div class="form-group">
+                    <label for="userPhone">Telefone</label>
+                    <input type="tel" id="userPhone">
+                </div>
+                <div class="form-group">
+                    <label for="userCompany">Empresa</label>
+                    <input type="text" id="userCompany">
+                </div>
+                <div class="form-group">
+                    <label for="userStatus">Status</label>
+                    <select id="userStatus">
+                        <option value="ativo">Ativo</option>
+                        <option value="inativo">Inativo</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('userModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Fatura -->
+    <div id="invoiceModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <span id="invoiceModalTitle">Nova Fatura</span>
+                <button class="modal-close" onclick="closeModal('invoiceModal')">✕</button>
+            </div>
+            <form id="invoiceForm">
+                <div class="form-group">
+                    <label for="invoiceUser">Usuário</label>
+                    <select id="invoiceUser" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="invoiceAmount">Valor (R$)</label>
+                    <input type="number" id="invoiceAmount" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="invoiceDueDate">Data de Vencimento</label>
+                    <input type="date" id="invoiceDueDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="invoiceStatus">Status</label>
+                    <select id="invoiceStatus">
+                        <option value="pendente">Pendente</option>
+                        <option value="pago">Pago</option>
+                        <option value="cancelado">Cancelado</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="invoiceDescription">Descrição</label>
+                    <textarea id="invoiceDescription" rows="3"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('invoiceModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Assinatura -->
+    <div id="subscriptionModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <span id="subscriptionModalTitle">Nova Assinatura</span>
+                <button class="modal-close" onclick="closeModal('subscriptionModal')">✕</button>
+            </div>
+            <form id="subscriptionForm">
+                <div class="form-group">
+                    <label for="subscriptionUser">Usuário</label>
+                    <select id="subscriptionUser" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="subscriptionPlan">Plano</label>
+                    <select id="subscriptionPlan">
+                        <option value="básico">Básico - R$ 29,90/mês</option>
+                        <option value="profissional">Profissional - R$ 79,90/mês</option>
+                        <option value="enterprise">Enterprise - R$ 199,90/mês</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="subscriptionStartDate">Data de Início</label>
+                    <input type="date" id="subscriptionStartDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="subscriptionStatus">Status</label>
+                    <select id="subscriptionStatus">
+                        <option value="ativa">Ativa</option>
+                        <option value="pausada">Pausada</option>
+                        <option value="cancelada">Cancelada</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('subscriptionModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Data Management
+        const DB_KEYS = {
+            USERS: 'autonomy_users',
+            INVOICES: 'autonomy_invoices',
+            SUBSCRIPTIONS: 'autonomy_subscriptions'
+        };
+
+        let charts = {};
+
+        function initializeStorage() {
+            if (!localStorage.getItem(DB_KEYS.USERS)) localStorage.setItem(DB_KEYS.USERS, JSON.stringify([]));
+            if (!localStorage.getItem(DB_KEYS.INVOICES)) localStorage.setItem(DB_KEYS.INVOICES, JSON.stringify([]));
+            if (!localStorage.getItem(DB_KEYS.SUBSCRIPTIONS)) localStorage.setItem(DB_KEYS.SUBSCRIPTIONS, JSON.stringify([]));
+        }
+
+        function getUsers() { return JSON.parse(localStorage.getItem(DB_KEYS.USERS)) || []; }
+        function saveUsers(users) { localStorage.setItem(DB_KEYS.USERS, JSON.stringify(users)); }
+        function getInvoices() { return JSON.parse(localStorage.getItem(DB_KEYS.INVOICES)) || []; }
+        function saveInvoices(invoices) { localStorage.setItem(DB_KEYS.INVOICES, JSON.stringify(invoices)); }
+        function getSubscriptions() { return JSON.parse(localStorage.getItem(DB_KEYS.SUBSCRIPTIONS)) || []; }
+        function saveSubscriptions(subscriptions) { localStorage.setItem(DB_KEYS.SUBSCRIPTIONS, JSON.stringify(subscriptions)); }
+
+        // Login
+        function handleLogin(email, password) {
+            if (email === 'admin@autonomy.com' && password === '123456') {
+                sessionStorage.setItem('adminLogged', 'true');
+                showApp();
+                initializeStorage();
+                loadDashboard();
+            } else {
+                alert('Email ou senha inválidos!');
+            }
+        }
+
+        function logout() {
+            sessionStorage.removeItem('adminLogged');
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('app').style.display = 'none';
+        }
+
+        function showApp() {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('app').style.display = 'flex';
+        }
+
+        // Navigation
+        function switchPanel(panelName) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(panelName).classList.add('active');
+
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            document.querySelector(`[data-panel="${panelName}"]`).classList.add('active');
+
+            const titles = {
+                dashboard: 'Dashboard',
+                usuarios: 'Gestão de Usuários',
+                faturas: 'Gestão de Faturas',
+                assinaturas: 'Gestão de Assinaturas',
+                relatorios: 'Relatórios e Análises'
+            };
+
+            document.getElementById('panelTitle').textContent = titles[panelName];
+
+            if (panelName === 'usuarios') loadUsers();
+            if (panelName === 'faturas') loadInvoices();
+            if (panelName === 'assinaturas') loadSubscriptions();
+            if (panelName === 'relatorios') setTimeout(loadReports, 100);
+        }
+
+        // Modal functions
+        function openModal(modalId) { document.getElementById(modalId).classList.add('active'); }
+        function closeModal(modalId) { document.getElementById(modalId).classList.remove('active'); }
+
+        // Dashboard
+        function loadDashboard() {
+            const users = getUsers();
+            const invoices = getInvoices();
+            const subscriptions = getSubscriptions();
+
+            document.getElementById('totalUsers').textContent = users.length;
+            document.getElementById('activeSubscriptions').textContent = subscriptions.filter(s => s.status === 'ativa').length;
+
+            const pendingInv = invoices.filter(i => i.status === 'pendente');
+            document.getElementById('pendingInvoices').textContent = pendingInv.length;
+            document.getElementById('pendingAmount').textContent = 'R$ ' + pendingInv.reduce((sum, i) => sum + i.amount, 0).toFixed(2);
+
+            const totalRev = subscriptions.filter(s => s.status === 'ativa').reduce((sum, s) => {
+                const prices = { 'básico': 29.90, 'profissional': 79.90, 'enterprise': 199.90 };
+                return sum + (prices[s.plan] || 0);
+            }, 0);
+            document.getElementById('totalRevenue').textContent = 'R$ ' + totalRev.toFixed(2);
+
+            // Recent invoices
+            const recentInv = invoices.slice(-5).reverse();
+            const recentHtml = recentInv.map(inv => {
+                const user = users.find(u => u.id === inv.userId);
+                const badge = `badge-${inv.status === 'pago' ? 'success' : inv.status === 'pendente' ? 'warning' : 'danger'}`;
+                return `
+                    <tr>
+                        <td>#${inv.id.substring(0, 8)}</td>
+                        <td>${user?.name || 'Removido'}</td>
+                        <td>R$ ${inv.amount.toFixed(2)}</td>
+                        <td><span class="badge ${badge}">${inv.status}</span></td>
+                    </tr>
+                `;
+            }).join('');
+            document.getElementById('recentInvoicesTable').innerHTML = recentHtml || '<tr><td colspan="4">Nenhuma fatura</td></tr>';
+
+            // Upcoming renewals
+            const upcoming = subscriptions.slice(-5).reverse();
+            const upHtml = upcoming.map(sub => {
+                const user = users.find(u => u.id === sub.userId);
+                return `
+                    <tr>
+                        <td>${user?.name || 'Removido'}</td>
+                        <td>${sub.plan}</td>
+                        <td>${new Date(sub.renewalDate).toLocaleDateString('pt-BR')}</td>
+                    </tr>
+                `;
+            }).join('');
+            document.getElementById('upcomingRenewalsTable').innerHTML = upHtml || '<tr><td colspan="3">Nenhuma assinatura</td></tr>';
+
+            initializeCharts();
+        }
+
+        function initializeCharts() {
+            const ctx1 = document.getElementById('revenueChart')?.getContext('2d');
+            const ctx2 = document.getElementById('plansChart')?.getContext('2d');
+
+            if (ctx1) {
+                if (charts.revenue) charts.revenue.destroy();
+                charts.revenue = new Chart(ctx1, {
+                    type: 'line',
+                    data: {
+                        labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
+                        datasets: [{
+                            label: 'Receita (R$)',
+                            data: [1200, 1900, 3200, 2800, 3900, 4500],
+                            borderColor: '#f0b429',
+                            backgroundColor: 'rgba(240, 180, 41, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
+                            x: { grid: { color: 'rgba(255,255,255,0.05)' } }
+                        }
+                    }
+                });
+            }
+
+            if (ctx2) {
+                if (charts.plans) charts.plans.destroy();
+                const subs = getSubscriptions();
+                const plans = { básico: 0, profissional: 0, enterprise: 0 };
+                subs.forEach(s => plans[s.plan]++);
+
+                charts.plans = new Chart(ctx2, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Básico', 'Profissional', 'Enterprise'],
+                        datasets: [{
+                            data: [plans.básico, plans.profissional, plans.enterprise],
+                            backgroundColor: ['#0fd4b0', '#f0b429', '#ff5c5c']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { color: '#e8edf2' } } }
+                    }
+                });
+            }
+        }
+
+        // Users
+        function loadUsers() {
+            const users = getUsers();
+            const html = users.map(user => `
+                <tr>
+                    <td>${user.name}</td>
+                    <td>${user.email}</td>
+                    <td>${user.phone || '-'}</td>
+                    <td>${user.company || '-'}</td>
+                    <td><span class="badge badge-success">${user.status}</span></td>
+                    <td>${new Date(user.createdAt).toLocaleDateString('pt-BR')}</td>
+                    <td>
+                        <button class="btn btn-secondary btn-small" onclick="editUser('${user.id}')">Editar</button>
+                        <button class="btn btn-danger btn-small" onclick="deleteUser('${user.id}')">Deletar</button>
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('usersTable').innerHTML = html || '<tr><td colspan="7">Nenhum usuário</td></tr>';
+        }
+
+        function editUser(userId) {
+            const users = getUsers();
+            const user = users.find(u => u.id === userId);
+            if (user) {
+                document.getElementById('userForm').dataset.editId = userId;
+                document.getElementById('userName').value = user.name;
+                document.getElementById('userEmail').value = user.email;
+                document.getElementById('userPhone').value = user.phone || '';
+                document.getElementById('userCompany').value = user.company || '';
+                document.getElementById('userStatus').value = user.status;
+                document.getElementById('userModalTitle').textContent = 'Editar Usuário';
+                openModal('userModal');
+            }
+        }
+
+        function deleteUser(userId) {
+            if (confirm('Deletar usuário?')) {
+                saveUsers(getUsers().filter(u => u.id !== userId));
+                loadUsers();
+                loadDashboard();
+            }
+        }
+
+        // Invoices
+        function loadInvoices() {
+            const invoices = getInvoices();
+            const users = getUsers();
+            const html = invoices.map(invoice => {
+                const user = users.find(u => u.id === invoice.userId);
+                const badge = `badge-${invoice.status === 'pago' ? 'success' : invoice.status === 'pendente' ? 'warning' : 'danger'}`;
+                return `
+                    <tr>
+                        <td>#${invoice.id.substring(0, 8)}</td>
+                        <td>${user?.name || 'Removido'}</td>
+                        <td>R$ ${invoice.amount.toFixed(2)}</td>
+                        <td>${new Date(invoice.createdAt).toLocaleDateString('pt-BR')}</td>
+                        <td>${new Date(invoice.dueDate).toLocaleDateString('pt-BR')}</td>
+                        <td><span class="badge ${badge}">${invoice.status}</span></td>
+                        <td>
+                            <button class="btn btn-secondary btn-small" onclick="editInvoice('${invoice.id}')">Editar</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteInvoice('${invoice.id}')">Deletar</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            document.getElementById('invoicesTable').innerHTML = html || '<tr><td colspan="7">Nenhuma fatura</td></tr>';
+        }
+
+        function editInvoice(invoiceId) {
+            const invoices = getInvoices();
+            const invoice = invoices.find(i => i.id === invoiceId);
+            if (invoice) {
+                document.getElementById('invoiceForm').dataset.editId = invoiceId;
+                document.getElementById('invoiceUser').value = invoice.userId;
+                document.getElementById('invoiceAmount').value = invoice.amount;
+                document.getElementById('invoiceDueDate').value = invoice.dueDate;
+                document.getElementById('invoiceStatus').value = invoice.status;
+                document.getElementById('invoiceDescription').value = invoice.description || '';
+                document.getElementById('invoiceModalTitle').textContent = 'Editar Fatura';
+                openModal('invoiceModal');
+            }
+        }
+
+        function deleteInvoice(invoiceId) {
+            if (confirm('Deletar fatura?')) {
+                saveInvoices(getInvoices().filter(i => i.id !== invoiceId));
+                loadInvoices();
+                loadDashboard();
+            }
+        }
+
+        // Subscriptions
+        function loadSubscriptions() {
+            const subscriptions = getSubscriptions();
+            const users = getUsers();
+            const prices = { 'básico': 29.90, 'profissional': 79.90, 'enterprise': 199.90 };
+            const html = subscriptions.map(sub => {
+                const user = users.find(u => u.id === sub.userId);
+                const badge = `badge-${sub.status === 'ativa' ? 'success' : sub.status === 'pausada' ? 'warning' : 'danger'}`;
+                return `
+                    <tr>
+                        <td>${user?.name || 'Removido'}</td>
+                        <td>${sub.plan}</td>
+                        <td>R$ ${(prices[sub.plan] || 0).toFixed(2)}</td>
+                        <td>${new Date(sub.startDate).toLocaleDateString('pt-BR')}</td>
+                        <td>${new Date(sub.renewalDate).toLocaleDateString('pt-BR')}</td>
+                        <td><span class="badge ${badge}">${sub.status}</span></td>
+                        <td>
+                            <button class="btn btn-secondary btn-small" onclick="editSubscription('${sub.id}')">Editar</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteSubscription('${sub.id}')">Deletar</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            document.getElementById('subscriptionsTable').innerHTML = html || '<tr><td colspan="7">Nenhuma assinatura</td></tr>';
+        }
+
+        function editSubscription(subscriptionId) {
+            const subscriptions = getSubscriptions();
+            const sub = subscriptions.find(s => s.id === subscriptionId);
+            if (sub) {
+                document.getElementById('subscriptionForm').dataset.editId = subscriptionId;
+                document.getElementById('subscriptionUser').value = sub.userId;
+                document.getElementById('subscriptionPlan').value = sub.plan;
+                document.getElementById('subscriptionStartDate').value = sub.startDate;
+                document.getElementById('subscriptionStatus').value = sub.status;
+                document.getElementById('subscriptionModalTitle').textContent = 'Editar Assinatura';
+                openModal('subscriptionModal');
+            }
+        }
+
+        function deleteSubscription(subscriptionId) {
+            if (confirm('Deletar assinatura?')) {
+                saveSubscriptions(getSubscriptions().filter(s => s.id !== subscriptionId));
+                loadSubscriptions();
+                loadDashboard();
+            }
+        }
+
+        // Reports
+        function loadReports() {
+            const invoices = getInvoices();
+            const subs = getSubscriptions();
+            const users = getUsers();
+
+            // Monthly Revenue
+            const ctx3 = document.getElementById('monthlyRevenueChart')?.getContext('2d');
+            if (ctx3) {
+                if (charts.monthlyRevenue) charts.monthlyRevenue.destroy();
+                charts.monthlyRevenue = new Chart(ctx3, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
+                        datasets: [{
+                            label: 'Receita (R$)',
+                            data: [5000, 7200, 9500, 8900, 11200, 13500],
+                            backgroundColor: '#f0b429'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
+                            x: { grid: { color: 'rgba(255,255,255,0.05)' } }
+                        }
+                    }
+                });
+            }
+
+            // User Growth
+            const ctx4 = document.getElementById('userGrowthChart')?.getContext('2d');
+            if (ctx4) {
+                if (charts.userGrowth) charts.userGrowth.destroy();
+                charts.userGrowth = new Chart(ctx4, {
+                    type: 'line',
+                    data: {
+                        labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
+                        datasets: [{
+                            label: 'Usuários',
+                            data: [10, 15, 22, 28, 35, 42],
+                            borderColor: '#0fd4b0',
+                            backgroundColor: 'rgba(15, 212, 176, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } }
+                        }
+                    }
+                });
+            }
+
+            // Invoice Status
+            const ctx5 = document.getElementById('invoiceStatusChart')?.getContext('2d');
+            if (ctx5) {
+                if (charts.invoiceStatus) charts.invoiceStatus.destroy();
+                const paid = invoices.filter(i => i.status === 'pago').length;
+                const pending = invoices.filter(i => i.status === 'pendente').length;
+                const cancelled = invoices.filter(i => i.status === 'cancelado').length;
+
+                charts.invoiceStatus = new Chart(ctx5, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Pago', 'Pendente', 'Cancelado'],
+                        datasets: [{
+                            data: [paid, pending, cancelled],
+                            backgroundColor: ['#34d399', '#fb923c', '#ff5c5c']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { color: '#e8edf2' } } }
+                    }
+                });
+            }
+
+            // Churn Rate
+            const ctx6 = document.getElementById('churnChart')?.getContext('2d');
+            if (ctx6) {
+                if (charts.churn) charts.churn.destroy();
+                charts.churn = new Chart(ctx6, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
+                        datasets: [{
+                            label: 'Cancelamentos (%)',
+                            data: [5, 3, 2, 4, 1, 3],
+                            backgroundColor: '#ff5c5c'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } } }
+                    }
+                });
+            }
+
+            // Summary table
+            const totalRev = invoices.filter(i => i.status === 'pago').reduce((s, i) => s + i.amount, 0);
+            const totalInv = invoices.length;
+            const totalSubs = subs.length;
+
+            const summaryHtml = `
+                <tr>
+                    <td>Receita Total</td>
+                    <td>R$ ${totalRev.toFixed(2)}</td>
+                    <td style="color: var(--green);">+12%</td>
+                </tr>
+                <tr>
+                    <td>Total de Faturas</td>
+                    <td>${totalInv}</td>
+                    <td style="color: var(--green);">+8%</td>
+                </tr>
+                <tr>
+                    <td>Assinaturas Ativas</td>
+                    <td>${subs.filter(s => s.status === 'ativa').length}/${totalSubs}</td>
+                    <td style="color: var(--green);">+15%</td>
+                </tr>
+                <tr>
+                    <td>Ticket Médio</td>
+                    <td>R$ ${(totalRev / (totalInv || 1)).toFixed(2)}</td>
+                    <td style="color: var(--orange);">-2%</td>
+                </tr>
+            `;
+            document.getElementById('summaryTable').innerHTML = summaryHtml;
+        }
+
+        // Export functions
+        function exportToCSV(type) {
+            let data, headers;
+
+            if (type === 'usuarios') {
+                data = getUsers();
+                headers = ['ID', 'Nome', 'Email', 'Telefone', 'Empresa', 'Status', 'Data de Cadastro'];
+                data = data.map(u => [u.id, u.name, u.email, u.phone, u.company, u.status, new Date(u.createdAt).toLocaleDateString('pt-BR')]);
+            } else if (type === 'faturas') {
+                data = getInvoices();
+                headers = ['ID', 'Usuário ID', 'Valor', 'Vencimento', 'Status', 'Descrição'];
+                data = data.map(i => [i.id, i.userId, i.amount, new Date(i.dueDate).toLocaleDateString('pt-BR'), i.status, i.description || '']);
+            } else if (type === 'assinaturas') {
+                data = getSubscriptions();
+                headers = ['ID', 'Usuário ID', 'Plano', 'Início', 'Renovação', 'Status'];
+                data = data.map(s => [s.id, s.userId, s.plan, new Date(s.startDate).toLocaleDateString('pt-BR'), new Date(s.renewalDate).toLocaleDateString('pt-BR'), s.status]);
+            }
+
+            let csv = headers.join(',') + '\n';
+            data.forEach(row => {
+                csv += row.map(cell => `"${cell}"`).join(',') + '\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${type}_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        }
+
+        function exportToJSON() {
+            const data = {
+                usuarios: getUsers(),
+                faturas: getInvoices(),
+                assinaturas: getSubscriptions(),
+                exportDate: new Date().toISOString()
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `autonomy_backup_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+        }
+
+        // Event Listeners
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleLogin(document.getElementById('email').value, document.getElementById('password').value);
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+        document.getElementById('exportBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.getElementById('exportMenu').classList.toggle('active');
+        });
+
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => switchPanel(item.dataset.panel));
+        });
+
+        document.getElementById('newUserBtn').addEventListener('click', () => {
+            document.getElementById('userForm').reset();
+            delete document.getElementById('userForm').dataset.editId;
+            document.getElementById('userModalTitle').textContent = 'Novo Usuário';
+            openModal('userModal');
+        });
+
+        document.getElementById('userForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const editId = document.getElementById('userForm').dataset.editId;
+            const users = getUsers();
+            const userData = {
+                name: document.getElementById('userName').value,
+                email: document.getElementById('userEmail').value,
+                phone: document.getElementById('userPhone').value,
+                company: document.getElementById('userCompany').value,
+                status: document.getElementById('userStatus').value
+            };
+
+            if (editId) {
+                const idx = users.findIndex(u => u.id === editId);
+                users[idx] = { ...users[idx], ...userData };
+            } else {
+                users.push({ id: Date.now().toString(), createdAt: new Date().toISOString(), ...userData });
+            }
+
+            saveUsers(users);
+            closeModal('userModal');
+            loadUsers();
+            loadDashboard();
+            updateUserSelects();
+        });
+
+        document.getElementById('newInvoiceBtn').addEventListener('click', () => {
+            document.getElementById('invoiceForm').reset();
+            delete document.getElementById('invoiceForm').dataset.editId;
+            document.getElementById('invoiceModalTitle').textContent = 'Nova Fatura';
+            openModal('invoiceModal');
+        });
+
+        document.getElementById('invoiceForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const editId = document.getElementById('invoiceForm').dataset.editId;
+            const invoices = getInvoices();
+            const invoiceData = {
+                userId: document.getElementById('invoiceUser').value,
+                amount: parseFloat(document.getElementById('invoiceAmount').value),
+                dueDate: document.getElementById('invoiceDueDate').value,
+                status: document.getElementById('invoiceStatus').value,
+                description: document.getElementById('invoiceDescription').value
+            };
+
+            if (editId) {
+                const idx = invoices.findIndex(i => i.id === editId);
+                invoices[idx] = { ...invoices[idx], ...invoiceData };
+            } else {
+                invoices.push({ id: Date.now().toString(), createdAt: new Date().toISOString(), ...invoiceData });
+            }
+
+            saveInvoices(invoices);
+            closeModal('invoiceModal');
+            loadInvoices();
+            loadDashboard();
+        });
+
+        document.getElementById('newSubscriptionBtn').addEventListener('click', () => {
+            document.getElementById('subscriptionForm').reset();
+            delete document.getElementById('subscriptionForm').dataset.editId;
+            document.getElementById('subscriptionModalTitle').textContent = 'Nova Assinatura';
+            openModal('subscriptionModal');
+        });
+
+        document.getElementById('subscriptionForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const editId = document.getElementById('subscriptionForm').dataset.editId;
+            const subscriptions = getSubscriptions();
+            const startDate = new Date(document.getElementById('subscriptionStartDate').value);
+            const renewalDate = new Date(startDate);
+            renewalDate.setMonth(renewalDate.getMonth() + 1);
+
+            const subData = {
+                userId: document.getElementById('subscriptionUser').value,
+                plan: document.getElementById('subscriptionPlan').value,
+                startDate: document.getElementById('subscriptionStartDate').value,
+                renewalDate: renewalDate.toISOString().split('T')[0],
+                status: document.getElementById('subscriptionStatus').value
+            };
+
+            if (editId) {
+                const idx = subscriptions.findIndex(s => s.id === editId);
+                subscriptions[idx] = { ...subscriptions[idx], ...subData };
+            } else {
+                subscriptions.push({ id: Date.now().toString(), createdAt: new Date().toISOString(), ...subData });
+            }
+
+            saveSubscriptions(subscriptions);
+            closeModal('subscriptionModal');
+            loadSubscriptions();
+            loadDashboard();
+        });
+
+        function updateUserSelects() {
+            const users = getUsers();
+            const html = users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+            document.getElementById('invoiceUser').innerHTML = html;
+            document.getElementById('subscriptionUser').innerHTML = html;
+        }
+
+        // Search
+        document.getElementById('searchUsers').addEventListener('input', (e) => {
+            const search = e.target.value.toLowerCase();
+            document.querySelectorAll('#usersTable tr').forEach(row => {
+                row.style.display = row.textContent.toLowerCase().includes(search) ? '' : 'none';
+            });
+        });
+
+        document.getElementById('searchInvoices').addEventListener('input', (e) => {
+            const search = e.target.value.toLowerCase();
+            document.querySelectorAll('#invoicesTable tr').forEach(row => {
+                row.style.display = row.textContent.toLowerCase().includes(search) ? '' : 'none';
+            });
+        });
+
+        document.getElementById('searchSubscriptions').addEventListener('input', (e) => {
+            const search = e.target.value.toLowerCase();
+            document.querySelectorAll('#subscriptionsTable tr').forEach(row => {
+                row.style.display = row.textContent.toLowerCase().includes(search) ? '' : 'none';
+            });
+        });
+
+        // Close modals on overlay click
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) overlay.classList.remove('active');
+            });
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.dropdown')) {
+                document.getElementById('exportMenu').classList.remove('active');
+            }
+        });
+
+        if (sessionStorage.getItem('adminLogged') === 'true') {
+            showApp();
+            initializeStorage();
+            loadDashboard();
+            updateUserSelects();
+        }
+    </script>
+</body>
+</html>

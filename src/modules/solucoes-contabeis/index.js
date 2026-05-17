@@ -5,6 +5,7 @@
 export { default as SolucoesContabeisHub } from './pages/SolucoesContabeisHub.jsx';
 export { default as SistemaEmConstrucao } from './pages/SistemaEmConstrucao.jsx';
 export { default as AcompanhamentoContabilPage } from './sistemas/acompanhamento-contabil/AcompanhamentoContabilPage.jsx';
+export { default as ContabilPage } from './sistemas/contabil/ContabilPage.jsx';
 
 export {
   SOLUCOES_CONTABEIS_SLUG,
