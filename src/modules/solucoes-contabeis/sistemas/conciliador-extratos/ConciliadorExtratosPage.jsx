@@ -105,6 +105,7 @@ export default function ConciliadorExtratosPage() {
           .conc-stat-card { cursor: pointer; transition: all 0.18s ease; }
           .conc-stat-card:hover { border-color: ${P.primaryBorder}; transform: translateY(-1px); }
           @keyframes conc-toast-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+          @media (max-width: 640px) { .conc-main { padding: 20px 16px 64px !important; } }
         `}</style>
 
         {theme === 'dark' && (
@@ -116,7 +117,7 @@ export default function ConciliadorExtratosPage() {
 
         <SolucoesHeader />
 
-        <main style={{ maxWidth: 1240, margin: '0 auto', padding: '36px 32px 80px', position: 'relative', zIndex: 1 }}>
+        <main className="conc-main" style={{ maxWidth: 1240, margin: '0 auto', padding: '36px 32px 80px', position: 'relative', zIndex: 1 }}>
           <header style={{ marginBottom: 22, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, flexWrap: 'wrap' }}>
             <div>
               <h1 style={{ fontSize: '1.7rem', fontWeight: 800, letterSpacing: -0.6, marginBottom: 4 }}>

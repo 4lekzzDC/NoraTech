@@ -253,6 +253,7 @@ export default function AcompanhamentoContabilPage() {
         .acc-count-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 0.73rem; font-weight: 600; color: var(--p-muted); background: var(--p-surface2); border: 1px solid var(--p-border); white-space: nowrap; }
         @media (max-width: 1100px) { .acc-cat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
         @media (max-width: 760px)  { .acc-cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+        @media (max-width: 640px)  { .acc-subheader-inner, .acc-tabs-inner, .acc-main { padding-left: 14px !important; padding-right: 14px !important; } }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes drawerIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
       `}</style>
@@ -262,7 +263,7 @@ export default function AcompanhamentoContabilPage() {
 
       {/* Sub-header: ícone do módulo + título + competência + configurações */}
       <div style={{ background: P.surface, borderBottom: `1px solid ${P.border}`, boxShadow: P.shadow }}>
-        <div style={{ maxWidth: 1380, margin: '0 auto', padding: '0 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, minHeight: 68 }}>
+        <div className="acc-subheader-inner" style={{ maxWidth: 1380, margin: '0 auto', padding: '0 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, minHeight: 68 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 44, height: 44, borderRadius: 12, background: P.primarySoft, border: `1px solid ${P.primaryBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: P.primary, flexShrink: 0 }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -331,7 +332,7 @@ export default function AcompanhamentoContabilPage() {
 
       {/* Tabs: Dashboard / Arquivos / Conciliação */}
       <div style={{ background: P.surface, borderBottom: `1px solid ${P.border}` }}>
-        <div style={{ maxWidth: 1380, margin: '0 auto', padding: '0 32px', display: 'flex', alignItems: 'center', gap: 0 }}>
+        <div className="acc-tabs-inner" style={{ maxWidth: 1380, margin: '0 auto', padding: '0 32px', display: 'flex', alignItems: 'center', gap: 0 }}>
           {TABS.map((t) => {
             const active = activeTab === t.id;
             return (
@@ -346,7 +347,7 @@ export default function AcompanhamentoContabilPage() {
         </div>
       </div>
 
-      <main style={{ maxWidth: 1380, margin: '0 auto', padding: '28px 32px 80px' }}>
+      <main className="acc-main" style={{ maxWidth: 1380, margin: '0 auto', padding: '28px 32px 80px' }}>
         {errorMsg && (
           <div style={{ background: 'rgba(255,107,107,0.06)', border: '1px solid rgba(255,107,107,0.25)', color: '#ff9ab4', padding: '12px 16px', borderRadius: 12, marginBottom: 16 }}>
             {errorMsg}
@@ -1549,7 +1550,7 @@ function CompaniesModal({ tenantCompanyId, competencia, companies, fileRecords, 
   };
   const remove = async (id) => {
     if (!confirm('Remover esta empresa do acompanhamento?')) return;
-    try { await deleteCompany(id); onChange(); } catch (e) { alert(e.message); }
+    try { await deleteCompany(id, tenantCompanyId); onChange(); } catch (e) { alert(e.message); }
   };
 
   return (

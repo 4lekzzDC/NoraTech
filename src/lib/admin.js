@@ -12,24 +12,41 @@ export function useIsAdmin() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
+    // Aguarda a autenticação resolver antes de consultar o banco.
+    // Sem isso, o efeito correria com user=null (sessão ainda carregando)
+    // e concluiria checking=false prematuramente.
+    if (loading) return;
+
     let active = true;
+
     const run = async () => {
       if (!user) {
         if (active) { setRoleIsAdmin(false); setChecking(false); }
         return;
       }
-      const { data } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (!active) return;
-      setRoleIsAdmin(data?.role === 'admin');
-      setChecking(false);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (error) {
+          console.error('[Admin] Role check error:', error);
+        }
+        if (!active) return;
+        setRoleIsAdmin(data?.role === 'admin');
+      } catch (err) {
+        console.error('[Admin] Role check threw:', err);
+        if (!active) return;
+        setRoleIsAdmin(false);
+      } finally {
+        if (active) setChecking(false);
+      }
     };
+
     run();
     return () => { active = false; };
-  }, [user]);
+  }, [user, loading]);
 
   const emailMatches = !!user && user.email?.toLowerCase() === ADMIN_EMAIL;
   return {

@@ -5,16 +5,20 @@ import SolucoesHeader from '../../components/SolucoesHeader';
 import {
   OBRIGACOES,
   getTipos, saveTipos,
+  getTarefas, saveTarefas,
   getConfig, saveConfig,
   getEventos, saveEventos,
   getClientes, getUsuarios, saveUsuarios,
   fmtMes, mesLabel, navMes, currentMes,
   ensureTarefas, getTaskStatus, toggleCell, autoStatus, exportTab,
 } from './prazosService';
+import { getCurrentTenantCompanyId } from '../../../../lib/subscriptions';
 
 // ── Palette context ────────────────────────────────────────────────────────────
-const PaletteCtx = createContext(null);
-const useP = () => useContext(PaletteCtx);
+const PaletteCtx   = createContext(null);
+const useP         = () => useContext(PaletteCtx);
+const CompanyCtx   = createContext(null);
+const useCompanyId = () => useContext(CompanyCtx);
 
 // ── Status config ──────────────────────────────────────────────────────────────
 const STATUS_CFG = {
@@ -54,17 +58,17 @@ function MetricCard({ label, value, accent }) {
 
 // ── Obs modal ─────────────────────────────────────────────────────────────────
 function ObsModal({ empresa, mes, onClose }) {
-  const p = useP();
+  const p         = useP();
+  const companyId = useCompanyId();
   const initObs = useMemo(() => {
-    const t = JSON.parse(localStorage.getItem('prazos_tarefas') || '[]');
-    return t.find((x) => x.empresa_id === empresa.id && x.mes === mes)?.obs || '';
-  }, [empresa.id, mes]);
+    return getTarefas(companyId).find((x) => x.empresa_id === empresa.id && x.mes === mes)?.obs || '';
+  }, [empresa.id, mes, companyId]);
   const [obs, setObs] = useState(initObs);
 
   function save() {
-    const all = JSON.parse(localStorage.getItem('prazos_tarefas') || '[]');
+    const all = getTarefas(companyId);
     const idx = all.findIndex((x) => x.empresa_id === empresa.id && x.mes === mes);
-    if (idx >= 0) { all[idx].obs = obs; localStorage.setItem('prazos_tarefas', JSON.stringify(all)); }
+    if (idx >= 0) { all[idx].obs = obs; saveTarefas(all, companyId); }
     onClose(obs);
   }
 
@@ -97,16 +101,17 @@ function ObsModal({ empresa, mes, onClose }) {
 
 // ── Add tipo modal ─────────────────────────────────────────────────────────────
 function AddTipoModal({ cat, onClose }) {
-  const p = useP();
+  const p         = useP();
+  const companyId = useCompanyId();
   const [nome, setNome] = useState('');
   const [grupo, setGrupo] = useState('');
 
   function save() {
     if (!nome.trim()) return;
-    const tipos = getTipos(cat);
+    const tipos = getTipos(cat, companyId);
     const id = nome.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now();
     tipos.push({ id, nome: nome.trim(), grupo: grupo.trim() });
-    saveTipos(cat, tipos);
+    saveTipos(cat, tipos, companyId);
     onClose(tipos);
   }
 
@@ -139,14 +144,15 @@ function AddTipoModal({ cat, onClose }) {
 
 // ── Add evento modal ───────────────────────────────────────────────────────────
 function AddEventoModal({ mes, onClose }) {
-  const p = useP();
+  const p         = useP();
+  const companyId = useCompanyId();
   const [titulo, setTitulo] = useState('');
   const [dia, setDia] = useState('');
   const [cor, setCor] = useState('#8B3DFF');
 
   function save() {
     if (!titulo.trim() || !dia) return;
-    const eventos = getEventos();
+    const eventos = getEventos(companyId);
     eventos.push({
       id: 'ev_' + Date.now(),
       mes,
@@ -154,7 +160,7 @@ function AddEventoModal({ mes, onClose }) {
       titulo: titulo.trim(),
       cor,
     });
-    saveEventos(eventos);
+    saveEventos(eventos, companyId);
     onClose(eventos);
   }
 
@@ -323,10 +329,11 @@ function TaskTable({ cat, mes, tarefas, tipos, configs, empresas, usuarios, onTo
 
 // ── Arquivos panel ─────────────────────────────────────────────────────────────
 function ArquivosPanel({ mes, tarefas, tipos, configs, empresas, usuarios, onRefresh }) {
-  const p = useP();
+  const p         = useP();
+  const companyId = useCompanyId();
 
   function handleToggle(empresa_id, cat, tipo_id) {
-    toggleCell(empresa_id, cat, tipo_id, mes);
+    toggleCell(empresa_id, cat, tipo_id, mes, companyId);
     onRefresh();
   }
 
@@ -340,7 +347,7 @@ function ArquivosPanel({ mes, tarefas, tipos, configs, empresas, usuarios, onRef
           </p>
         </div>
         <button
-          onClick={() => exportTab('arquivo', mes)}
+          onClick={() => exportTab('arquivo', mes, companyId)}
           style={btnStyle(p, true)}
         >Exportar XLSX</button>
       </div>
@@ -361,10 +368,11 @@ function ArquivosPanel({ mes, tarefas, tipos, configs, empresas, usuarios, onRef
 
 // ── Conciliação panel ──────────────────────────────────────────────────────────
 function ConciliacaoPanel({ mes, tarefas, tipos, configs, empresas, usuarios, onRefresh }) {
-  const p = useP();
+  const p         = useP();
+  const companyId = useCompanyId();
 
   function handleToggle(empresa_id, cat, tipo_id) {
-    toggleCell(empresa_id, cat, tipo_id, mes);
+    toggleCell(empresa_id, cat, tipo_id, mes, companyId);
     onRefresh();
   }
 
@@ -377,7 +385,7 @@ function ConciliacaoPanel({ mes, tarefas, tipos, configs, empresas, usuarios, on
             Codificação, importação e conciliação por empresa — {mesLabel(mes)}
           </p>
         </div>
-        <button onClick={() => exportTab('conciliacao', mes)} style={btnStyle(p, true)}>Exportar XLSX</button>
+        <button onClick={() => exportTab('conciliacao', mes, companyId)} style={btnStyle(p, true)}>Exportar XLSX</button>
       </div>
 
       {tarefas.length === 0 ? (
@@ -398,9 +406,15 @@ function ConciliacaoPanel({ mes, tarefas, tipos, configs, empresas, usuarios, on
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 function CalendarioPanel({ mes, configs, empresas }) {
-  const p = useP();
-  const [eventos, setEventos] = useState(() => getEventos());
+  const p         = useP();
+  const companyId = useCompanyId();
+  const [eventos, setEventos] = useState([]);
   const [addModal, setAddModal] = useState(false);
+
+  useEffect(() => {
+    if (companyId === undefined) return;
+    setEventos(getEventos(companyId));
+  }, [companyId]);
 
   const [y, m] = mes.split('-').map(Number);
   const firstDay = new Date(y, m - 1, 1).getDay();
@@ -429,8 +443,8 @@ function CalendarioPanel({ mes, configs, empresas }) {
   });
 
   function deleteEvento(id) {
-    const updated = getEventos().filter((ev) => ev.id !== id);
-    saveEventos(updated);
+    const updated = getEventos(companyId).filter((ev) => ev.id !== id);
+    saveEventos(updated, companyId);
     setEventos(updated);
   }
 
@@ -531,23 +545,33 @@ function CalendarioPanel({ mes, configs, empresas }) {
 
 // ── Config panel ───────────────────────────────────────────────────────────────
 function ConfigPanel({ onRefresh }) {
-  const p = useP();
+  const p         = useP();
+  const companyId = useCompanyId();
   const [tab, setTab] = useState('tipos');
-  const [tiposArq, setTiposArq] = useState(() => getTipos('arquivo'));
-  const [tiposConc, setTiposConc] = useState(() => getTipos('conciliacao'));
-  const [configs, setConfigs] = useState(() => getConfig());
-  const [usuarios, setUsuarios] = useState(() => getUsuarios());
-  const [empresas] = useState(() => getClientes());
+  const [tiposArq,  setTiposArq]  = useState([]);
+  const [tiposConc, setTiposConc] = useState([]);
+  const [configs,   setConfigs]   = useState([]);
+  const [usuarios,  setUsuarios]  = useState([]);
+  const [empresas,  setEmpresas]  = useState([]);
   const [addTipoModal, setAddTipoModal] = useState(null);
   const [newUserNome, setNewUserNome] = useState('');
+
+  useEffect(() => {
+    if (companyId === undefined) return;
+    setTiposArq(getTipos('arquivo', companyId));
+    setTiposConc(getTipos('conciliacao', companyId));
+    setConfigs(getConfig(companyId));
+    setUsuarios(getUsuarios(companyId));
+    setEmpresas(getClientes(companyId));
+  }, [companyId]);
 
   function removeTipo(cat, id) {
     if (cat === 'arquivo') {
       const updated = tiposArq.filter((t) => t.id !== id);
-      saveTipos('arquivo', updated); setTiposArq(updated);
+      saveTipos('arquivo', updated, companyId); setTiposArq(updated);
     } else {
       const updated = tiposConc.filter((t) => t.id !== id);
-      saveTipos('conciliacao', updated); setTiposConc(updated);
+      saveTipos('conciliacao', updated, companyId); setTiposConc(updated);
     }
     onRefresh();
   }
@@ -561,7 +585,7 @@ function ConfigPanel({ onRefresh }) {
     let idx = updated.findIndex((c) => c.empresa_id === empresa_id);
     if (idx < 0) { updated.push({ empresa_id }); idx = updated.length - 1; }
     updated[idx] = { ...updated[idx], [field]: value };
-    setConfigs(updated); saveConfig(updated); onRefresh();
+    setConfigs(updated); saveConfig(updated, companyId); onRefresh();
   }
 
   function setCfgTipoApp(empresa_id, cat, tipo_id) {
@@ -574,18 +598,18 @@ function ConfigPanel({ onRefresh }) {
     const current = cfg.tipos[cat][tipo_id] || 'ativo';
     cfg.tipos[cat][tipo_id] = APP_CYCLE[current] || 'ativo';
     updated[idx] = cfg;
-    setConfigs(updated); saveConfig(updated); onRefresh();
+    setConfigs(updated); saveConfig(updated, companyId); onRefresh();
   }
 
   function addUser() {
     if (!newUserNome.trim()) return;
     const updated = [...usuarios, { id: 'u_' + Date.now(), nome: newUserNome.trim() }];
-    saveUsuarios(updated); setUsuarios(updated); setNewUserNome('');
+    saveUsuarios(updated, companyId); setUsuarios(updated); setNewUserNome('');
   }
 
   function removeUser(id) {
     const updated = usuarios.filter((u) => u.id !== id);
-    saveUsuarios(updated); setUsuarios(updated);
+    saveUsuarios(updated, companyId); setUsuarios(updated);
   }
 
   const configTabs = [
@@ -832,26 +856,33 @@ export default function PrazosPage() {
   const { theme } = useTheme();
   const p = useMemo(() => getPalette(theme), [theme]);
 
+  const [companyId, setCompanyId] = useState(undefined); // undefined = loading; null = loaded, no org
+  useEffect(() => {
+    getCurrentTenantCompanyId().then(id => setCompanyId(id || null)).catch(() => setCompanyId(null));
+  }, []);
+
   const [panel, setPanel]   = useState('arquivo');
   const [mes, setMes]       = useState(currentMes);
   const [tick, setTick]     = useState(0);
 
   const refresh = useCallback(() => setTick((t) => t + 1), []);
 
-  const tarefas  = useMemo(() => ensureTarefas(mes), [mes, tick]);
-  const configs  = useMemo(() => getConfig(), [tick]);
-  const empresas = useMemo(() => getClientes(), [tick]);
-  const usuarios = useMemo(() => getUsuarios(), [tick]);
-  const tiposArq = useMemo(() => getTipos('arquivo'), [tick]);
-  const tiposConc = useMemo(() => getTipos('conciliacao'), [tick]);
+  const tarefas   = useMemo(() => companyId !== undefined ? ensureTarefas(mes, companyId)     : [], [mes, tick, companyId]);
+  const configs   = useMemo(() => companyId !== undefined ? getConfig(companyId)               : [], [tick, companyId]);
+  const empresas  = useMemo(() => companyId !== undefined ? getClientes(companyId)             : [], [tick, companyId]);
+  const usuarios  = useMemo(() => companyId !== undefined ? getUsuarios(companyId)             : [], [tick, companyId]);
+  const tiposArq  = useMemo(() => companyId !== undefined ? getTipos('arquivo', companyId)     : [], [tick, companyId]);
+  const tiposConc = useMemo(() => companyId !== undefined ? getTipos('conciliacao', companyId) : [], [tick, companyId]);
 
   // Auto-mark atrasados on load
   useEffect(() => {
-    const { changed } = autoStatus(mes);
+    if (companyId === undefined) return;
+    const { changed } = autoStatus(mes, companyId);
     if (changed) setTick((t) => t + 1);
-  }, [mes]);
+  }, [mes, companyId]);
 
   return (
+    <CompanyCtx.Provider value={companyId}>
     <PaletteCtx.Provider value={p}>
       <div style={{ minHeight: '100vh', background: p.bg, fontFamily: FONT_INTER }}>
         <SolucoesHeader tool="prazos" />
@@ -886,7 +917,7 @@ export default function PrazosPage() {
           >Mês atual</button>
           <div style={{ flex: 1 }} />
           <button
-            onClick={() => { autoStatus(mes); refresh(); }}
+            onClick={() => { autoStatus(mes, companyId); refresh(); }}
             style={{ ...btnStyle(p, false), fontSize: 12, padding: '5px 12px' }}
           >Auto-marcar atrasados</button>
         </div>
@@ -908,28 +939,37 @@ export default function PrazosPage() {
 
         {/* Content */}
         <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-          {panel === 'arquivo' && (
-            <ArquivosPanel
-              mes={mes} tarefas={tarefas} tipos={tiposArq}
-              configs={configs} empresas={empresas} usuarios={usuarios}
-              onRefresh={refresh}
-            />
-          )}
-          {panel === 'conciliacao' && (
-            <ConciliacaoPanel
-              mes={mes} tarefas={tarefas} tipos={tiposConc}
-              configs={configs} empresas={empresas} usuarios={usuarios}
-              onRefresh={refresh}
-            />
-          )}
-          {panel === 'calendario' && (
-            <CalendarioPanel mes={mes} configs={configs} empresas={empresas} />
-          )}
-          {panel === 'config' && (
-            <ConfigPanel onRefresh={refresh} />
+          {companyId === undefined ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0', color: p.muted, fontSize: 14, fontFamily: FONT_INTER }}>
+              Carregando dados da organização...
+            </div>
+          ) : (
+            <>
+              {panel === 'arquivo' && (
+                <ArquivosPanel
+                  mes={mes} tarefas={tarefas} tipos={tiposArq}
+                  configs={configs} empresas={empresas} usuarios={usuarios}
+                  onRefresh={refresh}
+                />
+              )}
+              {panel === 'conciliacao' && (
+                <ConciliacaoPanel
+                  mes={mes} tarefas={tarefas} tipos={tiposConc}
+                  configs={configs} empresas={empresas} usuarios={usuarios}
+                  onRefresh={refresh}
+                />
+              )}
+              {panel === 'calendario' && (
+                <CalendarioPanel mes={mes} configs={configs} empresas={empresas} />
+              )}
+              {panel === 'config' && (
+                <ConfigPanel onRefresh={refresh} />
+              )}
+            </>
           )}
         </div>
       </div>
     </PaletteCtx.Provider>
+    </CompanyCtx.Provider>
   );
 }

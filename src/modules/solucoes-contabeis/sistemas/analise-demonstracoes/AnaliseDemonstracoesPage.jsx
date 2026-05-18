@@ -7,12 +7,15 @@ import {
   loadXlsxFile, processAll, saveParsed, loadParsed, clearParsed,
   fmt, pct, buildChartConfigs, buildDreRows, buildBalancoRows,
 } from './ademEngine';
+import { getCurrentTenantCompanyId } from '../../../../lib/subscriptions';
 
 Chart.register(...registerables);
 
 // ── Palette context ──────────────────────────────────────────────────
-const PaletteCtx = createContext(null);
-const useP = () => useContext(PaletteCtx);
+const PaletteCtx   = createContext(null);
+const useP         = () => useContext(PaletteCtx);
+const CompanyCtx   = createContext(null);
+const useCompanyId = () => useContext(CompanyCtx);
 
 // ── Nav / filter buttons ─────────────────────────────────────────────
 function NavBtn({ active, onClick, disabled, children }) {
@@ -117,7 +120,8 @@ function FileSlot({ label, icon, status, fileName, onFile }) {
 
 // ── Upload panel ──────────────────────────────────────────────────────
 function UploadPanel({ onProcessed, onClear, hasParsed }) {
-  const P = useP();
+  const P         = useP();
+  const companyId = useCompanyId();
   const [raw,     setRaw]     = useState({ dre: null, balanco: null, balancete: null });
   const [status,  setStatus]  = useState({ dre: 'idle', balanco: 'idle', balancete: 'idle' });
   const [names,   setNames]   = useState({ dre: '', balanco: '', balancete: '' });
@@ -140,7 +144,7 @@ function UploadPanel({ onProcessed, onClear, hasParsed }) {
     setLoading(true);
     try {
       const parsed = processAll(raw);
-      saveParsed(parsed);
+      saveParsed(parsed, companyId);
       onProcessed(parsed);
     } finally {
       setLoading(false);
@@ -151,7 +155,7 @@ function UploadPanel({ onProcessed, onClear, hasParsed }) {
     setRaw({ dre: null, balanco: null, balancete: null });
     setStatus({ dre: 'idle', balanco: 'idle', balancete: 'idle' });
     setNames({ dre: '', balanco: '', balancete: '' });
-    clearParsed();
+    clearParsed(companyId);
     onClear();
   };
 
@@ -373,8 +377,18 @@ export default function AnaliseDemonstracoesPage() {
   const P = getPalette(theme);
   const isDark = theme !== 'light';
 
+  const [companyId, setCompanyId] = useState(undefined); // undefined = loading; null = loaded, no org
+  useEffect(() => {
+    getCurrentTenantCompanyId().then(id => setCompanyId(id || null)).catch(() => setCompanyId(null));
+  }, []);
+
   const [panel,  setPanel]  = useState('upload');
-  const [parsed, setParsed] = useState(() => loadParsed());
+  const [parsed, setParsed] = useState(null);
+
+  useEffect(() => {
+    if (companyId === undefined) return;
+    setParsed(loadParsed(companyId));
+  }, [companyId]);
 
   const handleProcessed = (p) => { setParsed(p); setPanel('dashboard'); };
   const handleClear     = () => { setParsed(null); setPanel('upload'); };
@@ -390,6 +404,7 @@ export default function AnaliseDemonstracoesPage() {
   ];
 
   return (
+    <CompanyCtx.Provider value={companyId}>
     <PaletteCtx.Provider value={P}>
       <div style={{ minHeight: '100vh', background: P.bg, color: P.text, fontFamily: FONT_INTER }}>
         <style>{`
@@ -418,11 +433,20 @@ export default function AnaliseDemonstracoesPage() {
             ))}
           </div>
 
-          {panel === 'upload'    && <UploadPanel onProcessed={handleProcessed} onClear={handleClear} hasParsed={hasParsed} />}
-          {panel === 'dashboard' && parsed && <DashboardPanel parsed={parsed} isDark={isDark} />}
-          {panel === 'detalhes'  && parsed && <DetailsPanel parsed={parsed} />}
+          {companyId === undefined ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0', color: P.muted, fontSize: 14 }}>
+              Carregando dados da organização...
+            </div>
+          ) : (
+            <>
+              {panel === 'upload'    && <UploadPanel onProcessed={handleProcessed} onClear={handleClear} hasParsed={hasParsed} />}
+              {panel === 'dashboard' && parsed && <DashboardPanel parsed={parsed} isDark={isDark} />}
+              {panel === 'detalhes'  && parsed && <DetailsPanel parsed={parsed} />}
+            </>
+          )}
         </main>
       </div>
     </PaletteCtx.Provider>
+    </CompanyCtx.Provider>
   );
 }

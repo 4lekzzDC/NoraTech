@@ -1,11 +1,14 @@
-import { createContext, useCallback, useContext, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import SolucoesHeader from '../../components/SolucoesHeader';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
 import { parsePdf, exportToXlsx, fmtBRL, loadHistory, pushHistory, clearHistory } from './transEngine';
+import { getCurrentTenantCompanyId } from '../../../../lib/subscriptions';
 
-const PaletteCtx = createContext(null);
-const useP = () => useContext(PaletteCtx);
+const PaletteCtx  = createContext(null);
+const useP        = () => useContext(PaletteCtx);
+const CompanyCtx  = createContext(null);
+const useCompanyId = () => useContext(CompanyCtx);
 
 // ── SVG Icons ──────────────────────────────────────────────────────────────────
 function ITrendUp({ size = 20 }) {
@@ -354,7 +357,8 @@ function HomePanel({ history, onNavigate }) {
 
 // ── ConverterPanel ─────────────────────────────────────────────────────────────
 function ConverterPanel({ onHistoryUpdate, isLight, history }) {
-  const P = useP();
+  const P         = useP();
+  const companyId = useCompanyId();
   const [processing,   setProcessing]   = useState(false);
   const [rows,         setRows]         = useState(null);
   const [fileName,     setFileName]     = useState('');
@@ -398,7 +402,7 @@ function ConverterPanel({ onHistoryUpdate, isLight, history }) {
         totalPagar:   parsed.reduce((a, r) => a + r.pagar,   0),
         totalReceber: parsed.reduce((a, r) => a + r.receber, 0),
       };
-      onHistoryUpdate(pushHistory(entry, loadHistory()));
+      onHistoryUpdate(pushHistory(entry, loadHistory(companyId), companyId));
     } catch (err) {
       setError('Erro ao processar PDF: ' + err.message);
       console.error('TE Error:', err);
@@ -800,10 +804,20 @@ export default function TransformadorExtratoPage() {
   const P         = getPalette(theme);
   const isLight   = theme === 'light';
 
-  const [panel,   setPanel]   = useState('home');
-  const [history, setHistory] = useState(() => loadHistory());
+  const [companyId, setCompanyId] = useState(undefined); // undefined = loading; null = loaded, no org
+  useEffect(() => {
+    getCurrentTenantCompanyId().then(id => setCompanyId(id || null)).catch(() => setCompanyId(null));
+  }, []);
 
-  const handleClear = () => setHistory(clearHistory());
+  const [panel,   setPanel]   = useState('home');
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    if (companyId === undefined) return;
+    setHistory(loadHistory(companyId));
+  }, [companyId]);
+
+  const handleClear = () => setHistory(clearHistory(companyId));
 
   const navItems = [
     { key: 'home',      label: 'Início',       Icon: IHome },
@@ -812,6 +826,7 @@ export default function TransformadorExtratoPage() {
   ];
 
   return (
+    <CompanyCtx.Provider value={companyId}>
     <PaletteCtx.Provider value={P}>
       <div style={{ minHeight: '100vh', background: P.bg, color: P.text, fontFamily: FONT_INTER }}>
         <style>{`
@@ -820,6 +835,7 @@ export default function TransformadorExtratoPage() {
           a { text-decoration: none; color: inherit; }
           @keyframes te-spin { to { transform: rotate(360deg); } }
           @media (max-width: 720px) { .te-two-col { grid-template-columns: 1fr !important; } }
+          @media (max-width: 640px) { .te-main { padding: 20px 16px 64px !important; } }
         `}</style>
 
         {theme === 'dark' && (
@@ -830,7 +846,7 @@ export default function TransformadorExtratoPage() {
 
         <SolucoesHeader />
 
-        <main style={{ maxWidth: 1240, margin: '0 auto', padding: '36px 32px 80px', position: 'relative', zIndex: 1 }}>
+        <main className="te-main" style={{ maxWidth: 1240, margin: '0 auto', padding: '36px 32px 80px', position: 'relative', zIndex: 1 }}>
 
           {/* Module header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 24, flexWrap: 'wrap', marginBottom: 24 }}>
@@ -861,11 +877,20 @@ export default function TransformadorExtratoPage() {
             </nav>
           </div>
 
-          {panel === 'home'      && <HomePanel      history={history} isLight={isLight} onNavigate={setPanel} />}
-          {panel === 'converter' && <ConverterPanel onHistoryUpdate={setHistory} isLight={isLight} history={history} />}
-          {panel === 'historico' && <HistoryPanel   history={history} onClear={handleClear} />}
+          {companyId === undefined ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0', color: P.muted, fontSize: 14 }}>
+              Carregando dados da organização...
+            </div>
+          ) : (
+            <>
+              {panel === 'home'      && <HomePanel      history={history} isLight={isLight} onNavigate={setPanel} />}
+              {panel === 'converter' && <ConverterPanel onHistoryUpdate={setHistory} isLight={isLight} history={history} />}
+              {panel === 'historico' && <HistoryPanel   history={history} onClear={handleClear} />}
+            </>
+          )}
         </main>
       </div>
     </PaletteCtx.Provider>
+    </CompanyCtx.Provider>
   );
 }

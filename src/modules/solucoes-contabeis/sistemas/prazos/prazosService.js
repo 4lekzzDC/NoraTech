@@ -50,7 +50,7 @@ export const TIPOS_CONC_DEFAULT = [
 ];
 
 // ──────────────────────────────────────────────────────────────────────
-// Helpers localStorage
+// Helpers localStorage isolados por organização
 // ──────────────────────────────────────────────────────────────────────
 
 function ls(key, fallback) {
@@ -59,17 +59,22 @@ function ls(key, fallback) {
 }
 function lsSet(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch {} }
 
-export const getTipos       = (cat) => ls('prazos_tipos_' + cat, cat === 'arquivo' ? TIPOS_ARQUIVO_DEFAULT.map(x => ({ ...x })) : TIPOS_CONC_DEFAULT.map(x => ({ ...x })));
-export const saveTipos      = (cat, v) => lsSet('prazos_tipos_' + cat, v);
-export const getTarefas     = () => ls('prazos_tarefas', []);
-export const saveTarefas    = (v) => lsSet('prazos_tarefas', v);
-export const getConfig      = () => ls('prazos_config', []);
-export const saveConfig     = (v) => lsSet('prazos_config', v);
-export const getEventos     = () => ls('prazos_eventos', []);
-export const saveEventos    = (v) => lsSet('prazos_eventos', v);
-export const getClientes    = () => ls('gestao_clientes', []);
-export const getUsuarios    = () => ls('prazos_usuarios', []);
-export const saveUsuarios   = (v) => lsSet('prazos_usuarios', v);
+// Chave com escopo por companyId
+function k(base, companyId) {
+  return companyId ? `${base}_${companyId}` : base;
+}
+
+export const getTipos    = (cat, companyId) => ls(k('prazos_tipos_' + cat, companyId), cat === 'arquivo' ? TIPOS_ARQUIVO_DEFAULT.map(x => ({ ...x })) : TIPOS_CONC_DEFAULT.map(x => ({ ...x })));
+export const saveTipos   = (cat, v, companyId) => lsSet(k('prazos_tipos_' + cat, companyId), v);
+export const getTarefas  = (companyId) => ls(k('prazos_tarefas', companyId), []);
+export const saveTarefas = (v, companyId) => lsSet(k('prazos_tarefas', companyId), v);
+export const getConfig   = (companyId) => ls(k('prazos_config', companyId), []);
+export const saveConfig  = (v, companyId) => lsSet(k('prazos_config', companyId), v);
+export const getEventos  = (companyId) => ls(k('prazos_eventos', companyId), []);
+export const saveEventos = (v, companyId) => lsSet(k('prazos_eventos', companyId), v);
+export const getClientes = (companyId) => ls(k('gestao_clientes', companyId), []);
+export const getUsuarios = (companyId) => ls(k('prazos_usuarios', companyId), []);
+export const saveUsuarios = (v, companyId) => lsSet(k('prazos_usuarios', companyId), v);
 
 // ──────────────────────────────────────────────────────────────────────
 // Formatação
@@ -101,13 +106,13 @@ export function currentMes() {
 // Garantir tarefa existe para empresa/mês
 // ──────────────────────────────────────────────────────────────────────
 
-export function ensureTarefas(mes) {
-  const empresas = getClientes();
-  const tarefas  = getTarefas();
+export function ensureTarefas(mes, companyId) {
+  const empresas = getClientes(companyId);
+  const tarefas  = getTarefas(companyId);
   let changed = false;
   empresas.forEach((e) => {
     if (!tarefas.find((t) => t.empresa_id === e.id && t.mes === mes)) {
-      const cfg = getConfig().find((c) => c.empresa_id === e.id) || {};
+      const cfg = getConfig(companyId).find((c) => c.empresa_id === e.id) || {};
       tarefas.push({
         id:             'pt_' + Date.now() + '_' + Math.random().toString(36).slice(2),
         empresa_id:     e.id,
@@ -120,8 +125,8 @@ export function ensureTarefas(mes) {
       changed = true;
     }
   });
-  if (changed) saveTarefas(tarefas);
-  return getTarefas().filter((t) => t.mes === mes);
+  if (changed) saveTarefas(tarefas, companyId);
+  return getTarefas(companyId).filter((t) => t.mes === mes);
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -145,8 +150,8 @@ export function getTaskStatus(tarefa, tipos, cat, configs) {
 // Ciclar status de uma célula (pendente → concluido → atrasado → pendente)
 // ──────────────────────────────────────────────────────────────────────
 
-export function toggleCell(empresa_id, cat, tipo_id, mes) {
-  const tarefas = getTarefas();
+export function toggleCell(empresa_id, cat, tipo_id, mes, companyId) {
+  const tarefas = getTarefas(companyId);
   const t = tarefas.find((x) => x.empresa_id === empresa_id && x.mes === mes);
   if (!t) return tarefas;
   if (!t[cat]) t[cat] = {};
@@ -155,7 +160,7 @@ export function toggleCell(empresa_id, cat, tipo_id, mes) {
   const cell = t[cat][tipo_id];
   cell.status = cycle[cell.status] || 'pendente';
   cell.valor  = cell.status === 'concluido' ? fmtMes(mes) : '';
-  saveTarefas(tarefas);
+  saveTarefas(tarefas, companyId);
   return [...tarefas];
 }
 
@@ -163,17 +168,17 @@ export function toggleCell(empresa_id, cat, tipo_id, mes) {
 // Auto-marcar atrasados (compara prazo da config com hoje)
 // ──────────────────────────────────────────────────────────────────────
 
-export function autoStatus(mes) {
+export function autoStatus(mes, companyId) {
   const today   = new Date();
   const [y, m]  = mes.split('-').map(Number);
-  const tarefas = getTarefas();
-  const configs = getConfig();
+  const tarefas = getTarefas(companyId);
+  const configs = getConfig(companyId);
   let changed   = 0;
   const cats    = ['arquivo', 'conciliacao'];
   tarefas.filter((t) => t.mes === mes).forEach((t) => {
     const cfg = configs.find((c) => c.empresa_id === t.empresa_id) || {};
     cats.forEach((cat) => {
-      const tipos     = getTipos(cat);
+      const tipos     = getTipos(cat, companyId);
       const prazoDay  = cat === 'arquivo' ? (cfg.prazo_rec || 10) : (cfg.prazo_conc || 25);
       const deadline  = new Date(y, m - 1, prazoDay, 23, 59);
       if (today <= deadline) return;
@@ -186,7 +191,7 @@ export function autoStatus(mes) {
       });
     });
   });
-  if (changed) saveTarefas(tarefas);
+  if (changed) saveTarefas(tarefas, companyId);
   return { changed, tarefas: [...tarefas] };
 }
 
@@ -194,12 +199,12 @@ export function autoStatus(mes) {
 // Export XLSX (fiel ao legado)
 // ──────────────────────────────────────────────────────────────────────
 
-export function exportTab(cat, mes) {
-  const tipos    = getTipos(cat);
-  const empresas = getClientes();
-  const usuarios = getUsuarios();
-  const configs  = getConfig();
-  const tarefas  = getTarefas().filter((t) => t.mes === mes);
+export function exportTab(cat, mes, companyId) {
+  const tipos    = getTipos(cat, companyId);
+  const empresas = getClientes(companyId);
+  const usuarios = getUsuarios(companyId);
+  const configs  = getConfig(companyId);
+  const tarefas  = getTarefas(companyId).filter((t) => t.mes === mes);
 
   const heads = ['Empresa', 'CNPJ', 'Tributação', 'Responsável', ...tipos.map((t) => t.nome), 'Observações'];
   const rows  = tarefas.map((t) => {

@@ -562,7 +562,7 @@ function LeftCard({ user, stats, isDark, onNavigate, onOpenClientes }) {
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'flex', gap: 10 }}>
+      <div className="hub-chips-row">
         <StatChip icon={<IBarChart size={17} color="#7C3AED" />} label="Acessos no mês"  value={stats.totalMes} />
         <StatChip icon={<ISliders size={17} color="#7C3AED" />} label="Sistemas usados" value={`${stats.sistemasMes} de 8`} />
         <ClientesChip onClick={onOpenClientes} />
@@ -680,6 +680,11 @@ export default function SolucoesContabeisHub() {
           body { -webkit-font-smoothing: antialiased; }
           a { color: inherit; }
           button { font-family: inherit; }
+          .hub-outer { max-width: 1300px; margin: 0 auto; padding: 32px 32px 48px; position: relative; z-index: 1; }
+          .hub-grid { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 20px; align-items: stretch; }
+          .hub-chips-row { display: flex; gap: 10px; }
+          @media (max-width: 960px) { .hub-grid { grid-template-columns: 1fr !important; } }
+          @media (max-width: 640px) { .hub-outer { padding: 16px 16px 48px !important; } .hub-chips-row { flex-wrap: wrap !important; } }
         `}</style>
 
         {/* Ambient glow */}
@@ -692,13 +697,8 @@ export default function SolucoesContabeisHub() {
 
         <SolucoesHeader />
 
-        <div style={{ maxWidth: 1300, margin: '0 auto', padding: '32px 32px 48px', position: 'relative', zIndex: 1 }}>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) 390px',
-            gap: 20,
-            alignItems: 'stretch',
-          }}>
+        <div className="hub-outer">
+          <div className="hub-grid">
             {/* Left — main dashboard card */}
             <LeftCard
               user={user}

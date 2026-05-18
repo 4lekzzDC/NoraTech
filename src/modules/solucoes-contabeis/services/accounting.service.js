@@ -44,13 +44,14 @@ export async function upsertCompany(record) {
   return normalizeCompany(data);
 }
 
-export async function updateCompanyTask(id, taskId, status) {
+export async function updateCompanyTask(id, tenantCompanyId, taskId, status) {
   // Lê o tasks atual e mescla. (Postgres não tem update parcial em jsonb sem rpc,
   // mas o objeto é pequeno — read-modify-write funciona.)
   const { data: current, error: e1 } = await supabase
     .from('accounting_companies')
     .select('tasks')
     .eq('id', id)
+    .eq('tenant_company_id', tenantCompanyId)
     .single();
   if (e1) throw new Error(translate(e1));
 
@@ -59,17 +60,19 @@ export async function updateCompanyTask(id, taskId, status) {
     .from('accounting_companies')
     .update({ tasks: newTasks })
     .eq('id', id)
+    .eq('tenant_company_id', tenantCompanyId)
     .select('*')
     .single();
   if (error) throw new Error(translate(error));
   return normalizeCompany(data);
 }
 
-export async function deleteCompany(id) {
+export async function deleteCompany(id, tenantCompanyId) {
   const { error } = await supabase
     .from('accounting_companies')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('tenant_company_id', tenantCompanyId);
   if (error) throw new Error(translate(error));
 }
 

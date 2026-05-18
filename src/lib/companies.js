@@ -25,7 +25,7 @@ export async function fetchMyCompany() {
 
   const { data: company, error: cErr } = await supabase
     .from('companies')
-    .select('id, name, code, owner_id, created_at')
+    .select('id, name, code, owner_id, logo_url, created_at')
     .eq('id', membership.company_id)
     .maybeSingle();
   if (cErr) throw new Error(translate(cErr));
@@ -84,6 +84,14 @@ export async function rejectMember(memberId) {
 
 export async function leaveCompany(companyId) {
   const { error } = await supabase.rpc('leave_company', { p_company_id: companyId });
+  if (error) throw new Error(translate(error));
+}
+
+export async function updateCompanyLogo(companyId, logoUrl) {
+  const { error } = await supabase
+    .from('companies')
+    .update({ logo_url: logoUrl })
+    .eq('id', companyId);
   if (error) throw new Error(translate(error));
 }
 

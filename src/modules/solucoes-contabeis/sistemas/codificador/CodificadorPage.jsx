@@ -9,6 +9,7 @@ import {
   seedDemoIfEmpty,
 } from '../../services/codificador.service';
 import { parseXlsxFile, applyRules, exportDominio, timeAgo } from './codEngine';
+import { getCurrentTenantCompanyId } from '../../../../lib/subscriptions';
 
 // =============================================================================
 // Página: /solucoes-contabeis/codificador
@@ -136,8 +137,10 @@ const PANEL_SUB = {
   configuracoes: 'Gerencie regras de codificação e contas bancárias.',
 };
 
-const PaletteCtx = createContext(null);
-const useP = () => useContext(PaletteCtx);
+const PaletteCtx   = createContext(null);
+const useP         = () => useContext(PaletteCtx);
+const CompanyCtx   = createContext(null);
+const useCompanyId = () => useContext(CompanyCtx);
 
 // =============================================================================
 // Página
@@ -149,7 +152,14 @@ export default function CodificadorPage() {
   const [panel, setPanel] = useState('home');
   const [toast, setToast] = useState(null);
 
-  useEffect(() => { seedDemoIfEmpty(); }, []);
+  const [companyId, setCompanyId] = useState(undefined); // undefined = loading; null = loaded, no org
+  useEffect(() => {
+    getCurrentTenantCompanyId().then(id => setCompanyId(id || null)).catch(() => setCompanyId(null));
+  }, []);
+
+  useEffect(() => {
+    if (companyId !== undefined && companyId !== null) seedDemoIfEmpty(companyId);
+  }, [companyId]);
 
   const showToast = useCallback((msg) => setToast({ id: Date.now(), msg }), []);
 
@@ -160,6 +170,7 @@ export default function CodificadorPage() {
   }, [toast]);
 
   return (
+    <CompanyCtx.Provider value={companyId}>
     <PaletteCtx.Provider value={P}>
       <div style={{ minHeight: '100vh', background: P.bg, color: P.text, fontFamily: FONT_INTER }}>
         <style>{`
@@ -178,6 +189,7 @@ export default function CodificadorPage() {
           .cod-btn-ghost:hover { background: ${P.surface2} !important; border-color: ${P.border2} !important; }
           .cod-row:hover { background: ${P.rowHover}; }
           @keyframes cod-toast-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+          @media (max-width: 640px) { .cod-main { padding: 20px 16px 64px !important; } .cod-two-col { grid-template-columns: 1fr !important; } }
         `}</style>
 
         {theme === 'dark' && (
@@ -189,7 +201,7 @@ export default function CodificadorPage() {
 
         <SolucoesHeader />
 
-        <main style={{ maxWidth: 1240, margin: '0 auto', padding: '36px 32px 80px', position: 'relative', zIndex: 1 }}>
+        <main className="cod-main" style={{ maxWidth: 1240, margin: '0 auto', padding: '36px 32px 80px', position: 'relative', zIndex: 1 }}>
           <header style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div style={{
@@ -235,9 +247,17 @@ export default function CodificadorPage() {
             </nav>
           </header>
 
-          {panel === 'home' && <HomePanel onNavigate={setPanel} />}
-          {panel === 'upload' && <UploadPanel showToast={showToast} />}
-          {panel === 'configuracoes' && <ConfigPanel showToast={showToast} />}
+          {companyId === undefined ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0', color: P.muted, fontSize: 14 }}>
+              Carregando dados da organização...
+            </div>
+          ) : (
+            <>
+              {panel === 'home' && <HomePanel onNavigate={setPanel} />}
+              {panel === 'upload' && <UploadPanel showToast={showToast} />}
+              {panel === 'configuracoes' && <ConfigPanel showToast={showToast} />}
+            </>
+          )}
         </main>
 
         {toast && (
@@ -259,6 +279,7 @@ export default function CodificadorPage() {
         )}
       </div>
     </PaletteCtx.Provider>
+    </CompanyCtx.Provider>
   );
 }
 
@@ -267,11 +288,12 @@ export default function CodificadorPage() {
 // =============================================================================
 
 function HomePanel({ onNavigate }) {
-  const P = useP();
-  const empresas = useMemo(() => listEmpresas(), []);
-  const regras   = useMemo(() => listRegras(),   []);
-  const contas   = useMemo(() => listContas(),   []);
-  const logs     = useMemo(() => listLogs(),     []);
+  const P         = useP();
+  const companyId = useCompanyId();
+  const empresas  = useMemo(() => listEmpresas(companyId), [companyId]);
+  const regras    = useMemo(() => listRegras(companyId),   [companyId]);
+  const contas    = useMemo(() => listContas(companyId),   [companyId]);
+  const logs      = useMemo(() => listLogs(companyId),     [companyId]);
 
   const regrasAtivas = regras.filter((r) => r.is_active).length;
   const totalLinhas  = logs.reduce((s, l) => s + (l.total   || 0), 0);
@@ -293,7 +315,7 @@ function HomePanel({ onNavigate }) {
       </div>
 
       {/* Central block */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.4fr)', gap: 16 }}>
+      <div className="cod-two-col" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.4fr)', gap: 16 }}>
 
         {/* Resumo do módulo */}
         <div style={card}>
@@ -379,7 +401,7 @@ function HomePanel({ onNavigate }) {
       </div>
 
       {/* Action cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+      <div className="cod-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
         <ActionCard Icon={IPlus}        title="Nova codificação" desc="Inicie uma nova codificação de arquivo."           onClick={() => onNavigate('upload')} />
         <ActionCard Icon={ISlidersIcon} title="Gerenciar regras" desc="Crie, edite e ative regras de codificação."        onClick={() => onNavigate('configuracoes')} />
       </div>
@@ -392,9 +414,10 @@ function HomePanel({ onNavigate }) {
 // =============================================================================
 
 function UploadPanel({ showToast }) {
-  const P = useP();
-  const empresas = useMemo(() => listEmpresas(), []);
-  const allContas = useMemo(() => listContas(), []);
+  const P         = useP();
+  const companyId = useCompanyId();
+  const empresas  = useMemo(() => listEmpresas(companyId), [companyId]);
+  const allContas = useMemo(() => listContas(companyId),   [companyId]);
 
   const [empresaId, setEmpresaId] = useState(empresas[0]?.id || '');
   const contasEmpresa = useMemo(() => allContas.filter((c) => c.company_id === empresaId), [allContas, empresaId]);
@@ -439,7 +462,7 @@ function UploadPanel({ showToast }) {
         setLoading(false);
         return;
       }
-      const regras = listRegras().filter((r) => r.company_id === empresa.id && r.is_active);
+      const regras = listRegras(companyId).filter((r) => r.company_id === empresa.id && r.is_active);
       const { coded, rows: out } = applyRules(parsed, regras, '9999');
       const pending = out.length - coded;
       setRows(out);
@@ -451,7 +474,7 @@ function UploadPanel({ showToast }) {
         total: out.length,
         coded,
         pending,
-      });
+      }, companyId);
       showToast(`✅ ${coded} codificados, ${pending} pendentes`);
     } catch (err) {
       console.error(err);
@@ -494,7 +517,7 @@ function UploadPanel({ showToast }) {
 
   return (
     <>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.4fr)', gap: 16, marginBottom: 16 }}>
+      <div className="cod-two-col" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.4fr)', gap: 16, marginBottom: 16 }}>
         <Card title="1. Selecione a empresa">
           <Field label="Empresa">
             <Select value={empresaId} onChange={(v) => setEmpresaId(v)}>
@@ -619,9 +642,11 @@ function ConfigPanel({ showToast }) {
 }
 
 function RegrasPanel({ showToast }) {
-  const empresas = useMemo(() => listEmpresas(), []);
+  const companyId = useCompanyId();
+  const empresas  = useMemo(() => listEmpresas(companyId), [companyId]);
   const [filterEmp, setFilterEmp] = useState('');
-  const [regras, setRegras] = useState(() => listRegras());
+  const [regras, setRegras] = useState([]);
+  useEffect(() => { setRegras(listRegras(companyId)); }, [companyId]);
   const [editing, setEditing] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
@@ -638,20 +663,20 @@ function RegrasPanel({ showToast }) {
   };
 
   const handleSave = (values) => {
-    const next = upsertRegra(editing ? { ...values, id: editing.id } : values);
+    const next = upsertRegra(editing ? { ...values, id: editing.id } : values, companyId);
     setRegras(next);
     setShowModal(false);
     showToast('✅ Regra salva!');
   };
 
   const handleToggle = (id, val) => {
-    setRegras(toggleRegra(id, val));
+    setRegras(toggleRegra(id, val, companyId));
     showToast(val ? '✅ Regra ativada' : '🔕 Regra desativada');
   };
 
   const handleDelete = (id) => {
     if (!window.confirm('Remover esta regra?')) return;
-    setRegras(deleteRegra(id));
+    setRegras(deleteRegra(id, companyId));
     showToast('🗑 Regra removida');
   };
 
@@ -730,9 +755,11 @@ function RegraRow({ rule, empName, onToggle, onEdit, onDelete }) {
 }
 
 function ContasPanel({ showToast }) {
-  const empresas = useMemo(() => listEmpresas(), []);
+  const companyId = useCompanyId();
+  const empresas  = useMemo(() => listEmpresas(companyId), [companyId]);
   const [filterEmp, setFilterEmp] = useState('');
-  const [contas, setContas] = useState(() => listContas());
+  const [contas, setContas] = useState([]);
+  useEffect(() => { setContas(listContas(companyId)); }, [companyId]);
   const [editing, setEditing] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
@@ -749,7 +776,7 @@ function ContasPanel({ showToast }) {
   };
 
   const handleSave = (values) => {
-    const next = upsertConta(editing ? { ...values, id: editing.id } : values);
+    const next = upsertConta(editing ? { ...values, id: editing.id } : values, companyId);
     setContas(next);
     setShowModal(false);
     showToast('✅ Conta salva!');
@@ -757,7 +784,7 @@ function ContasPanel({ showToast }) {
 
   const handleDelete = (id) => {
     if (!window.confirm('Remover esta conta?')) return;
-    setContas(deleteConta(id));
+    setContas(deleteConta(id, companyId));
     showToast('🗑 Conta removida');
   };
 

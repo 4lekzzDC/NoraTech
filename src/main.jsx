@@ -36,18 +36,18 @@ import AnaliseDemonstracoesPage from './modules/solucoes-contabeis/sistemas/anal
 import TransformadorExtratoPage from './modules/solucoes-contabeis/sistemas/transformador-extrato/TransformadorExtratoPage.jsx'
 import AdminRoute from './components/AdminRoute.jsx'
 import SubscriptionRoute from './components/SubscriptionRoute.jsx'
+import OrgManagerRoute from './components/OrgManagerRoute.jsx'
+import LoadingScreen from './components/LoadingScreen.jsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
 import { ThemeProvider } from './contexts/ThemeContext.jsx'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
-  if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#08080a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 32, height: 32, border: '2px solid rgba(124, 58, 237,0.2)', borderTopColor: '#7C3AED', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  )
-  return user ? children : <Navigate to="/login" replace />
+  // Fast-path: if user is already known (navigation between protected routes)
+  // skip the loading screen — no need to wait for re-validation.
+  if (user) return children
+  if (loading) return <LoadingScreen />
+  return <Navigate to="/login" replace />
 }
 
 // Wrapper que aplica o gate de assinatura `solucoes-contabeis` (aceita
@@ -78,7 +78,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/registro" element={<RegisterPage />} />
           <Route path="/perfil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/area-do-cliente" element={<ProtectedRoute><AreaDoClientePage /></ProtectedRoute>} />
-          <Route path="/area-do-cliente/financeiro" element={<ProtectedRoute><FinanceiroPage /></ProtectedRoute>} />
+          <Route path="/area-do-cliente/financeiro" element={<OrgManagerRoute><FinanceiroPage /></OrgManagerRoute>} />
           <Route path="/admin" element={<AdminRoute><AdminOverviewPage /></AdminRoute>} />
           <Route path="/admin/usuarios" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
           <Route path="/admin/empresas" element={<AdminRoute><AdminCompaniesPage /></AdminRoute>} />

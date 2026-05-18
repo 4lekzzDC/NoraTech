@@ -248,25 +248,29 @@ export function exportToXlsx(rows) {
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Histórico — localStorage (fiel ao legado: chave 'te_history', máx 50)
+// Histórico — localStorage isolado por organização (máx 50 entradas)
 // ──────────────────────────────────────────────────────────────────────
 
 const TE_HISTORY_KEY = 'te_history';
 const MAX_HISTORY = 50;
 
-export function loadHistory() {
-  try { return JSON.parse(localStorage.getItem(TE_HISTORY_KEY) || '[]'); }
+function teKey(companyId) {
+  return companyId ? `${TE_HISTORY_KEY}_${companyId}` : TE_HISTORY_KEY;
+}
+
+export function loadHistory(companyId) {
+  try { return JSON.parse(localStorage.getItem(teKey(companyId)) || '[]'); }
   catch { return []; }
 }
 
-export function pushHistory(entry, current) {
+export function pushHistory(entry, current, companyId) {
   const next = [entry, ...current].slice(0, MAX_HISTORY);
-  localStorage.setItem(TE_HISTORY_KEY, JSON.stringify(next));
+  localStorage.setItem(teKey(companyId), JSON.stringify(next));
   return next;
 }
 
-export function clearHistory() {
-  localStorage.removeItem(TE_HISTORY_KEY);
+export function clearHistory(companyId) {
+  localStorage.removeItem(teKey(companyId));
   return [];
 }
 

@@ -548,7 +548,7 @@ function RightPanel({ P, isDark, active, activeId, onSelect, onNavigate }) {
         </div>
 
         {/* Ghost illustration */}
-        <div style={{ color: P.primaryText, opacity: 0.12, flexShrink: 0, zIndex: 1, pointerEvents: 'none' }}>
+        <div className="contabil-banner-ghost" style={{ color: P.primaryText, opacity: 0.12, flexShrink: 0, zIndex: 1, pointerEvents: 'none' }}>
           <active.TabIcon size={86} />
         </div>
       </div>
@@ -576,11 +576,7 @@ function RightPanel({ P, isDark, active, activeId, onSelect, onNavigate }) {
       </div>
 
       {/* System cards grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: 14,
-      }}>
+      <div className="contabil-sys-grid">
         {active.items.map((item, i) => (
           <SystemCard
             key={item.slug ?? `soon-${i}`}
@@ -656,6 +652,11 @@ export default function ContabilPage() {
         button { font-family: inherit; }
         .contabil-layout { display: grid; grid-template-columns: 282px 1fr; gap: 20px; align-items: start; }
         @media (max-width: 900px) { .contabil-layout { grid-template-columns: 1fr; } .contabil-sidebar { display: none !important; } }
+        .contabil-sys-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        @media (max-width: 860px) { .contabil-sys-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+        @media (max-width: 480px) { .contabil-sys-grid { grid-template-columns: 1fr !important; } }
+        @media (max-width: 640px) { .contabil-banner-ghost { display: none !important; } .contabil-banner { padding: 18px 20px !important; } }
+        @media (max-width: 560px) { .contabil-main { padding: 16px 16px 64px !important; } }
       `}</style>
 
       {isDark && (
@@ -667,7 +668,7 @@ export default function ContabilPage() {
 
       <SolucoesHeader />
 
-      <main style={{ maxWidth: 1300, margin: '0 auto', padding: '28px 28px 64px', position: 'relative', zIndex: 1 }}>
+      <main className="contabil-main" style={{ maxWidth: 1300, margin: '0 auto', padding: '28px 28px 64px', position: 'relative', zIndex: 1 }}>
         <div className="contabil-layout">
           <LeftSidebar P={P} isDark={isDark} stats={stats} user={user} />
           <RightPanel
