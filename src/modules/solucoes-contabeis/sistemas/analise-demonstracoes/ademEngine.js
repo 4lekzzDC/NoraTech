@@ -155,16 +155,20 @@ export function processAll(raw) {
 
 const ADEM_KEY = 'adem_data';
 
-export function saveParsed(parsed) {
-  try { localStorage.setItem(ADEM_KEY, JSON.stringify(parsed)); } catch { /* quota */ }
+function ademKey(companyId) {
+  return companyId ? `${ADEM_KEY}_${companyId}` : ADEM_KEY;
 }
 
-export function loadParsed() {
-  try { return JSON.parse(localStorage.getItem(ADEM_KEY) || 'null'); } catch { return null; }
+export function saveParsed(parsed, companyId) {
+  try { localStorage.setItem(ademKey(companyId), JSON.stringify(parsed)); } catch { /* quota */ }
 }
 
-export function clearParsed() {
-  localStorage.removeItem(ADEM_KEY);
+export function loadParsed(companyId) {
+  try { return JSON.parse(localStorage.getItem(ademKey(companyId)) || 'null'); } catch { return null; }
+}
+
+export function clearParsed(companyId) {
+  localStorage.removeItem(ademKey(companyId));
 }
 
 // ──────────────────────────────────────────────────────────────────────

@@ -38,7 +38,7 @@ async function fetchProfileRow(authUser) {
     .eq('id', authUser.id)
     .maybeSingle();
   if (error && error.code !== 'PGRST116') {
-    console.warn('Falha ao carregar perfil:', error);
+    console.error('[Auth] fetchProfileRow error:', error);
   }
   return data;
 }
@@ -47,27 +47,68 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // loadUser nunca deve lançar — erros são absorvidos aqui para não
+  // deixar o caller (getSession / onAuthStateChange) sem um finally seguro.
   const loadUser = useCallback(async (authUser) => {
     if (!authUser) { setUser(null); return; }
-    const profile = await fetchProfileRow(authUser);
-    setUser(mapProfile(authUser, profile));
+    try {
+      const profile = await fetchProfileRow(authUser);
+      setUser(mapProfile(authUser, profile));
+    } catch (err) {
+      console.error('[Auth] loadUser failed, using auth data only:', err);
+      // Fallback: usa dados do authUser sem perfil para não bloquear o app
+      setUser(mapProfile(authUser, null));
+    }
   }, []);
 
   useEffect(() => {
     let active = true;
+    // Tracks whether the first auth event has been processed and loading resolved.
+    // Prevents double-processing when both INITIAL_SESSION and getSession race.
+    let resolved = false;
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    const resolve = () => {
+      if (!resolved && active) {
+        resolved = true;
+        setLoading(false);
+        console.debug('[Auth] Session resolved, loading cleared.');
+      }
+    };
+
+    // Single source of truth: onAuthStateChange fires INITIAL_SESSION as its
+    // very first event (Supabase v2), giving us the cached session from
+    // localStorage immediately — no extra network call needed.
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!active) return;
-      await loadUser(session?.user ?? null);
-      setLoading(false);
+      console.debug('[Auth] onAuthStateChange:', event, session ? 'session present' : 'no session');
+      try {
+        await loadUser(session?.user ?? null);
+      } catch (err) {
+        console.error('[Auth] onAuthStateChange loadUser failed:', err);
+        if (active) setUser(null);
+      } finally {
+        // Always resolve loading after the first event (INITIAL_SESSION).
+        // Subsequent events (SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED) don't
+        // need to touch loading — they just update user state.
+        resolve();
+      }
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!active) return;
-      await loadUser(session?.user ?? null);
-    });
+    // Hard fallback: if onAuthStateChange never fires within 15s (extreme edge
+    // case — e.g. Supabase client never initialises), unblock the UI.
+    const fallback = setTimeout(() => {
+      if (!resolved) {
+        console.warn('[Auth] Session check fallback timeout (15s). Clearing loading.');
+        if (active) setUser(null);
+        resolve();
+      }
+    }, 15000);
 
-    return () => { active = false; sub.subscription.unsubscribe(); };
+    return () => {
+      active = false;
+      clearTimeout(fallback);
+      sub.subscription.unsubscribe();
+    };
   }, [loadUser]);
 
   const login = useCallback(async (email, password) => {
@@ -100,7 +141,7 @@ export function AuthProvider({ children }) {
           { onConflict: 'id' }
         );
       if (profileError) {
-        console.warn('Falha ao criar profile:', profileError);
+        console.warn('[Auth] Falha ao criar profile:', profileError);
       }
     }
 

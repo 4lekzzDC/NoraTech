@@ -1,4 +1,4 @@
-import { createContext, useContext, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import SolucoesHeader from '../../components/SolucoesHeader';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
@@ -6,10 +6,13 @@ import {
   parseFile, processGroups, getStatus,
   exportToXlsx, fmtBRL, loadLastSummary, saveLastSummary,
 } from './cfornEngine';
+import { getCurrentTenantCompanyId } from '../../../../lib/subscriptions';
 
 // ── Palette context ──────────────────────────────────────────────────
-const PaletteCtx = createContext(null);
-const useP = () => useContext(PaletteCtx);
+const PaletteCtx   = createContext(null);
+const useP         = () => useContext(PaletteCtx);
+const CompanyCtx   = createContext(null);
+const useCompanyId = () => useContext(CompanyCtx);
 
 // ── Shared UI ────────────────────────────────────────────────────────
 function NavBtn({ active, onClick, children }) {
@@ -174,7 +177,8 @@ function HomePanel({ lastSummary, onGoTo }) {
 
 // ── Upload panel ──────────────────────────────────────────────────────
 function UploadPanel({ onProcessed }) {
-  const P = useP();
+  const P         = useP();
+  const companyId = useCompanyId();
   const [processing, setProcessing] = useState(false);
   const [fileName,   setFileName]   = useState('');
   const [preview,    setPreview]    = useState(null); // { txs, count }
@@ -202,7 +206,7 @@ function UploadPanel({ onProcessed }) {
   const handleProcess = () => {
     if (!preview) return;
     const groups = processGroups(preview.txs);
-    const summary = saveLastSummary(groups);
+    const summary = saveLastSummary(groups, companyId);
     onProcessed({ groups, transactions: preview.txs, summary });
   };
 
@@ -451,9 +455,19 @@ export default function ConciliadorFornecedoresPage() {
   const { theme } = useTheme();
   const P = getPalette(theme);
 
+  const [companyId,   setCompanyId]   = useState(undefined); // undefined = loading; null = loaded, no org
+  useEffect(() => {
+    getCurrentTenantCompanyId().then(id => setCompanyId(id || null)).catch(() => setCompanyId(null));
+  }, []);
+
   const [panel,       setPanel]       = useState('home');
-  const [lastSummary, setLastSummary] = useState(() => loadLastSummary());
+  const [lastSummary, setLastSummary] = useState(null);
   const [result,      setResult]      = useState(null); // { groups, transactions }
+
+  useEffect(() => {
+    if (companyId === undefined) return;
+    setLastSummary(loadLastSummary(companyId));
+  }, [companyId]);
 
   const handleProcessed = ({ groups, transactions, summary }) => {
     setResult({ groups, transactions });
@@ -468,6 +482,7 @@ export default function ConciliadorFornecedoresPage() {
   ];
 
   return (
+    <CompanyCtx.Provider value={companyId}>
     <PaletteCtx.Provider value={P}>
       <div style={{ minHeight: '100vh', background: P.bg, color: P.text, fontFamily: FONT_INTER }}>
         <style>{`
@@ -501,16 +516,25 @@ export default function ConciliadorFornecedoresPage() {
             ))}
           </div>
 
-          {panel === 'home'      && <HomePanel lastSummary={lastSummary} onGoTo={setPanel} />}
-          {panel === 'upload'    && <UploadPanel onProcessed={handleProcessed} />}
-          {panel === 'resultado' && result && <ResultPanel groups={result.groups} transactions={result.transactions} />}
-          {panel === 'resultado' && !result && (
-            <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 14, padding: '48px 24px', textAlign: 'center', color: P.muted, fontSize: '0.9rem' }}>
-              Nenhuma análise realizada ainda. Carregue um arquivo de razão para começar.
+          {companyId === undefined ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0', color: P.muted, fontSize: 14 }}>
+              Carregando dados da organização...
             </div>
+          ) : (
+            <>
+              {panel === 'home'      && <HomePanel lastSummary={lastSummary} onGoTo={setPanel} />}
+              {panel === 'upload'    && <UploadPanel onProcessed={handleProcessed} />}
+              {panel === 'resultado' && result && <ResultPanel groups={result.groups} transactions={result.transactions} />}
+              {panel === 'resultado' && !result && (
+                <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 14, padding: '48px 24px', textAlign: 'center', color: P.muted, fontSize: '0.9rem' }}>
+                  Nenhuma análise realizada ainda. Carregue um arquivo de razão para começar.
+                </div>
+              )}
+            </>
           )}
         </main>
       </div>
     </PaletteCtx.Provider>
+    </CompanyCtx.Provider>
   );
 }

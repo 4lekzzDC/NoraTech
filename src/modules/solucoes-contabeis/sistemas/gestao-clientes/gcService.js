@@ -1,8 +1,9 @@
 // Serviço da Gestão de Clientes — localStorage, sem React, sem DOM.
 // Porta fiel das funções gc* do Autonomy (dashboard.html 4561-5005).
 //
-// Chave localStorage (compartilhada com todos os sistemas):
-//   gestao_clientes → array de clientes
+// Chave localStorage isolada por organização:
+//   gestao_clientes_<companyId> → array de clientes
+// Quando companyId é omitido cai no bucket global (modo demo/sem empresa).
 
 // ──────────────────────────────────────────────────────────────────────
 // Constantes
@@ -19,28 +20,41 @@ export const TRIBUT_COLORS = {
 export const TRIBUT_OPTIONS = ['MEI', 'Simples Nacional', 'Lucro Presumido', 'Lucro Real'];
 
 // ──────────────────────────────────────────────────────────────────────
+// Chave com escopo por organização
+// ──────────────────────────────────────────────────────────────────────
+
+function gcKey(companyId) {
+  return companyId ? `gestao_clientes_${companyId}` : 'gestao_clientes';
+}
+
+// chave do cod_banks (codificador.service) — deve ser idêntica ao formato lá
+function banksKey(companyId) {
+  return companyId ? `cod_banks_${companyId}` : 'cod_banks';
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Storage
 // ──────────────────────────────────────────────────────────────────────
 
-export function getAll() {
-  try { return JSON.parse(localStorage.getItem('gestao_clientes') || '[]'); }
+export function getAll(companyId) {
+  try { return JSON.parse(localStorage.getItem(gcKey(companyId)) || '[]'); }
   catch { return []; }
 }
 
-export function saveAll(v) {
-  localStorage.setItem('gestao_clientes', JSON.stringify(v));
+export function saveAll(v, companyId) {
+  localStorage.setItem(gcKey(companyId), JSON.stringify(v));
 }
 
-export function getClientes() {
-  return getAll();
+export function getClientes(companyId) {
+  return getAll(companyId);
 }
 
-export function saveCliente(data, id) {
-  const lista = getAll();
+export function saveCliente(data, id, companyId) {
+  const lista = getAll(companyId);
   if (id) {
     const i = lista.findIndex((c) => c.id === id);
     if (i > -1) lista[i] = { ...lista[i], ...data, updated_at: new Date().toISOString() };
-    saveAll(lista);
+    saveAll(lista, companyId);
     return lista[i >= 0 ? i : 0];
   } else {
     const obj = {
@@ -50,20 +64,20 @@ export function saveCliente(data, id) {
       updated_at: new Date().toISOString(),
     };
     lista.push(obj);
-    saveAll(lista);
+    saveAll(lista, companyId);
     return obj;
   }
 }
 
-export function deleteCliente(id) {
-  saveAll(getAll().filter((c) => c.id !== id));
+export function deleteCliente(id, companyId) {
+  saveAll(getAll(companyId).filter((c) => c.id !== id), companyId);
 }
 
 // ──────────────────────────────────────────────────────────────────────
 // Geocoding (Nominatim — background, non-blocking)
 // ──────────────────────────────────────────────────────────────────────
 
-export async function geocode(cliente) {
+export async function geocode(cliente, companyId) {
   async function tryQ(q) {
     try {
       const r = await fetch(
@@ -102,13 +116,13 @@ export async function geocode(cliente) {
   for (let qi = 0; qi < queries.length; qi++) {
     const coords = await tryQ(queries[qi]);
     if (coords) {
-      const lista = getAll();
+      const lista = getAll(companyId);
       const i = lista.findIndex((c) => c.id === cliente.id);
       if (i > -1) {
         lista[i].lat       = coords.lat;
         lista[i].lng       = coords.lng;
         lista[i].geo_level = LEVELS[qi] ?? 'city';
-        saveAll(lista);
+        saveAll(lista, companyId);
       }
       return coords;
     }
@@ -166,9 +180,9 @@ export async function buscarCEP(cep) {
 // Contas bancárias (via Codificador de Extrato)
 // ──────────────────────────────────────────────────────────────────────
 
-export function getBancos(clienteId) {
+export function getBancos(clienteId, companyId) {
   try {
-    const banks = JSON.parse(localStorage.getItem('cod_banks') || '[]');
+    const banks = JSON.parse(localStorage.getItem(banksKey(companyId)) || '[]');
     return banks.filter((b) => b.company_id === clienteId);
   } catch { return []; }
 }

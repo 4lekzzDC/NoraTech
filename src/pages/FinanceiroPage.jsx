@@ -124,7 +124,7 @@ function SupportModal({ onClose, P, theme }) {
       <section
         role="dialog" aria-modal="true" aria-label="Suporte financeiro"
         className="fin-supp-box"
-        style={{ width: 'min(500px, 100%)', background: modalBg, border: `1px solid ${borderClr}`, borderRadius: 20, boxShadow: '0 28px 80px rgba(0,0,0,0.55)', overflow: 'hidden', color: textClr, fontFamily: FONT_INTER, position: 'relative' }}>
+        style={{ width: 'min(500px, 100%)', maxHeight: '90vh', overflowY: 'auto', background: modalBg, border: `1px solid ${borderClr}`, borderRadius: 20, boxShadow: '0 28px 80px rgba(0,0,0,0.55)', color: textClr, fontFamily: FONT_INTER, position: 'relative' }}>
 
         {/* Header */}
         <div style={{ padding: '24px 28px 20px', borderBottom: `1px solid ${sepClr}` }}>
@@ -360,7 +360,7 @@ function PaymentModal({ onClose, P, theme }) {
       <section
         role="dialog" aria-modal="true" aria-label="Forma de pagamento"
         className="fin-modal-box"
-        style={{ width: 'min(560px, 100%)', background: modalBg, border: `1px solid ${borderClr}`, borderRadius: 20, boxShadow: '0 28px 80px rgba(0,0,0,0.55)', overflow: 'hidden', color: textClr, fontFamily: FONT_INTER, position: 'relative' }}>
+        style={{ width: 'min(560px, 100%)', maxHeight: '90vh', overflowY: 'auto', background: modalBg, border: `1px solid ${borderClr}`, borderRadius: 20, boxShadow: '0 28px 80px rgba(0,0,0,0.55)', color: textClr, fontFamily: FONT_INTER, position: 'relative' }}>
 
         {/* Header */}
         <div style={{ padding: '24px 28px 20px', borderBottom: `1px solid ${sepClr}` }}>
@@ -490,9 +490,11 @@ function FinanceiroHeader({ isAdmin }) {
         .fin-toggle-slot button.theme-toggle:hover,.fin-toggle-slot [class*="theme-toggle"]:hover { background:rgba(139,61,255,0.14)!important;border-color:#8B3DFF!important; }
         .fin-admin-btn { display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1px solid rgba(124,58,237,0.4);background:rgba(124,58,237,0.1);color:#a78bfa;font-size:0.75rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;text-decoration:none;transition:background 0.15s,border-color 0.15s; }
         .fin-admin-btn:hover { background:rgba(124,58,237,0.2);border-color:rgba(124,58,237,0.6); }
+        .fin-header-inner { max-width:1240px;margin:0 auto;padding:0 32px;height:60px;display:flex;align-items:center;justify-content:space-between;gap:16px; }
+        @media (max-width:640px) { .fin-header-inner { padding:0 14px!important; } .fin-crumb-link,.fin-crumb-sep { display:none!important; } .fin-admin-btn { display:none!important; } }
       `}</style>
       <header className="fin-header">
-        <div style={{ maxWidth: 1240, margin: '0 auto', padding: '0 32px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+        <div className="fin-header-inner">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
             <Link to="/area-do-cliente" aria-label="Voltar à Central de Controle" className="fin-back">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>

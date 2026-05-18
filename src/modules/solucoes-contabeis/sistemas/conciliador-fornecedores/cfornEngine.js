@@ -239,12 +239,16 @@ export function exportToXlsx(groups, transactions) {
 
 const SUMMARY_KEY = 'cfornLastSummary';
 
-export function loadLastSummary() {
-  try { return JSON.parse(localStorage.getItem(SUMMARY_KEY) || 'null'); }
+function cfornKey(companyId) {
+  return companyId ? `${SUMMARY_KEY}_${companyId}` : SUMMARY_KEY;
+}
+
+export function loadLastSummary(companyId) {
+  try { return JSON.parse(localStorage.getItem(cfornKey(companyId)) || 'null'); }
   catch { return null; }
 }
 
-export function saveLastSummary(groups) {
+export function saveLastSummary(groups, companyId) {
   const summary = {
     date:     new Date().toISOString(),
     total:    groups.length,
@@ -252,7 +256,7 @@ export function saveLastSummary(groups) {
     pendente: groups.filter((g) => getStatus(g) === 'pendente').length,
     excesso:  groups.filter((g) => getStatus(g) === 'excesso').length,
   };
-  localStorage.setItem(SUMMARY_KEY, JSON.stringify(summary));
+  localStorage.setItem(cfornKey(companyId), JSON.stringify(summary));
   return summary;
 }
 

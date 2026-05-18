@@ -141,6 +141,10 @@ export default function SolucoesHeader() {
           max-width: 360px;
         }
         .sc-mono { font-family: 'JetBrains Mono', monospace; letter-spacing: -0.2px; }
+        @media (max-width: 640px) {
+          .sc-header-inner { padding: 0 14px !important; }
+          .sc-crumb-wrap:not(:last-child) { display: none !important; }
+        }
         .sc-right {
           display: flex;
           align-items: center;

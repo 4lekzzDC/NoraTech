@@ -10,6 +10,7 @@ import {
   getClientes, saveCliente, deleteCliente,
   getBancos, buscarCNPJ, buscarCEP, geocode,
 } from './gcService';
+import { getCurrentTenantCompanyId } from '../../../../lib/subscriptions';
 
 Chart.register(...registerables);
 
@@ -78,9 +79,11 @@ function IClock({ size = 13, color = 'currentColor' }) {
   );
 }
 
-// ── Palette context ────────────────────────────────────────────────────────────
+// ── Contexts ───────────────────────────────────────────────────────────────────
 const PaletteCtx = createContext(null);
-const useP = () => useContext(PaletteCtx);
+const useP        = () => useContext(PaletteCtx);
+const CompanyCtx  = createContext(null);
+const useCompanyId = () => useContext(CompanyCtx);
 
 // ── Toast ──────────────────────────────────────────────────────────────────────
 function Toast({ msg, onDone }) {
@@ -246,7 +249,8 @@ function ClientInitials({ name }) {
 
 // ── Home panel ─────────────────────────────────────────────────────────────────
 function HomePanel({ clientes, isDark, onGo, onRefresh }) {
-  const p = useP();
+  const p         = useP();
+  const companyId = useCompanyId();
   const [chartTab, setChartTab] = useState('tribut');
 
   const ativos   = clientes.filter((c) => c.status !== 'inativo').length;
@@ -273,7 +277,7 @@ function HomePanel({ clientes, isDark, onGo, onRefresh }) {
     (async () => {
       for (const c of queue) {
         if (cancelled) break;
-        await geocode(c);
+        await geocode(c, companyId);
         await new Promise((r) => setTimeout(r, 1100));
       }
       if (!cancelled) onRefresh?.();
@@ -536,8 +540,9 @@ function IconBtn({ children, onClick, title, danger }) {
 
 // ── Perfil panel ───────────────────────────────────────────────────────────────
 function PerfilPanel({ cliente, onEdit, onBack }) {
-  const p = useP();
-  const bancos = useMemo(() => getBancos(cliente.id), [cliente.id]);
+  const p         = useP();
+  const companyId = useCompanyId();
+  const bancos    = useMemo(() => getBancos(cliente.id, companyId), [cliente.id, companyId]);
 
   function Row({ label, value }) {
     if (!value) return null;
@@ -664,7 +669,8 @@ const EMPTY_FORM = {
 };
 
 function ClienteModal({ clienteId, clientes, onClose, onSaved, onToast }) {
-  const p = useP();
+  const p         = useP();
+  const companyId = useCompanyId();
   const existing = clienteId ? clientes.find((c) => c.id === clienteId) : null;
   const [form, setForm] = useState(existing ? { ...EMPTY_FORM, ...existing } : { ...EMPTY_FORM });
   const [loading, setLoading] = useState('');
@@ -705,10 +711,10 @@ function ClienteModal({ clienteId, clientes, onClose, onSaved, onToast }) {
   async function handleSave() {
     if (!form.name.trim()) { onToast('Informe a Razão Social'); return; }
     const data = { ...form, socios: form.socios.filter((s) => s.nome) };
-    const saved = saveCliente(data, clienteId || null);
+    const saved = saveCliente(data, clienteId || null, companyId);
     onSaved();
     onToast('Cliente salvo! Disponível em todos os sistemas.');
-    if (saved.cidade && !saved.lat) geocode(saved).then(() => onSaved());
+    if (saved.cidade && !saved.lat) geocode(saved, companyId).then(() => onSaved());
     onClose();
   }
 
@@ -872,6 +878,12 @@ export function GestaoClientesContent() {
   const p         = useMemo(() => getPalette(theme), [theme]);
   const isDark    = theme === 'dark';
 
+  const [companyId, setCompanyId] = useState(undefined); // undefined = loading; null = loaded, no org
+
+  useEffect(() => {
+    getCurrentTenantCompanyId().then(id => setCompanyId(id || null)).catch(() => setCompanyId(null));
+  }, []);
+
   useEffect(() => {
     const id = 'gc-inter-font';
     if (!document.getElementById(id)) {
@@ -888,7 +900,10 @@ export function GestaoClientesContent() {
   const [perfil, setPerfil] = useState(null);
   const [toast,  setToast]  = useState('');
 
-  const clientes = useMemo(() => getClientes(), [tick]);
+  const clientes = useMemo(
+    () => companyId !== undefined ? getClientes(companyId) : [],
+    [tick, companyId]
+  );
   const refresh  = useCallback(() => setTick((t) => t + 1), []);
 
   function handleEdit(id)   { setModal(id || 'new'); }
@@ -899,7 +914,7 @@ export function GestaoClientesContent() {
     const c = clientes.find((x) => x.id === id);
     if (!c) return;
     if (!window.confirm(`Remover "${c.name}"? Isso também o removerá dos demais sistemas.`)) return;
-    deleteCliente(id);
+    deleteCliente(id, companyId);
     refresh();
     setToast('Cliente removido.');
   }
@@ -908,6 +923,7 @@ export function GestaoClientesContent() {
   const activePanels  = [...PANELS, ...(perfilCliente ? [{ id: 'perfil', label: 'Perfil' }] : [])];
 
   return (
+    <CompanyCtx.Provider value={companyId}>
     <PaletteCtx.Provider value={p}>
       <style>{`@keyframes fadeIn { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:none } }
       `}</style>
@@ -929,23 +945,31 @@ export function GestaoClientesContent() {
 
       {/* Content */}
       <div style={{ fontFamily: FONT_INTER }}>
-        {panel === 'home' && (
-          <HomePanel clientes={clientes} isDark={isDark} onGo={(pId) => setPanel(pId)} onRefresh={refresh} />
-        )}
-        {panel === 'clientes' && (
-          <ClientesPanel
-            clientes={clientes}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onPerfil={handlePerfil}
-          />
-        )}
-        {panel === 'perfil' && perfilCliente && (
-          <PerfilPanel
-            cliente={perfilCliente}
-            onEdit={handleEdit}
-            onBack={handleBack}
-          />
+        {companyId === undefined ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0', color: p.muted, fontSize: 14 }}>
+            Carregando dados da organização...
+          </div>
+        ) : (
+          <>
+            {panel === 'home' && (
+              <HomePanel clientes={clientes} isDark={isDark} onGo={(pId) => setPanel(pId)} onRefresh={refresh} />
+            )}
+            {panel === 'clientes' && (
+              <ClientesPanel
+                clientes={clientes}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onPerfil={handlePerfil}
+              />
+            )}
+            {panel === 'perfil' && perfilCliente && (
+              <PerfilPanel
+                cliente={perfilCliente}
+                onEdit={handleEdit}
+                onBack={handleBack}
+              />
+            )}
+          </>
         )}
       </div>
 
@@ -960,6 +984,7 @@ export function GestaoClientesContent() {
       )}
       <Toast msg={toast} onDone={() => setToast('')} />
     </PaletteCtx.Provider>
+    </CompanyCtx.Provider>
   );
 }
 
