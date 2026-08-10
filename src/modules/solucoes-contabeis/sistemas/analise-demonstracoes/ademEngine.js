@@ -224,6 +224,36 @@ function findValue(items, keywords, opts) {
 // Parse de cada demonstração
 // ──────────────────────────────────────────────────────────────────────
 
+// Coleta as linhas-folha negativas da DRE junto com a seção de primeiro nível
+// a que pertencem. Os totais agregados respondem "quanto gastou"; só as linhas
+// individuais respondem "onde está gastando".
+function collectLancamentos(items) {
+  if (!items.length) return [];
+  const rootIndent = Math.min(...items.map((i) => i.indent));
+  const out = [];
+  let secao = '';
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item.indent === rootIndent) { secao = item.labelRaw; continue; }
+    const isLeaf = !(i + 1 < items.length && items[i + 1].indent > item.indent);
+    if (!isLeaf) continue;
+    const val = ownValue(item);
+    if (val >= 0) continue;
+    out.push({ desc: item.labelRaw, grupo: secao, valor: Math.abs(val) });
+  }
+  return out.sort((a, b) => b.valor - a.valor);
+}
+
+// Grupos que não são "despesa do negócio" na leitura do empresário: imposto
+// sobre venda e custo da mercadoria já aparecem como etapas próprias no fluxo.
+const GRUPO_NAO_DESPESA = /deduç|dedu[cç]|imposto|cmv|cpv|custo|irpj|csll/i;
+
+export function buildTopDespesas(dre, limite = 8) {
+  const lanc = dre?.lancamentos;
+  if (!Array.isArray(lanc) || !lanc.length) return [];
+  return lanc.filter((l) => !GRUPO_NAO_DESPESA.test(l.grupo || '')).slice(0, limite);
+}
+
 export function parseDRE(rows) {
   const items = buildItems(rows);
   const v = (keywords, opts) => findValue(items, keywords, opts);
@@ -250,6 +280,7 @@ export function parseDRE(rows) {
     margemBruta:  recLiquida ? lucroBruto / recLiquida : 0,
     margemLiq:    recLiquida ? lucroLiq   / recLiquida : 0,
     margemEbitda: recLiquida ? ebitda     / recLiquida : 0,
+    lancamentos: collectLancamentos(items),
   };
 }
 
@@ -306,11 +337,43 @@ export function parseBalancete(rows) {
     }
     if (debito === 0 && credito === 0 && saldo === 0) continue;
 
-    contas.push({ cod: item.code, desc: item.labelRaw, debito, credito, saldo: Math.abs(saldo) });
+    // Com 4 colunas o layout é [saldo anterior, débito, crédito, saldo atual]:
+    // aí (e só aí) existe uma ponta "antes" confiável para comparar.
+    const saldoAnterior = vals.length >= 4 ? Math.abs(vals[0]) : null;
+
+    contas.push({ cod: item.code, desc: item.labelRaw, debito, credito, saldo: Math.abs(saldo), saldoAnterior });
   }
 
   contas.sort((a, b) => b.saldo - a.saldo);
   return { contas };
+}
+
+// Reconstrói um "início do período × fim do período" das contas patrimoniais
+// a partir do Balancete — a única das três demonstrações que traz as duas
+// pontas na mesma linha. É o que sustenta o "melhorou ou piorou" sem inventar
+// série histórica: quando o arquivo não tem a coluna de saldo anterior, cada
+// item vira null e a seção simplesmente não é exibida.
+export function parseEvolucao(rows) {
+  const items = buildItems(rows);
+  const par = (keywords, opts) => {
+    const idx = findItemIndex(items, keywords, opts);
+    if (idx === -1) return null;
+    const v = items[idx].values;
+    if (v.length < 4) return null;
+    const antes = Math.abs(v[0]);
+    const agora = Math.abs(v[v.length - 1]);
+    if (antes === 0 && agora === 0) return null;
+    return { antes, agora };
+  };
+
+  return {
+    ativoTotal:    par(['ativo total', 'total do ativo', 'total ativo', 'ativo']),
+    caixa:         par(['disponível', 'disponibilidades', 'caixa e equivalentes', 'caixa', 'bancos']),
+    contasReceber: par(['contas a receber', 'clientes', 'duplicatas a receber']),
+    estoques:      par(['estoque', 'estoques']),
+    fornecedores:  par(['fornecedores', 'contas a pagar']),
+    pl:            par(['patrimônio líquido', 'patrimonio liquido', 'total patrimônio', 'total do patrimônio']),
+  };
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -415,10 +478,133 @@ export async function loadFile(file) {
 
 export function processAll(raw) {
   return {
-    dre:       raw.dre       ? parseDRE(raw.dre)           : null,
-    balanco:   raw.balanco   ? parseBalanco(raw.balanco)   : null,
+    dre:       raw.dre       ? parseDRE(raw.dre)             : null,
+    balanco:   raw.balanco   ? parseBalanco(raw.balanco)     : null,
     balancete: raw.balancete ? parseBalancete(raw.balancete) : null,
+    evolucao:  raw.balancete ? parseEvolucao(raw.balancete)  : null,
   };
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Visão gerencial — traduz os números contábeis para a leitura do
+// empresário: quanto vendeu, quanto gastou, quanto sobrou e como está.
+// ──────────────────────────────────────────────────────────────────────
+
+// O caminho do faturamento até o que sobrou. `outros` fecha a conta entre a
+// sobra da operação e o lucro final (resultado financeiro, receitas/despesas
+// não operacionais) — é calculado como resíduo justamente para o fluxo somar
+// exatamente o lucro líquido apurado, sem dupla contagem.
+export function buildResumo(parsed) {
+  const d = parsed?.dre;
+  if (!d) return null;
+  const faturamento = d.recBruta || d.recLiquida;
+  if (!faturamento) return null;
+
+  const impostos  = d.deducoes;
+  const custos    = d.cmv;
+  const despesas  = d.despOp || (d.despAdmin + d.despVendas + d.despFin);
+  const ir        = d.ir;
+  const resultado = d.lucroLiq;
+
+  const saiu            = impostos + custos + despesas + ir;
+  const sobraOperacao   = faturamento - saiu;
+  const outros          = resultado - sobraOperacao;
+
+  return {
+    faturamento, impostos, custos, despesas, ir, outros, resultado,
+    saiu, sobraOperacao,
+    margem: faturamento ? resultado / faturamento : 0,
+  };
+}
+
+const NIVEL = { bom: 'bom', atencao: 'atencao', critico: 'critico' };
+
+function reais(v) {
+  return 'R$ ' + v.toFixed(2).replace('.', ',');
+}
+
+// Indicadores traduzidos para linguagem de dono de negócio. Os limites são as
+// faixas usuais de análise contábil — servem como leitura rápida, não como
+// parecer: o detalhamento contábil continua disponível na outra aba.
+export function buildDiagnostico(parsed) {
+  const d = parsed?.dre;
+  const b = parsed?.balanco;
+  const out = [];
+
+  if (d && d.recLiquida) {
+    const m = d.margemLiq;
+    out.push({
+      chave:  'margem',
+      label:  'Sobra por venda',
+      valor:  pct(m),
+      status: m < 0 ? NIVEL.critico : m < 0.03 ? NIVEL.atencao : NIVEL.bom,
+      texto:  m < 0
+        ? 'O período fechou no prejuízo: as saídas superaram tudo que entrou.'
+        : `De cada R$ 100 vendidos, sobram ${reais(m * 100)} no fim.`,
+    });
+  }
+
+  if (b && b.passivoCirc) {
+    const l = b.liqCorrente;
+    out.push({
+      chave:  'liquidez',
+      label:  'Fôlego de caixa',
+      valor:  l.toFixed(2).replace('.', ','),
+      status: l < 1 ? NIVEL.critico : l < 1.3 ? NIVEL.atencao : NIVEL.bom,
+      texto:  `Para cada R$ 1 a pagar no curto prazo, a empresa tem ${reais(l)} a receber ou disponível.`,
+    });
+  }
+
+  if (b && b.ativoTotal) {
+    const e = b.endividamento;
+    out.push({
+      chave:  'endividamento',
+      label:  'Grau de endividamento',
+      valor:  pct(e),
+      status: e > 0.8 ? NIVEL.critico : e > 0.6 ? NIVEL.atencao : NIVEL.bom,
+      texto:  `${pct(e)} de tudo que a empresa tem está comprometido com terceiros.`,
+    });
+  }
+
+  if (d && d.recLiquida) {
+    const mb = d.margemBruta;
+    out.push({
+      chave:  'margemBruta',
+      label:  'Margem do produto',
+      valor:  pct(mb),
+      status: mb < 0.1 ? NIVEL.critico : mb < 0.2 ? NIVEL.atencao : NIVEL.bom,
+      texto:  `O que sobra depois de pagar a mercadoria, antes das despesas fixas.`,
+    });
+  }
+
+  return out;
+}
+
+// Linhas de "melhorou ou piorou" já rotuladas e com o sentido correto: para
+// caixa/patrimônio subir é bom, para dívida com fornecedor subir não é.
+// `subirEhBom: null` marca o que é genuinamente ambíguo e por isso fica
+// neutro — estoque e contas a receber podem subir por motivo bom (venda
+// crescendo) ou ruim (parado / cliente não pagando), e o balancete sozinho
+// não distingue os dois casos.
+const EVOLUCAO_LINHAS = [
+  { chave: 'pl',            label: 'Patrimônio líquido',      subirEhBom: true  },
+  { chave: 'caixa',         label: 'Caixa e aplicações',      subirEhBom: true  },
+  { chave: 'contasReceber', label: 'Contas a receber',        subirEhBom: null  },
+  { chave: 'estoques',      label: 'Estoque',                 subirEhBom: null  },
+  { chave: 'fornecedores',  label: 'Dívida com fornecedores', subirEhBom: false },
+];
+
+export function buildEvolucao(parsed) {
+  const ev = parsed?.evolucao;
+  if (!ev) return [];
+  return EVOLUCAO_LINHAS.flatMap(({ chave, label, subirEhBom }) => {
+    const par = ev[chave];
+    if (!par || !par.antes) return [];
+    const delta = (par.agora - par.antes) / par.antes;
+    const subiu = par.agora >= par.antes;
+    const status = subirEhBom === null ? 'neutro' : (subiu === subirEhBom ? 'bom' : 'ruim');
+    return [{ chave, label, ...par, delta, subiu, status }];
+  });
 }
 
 // ──────────────────────────────────────────────────────────────────────
