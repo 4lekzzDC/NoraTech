@@ -21,6 +21,9 @@ export function parseNum(v) {
   let neg = false;
   if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
   if (/-\s*$/.test(s)) { neg = true; s = s.replace(/-\s*$/, ''); }
+  // Balanços em PDF costumam anexar "D"/"C" (Devedor/Credor) direto no valor
+  // (ex: "17.820.535,61D") — é um indicador de natureza contábil, não um sinal.
+  s = s.replace(/\s*[DdCc]\s*$/, '');
   s = s.replace(/[R$\s]/g, '');
   if (s.startsWith('-')) { neg = true; s = s.slice(1); }
   if (s.includes(',') && s.includes('.')) {
@@ -59,15 +62,45 @@ function looksNumeric(cell) {
   if (typeof cell !== 'string') return false;
   const s = cell.trim();
   if (s === '') return false;
-  return /^\(?-?\s*R?\$?\s*-?\d{1,3}(\.\d{3})*(,\d+)?\)?-?$/.test(s) || /^-?\d+(\.\d+)?$/.test(s);
+  return /^\(?-?\s*R?\$?\s*-?\d{1,3}(\.\d{3})*(,\d+)?\)?-?\s*[DdCc]?$/.test(s) || /^-?\d+(\.\d+)?\s*[DdCc]?$/.test(s);
 }
 
 function normalizeLabel(s) {
   return String(s).toLowerCase().replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+// Linhas de cabeçalho/rodapé (título do relatório, dados da empresa, cabeçalho
+// de colunas) nunca são o dado procurado — e em PDFs de várias páginas elas se
+// repetem a cada página, se intercalando entre as linhas de dados de verdade.
+// Se não forem descartadas aqui, uma seção que atravessa uma quebra de página
+// (ex: "DESPESAS ADMINISTRATIVAS" com contas na página 1 e na página 2) tem o
+// somatório de filhos cortado no meio, porque essas linhas de "página nova"
+// ficam no mesmo nível hierárquico raiz e são confundidas com a próxima seção.
+const BOILERPLATE_EXCLUDE = [
+  'demonstração', 'balanço patrimonial', 'sistema licenciado', 'empresa:', 'c.n.p.j',
+  'período:', 'folha:', 'consolidado', 'descrição da conta', 'balanço encerrado',
+];
+
+function isBoilerplate(labelRaw) {
+  const n = normalizeLabel(labelRaw);
+  if (BOILERPLATE_EXCLUDE.some((e) => n.includes(e))) return true;
+  // Linha de cabeçalho de colunas (ex: "Descrição Saldo Soma Total"): só
+  // rótulos de coluna, sem nenhum valor numérico junto.
+  if (/^descrição\b/.test(n) && /\b(saldo|débito|crédito|total|soma)\b/.test(n)) return true;
+  return false;
+}
+
 function buildItems(rows) {
   const items = [];
+  // Em PDFs de várias páginas, o título de uma seção às vezes é reimpresso no
+  // topo da página seguinte para indicar que ela continua (ex: "DESPESAS
+  // ADMINISTRATIVAS" reaparece sem valor antes de mais contas do mesmo
+  // grupo, dezenas de linhas depois do cabeçalho original). Sem tratar isso,
+  // esse "cabeçalho fantasma" fecharia o somatório dos filhos cedo demais.
+  // Uma pilha de cabeçalhos ainda "abertos" (por indentação) deixa detectar
+  // a repetição mesmo não sendo adjacente ao cabeçalho original.
+  const openHeaders = [];
+
   for (const row of rows) {
     if (!row) continue;
     let labelColIdx = -1;
@@ -79,6 +112,7 @@ function buildItems(rows) {
     const raw = String(row[labelColIdx]);
     const labelRaw = raw.trim().replace(/\s+/g, ' ');
     if (!labelRaw || labelRaw.length < 2) continue;
+    if (isBoilerplate(labelRaw)) continue;
     const leadingSpaces = raw.length - raw.replace(/^\s+/, '').length;
     const codeCandidate = labelColIdx > 0 && looksNumeric(row[labelColIdx - 1]) ? String(row[labelColIdx - 1]).trim() : '';
 
@@ -90,7 +124,19 @@ function buildItems(rows) {
       values.push(parseNum(cell));
     }
 
-    items.push({ label: normalizeLabel(labelRaw), labelRaw, indent: labelColIdx * 100 + leadingSpaces, values, code: codeCandidate });
+    const label = normalizeLabel(labelRaw);
+    const indent = labelColIdx * 100 + leadingSpaces;
+
+    let isDuplicateHeader = false;
+    while (openHeaders.length && openHeaders[openHeaders.length - 1].indent >= indent) {
+      const top = openHeaders[openHeaders.length - 1];
+      if (top.indent === indent && top.label === label && values.length === 0) { isDuplicateHeader = true; break; }
+      openHeaders.pop();
+    }
+    if (isDuplicateHeader) continue;
+    if (values.length === 0) openHeaders.push({ label, indent });
+
+    items.push({ label, labelRaw, indent, values, code: codeCandidate });
   }
   return items;
 }
@@ -146,12 +192,6 @@ function resolveValue(items, idx) {
   if (item.values.length > 0) return 0; // linha tem valor explícito zerado — não é cabeçalho
   return rollupChildren(items, idx);
 }
-
-// Linhas de cabeçalho/rodapé (título do relatório, dados da empresa) nunca
-// são o dado procurado, mas podem casualmente conter alguma keyword — por
-// exemplo o título "Demonstração do Resultado do Exercício" contém a frase
-// "resultado do exercício", igual ao rótulo de uma linha de Lucro Líquido.
-const BOILERPLATE_EXCLUDE = ['demonstração', 'balanço patrimonial', 'sistema licenciado', 'empresa:', 'c.n.p.j', 'período:', 'folha:'];
 
 // Localiza o item cujo rótulo casa com alguma keyword (string = substring,
 // array = todas as substrings precisam casar). strategy 'shallowest' (padrão)
@@ -296,17 +336,29 @@ async function getPdfJs() {
   return _pdfjsLib;
 }
 
-const PDF_NUM_TOKEN_RE = /\(?-?\s*R?\$?\s*\d{1,3}(?:\.\d{3})*(?:,\d+)?\s*-?\)?/g;
-
-// Converte uma linha de texto do PDF em uma "pseudo-linha" no mesmo formato
-// das linhas do XLSX: [rótulo (com espaços indicando indentação), valor1, valor2, ...]
-function pdfLineToRow(text, indentSpaces) {
-  const matches = [...text.matchAll(PDF_NUM_TOKEN_RE)];
-  const indent = ' '.repeat(Math.max(0, indentSpaces));
-  if (matches.length === 0) return [indent + text.trim()];
-  const label = text.slice(0, matches[0].index).trim();
-  const nums = matches.map((m) => m[0].trim());
-  return [indent + label, ...nums];
+// Converte os itens de texto de uma linha do PDF (já ordenados por X, cada um
+// como { x, str }) em uma "pseudo-linha" no mesmo formato das linhas do XLSX:
+// [código?, rótulo (com espaços indicando indentação), valor1, valor2, ...].
+// Não dá para simplesmente procurar o primeiro token numérico como início dos
+// valores — várias contas começam com um código numérico (ex: Balancete)
+// antes da descrição, e o próprio rótulo às vezes vem partido em mais de um
+// item de texto. A indentação usa o X do próprio rótulo (não do primeiro
+// item da linha): numa conta com código, o código fica numa coluna fixa que
+// não se desloca com a hierarquia — quem indenta é a descrição.
+function pdfLineToRow(cellItems, minX) {
+  const cells = cellItems.filter((c) => c.str !== '');
+  if (!cells.length) return null;
+  const out = [];
+  let i = 0;
+  while (i < cells.length && looksNumeric(cells[i].str)) { out.push(cells[i].str); i++; }
+  if (i >= cells.length) return out;
+  const labelX = cells[i].x;
+  let label = cells[i].str; i++;
+  while (i < cells.length && !looksNumeric(cells[i].str)) { label += ' ' + cells[i].str; i++; }
+  const indentSpaces = Math.max(0, Math.round((labelX - minX) / 6));
+  out.push(' '.repeat(indentSpaces) + label);
+  out.push(...cells.slice(i).map((c) => c.str));
+  return out;
 }
 
 export async function loadPdfFile(file) {
@@ -314,32 +366,41 @@ export async function loadPdfFile(file) {
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
 
-  const lines = [];
+  // O pdfjs entrega os itens de texto na ordem do content stream do PDF, que
+  // NÃO é necessariamente a ordem visual esquerda→direita (relatórios
+  // contábeis exportados costumam desenhar a coluna de total antes do rótulo,
+  // por exemplo). Por isso agrupamos por posição Y (mesma linha visual) e só
+  // então ordenamos os itens de cada linha por X antes de juntar o texto.
+  const allBuckets = [];
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p);
     const content = await page.getTextContent();
 
-    let lastY = null;
-    let current = null;
+    const buckets = [];
     content.items.forEach((item) => {
+      const str = item.str;
+      if (!str || !str.trim()) return;
       const x = item.transform[4];
       const y = Math.round(item.transform[5]);
-      if (lastY !== null && Math.abs(y - lastY) > 3) {
-        if (current) lines.push(current);
-        current = null;
-      }
-      if (!current) current = { x, text: '' };
-      current.text += item.str + ' ';
-      lastY = y;
+      let bucket = buckets.find((b) => Math.abs(b.y - y) <= 2);
+      if (!bucket) { bucket = { y, items: [] }; buckets.push(bucket); }
+      bucket.items.push({ x, str });
     });
-    if (current) lines.push(current);
+    buckets.sort((a, b) => b.y - a.y); // topo → base da página
+    allBuckets.push(...buckets);
   }
 
-  const minX = lines.reduce((m, l) => Math.min(m, l.x), Infinity);
-  return lines
-    .map((l) => ({ x: l.x, text: l.text.replace(/\s+/g, ' ').trim() }))
-    .filter((l) => l.text)
-    .map((l) => pdfLineToRow(l.text, Math.round((l.x - minX) / 6)));
+  const minX = allBuckets.reduce((m, b) => Math.min(m, ...b.items.map((i) => i.x)), Infinity);
+
+  return allBuckets
+    .map((b) => {
+      const sorted = b.items
+        .slice()
+        .sort((a, c) => a.x - c.x)
+        .map((i) => ({ x: i.x, str: i.str.trim() }));
+      return pdfLineToRow(sorted, minX);
+    })
+    .filter((row) => row && row.length && row[0] && String(row[0]).trim());
 }
 
 export async function loadFile(file) {
