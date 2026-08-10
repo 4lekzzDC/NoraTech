@@ -13,13 +13,32 @@ if (!supabaseUrl || !supabaseAnonKey) {
 const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
 const isNoratechHost = hostname === 'noratech.com.br' || hostname.endsWith('.noratech.com.br');
 
-// Substitui o `navigator.locks` padrão: locks remanescentes de uma aba anterior
-// que fechou no meio de uma requisição de auth deixavam o signIn pendurado.
-const noLock = async (_name, _acquireTimeout, fn) => fn();
+// Lock de auth com timeout. O supabase-js serializa refresh/signIn com
+// navigator.locks para evitar que duas abas rotacionem o refresh token ao
+// mesmo tempo (o token é de uso único — a segunda tentativa quebra e trava
+// o client até um F5). Um lock removido de vez (como tínhamos antes) evita
+// o travamento mas reabre essa corrida; um lock "preso" numa aba fechada no
+// meio de uma requisição trava do mesmo jeito. Por isso: mantém o lock (a
+// serialização continua protegendo contra a corrida), mas com timeout —
+// depois de alguns segundos sem conseguir o lock, segue sem esperar em vez
+// de travar sign-in/refresh indefinidamente.
+const lockWithTimeout = async (name, acquireTimeout, fn) => {
+  if (typeof navigator === 'undefined' || !navigator.locks) return fn();
+  const timeoutMs = acquireTimeout && acquireTimeout > 0 ? acquireTimeout : 8000;
+  try {
+    return await navigator.locks.request(name, { signal: AbortSignal.timeout(timeoutMs) }, fn);
+  } catch (err) {
+    if (err?.name === 'AbortError' || err?.name === 'TimeoutError') {
+      console.warn('[Auth] Lock de auth expirou (provável lock órfão de outra aba) — seguindo sem esperar.', name);
+      return fn();
+    }
+    throw err;
+  }
+};
 
 export const supabase = createBrowserClient(supabaseUrl ?? '', supabaseAnonKey ?? '', {
   auth: {
-    lock: noLock,
+    lock: lockWithTimeout,
   },
   cookieOptions: {
     domain: isNoratechHost ? '.noratech.com.br' : undefined,

@@ -98,7 +98,7 @@ const AREAS = [
   {
     id: 'pessoal', slug: 'pessoal', label: 'Pessoal',
     desc: 'Gestão de pessoas e processos de RH.',
-    count: 4, accent: '#f97316', available: false,
+    count: 1, accent: '#f97316', available: false,
     icon: (c) => (
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
         <circle cx="9" cy="8" r="4" fill={c} opacity=".2"/>
@@ -634,8 +634,8 @@ function AreaCard({ area, onClick }) {
             background: area.available ? area.accent : p.muted2,
           }} />
           {area.available
-            ? `${area.count} sistemas disponíveis`
-            : `${area.count} sistemas · em breve`}
+            ? `${area.count} ${area.count === 1 ? 'sistema disponível' : 'sistemas disponíveis'}`
+            : `${area.count} ${area.count === 1 ? 'sistema' : 'sistemas'} · em breve`}
         </div>
       </div>
 

@@ -64,7 +64,10 @@ export function formatBRL(value) {
 
 export function formatDate(iso) {
   if (!iso) return '—';
-  const d = new Date(iso);
+  // Colunas `date` chegam como 'YYYY-MM-DD'. new Date() lê isso como UTC e,
+  // no fuso do Brasil, exibiria o dia anterior — por isso ancoramos no local.
+  const dateOnly = typeof iso === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(iso);
+  const d = dateOnly ? new Date(`${iso}T00:00:00`) : new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('pt-BR');
 }

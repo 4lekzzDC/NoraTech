@@ -1,24 +1,19 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useIsAdmin } from '../lib/admin';
+import { useIsAdmin, formatBRL } from '../lib/admin';
 import { useTheme } from '../contexts/ThemeContext';
 import ThemeToggle from '../components/ThemeToggle';
 import CockpitCompany from '../components/CockpitCompany';
 import UserProfileMenu from '../components/UserProfileMenu';
 import { supabase, AVATARS_BUCKET } from '../lib/supabase';
 import { fetchMyCompany, fetchCompanyMembers, leaveCompany } from '../lib/companies';
-import { getSystem, SYSTEMS } from '../lib/systems';
+import { fetchSystems, indexSystems } from '../lib/systems';
 import { getPalette, FONT_INTER, FONT_MONO } from '../modules/solucoes-contabeis/theme';
 
 const MONTHS_PT = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
 const COMPANY_ROLE_LABEL = { owner: 'Dono', admin: 'Admin / Gestor', member: 'Membro' };
-const ROLE_BADGE = {
-  owner:  { label: 'DONO',  bg: 'rgba(124,58,237,0.14)', bd: 'rgba(124,58,237,0.3)',  color: '#7C3AED' },
-  admin:  { label: 'ADMIN', bg: 'rgba(245,158,11,0.1)',  bd: 'rgba(245,158,11,0.28)', color: '#d97706' },
-  member: { label: 'MEMBRO',bg: 'transparent',           bd: 'var(--p-border)',        color: 'var(--p-muted)' },
-};
 const PRESENCE = {
   online:    { label: 'Online',    color: '#22c55e', bg: 'rgba(34,197,94,0.1)',   bd: 'rgba(34,197,94,0.26)'   },
   busy:      { label: 'Ocupado',   color: '#ef4444', bg: 'rgba(239,68,68,0.1)',   bd: 'rgba(239,68,68,0.28)'   },
@@ -331,80 +326,52 @@ function SystemCard({ s }) {
   const statusLabel = isTrial ? 'Trial' : 'Ativa';
 
   const inner = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--p-primary-soft)', border: '1px solid var(--p-primary-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', flexShrink: 0 }}>
-            {s.icon}
-          </div>
-          <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--p-text)', lineHeight: 1.2 }}>{s.name}</span>
-        </div>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.65rem', fontWeight: 700, color: statusColor, textTransform: 'uppercase', letterSpacing: 0.8, padding: '3px 8px', background: `${statusColor}18`, border: `1px solid ${statusColor}35`, borderRadius: 999, flexShrink: 0 }}>
-          + {statusLabel}
-        </span>
-      </div>
-      <p style={{ fontSize: '0.82rem', color: 'var(--p-muted)', lineHeight: 1.5 }}>{s.description}</p>
-      <span style={{ fontFamily: FONT_MONO, fontSize: '0.75rem', color: 'var(--p-primary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-        {s.url ? 'Abrir sistema ↗' : s.subscription?.plan || ''}
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 4 }}>
+      <span style={{ position: 'absolute', top: 12, right: 12, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.6rem', fontWeight: 700, color: statusColor, textTransform: 'uppercase', letterSpacing: 0.6, padding: '2px 7px', background: `${statusColor}18`, border: `1px solid ${statusColor}35`, borderRadius: 999 }}>
+        {statusLabel}
       </span>
+      {s.logo_url ? (
+        <img src={s.logo_url} alt="" style={{ width: 52, height: 52, borderRadius: 14, objectFit: 'cover', background: 'var(--p-primary-soft)' }} />
+      ) : (
+        <div style={{ width: 52, height: 52, borderRadius: 14, background: 'var(--p-primary-soft)', border: '1px solid var(--p-primary-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>
+          {s.icon}
+        </div>
+      )}
+      <span style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--p-text)', lineHeight: 1.25, marginTop: 10 }}>{s.name}</span>
+      <p style={{ fontSize: '0.78rem', color: 'var(--p-muted)', lineHeight: 1.5, marginTop: 4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        {s.description}
+      </p>
     </div>
   );
 
-  const cardStyle = { background: 'var(--p-surface2)', border: '1px solid var(--p-border)', boxShadow: 'var(--p-shadow)', borderRadius: 14, padding: '18px 20px', transition: 'all 0.2s', cursor: 'pointer', display: 'block' };
+  const cardStyle = { position: 'relative', aspectRatio: '1 / 1', background: 'var(--p-surface2)', border: '1px solid var(--p-border)', boxShadow: 'var(--p-shadow)', borderRadius: 14, padding: '22px 16px', transition: 'all 0.2s', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
   if (!s.url) return <div className="system-card" style={cardStyle}>{inner}</div>;
   if (s.internal) return <Link to={s.url} className="system-card" style={cardStyle}>{inner}</Link>;
   return <a href={s.url} target="_blank" rel="noopener noreferrer" className="system-card" style={cardStyle}>{inner}</a>;
 }
 
-function SystemsGrid({ systems, isAdmin }) {
-  const adminInternals = isAdmin
-    ? SYSTEMS.filter((s) => s.internal && !systems.some((sub) => sub.slug === s.slug)).map((s) => ({ ...s, subscription: { status: 'active' } }))
-    : [];
-  const all = [...systems, ...adminInternals];
-
-  if (all.length === 0) {
-    return (
-      <div style={{ background: 'var(--p-surface2)', border: '1px dashed var(--p-border2)', borderRadius: 14, padding: '28px 24px', textAlign: 'center' }}>
-        <div style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.5, color: 'var(--p-muted)', textTransform: 'uppercase', marginBottom: 8 }}>Nenhum sistema contratado</div>
-        <h3 style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: -0.3, marginBottom: 8, color: 'var(--p-text)' }}>Ainda sem sistemas ativos</h3>
-        <p style={{ fontSize: '0.85rem', color: 'var(--p-muted)', maxWidth: 400, margin: '0 auto 18px' }}>Explore nossos serviços ou fale com a Noratech para começar.</p>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link to="/servicos/sistemas-sob-medida" style={{ padding: '8px 16px', border: '1px solid var(--p-border2)', borderRadius: 10, color: 'var(--p-text)', fontSize: '0.82rem', fontWeight: 600 }}>Ver serviços</Link>
-          <Link to="/#contato" style={{ padding: '8px 16px', background: 'var(--p-primary)', borderRadius: 10, color: '#fff', fontSize: '0.82rem', fontWeight: 700 }}>Falar com a Noratech</Link>
-        </div>
-      </div>
-    );
-  }
+function AddSystemCard({ onClick }) {
+  const cardStyle = { aspectRatio: '1 / 1', width: '100%', background: 'transparent', border: '1px dashed var(--p-border2)', borderRadius: 14, padding: '22px 16px', transition: 'all 0.2s', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 6, fontFamily: 'inherit' };
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-      {all.map((s) => <SystemCard key={s.slug} s={s} />)}
-    </div>
+    <button type="button" onClick={onClick} className="system-card" style={cardStyle}>
+      <div style={{ width: 44, height: 44, borderRadius: '50%', border: '1px dashed var(--p-border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--p-muted)', fontSize: '1.3rem', lineHeight: 1 }}>+</div>
+      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--p-text)', marginTop: 6 }}>Adquirir sistema</span>
+      <span style={{ fontSize: '0.72rem', color: 'var(--p-muted)' }}>Explore nossos serviços</span>
+    </button>
   );
 }
 
-function StatusGauge({ count = 0, primaryColor = '#7C3AED' }) {
-  const size = 96;
-  const stroke = 7;
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const fill = count > 0 ? Math.min(0.85, 0.45 + count * 0.12) : 0;
-  const dashOffset = circumference - fill * circumference;
+function SystemsGrid({ systems, onAcquire }) {
   return (
-    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--p-border2)" strokeWidth={stroke} />
-        {count > 0 && (
-          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={primaryColor} strokeWidth={stroke}
-            strokeDasharray={circumference} strokeDashoffset={dashOffset} strokeLinecap="round" />
-        )}
-      </svg>
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-        <div style={{ fontSize: '1.7rem', fontWeight: 800, color: count > 0 ? primaryColor : 'var(--p-muted2)', letterSpacing: -1, lineHeight: 1 }}>
-          {count > 0 ? count : '—'}
-        </div>
-        <div style={{ fontSize: '0.48rem', fontWeight: 700, letterSpacing: 1.4, color: 'var(--p-muted)', textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.4 }}>
-          SISTEMAS<br />ativos
-        </div>
+    <div>
+      {systems.length === 0 && (
+        <p style={{ fontSize: '0.85rem', color: 'var(--p-muted)', lineHeight: 1.6, marginBottom: 16 }}>
+          Ainda sem sistemas ativos. Explore o catálogo e contrate o primeiro sistema da sua equipe.
+        </p>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+        {systems.map((s) => <SystemCard key={s.slug} s={s} />)}
+        <AddSystemCard onClick={onAcquire} />
       </div>
     </div>
   );
@@ -770,6 +737,107 @@ function SupportModal({ onClose, P }) {
   );
 }
 
+// ─── AcquireSystemsModal ────────────────────────────────────────────────────────
+
+function AcquireSystemsModal({ activeSlugs, onClose, P }) {
+  const navigate = useNavigate();
+  const isDark = P.bg === '#08080a';
+  const C = {
+    panelBg:    isDark ? '#18181b' : '#ffffff',
+    panelBd:    isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)',
+    text:       isDark ? '#eeede9' : '#111116',
+    muted:      isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.48)',
+    cardBg:     isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+    cardBd:     isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.09)',
+    closeBg:    isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)',
+    closeBd:    isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)',
+    closeColor: isDark ? 'rgba(255,255,255,0.7)'  : 'rgba(0,0,0,0.55)',
+  };
+
+  const [loading, setLoading] = useState(true);
+  const [available, setAvailable] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const all = await fetchSystems();
+        if (active) setAvailable(all.filter((s) => !activeSlugs.has(s.slug)));
+      } catch {
+        if (active) setAvailable([]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [activeSlugs]);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const openDetails = (sys) => {
+    onClose();
+    navigate(`/area-do-cliente/sistemas/${sys.slug}`);
+  };
+
+  return createPortal(
+    <div role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(14px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <section role="dialog" aria-modal="true" aria-label="Adquirir sistema"
+        style={{ width: 'min(560px, 100%)', maxHeight: '86vh', overflowY: 'auto', background: C.panelBg, border: `1px solid ${C.panelBd}`, borderRadius: 20, boxShadow: '0 24px 80px rgba(0,0,0,0.55)', color: C.text, fontFamily: FONT_INTER, position: 'relative' }}>
+
+        <button type="button" onClick={onClose} aria-label="Fechar"
+          style={{ position: 'absolute', top: 14, right: 14, zIndex: 2, width: 32, height: 32, borderRadius: '50%', border: `1px solid ${C.closeBd}`, background: C.closeBg, color: C.closeColor, cursor: 'pointer', fontSize: '1rem', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+
+        <div style={{ padding: '28px 24px 24px' }}>
+          <div style={{ marginBottom: 20 }}>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: -0.3, marginBottom: 5, color: C.text }}>Adquirir sistema</h2>
+            <p style={{ fontSize: '0.83rem', color: C.muted, lineHeight: 1.5 }}>Veja os detalhes de cada sistema disponível e siga para a contratação.</p>
+          </div>
+
+          {loading ? (
+            <p style={{ fontSize: '0.85rem', color: C.muted, textAlign: 'center', padding: '20px 0' }}>Carregando catálogo...</p>
+          ) : available.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px 10px' }}>
+              <p style={{ fontSize: '0.85rem', color: C.muted, lineHeight: 1.5 }}>Sua empresa já possui todos os sistemas disponíveis no catálogo.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: 10 }}>
+              {available.map((sys) => (
+                <div key={sys.slug}
+                  style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', padding: '14px 16px', borderRadius: 14, background: C.cardBg, border: `1px solid ${C.cardBd}` }}>
+                  {sys.logo_url ? (
+                    <img src={sys.logo_url} alt="" style={{ width: 46, height: 46, borderRadius: 12, objectFit: 'cover', flexShrink: 0, background: 'var(--p-primary-soft)' }} />
+                  ) : (
+                    <div style={{ width: 46, height: 46, borderRadius: 12, background: 'var(--p-primary-soft)', border: '1px solid var(--p-primary-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0 }}>
+                      {sys.icon}
+                    </div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: C.text }}>{sys.name}</div>
+                    <div style={{ fontSize: '0.77rem', color: C.muted, lineHeight: 1.4 }}>{sys.description}</div>
+                    {sys.default_amount > 0 && (
+                      <div style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--p-primary)', marginTop: 4 }}>{formatBRL(sys.default_amount)}/mês</div>
+                    )}
+                  </div>
+                  <button type="button" onClick={() => openDetails(sys)}
+                    style={{ flexShrink: 0, padding: '8px 14px', borderRadius: 10, background: 'rgba(124,58,237,0.16)', border: '1px solid rgba(124,58,237,0.3)', color: '#a78bfa', fontWeight: 700, cursor: 'pointer', fontFamily: FONT_INTER, fontSize: '0.8rem' }}>
+                    Detalhes
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    </div>,
+    document.body
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function AreaDoClientePage() {
@@ -792,46 +860,49 @@ export default function AreaDoClientePage() {
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [orgModalOpen, setOrgModalOpen] = useState(false);
   const [supportModalOpen, setSupportModalOpen] = useState(false);
+  const [acquireModalOpen, setAcquireModalOpen] = useState(false);
   const [leaveModalOpen, setLeaveModalOpen] = useState(false);
   const [leaveConfirming, setLeaveConfirming] = useState(false);
   const [leaveError, setLeaveError] = useState(null);
-  const [joinCodeCopied, setJoinCodeCopied] = useState(false);
+
+  const loadCockpitData = useCallback(async ({ active = { current: true } } = {}) => {
+    try {
+      const my = await fetchMyCompany();
+      if (active.current) setCompanyInfo(my);
+      const companyId = my?.company?.id;
+      const list = [];
+      if (companyId) {
+        const { data, error } = await supabase
+          .from('subscriptions')
+          .select('id, system_slug, plan, status, current_period_end, created_at')
+          .eq('company_id', companyId)
+          .in('status', ['active', 'trialing']);
+        if (active.current && !error) {
+          const bySlug = indexSystems(await fetchSystems());
+          const seen = new Set();
+          (data || []).forEach((s) => {
+            const sys = bySlug[s.system_slug];
+            if (!sys || seen.has(sys.slug)) return;
+            seen.add(sys.slug);
+            list.push({ ...sys, subscription: s });
+          });
+        }
+        try {
+          const membersData = await fetchCompanyMembers(companyId);
+          if (active.current) setMembers(membersData || []);
+        } catch { /* keep empty */ }
+      }
+      if (active.current) setSystems(list);
+    } catch {
+      if (active.current) { setCompanyInfo(null); setSystems([]); }
+    }
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const my = await fetchMyCompany();
-        if (active) setCompanyInfo(my);
-        const companyId = my?.company?.id;
-        const list = [];
-        if (companyId) {
-          const { data, error } = await supabase
-            .from('subscriptions')
-            .select('id, system_slug, plan, status, current_period_end, created_at')
-            .eq('company_id', companyId)
-            .in('status', ['active', 'trialing']);
-          if (active && !error) {
-            const seen = new Set();
-            (data || []).forEach((s) => {
-              const sys = getSystem(s.system_slug);
-              if (!sys || seen.has(sys.slug)) return;
-              seen.add(sys.slug);
-              list.push({ ...sys, subscription: s });
-            });
-          }
-          try {
-            const membersData = await fetchCompanyMembers(companyId);
-            if (active) setMembers(membersData || []);
-          } catch { /* keep empty */ }
-        }
-        if (active) setSystems(list);
-      } catch {
-        if (active) { setCompanyInfo(null); setSystems([]); }
-      }
-    })();
-    return () => { active = false; };
-  }, [user?.id]);
+    const active = { current: true };
+    loadCockpitData({ active });
+    return () => { active.current = false; };
+  }, [user?.id, loadCockpitData]);
 
   const handleLogout = async () => { await logout(); navigate('/'); };
 
@@ -863,13 +934,10 @@ export default function AreaDoClientePage() {
   const companyName = companyInfo?.company?.name || user?.company || null;
   const companyRole = companyInfo?.membership?.role || null;
   const roleLabel = COMPANY_ROLE_LABEL[companyRole] || 'Membro';
-  // companies.js retorna o campo como `code` (não `join_code`)
-  const joinCode = companyInfo?.company?.code || null;
   const hasCompany = Boolean(companyInfo?.company?.id);
   // isOrgManager: owner ou admin da organização — pode gerenciar equipe/convites
   const isOrgManager = companyRole === 'owner' || companyRole === 'admin';
 
-  const approvedMembers = useMemo(() => members.filter((m) => m.status !== 'pending'), [members]);
   const pendingCount = useMemo(() => members.filter((m) => m.status === 'pending').length, [members]);
 
   const activity = useMemo(() => {
@@ -882,13 +950,6 @@ export default function AreaDoClientePage() {
     });
     return events.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
   }, [members, systems]);
-
-  const handleCopyCode = () => {
-    if (!joinCode) return;
-    navigator.clipboard.writeText(joinCode)
-      .then(() => { setJoinCodeCopied(true); setTimeout(() => setJoinCodeCopied(false), 2000); })
-      .catch(() => {});
-  };
 
   const cssVars = {
     '--p-bg': P.bg, '--p-surface': P.surface, '--p-surface2': P.surface2, '--p-surface-solid': P.surfaceSolid,
@@ -953,9 +1014,7 @@ export default function AreaDoClientePage() {
             <nav aria-label="Breadcrumb" style={{ display: 'flex', alignItems: 'center' }}>
               <Link to="/" className="adc-crumb adc-crumb-link" style={{ fontFamily: FONT_MONO, letterSpacing: -0.2 }}>Noratech</Link>
               <span className="adc-crumb-sep">/</span>
-              <Link to="/area-do-cliente" className="adc-crumb adc-crumb-link">Central de Controle</Link>
-              <span className="adc-crumb-sep">/</span>
-              <span className="adc-crumb adc-crumb-current">Cockpit</span>
+              <span className="adc-crumb adc-crumb-current">Área do Cliente</span>
             </nav>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -1006,7 +1065,31 @@ export default function AreaDoClientePage() {
                   )}
                 </div>
               </div>
-              <StatusGauge count={systems.length} primaryColor={P.primary} />
+              <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div>
+                  <span style={{ ...EYEBROW, display: 'block', marginBottom: 2 }}>Equipe</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--p-text)' }}>
+                    {hasCompany ? companyName : 'Sem equipe'}
+                  </span>
+                </div>
+                <div style={{ width: 1, alignSelf: 'stretch', background: 'var(--p-border)' }} />
+                {isOrgManager ? (
+                  <button type="button" onClick={handleOpenOrgModal} className="adc-expand-btn" style={{ width: 'auto', fontSize: '0.76rem', padding: '6px 14px', flexShrink: 0 }}>
+                    Gerenciar equipe
+                  </button>
+                ) : !hasCompany ? (
+                  <button type="button" onClick={handleOpenOrgModal} className="adc-expand-btn" style={{ width: 'auto', fontSize: '0.76rem', padding: '6px 14px', flexShrink: 0 }}>
+                    Criar equipe
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => { setLeaveError(null); setLeaveModalOpen(true); }} className="adc-expand-btn"
+                    style={{ width: 'auto', fontSize: '0.76rem', padding: '6px 14px', flexShrink: 0, borderColor: 'rgba(220,38,38,0.25)', color: 'rgba(220,38,38,0.75)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(220,38,38,0.06)'; e.currentTarget.style.borderColor = 'rgba(220,38,38,0.4)'; e.currentTarget.style.color = '#dc2626'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(220,38,38,0.25)'; e.currentTarget.style.color = 'rgba(220,38,38,0.75)'; }}>
+                    Sair da equipe
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Systems card */}
@@ -1029,7 +1112,7 @@ export default function AreaDoClientePage() {
                   </span>
                 )}
               </div>
-              <SystemsGrid systems={systems} isAdmin={isAdmin} />
+              <SystemsGrid systems={systems} onAcquire={() => setAcquireModalOpen(true)} />
             </div>
 
             {/* Activity card */}
@@ -1078,72 +1161,6 @@ export default function AreaDoClientePage() {
 
           {/* ════ Right sidebar ════ */}
           <div className="adc-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-            {/* Team card */}
-            <div style={{ ...CARD, padding: '18px 20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <div>
-                  <span style={EYEBROW}>Equipe</span>
-                  <h2 style={{ ...CARD_H, fontSize: '1rem', marginTop: 1 }}>Membros</h2>
-                </div>
-                <span style={{ fontFamily: FONT_MONO, fontSize: '0.75rem', fontWeight: 700, color: 'var(--p-muted)', padding: '2px 8px', background: 'var(--p-surface2)', border: '1px solid var(--p-border)', borderRadius: 20 }}>
-                  {approvedMembers.length}
-                </span>
-              </div>
-
-              {approvedMembers.length === 0 ? (
-                <p style={{ color: 'var(--p-muted)', fontSize: '0.82rem', textAlign: 'center', padding: '12px 0' }}>Nenhum membro ainda.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginBottom: 12 }}>
-                  {approvedMembers.map((m) => {
-                    const name = m.profile?.name || 'Membro';
-                    const mi = name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
-                    const badge = ROLE_BADGE[m.role] || ROLE_BADGE.member;
-                    return (
-                      <div key={m.id} className="adc-member-row" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 8px' }}>
-                        {m.profile?.photo_url
-                          ? <img src={m.profile.photo_url} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                          : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--p-primary-soft)', border: '1px solid var(--p-primary-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 800, color: 'var(--p-primary)', flexShrink: 0 }}>{mi}</div>}
-                        <span style={{ flex: 1, minWidth: 0, fontSize: '0.84rem', fontWeight: 600, color: 'var(--p-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
-                        <span style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.6, padding: '2px 7px', borderRadius: 6, background: badge.bg, border: `1px solid ${badge.bd}`, color: badge.color, flexShrink: 0 }}>
-                          {badge.label}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Código de ingresso — visível apenas para owner/admin */}
-              {isOrgManager && joinCode && (
-                <div style={{ marginBottom: 10, padding: '9px 10px', background: 'var(--p-surface2)', border: '1px solid var(--p-border)', borderRadius: 10 }}>
-                  <div style={{ fontSize: '0.57rem', fontWeight: 700, letterSpacing: 1.2, color: 'var(--p-muted2)', textTransform: 'uppercase', marginBottom: 5 }}>Código de ingresso</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: FONT_MONO, fontSize: '0.88rem', fontWeight: 700, letterSpacing: 2.5, color: 'var(--p-text)' }}>
-                      {joinCode.toUpperCase()}
-                    </span>
-                    <button type="button" onClick={handleCopyCode}
-                      style={{ padding: '3px 9px', background: joinCodeCopied ? 'rgba(34,197,94,0.1)' : 'var(--p-primary-soft)', border: `1px solid ${joinCodeCopied ? 'rgba(34,197,94,0.3)' : 'var(--p-primary-border)'}`, borderRadius: 6, color: joinCodeCopied ? '#22c55e' : 'var(--p-primary)', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
-                      {joinCodeCopied ? '✓ Copiado' : 'Copiar'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Botão de ação no card Equipe — condicional por cargo */}
-              {isOrgManager ? (
-                <button type="button" onClick={handleOpenOrgModal} className="adc-expand-btn" style={{ fontSize: '0.78rem' }}>
-                  Gerenciar equipe →
-                </button>
-              ) : hasCompany ? (
-                <button type="button" onClick={() => { setLeaveError(null); setLeaveModalOpen(true); }} className="adc-expand-btn"
-                  style={{ fontSize: '0.78rem', borderColor: 'rgba(220,38,38,0.25)', color: 'rgba(220,38,38,0.75)' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(220,38,38,0.06)'; e.currentTarget.style.borderColor = 'rgba(220,38,38,0.4)'; e.currentTarget.style.color = '#dc2626'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(220,38,38,0.25)'; e.currentTarget.style.color = 'rgba(220,38,38,0.75)'; }}>
-                  Sair da equipe
-                </button>
-              ) : null}
-            </div>
 
             {/* Quick actions card */}
             <div style={{ ...CARD, padding: '18px 20px' }}>
@@ -1256,6 +1273,14 @@ export default function AreaDoClientePage() {
       {supportModalOpen && (
         <SupportModal
           onClose={() => setSupportModalOpen(false)}
+          P={P}
+        />
+      )}
+
+      {acquireModalOpen && (
+        <AcquireSystemsModal
+          activeSlugs={new Set(systems.map((s) => s.slug))}
+          onClose={() => setAcquireModalOpen(false)}
           P={P}
         />
       )}
