@@ -4,7 +4,7 @@ import SolucoesHeader from '../../components/SolucoesHeader';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
 import {
-  loadXlsxFile, processAll, saveParsed, loadParsed, clearParsed,
+  loadFile, processAll, saveParsed, loadParsed, clearParsed,
   fmt, pct, buildChartConfigs, buildDreRows, buildBalancoRows,
 } from './ademEngine';
 import { getCurrentTenantCompanyId } from '../../../../lib/subscriptions';
@@ -110,9 +110,9 @@ function FileSlot({ label, icon, status, fileName, onFile }) {
       {fileName && (
         <div style={{ fontSize: '0.76rem', color: P.muted, fontFamily: FONT_MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileName}</div>
       )}
-      <input ref={inputRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={(e) => { if (e.target.files[0]) onFile(e.target.files[0]); }} />
+      <input ref={inputRef} type="file" accept=".xlsx,.xls,.pdf" style={{ display: 'none' }} onChange={(e) => { if (e.target.files[0]) onFile(e.target.files[0]); }} />
       <button onClick={() => inputRef.current?.click()} style={{ padding: '7px 14px', borderRadius: 8, border: `1px solid ${P.border2}`, background: 'transparent', color: P.muted, fontFamily: FONT_INTER, fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start' }}>
-        {status === 'loaded' ? 'Trocar arquivo' : 'Selecionar XLSX'}
+        {status === 'loaded' ? 'Trocar arquivo' : 'Selecionar arquivo'}
       </button>
     </div>
   );
@@ -129,7 +129,7 @@ function UploadPanel({ onProcessed, onClear, hasParsed }) {
 
   const handleFile = async (type, file) => {
     try {
-      const rows = await loadXlsxFile(file);
+      const rows = await loadFile(file);
       setRaw((r) => ({ ...r, [type]: rows }));
       setStatus((s) => ({ ...s, [type]: 'loaded' }));
       setNames((n) => ({ ...n, [type]: file.name + ' (' + rows.length + ' linhas)' }));
@@ -170,7 +170,7 @@ function UploadPanel({ onProcessed, onClear, hasParsed }) {
       </div>
 
       <div style={{ background: P.primarySoft, border: `1px solid ${P.primaryBorder}`, borderRadius: 10, padding: '12px 16px', fontSize: '0.8rem', color: P.primaryText, lineHeight: 1.6 }}>
-        <strong>Formato esperado:</strong> planilha XLSX com a primeira coluna contendo a descrição da linha e as demais contendo valores. Importar pelo menos um dos três arquivos.
+        <strong>Formato esperado:</strong> planilha XLSX ou PDF com a descrição da linha e os valores da demonstração. Importar pelo menos um dos três arquivos.
       </div>
 
       <div style={{ display: 'flex', gap: 10 }}>
