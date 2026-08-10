@@ -1,24 +1,38 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useIsAdmin } from '../lib/admin';
+import { useIsAdmin, formatBRL } from '../lib/admin';
 import { useTheme } from '../contexts/ThemeContext';
 import ThemeToggle from '../components/ThemeToggle';
 import UserProfileMenu from '../components/UserProfileMenu';
 import { supabase } from '../lib/supabase';
 import { fetchMyCompany } from '../lib/companies';
 import { getSystem } from '../lib/systems';
+import { fetchPaymentMethod, createSetupIntent, createInvoicePaymentIntent } from '../lib/payments';
+import { getStripe } from '../lib/stripe';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { getPalette, FONT_INTER, FONT_MONO } from '../modules/solucoes-contabeis/theme';
 
 const MONTHS_PT = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
 
 function fmtDate(iso) {
   if (!iso) return '—';
-  const d = new Date(iso);
+  // Colunas `date` chegam como 'YYYY-MM-DD'. new Date() lê isso como UTC e,
+  // no fuso do Brasil, exibiria o dia anterior — por isso ancoramos no local.
+  const dateOnly = typeof iso === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(iso);
+  const d = dateOnly ? new Date(`${iso}T00:00:00`) : new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   return `${String(d.getDate()).padStart(2, '0')} ${MONTHS_PT[d.getMonth()]}/${d.getFullYear()}`;
 }
+
+const INVOICE_STATUS = {
+  pending:  { label: 'Pendente',  color: '#f59e0b' },
+  paid:     { label: 'Paga',      color: '#22c55e' },
+  overdue:  { label: 'Vencida',   color: '#f87171' },
+  canceled: { label: 'Cancelada', color: '#9ca3af' },
+  refunded: { label: 'Reembolso', color: '#a78bfa' },
+};
 
 function fmtMonth(iso) {
   if (!iso) return null;
@@ -322,7 +336,58 @@ function SupportModal({ onClose, P, theme }) {
 
 // ─── PaymentModal ─────────────────────────────────────────────────────────────
 
-function PaymentModal({ onClose, P, theme }) {
+function SetupCardForm({ onClose, onSaved, mutedClr, borderClr }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setSubmitting(true);
+    setError(null);
+    const { error: confirmError } = await stripe.confirmSetup({
+      elements,
+      redirect: 'if_required',
+    });
+    if (confirmError) {
+      setSubmitting(false);
+      setError(confirmError.message || 'Não foi possível salvar o cartão.');
+      return;
+    }
+    setSubmitting(false);
+    onSaved();
+    onClose();
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div style={{ padding: '24px 28px' }}>
+        <PaymentElement options={{ layout: 'tabs' }} />
+        {error && (
+          <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 10, background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.28)', color: '#ff9ab4', fontSize: '0.82rem', fontWeight: 600 }}>
+            {error}
+          </div>
+        )}
+      </div>
+      <div style={{ padding: '14px 28px 20px', borderTop: `1px solid ${borderClr}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: mutedClr, fontSize: '0.7rem' }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+          Processado com segurança pelo Stripe. Não guardamos o número do cartão.
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+          <button type="button" className="fin-pm-close" onClick={onClose} disabled={submitting}>Cancelar</button>
+          <button type="submit" className="fin-pm-contact" disabled={!stripe || submitting} style={{ opacity: !stripe || submitting ? 0.6 : 1, cursor: !stripe || submitting ? 'wait' : 'pointer' }}>
+            {submitting ? 'Salvando...' : 'Salvar cartão'}
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
+function PaymentModal({ companyId, onClose, onSaved, P, theme }) {
   const isDark   = theme !== 'light';
   const modalBg  = isDark ? '#18181f' : '#ffffff';
   const overlay  = isDark ? 'rgba(0,0,0,0.72)' : 'rgba(0,0,0,0.48)';
@@ -332,12 +397,45 @@ function PaymentModal({ onClose, P, theme }) {
   const sepClr   = isDark ? 'rgba(255,255,255,0.08)' : '#eceef2';
   const iconBg   = isDark ? 'rgba(255,255,255,0.05)' : '#f4f4f8';
 
+  const [clientSecret, setClientSecret] = useState(null);
+  const [loadError, setLoadError] = useState(null);
+  const stripePromise = useMemo(() => getStripe(), []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (!companyId) { setLoadError('Nenhuma empresa vinculada à sua conta.'); return; }
+      try {
+        const secret = await createSetupIntent(companyId);
+        if (active) setClientSecret(secret);
+      } catch (err) {
+        if (active) setLoadError(err.message || 'Não foi possível iniciar o cadastro do cartão.');
+      }
+    })();
+    return () => { active = false; };
+  }, [companyId]);
+
   // Close on ESC
   useEffect(() => {
     const h = (e) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', h);
     return () => document.removeEventListener('keydown', h);
   }, [onClose]);
+
+  const elementsOptions = clientSecret ? {
+    clientSecret,
+    appearance: {
+      theme: isDark ? 'night' : 'stripe',
+      variables: {
+        colorPrimary: P.primary,
+        colorBackground: modalBg,
+        colorText: textClr,
+        colorDanger: '#ff6b6b',
+        fontFamily: FONT_INTER,
+        borderRadius: '10px',
+      },
+    },
+  } : undefined;
 
   return createPortal(
     <div
@@ -347,8 +445,6 @@ function PaymentModal({ onClose, P, theme }) {
       <style>{`
         @keyframes fin-modal-in { from { opacity:0; transform:translateY(14px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }
         .fin-modal-box { animation: fin-modal-in 0.2s ease; }
-        .fin-pm-tab { display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:8px;font-size:0.8rem;font-weight:600;font-family:inherit;border:1px solid ${borderClr};color:${mutedClr};background:transparent;cursor:not-allowed;opacity:0.7; }
-        .fin-pm-tab-active { border-color:${P.primaryBorder};background:${P.primarySoft};color:${P.primary};cursor:default;opacity:1; }
         .fin-close-btn { position:absolute;top:16px;right:18px;width:30px;height:30px;border-radius:50%;border:1px solid ${borderClr};background:${iconBg};color:${mutedClr};cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;line-height:1; }
         .fin-close-btn:hover { border-color:${P.primaryBorder};color:${P.primary}; }
         .fin-pm-contact { display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border-radius:10px;border:none;background:${P.primary};color:#fff;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;transition:opacity 0.15s; }
@@ -364,109 +460,198 @@ function PaymentModal({ onClose, P, theme }) {
 
         {/* Header */}
         <div style={{ padding: '24px 28px 20px', borderBottom: `1px solid ${sepClr}` }}>
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: -0.4, color: textClr, marginBottom: 4 }}>Forma de pagamento</h2>
-          <p style={{ fontSize: '0.82rem', color: mutedClr, lineHeight: 1.5 }}>Gerencie os métodos de cobrança das suas assinaturas.</p>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: -0.4, color: textClr, marginBottom: 4 }}>Cadastrar cartão</h2>
+          <p style={{ fontSize: '0.82rem', color: mutedClr, lineHeight: 1.5 }}>Esse cartão será usado para cobrar suas próximas faturas.</p>
           <button type="button" className="fin-close-btn" onClick={onClose} aria-label="Fechar">×</button>
         </div>
 
-        {/* Tabs — todos desabilitados, visual apenas */}
-        <div style={{ padding: '14px 28px', borderBottom: `1px solid ${sepClr}`, display: 'flex', gap: 8 }}>
-          {[
-            { label: 'Cartão de crédito', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> },
-            { label: 'PIX',               icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> },
-            { label: 'Boleto',            icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 8v8M10 8v8M14 8v8M17 8v8"/></svg> },
-          ].map(({ label, icon }) => (
-            <span key={label} className="fin-pm-tab">
-              {icon}{label}
-              <span style={{ fontSize: '0.58rem', fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: isDark ? 'rgba(255,255,255,0.08)' : '#ebebef', color: mutedClr, letterSpacing: 0.3 }}>Em breve</span>
-            </span>
-          ))}
+        {loadError ? (
+          <div style={{ padding: '24px 28px' }}>
+            <div style={{ padding: '14px 16px', borderRadius: 10, background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.28)', color: '#ff9ab4', fontSize: '0.85rem', fontWeight: 600 }}>
+              {loadError}
+            </div>
+          </div>
+        ) : !clientSecret ? (
+          <div style={{ padding: '48px 28px', display: 'flex', justifyContent: 'center' }}>
+            <div style={{ width: 28, height: 28, border: `2px solid ${P.primaryBorder}`, borderTopColor: P.primary, borderRadius: '50%', animation: 'admin-spin 0.8s linear infinite' }} />
+            <style>{`@keyframes admin-spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        ) : (
+          <Elements stripe={stripePromise} options={elementsOptions}>
+            <SetupCardForm onClose={onClose} onSaved={onSaved} mutedClr={mutedClr} borderClr={sepClr} />
+          </Elements>
+        )}
+      </section>
+    </div>,
+    document.body
+  );
+}
+
+// ─── PayInvoiceModal ──────────────────────────────────────────────────────────
+// Pagamento avulso de UMA fatura — cartão, PIX ou boleto (o Payment Element
+// decide dinamicamente quais métodos mostrar, conforme habilitados no
+// painel do Stripe). Diferente do PaymentModal acima: aqui não se salva
+// nada, é só o pagamento desta fatura específica, agora.
+
+function PayInvoiceForm({ onClose, onPaid, mutedClr, borderClr }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const [waiting, setWaiting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setSubmitting(true);
+    setError(null);
+    const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
+      elements,
+      redirect: 'if_required',
+      confirmParams: { return_url: window.location.href },
+    });
+    setSubmitting(false);
+    if (confirmError) {
+      setError(confirmError.message || 'Não foi possível processar o pagamento.');
+      return;
+    }
+    if (paymentIntent?.status === 'succeeded') {
+      onPaid();
+      onClose();
+      return;
+    }
+    // PIX/boleto: o QR ou o código de barras já apareceu dentro do formulário
+    // acima — mantemos o formulário montado e só avisamos que estamos
+    // aguardando a confirmação (o webhook marca como paga quando compensar).
+    setWaiting(true);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div style={{ padding: '24px 28px' }}>
+        <PaymentElement options={{ layout: 'tabs' }} />
+        {waiting && (
+          <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 10, background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.28)', color: '#93c5fd', fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.5 }}>
+            Aguardando confirmação do pagamento. Assim que compensar, a fatura muda para "Paga" automaticamente — pode fechar esta janela.
+          </div>
+        )}
+        {error && (
+          <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 10, background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.28)', color: '#ff9ab4', fontSize: '0.82rem', fontWeight: 600 }}>
+            {error}
+          </div>
+        )}
+      </div>
+      <div style={{ padding: '14px 28px 20px', borderTop: `1px solid ${borderClr}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: mutedClr, fontSize: '0.7rem' }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+          Processado com segurança pelo Stripe.
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+          <button type="button" className="fin-pm-close" onClick={onClose} disabled={submitting}>{waiting ? 'Fechar' : 'Cancelar'}</button>
+          {!waiting && (
+            <button type="submit" className="fin-pm-contact" disabled={!stripe || submitting} style={{ opacity: !stripe || submitting ? 0.6 : 1, cursor: !stripe || submitting ? 'wait' : 'pointer' }}>
+              {submitting ? 'Processando...' : 'Pagar'}
+            </button>
+          )}
+        </div>
+      </div>
+    </form>
+  );
+}
+
+function PayInvoiceModal({ invoice, onClose, onPaid, P, theme }) {
+  const isDark   = theme !== 'light';
+  const modalBg  = isDark ? '#18181f' : '#ffffff';
+  const overlay  = isDark ? 'rgba(0,0,0,0.72)' : 'rgba(0,0,0,0.48)';
+  const borderClr = isDark ? 'rgba(255,255,255,0.12)' : '#e2e4e9';
+  const textClr  = isDark ? '#eeede9' : '#0f1115';
+  const mutedClr = isDark ? 'rgba(255,255,255,0.52)' : 'rgba(15,17,21,0.52)';
+  const sepClr   = isDark ? 'rgba(255,255,255,0.08)' : '#eceef2';
+  const iconBg   = isDark ? 'rgba(255,255,255,0.05)' : '#f4f4f8';
+
+  const [clientSecret, setClientSecret] = useState(null);
+  const [loadError, setLoadError] = useState(null);
+  const stripePromise = useMemo(() => getStripe(), []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const secret = await createInvoicePaymentIntent(invoice.id);
+        if (active) setClientSecret(secret);
+      } catch (err) {
+        if (active) setLoadError(err.message || 'Não foi possível iniciar o pagamento.');
+      }
+    })();
+    return () => { active = false; };
+  }, [invoice.id]);
+
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', h);
+    return () => document.removeEventListener('keydown', h);
+  }, [onClose]);
+
+  const elementsOptions = clientSecret ? {
+    clientSecret,
+    appearance: {
+      theme: isDark ? 'night' : 'stripe',
+      variables: {
+        colorPrimary: P.primary,
+        colorBackground: modalBg,
+        colorText: textClr,
+        colorDanger: '#ff6b6b',
+        fontFamily: FONT_INTER,
+        borderRadius: '10px',
+      },
+    },
+  } : undefined;
+
+  return createPortal(
+    <div
+      role="presentation"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 10000, background: overlay, backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <style>{`
+        @keyframes fin-modal-in { from { opacity:0; transform:translateY(14px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+        .fin-modal-box { animation: fin-modal-in 0.2s ease; }
+        .fin-close-btn { position:absolute;top:16px;right:18px;width:30px;height:30px;border-radius:50%;border:1px solid ${borderClr};background:${iconBg};color:${mutedClr};cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;line-height:1; }
+        .fin-close-btn:hover { border-color:${P.primaryBorder};color:${P.primary}; }
+        .fin-pm-contact { display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border-radius:10px;border:none;background:${P.primary};color:#fff;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;transition:opacity 0.15s; }
+        .fin-pm-contact:hover { opacity:0.87; }
+        .fin-pm-close { display:inline-flex;align-items:center;gap:6px;padding:10px 16px;border-radius:10px;border:1px solid ${borderClr};background:transparent;color:${mutedClr};font-size:0.85rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s; }
+        .fin-pm-close:hover { border-color:${P.primaryBorder};color:${P.primary}; }
+      `}</style>
+
+      <section
+        role="dialog" aria-modal="true" aria-label="Pagar fatura"
+        className="fin-modal-box"
+        style={{ width: 'min(560px, 100%)', maxHeight: '90vh', overflowY: 'auto', background: modalBg, border: `1px solid ${borderClr}`, borderRadius: 20, boxShadow: '0 28px 80px rgba(0,0,0,0.55)', color: textClr, fontFamily: FONT_INTER, position: 'relative' }}>
+
+        <div style={{ padding: '24px 28px 20px', borderBottom: `1px solid ${sepClr}` }}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: -0.4, color: textClr, marginBottom: 4 }}>Pagar fatura</h2>
+          <p style={{ fontSize: '0.82rem', color: mutedClr, lineHeight: 1.5 }}>
+            {invoice.description} · <strong style={{ color: textClr }}>{formatBRL(invoice.amount)}</strong>
+          </p>
+          <button type="button" className="fin-close-btn" onClick={onClose} aria-label="Fechar">×</button>
         </div>
 
-        {/* Body — aviso claro + card ilustração */}
-        <div style={{ padding: '24px 28px' }}>
-
-          {/* Aviso de integração pendente */}
-          <div style={{ display: 'flex', gap: 14, padding: '16px 18px', borderRadius: 12, background: isDark ? 'rgba(245,158,11,0.08)' : 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.28)', marginBottom: 22 }}>
-            <div style={{ flexShrink: 0, marginTop: 1 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#d97706', marginBottom: 4, lineHeight: 1.3 }}>
-                Cadastro de cartão ainda não está ativo
-              </div>
-              <div style={{ fontSize: '0.76rem', color: isDark ? 'rgba(245,158,11,0.78)' : '#92400e', lineHeight: 1.55 }}>
-                A integração com gateway de pagamento será disponibilizada em breve. Nenhum dado financeiro é coletado ou armazenado no momento.
-              </div>
+        {loadError ? (
+          <div style={{ padding: '24px 28px' }}>
+            <div style={{ padding: '14px 16px', borderRadius: 10, background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.28)', color: '#ff9ab4', fontSize: '0.85rem', fontWeight: 600 }}>
+              {loadError}
             </div>
           </div>
-
-          {/* Ilustração de cartão (puramente decorativa) */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
-            <div style={{
-              width: 260, height: 164, borderRadius: 16,
-              background: 'linear-gradient(135deg, #1a103a 0%, #2d1660 48%, #0f0a1f 100%)',
-              boxShadow: '0 14px 40px rgba(0,0,0,0.38)',
-              padding: '18px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-              position: 'relative', overflow: 'hidden', color: '#fff', userSelect: 'none',
-            }}>
-              <div style={{ position: 'absolute', top: -24, right: -24, width: 100, height: 100, borderRadius: '50%', background: 'rgba(139,61,255,0.18)', pointerEvents: 'none' }} />
-              <div style={{ position: 'absolute', bottom: -14, left: -14, width: 70, height: 70, borderRadius: '50%', background: 'rgba(139,61,255,0.11)', pointerEvents: 'none' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, position: 'relative' }}>
-                <div style={{ width: 24, height: 24, borderRadius: 6, background: P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ color: '#fff', fontWeight: 900, fontSize: '0.65rem', fontFamily: FONT_MONO }}>N</span>
-                </div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.88)' }}>Noratech</span>
-              </div>
-              <div style={{ fontFamily: FONT_MONO, fontSize: '0.95rem', fontWeight: 500, letterSpacing: 3, color: 'rgba(255,255,255,0.7)', position: 'relative' }}>
-                •••• •••• •••• ••••
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
-                <div>
-                  <div style={{ fontSize: '0.46rem', fontWeight: 600, letterSpacing: 1.2, color: 'rgba(255,255,255,0.38)', textTransform: 'uppercase', marginBottom: 2 }}>Nome do titular</div>
-                  <div style={{ fontSize: '0.64rem', fontWeight: 600, color: 'rgba(255,255,255,0.6)', letterSpacing: 0.8 }}>EM BREVE</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '0.46rem', fontWeight: 600, letterSpacing: 1.2, color: 'rgba(255,255,255,0.38)', textTransform: 'uppercase', marginBottom: 2 }}>Válido até</div>
-                  <div style={{ fontSize: '0.64rem', fontWeight: 600, color: 'rgba(255,255,255,0.6)', fontFamily: FONT_MONO }}>MM/AA</div>
-                </div>
-              </div>
-            </div>
+        ) : !clientSecret ? (
+          <div style={{ padding: '48px 28px', display: 'flex', justifyContent: 'center' }}>
+            <div style={{ width: 28, height: 28, border: `2px solid ${P.primaryBorder}`, borderTopColor: P.primary, borderRadius: '50%', animation: 'admin-spin 0.8s linear infinite' }} />
+            <style>{`@keyframes admin-spin { to { transform: rotate(360deg); } }`}</style>
           </div>
-
-          {/* O que estará disponível */}
-          <div style={{ padding: '14px 16px', borderRadius: 10, background: isDark ? 'rgba(255,255,255,0.03)' : '#f7f8fa', border: `1px solid ${sepClr}` }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1.2, color: P.primary, textTransform: 'uppercase', marginBottom: 10 }}>Em breve você poderá</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-              {[
-                'Cadastrar cartão de crédito com segurança via gateway certificado',
-                'Pagar via PIX ou boleto bancário',
-                'Definir forma de pagamento padrão para todas as assinaturas',
-                'Visualizar e gerenciar cobranças recorrentes',
-              ].map((item) => (
-                <div key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: '0.78rem', color: mutedClr, lineHeight: 1.4 }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={P.primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><polyline points="20 6 9 17 4 12"/></svg>
-                  {item}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div style={{ padding: '14px 28px 20px', borderTop: `1px solid ${sepClr}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: mutedClr, fontSize: '0.7rem' }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            Nenhum dado financeiro é coletado no momento.
-          </div>
-          <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-            <button type="button" className="fin-pm-close" onClick={onClose}>Fechar</button>
-            <Link to="/#contato" className="fin-pm-contact" onClick={onClose}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-              Avisar quando disponível
-            </Link>
-          </div>
-        </div>
+        ) : (
+          <Elements stripe={stripePromise} options={elementsOptions}>
+            <PayInvoiceForm onClose={onClose} onPaid={onPaid} mutedClr={mutedClr} borderClr={sepClr} />
+          </Elements>
+        )}
       </section>
     </div>,
     document.body
@@ -536,40 +721,81 @@ export default function FinanceiroPage() {
 
   const [companyInfo, setCompanyInfo] = useState(null);
   const [subscriptions, setSubscriptions] = useState([]);
+  const [invoices, setInvoices] = useState([]);
+  const [itemsByInvoice, setItemsByInvoice] = useState({});
+  const [preview, setPreview] = useState([]);
+  const [paymentMethod, setPaymentMethod] = useState(null);
   const [loading, setLoading] = useState(true);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [payingInvoice, setPayingInvoice] = useState(null);
   const [supportModalOpen, setSupportModalOpen] = useState(false);
+
+  const loadPaymentMethod = async (companyId) => {
+    if (!companyId) return;
+    try {
+      setPaymentMethod(await fetchPaymentMethod(companyId));
+    } catch { /* keep previous */ }
+  };
+
+  const loadAll = useCallback(async () => {
+    let companyId;
+    try {
+      const my = await fetchMyCompany();
+      setCompanyInfo(my);
+      companyId = my?.company?.id;
+      if (companyId) {
+        const [subsRes, invRes, previewRes, pmData] = await Promise.all([
+          supabase
+            .from('subscriptions')
+            .select('id, system_slug, plan, status, amount, started_at, created_at')
+            .eq('company_id', companyId)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('invoices')
+            .select('*')
+            .eq('company_id', companyId)
+            .order('due_date', { ascending: false }),
+          supabase.rpc('preview_company_invoice', { p_company_id: companyId }),
+          fetchPaymentMethod(companyId).catch(() => null),
+        ]);
+
+        const seen = new Set();
+        const list = [];
+        (subsRes.data || []).forEach((s) => {
+          if (seen.has(s.system_slug)) return;
+          seen.add(s.system_slug);
+          list.push({ ...s, system: getSystem(s.system_slug) });
+        });
+        setSubscriptions(list);
+
+        const invoiceRows = invRes.data || [];
+        setInvoices(invoiceRows);
+        setPreview(previewRes.data || []);
+        setPaymentMethod(pmData);
+
+        // Composição de cada fatura (um sistema por linha).
+        if (invoiceRows.length > 0) {
+          const { data: itemRows } = await supabase
+            .from('invoice_items')
+            .select('*')
+            .in('invoice_id', invoiceRows.map((i) => i.id));
+          setItemsByInvoice((itemRows || []).reduce((acc, it) => {
+            (acc[it.invoice_id] ||= []).push(it);
+            return acc;
+          }, {}));
+        }
+      }
+    } catch { /* keep empty */ }
+  }, []);
 
   useEffect(() => {
     let active = true;
     (async () => {
-      try {
-        const my = await fetchMyCompany();
-        if (!active) return;
-        setCompanyInfo(my);
-        const companyId = my?.company?.id;
-        if (companyId) {
-          const { data } = await supabase
-            .from('subscriptions')
-            .select('id, system_slug, plan, status, current_period_end, created_at')
-            .eq('company_id', companyId)
-            .order('created_at', { ascending: false });
-          if (active) {
-            const seen = new Set();
-            const list = [];
-            (data || []).forEach((s) => {
-              if (seen.has(s.system_slug)) return;
-              seen.add(s.system_slug);
-              list.push({ ...s, system: getSystem(s.system_slug) });
-            });
-            setSubscriptions(list);
-          }
-        }
-      } catch { /* keep empty */ }
-      finally { if (active) setLoading(false); }
+      await loadAll();
+      if (active) setLoading(false);
     })();
     return () => { active = false; };
-  }, [user?.id]);
+  }, [user?.id, loadAll]);
 
   const companyName = companyInfo?.company?.name || user?.company || null;
   const memberSince = useMemo(() => fmtMonth(user?.createdAt), [user]);
@@ -579,15 +805,23 @@ export default function FinanceiroPage() {
     [subscriptions]
   );
 
-  const nextRenewal = useMemo(() => {
-    const upcoming = activeSubs
-      .map((s) => s.current_period_end)
-      .filter(Boolean)
-      .map((d) => new Date(d))
-      .filter((d) => !Number.isNaN(d.getTime()) && d > new Date())
-      .sort((a, b) => a - b);
-    return upcoming[0] ? fmtDate(upcoming[0].toISOString()) : '—';
-  }, [activeSubs]);
+  // Faturas em aberto = pendentes + vencidas (o que o cliente ainda deve).
+  const openInvoices = useMemo(
+    () => invoices.filter((i) => i.status === 'pending' || i.status === 'overdue'),
+    [invoices]
+  );
+  const openTotal = useMemo(
+    () => openInvoices.reduce((sum, i) => sum + Number(i.amount || 0), 0),
+    [openInvoices]
+  );
+  const paidCount = useMemo(() => invoices.filter((i) => i.status === 'paid').length, [invoices]);
+
+  // Próximo fechamento vem da prévia consolidada (dia de vencimento da empresa).
+  const nextDueDate = preview[0]?.period_end || null;
+  const nextDueTotal = useMemo(
+    () => preview.reduce((sum, l) => sum + Number(l.amount || 0), 0),
+    [preview]
+  );
 
   const cssVars = {
     '--p-bg': P.bg, '--p-surface': P.surface, '--p-surface2': P.surface2,
@@ -691,8 +925,8 @@ export default function FinanceiroPage() {
           {[
             {
               label: 'Faturas em aberto',
-              value: '—',
-              sub: 'Módulo em breve',
+              value: loading ? '...' : openInvoices.length,
+              sub: openInvoices.length > 0 ? `${formatBRL(openTotal)} a pagar` : 'nada em aberto',
               accentColor: '#f59e0b',
               icon: (
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -702,8 +936,8 @@ export default function FinanceiroPage() {
             },
             {
               label: 'Faturas pagas',
-              value: '—',
-              sub: 'Módulo em breve',
+              value: loading ? '...' : paidCount,
+              sub: paidCount === 1 ? '1 fatura quitada' : `${paidCount} faturas quitadas`,
               accentColor: '#22c55e',
               icon: (
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -713,8 +947,10 @@ export default function FinanceiroPage() {
             },
             {
               label: 'Próximo vencimento',
-              value: loading ? '...' : nextRenewal,
-              sub: activeSubs.length > 0 ? 'renovação mais próxima' : 'sem assinaturas ativas',
+              value: loading ? '...' : (nextDueDate ? fmtDate(nextDueDate) : '—'),
+              sub: nextDueDate
+                ? `${formatBRL(nextDueTotal)} previstos`
+                : (activeSubs.length > 0 ? 'vencimento não configurado' : 'sem assinaturas ativas'),
               accentColor: P.primary,
               icon: (
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -778,31 +1014,94 @@ export default function FinanceiroPage() {
               </div>
 
               {/* Table header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px 110px 85px 110px', gap: 8, padding: '0 12px 10px', borderBottom: `1px solid ${P.border}` }}>
-                {['Descrição', 'Sistema / Plano', 'Vencimento', 'Valor', 'Status'].map((h) => (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px 110px 85px 110px 100px', gap: 8, padding: '0 12px 10px', borderBottom: `1px solid ${P.border}` }}>
+                {['Descrição', 'Sistemas', 'Vencimento', 'Valor', 'Status', ''].map((h) => (
                   <span key={h} className="fin-th">{h}</span>
                 ))}
               </div>
 
-              {/* Empty state */}
-              <div style={{ padding: '32px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 48, height: 48, borderRadius: 14, background: P.surface2, border: `1px solid ${P.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={P.muted} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
-                    <line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
-                  </svg>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 700, color: P.text, marginBottom: 4 }}>Nenhuma fatura encontrada</div>
-                  <div style={{ fontSize: '0.78rem', color: P.muted, maxWidth: 340, lineHeight: 1.55 }}>
-                    As faturas geradas pela Noratech aparecerão aqui. Em caso de dúvidas, acione o suporte financeiro.
+              {loading ? (
+                <div style={{ padding: '28px 0', textAlign: 'center', color: P.muted, fontSize: '0.85rem' }}>Carregando...</div>
+              ) : invoices.length === 0 ? (
+                /* Empty state */
+                <div style={{ padding: '32px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 14, background: P.surface2, border: `1px solid ${P.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={P.muted} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
                   </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.875rem', fontWeight: 700, color: P.text, marginBottom: 4 }}>Nenhuma fatura encontrada</div>
+                    <div style={{ fontSize: '0.78rem', color: P.muted, maxWidth: 340, lineHeight: 1.55 }}>
+                      {nextDueDate
+                        ? `Sua próxima fatura será emitida em ${fmtDate(nextDueDate)}.`
+                        : 'As faturas geradas pela Noratech aparecerão aqui. Em caso de dúvidas, acione o suporte financeiro.'}
+                    </div>
+                  </div>
+                  <button type="button" className="fin-btn-soft" style={{ marginTop: 4 }} onClick={() => setSupportModalOpen(true)}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+                    Solicitar suporte financeiro
+                  </button>
                 </div>
-                <button type="button" className="fin-btn-soft" style={{ marginTop: 4 }} onClick={() => setSupportModalOpen(true)}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
-                  Solicitar suporte financeiro
-                </button>
-              </div>
+              ) : (
+                <div>
+                  {invoices.map((inv, i) => {
+                    const st = INVOICE_STATUS[inv.status] || { label: inv.status, color: P.muted };
+                    const items = itemsByInvoice[inv.id] || [];
+                    return (
+                      <div key={inv.id} className="fin-row-hover" style={{ display: 'grid', gridTemplateColumns: '1fr 150px 110px 85px 110px 100px', gap: 8, alignItems: 'center', padding: '12px', borderBottom: i < invoices.length - 1 ? `1px solid ${P.border}` : 'none' }}>
+
+                        {/* Descrição */}
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: P.text }}>{inv.description}</div>
+                          {items.length > 0 && (
+                            <div style={{ fontSize: '0.66rem', color: P.muted, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {items.map((it) => it.description).join(' · ')}
+                            </div>
+                          )}
+                          {inv.paid_at && (
+                            <div style={{ fontSize: '0.63rem', color: '#22c55e', marginTop: 2 }}>Pago em {fmtDate(inv.paid_at)}</div>
+                          )}
+                        </div>
+
+                        {/* Sistemas */}
+                        <span style={{ fontSize: '0.78rem', color: P.primary, fontWeight: 600 }}>
+                          {items.length > 0
+                            ? `${items.length} sistema${items.length !== 1 ? 's' : ''}`
+                            : '—'}
+                        </span>
+
+                        {/* Vencimento */}
+                        <span style={{ fontSize: '0.78rem', color: P.muted, fontFamily: FONT_MONO }}>{fmtDate(inv.due_date)}</span>
+
+                        {/* Valor */}
+                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: P.text, fontFamily: FONT_MONO }}>{formatBRL(inv.amount)}</span>
+
+                        {/* Status */}
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5, justifySelf: 'start',
+                          fontSize: '0.62rem', fontWeight: 700, letterSpacing: 0.6,
+                          textTransform: 'uppercase', padding: '3px 10px', borderRadius: 999,
+                          background: `${st.color}18`, border: `1px solid ${st.color}35`, color: st.color,
+                        }}>
+                          <span style={{ width: 5, height: 5, borderRadius: '50%', background: st.color }} />
+                          {st.label}
+                        </span>
+
+                        {/* Ação */}
+                        <div style={{ justifySelf: 'end' }}>
+                          {inv.status !== 'paid' && (
+                            <button type="button" className="fin-btn-soft" style={{ padding: '5px 12px', fontSize: '0.74rem' }} onClick={() => setPayingInvoice(inv)}>
+                              Pagar
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* ── Assinaturas ── */}
@@ -828,7 +1127,7 @@ export default function FinanceiroPage() {
 
               {/* Table header */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 130px 90px 80px', gap: 8, padding: '0 10px 10px', borderBottom: `1px solid ${P.border}` }}>
-                {['Sistema', 'Plano', 'Renovação', 'Status', 'Ação'].map((h) => (
+                {['Sistema', 'Plano', 'Adquirido em', 'Status', 'Ação'].map((h) => (
                   <span key={h} className="fin-th">{h}</span>
                 ))}
               </div>
@@ -868,8 +1167,8 @@ export default function FinanceiroPage() {
                         {/* Plano */}
                         <span style={{ fontSize: '0.8rem', color: P.primary, fontWeight: 600 }}>{s.plan || '—'}</span>
 
-                        {/* Renovação */}
-                        <span style={{ fontSize: '0.78rem', color: P.muted, fontFamily: FONT_MONO }}>{fmtDate(s.current_period_end)}</span>
+                        {/* Adquirido em */}
+                        <span style={{ fontSize: '0.78rem', color: P.muted, fontFamily: FONT_MONO }}>{fmtDate(s.started_at)}</span>
 
                         {/* Status */}
                         <span style={{
@@ -928,13 +1227,29 @@ export default function FinanceiroPage() {
               <p style={{ fontSize: '0.78rem', color: P.muted, lineHeight: 1.55, marginBottom: 14 }}>
                 Gerencie seus métodos de pagamento.
               </p>
-              <div style={{ padding: '12px 14px', background: P.surface2, border: `1px solid ${P.border}`, borderRadius: 10, marginBottom: 12 }}>
-                <div style={{ fontSize: '0.78rem', fontWeight: 600, color: P.text, marginBottom: 3 }}>Nenhuma forma cadastrada</div>
-                <div style={{ fontSize: '0.7rem', color: P.muted, lineHeight: 1.5 }}>Cadastre um método para facilitar seus pagamentos.</div>
-              </div>
+              {paymentMethod ? (
+                <div style={{ padding: '12px 14px', background: P.surface2, border: `1px solid ${P.border}`, borderRadius: 10, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={P.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" />
+                  </svg>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 600, color: P.text, textTransform: 'capitalize' }}>
+                      {paymentMethod.brand || 'Cartão'} •••• {paymentMethod.last4}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: P.muted, marginTop: 2 }}>
+                      Válido até {String(paymentMethod.exp_month).padStart(2, '0')}/{paymentMethod.exp_year}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: '12px 14px', background: P.surface2, border: `1px solid ${P.border}`, borderRadius: 10, marginBottom: 12 }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 600, color: P.text, marginBottom: 3 }}>Nenhuma forma cadastrada</div>
+                  <div style={{ fontSize: '0.7rem', color: P.muted, lineHeight: 1.5 }}>Cadastre um método para facilitar seus pagamentos.</div>
+                </div>
+              )}
               <button type="button" className="fin-btn-soft" style={{ width: '100%', justifyContent: 'center' }}
                 onClick={() => setPaymentModalOpen(true)}>
-                Cadastrar forma de pagamento
+                {paymentMethod ? 'Trocar cartão' : 'Cadastrar forma de pagamento'}
               </button>
             </div>
 
@@ -995,7 +1310,19 @@ export default function FinanceiroPage() {
 
       {paymentModalOpen && (
         <PaymentModal
+          companyId={companyInfo?.company?.id}
           onClose={() => setPaymentModalOpen(false)}
+          onSaved={() => loadPaymentMethod(companyInfo?.company?.id)}
+          P={P}
+          theme={theme}
+        />
+      )}
+
+      {payingInvoice && (
+        <PayInvoiceModal
+          invoice={payingInvoice}
+          onClose={() => setPayingInvoice(null)}
+          onPaid={loadAll}
           P={P}
           theme={theme}
         />

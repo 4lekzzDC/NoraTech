@@ -11,17 +11,20 @@ import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import AreaDoClientePage from './pages/AreaDoClientePage.jsx'
+import SystemDetailsPage from './pages/SystemDetailsPage.jsx'
+import SystemContractPage from './pages/SystemContractPage.jsx'
 import FinanceiroPage from './pages/FinanceiroPage.jsx'
 import AdminOverviewPage from './pages/admin/AdminOverviewPage.jsx'
 import AdminUsersPage from './pages/admin/AdminUsersPage.jsx'
 import AdminCompaniesPage from './pages/admin/AdminCompaniesPage.jsx'
-import AdminSubscriptionsPage from './pages/admin/AdminSubscriptionsPage.jsx'
+import AdminSystemsPage from './pages/admin/AdminSystemsPage.jsx'
 import AdminInvoicesPage from './pages/admin/AdminInvoicesPage.jsx'
 import {
   SolucoesContabeisHub,
   SistemaEmConstrucao,
   AcompanhamentoContabilPage,
   ContabilPage,
+  PessoalPage,
   SOLUCOES_CONTABEIS_SLUG,
   SOLUCOES_CONTABEIS_LEGACY_SLUGS,
   SOLUCOES_CONTABEIS_ROUTE,
@@ -79,10 +82,12 @@ createRoot(document.getElementById('root')).render(
           <Route path="/perfil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/area-do-cliente" element={<ProtectedRoute><AreaDoClientePage /></ProtectedRoute>} />
           <Route path="/area-do-cliente/financeiro" element={<OrgManagerRoute><FinanceiroPage /></OrgManagerRoute>} />
+          <Route path="/area-do-cliente/sistemas/:slug" element={<ProtectedRoute><SystemDetailsPage /></ProtectedRoute>} />
+          <Route path="/area-do-cliente/sistemas/:slug/contrato" element={<OrgManagerRoute><SystemContractPage /></OrgManagerRoute>} />
           <Route path="/admin" element={<AdminRoute><AdminOverviewPage /></AdminRoute>} />
           <Route path="/admin/usuarios" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
           <Route path="/admin/empresas" element={<AdminRoute><AdminCompaniesPage /></AdminRoute>} />
-          <Route path="/admin/assinaturas" element={<AdminRoute><AdminSubscriptionsPage /></AdminRoute>} />
+          <Route path="/admin/sistemas" element={<AdminRoute><AdminSystemsPage /></AdminRoute>} />
           <Route path="/admin/faturas" element={<AdminRoute><AdminInvoicesPage /></AdminRoute>} />
           {/* Hub da suite Soluções Contábeis */}
           <Route
@@ -98,6 +103,11 @@ createRoot(document.getElementById('root')).render(
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/contabil`}
             element={<SolucoesContabeisRoute><ContabilPage /></SolucoesContabeisRoute>}
+          />
+          {/* Categoria "Pessoal" — RH e processos de pessoal */}
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/pessoal`}
+            element={<SolucoesContabeisRoute><PessoalPage /></SolucoesContabeisRoute>}
           />
           {/* Placeholders dos módulos do Autonomy em migração */}
           <Route
