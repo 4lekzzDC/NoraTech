@@ -1,7 +1,9 @@
 // Engine puro da Análise de Demonstrações (sem React, sem DOM).
-// Porta fiel das funções adem* do Autonomy (dashboard.html 6396-6925).
+// Porta fiel das funções adem* do Autonomy (dashboard.html 6396-6925), com parser
+// reforçado para lidar com relatórios contábeis reais (múltiplas colunas,
+// hierarquia por indentação, totais que só aparecem na última linha do grupo).
 //
-// Fluxo: XLSX upload → parse DRE/Balanço/Balancete → computed object
+// Fluxo: XLSX/PDF upload → parse DRE/Balanço/Balancete → computed object
 // → KPIs + 6 gráficos no dashboard → tabelas de detalhamento
 //
 // localStorage: chave 'adem_data' (preservada do legado)
@@ -9,19 +11,28 @@
 import * as XLSX from 'xlsx';
 
 // ──────────────────────────────────────────────────────────────────────
-// Helpers
+// Helpers numéricos
 // ──────────────────────────────────────────────────────────────────────
 
 export function parseNum(v) {
   if (v == null || v === '') return 0;
   if (typeof v === 'number') return v;
-  let s = String(v).replace(/[R$\s]/g, '');
+  let s = String(v).trim();
+  let neg = false;
+  if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
+  if (/-\s*$/.test(s)) { neg = true; s = s.replace(/-\s*$/, ''); }
+  // Balanços em PDF costumam anexar "D"/"C" (Devedor/Credor) direto no valor
+  // (ex: "17.820.535,61D") — é um indicador de natureza contábil, não um sinal.
+  s = s.replace(/\s*[DdCc]\s*$/, '');
+  s = s.replace(/[R$\s]/g, '');
+  if (s.startsWith('-')) { neg = true; s = s.slice(1); }
   if (s.includes(',') && s.includes('.')) {
     if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g, '').replace(',', '.');
     else s = s.replace(/,/g, '');
   } else if (s.includes(',')) s = s.replace(',', '.');
   const n = parseFloat(s);
-  return isNaN(n) ? 0 : n;
+  if (isNaN(n)) return 0;
+  return neg ? -Math.abs(n) : n;
 }
 
 export function fmt(v) {
@@ -35,43 +46,231 @@ export function pct(v) {
   return (v * 100).toFixed(1).replace('.', ',') + '%';
 }
 
-function findRow(rows, keywords) {
-  const kws = keywords.map((k) => k.toLowerCase());
-  for (const row of rows) {
-    const label = String(row[0] || '').toLowerCase().trim();
-    if (kws.some((kw) => label.includes(kw))) return row;
-  }
-  return null;
+// ──────────────────────────────────────────────────────────────────────
+// Normalização de linhas → árvore de itens (label + indentação + valores)
+//
+// Relatórios contábeis reais não têm a descrição sempre na coluna 0 nem o
+// valor sempre na última coluna: a descrição pode estar em qualquer coluna
+// (indicando nível hierárquico) e o total de uma seção às vezes só aparece
+// na última linha-filha, não na linha do cabeçalho. `buildItems` normaliza
+// isso para uma lista plana com nível de indentação, e `resolveValue` sabe
+// somar os filhos quando o cabeçalho não carrega valor próprio.
+// ──────────────────────────────────────────────────────────────────────
+
+function looksNumeric(cell) {
+  if (typeof cell === 'number') return true;
+  if (typeof cell !== 'string') return false;
+  const s = cell.trim();
+  if (s === '') return false;
+  return /^\(?-?\s*R?\$?\s*-?\d{1,3}(\.\d{3})*(,\d+)?\)?-?\s*[DdCc]?$/.test(s) || /^-?\d+(\.\d+)?\s*[DdCc]?$/.test(s);
 }
 
-function findVal(rows, keywords) {
-  const row = findRow(rows, keywords);
-  if (!row) return 0;
-  for (let i = row.length - 1; i >= 1; i--) {
-    const v = parseNum(row[i]);
-    if (v !== 0) return v;
+function normalizeLabel(s) {
+  return String(s).toLowerCase().replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// Linhas de cabeçalho/rodapé (título do relatório, dados da empresa, cabeçalho
+// de colunas) nunca são o dado procurado — e em PDFs de várias páginas elas se
+// repetem a cada página, se intercalando entre as linhas de dados de verdade.
+// Se não forem descartadas aqui, uma seção que atravessa uma quebra de página
+// (ex: "DESPESAS ADMINISTRATIVAS" com contas na página 1 e na página 2) tem o
+// somatório de filhos cortado no meio, porque essas linhas de "página nova"
+// ficam no mesmo nível hierárquico raiz e são confundidas com a próxima seção.
+const BOILERPLATE_EXCLUDE = [
+  'demonstração', 'balanço patrimonial', 'sistema licenciado', 'empresa:', 'c.n.p.j',
+  'período:', 'folha:', 'consolidado', 'descrição da conta', 'balanço encerrado',
+];
+
+function isBoilerplate(labelRaw) {
+  const n = normalizeLabel(labelRaw);
+  if (BOILERPLATE_EXCLUDE.some((e) => n.includes(e))) return true;
+  // Linha de cabeçalho de colunas (ex: "Descrição Saldo Soma Total"): só
+  // rótulos de coluna, sem nenhum valor numérico junto.
+  if (/^descrição\b/.test(n) && /\b(saldo|débito|crédito|total|soma)\b/.test(n)) return true;
+  return false;
+}
+
+function buildItems(rows) {
+  const items = [];
+  // Em PDFs de várias páginas, o título de uma seção às vezes é reimpresso no
+  // topo da página seguinte para indicar que ela continua (ex: "DESPESAS
+  // ADMINISTRATIVAS" reaparece sem valor antes de mais contas do mesmo
+  // grupo, dezenas de linhas depois do cabeçalho original). Sem tratar isso,
+  // esse "cabeçalho fantasma" fecharia o somatório dos filhos cedo demais.
+  // Uma pilha de cabeçalhos ainda "abertos" (por indentação) deixa detectar
+  // a repetição mesmo não sendo adjacente ao cabeçalho original.
+  const openHeaders = [];
+
+  for (const row of rows) {
+    if (!row) continue;
+    let labelColIdx = -1;
+    for (let c = 0; c < row.length; c++) {
+      const cell = row[c];
+      if (typeof cell === 'string' && cell.trim() !== '' && !looksNumeric(cell)) { labelColIdx = c; break; }
+    }
+    if (labelColIdx === -1) continue;
+    const raw = String(row[labelColIdx]);
+    const labelRaw = raw.trim().replace(/\s+/g, ' ');
+    if (!labelRaw || labelRaw.length < 2) continue;
+    if (isBoilerplate(labelRaw)) continue;
+    const leadingSpaces = raw.length - raw.replace(/^\s+/, '').length;
+    const codeCandidate = labelColIdx > 0 && looksNumeric(row[labelColIdx - 1]) ? String(row[labelColIdx - 1]).trim() : '';
+
+    const values = [];
+    for (let c = labelColIdx + 1; c < row.length; c++) {
+      const cell = row[c];
+      if (cell === '' || cell === null || cell === undefined) continue;
+      if (typeof cell !== 'number' && !looksNumeric(cell)) continue;
+      values.push(parseNum(cell));
+    }
+
+    const label = normalizeLabel(labelRaw);
+    const indent = labelColIdx * 100 + leadingSpaces;
+
+    let isDuplicateHeader = false;
+    while (openHeaders.length && openHeaders[openHeaders.length - 1].indent >= indent) {
+      const top = openHeaders[openHeaders.length - 1];
+      if (top.indent === indent && top.label === label && values.length === 0) { isDuplicateHeader = true; break; }
+      openHeaders.pop();
+    }
+    if (isDuplicateHeader) continue;
+    if (values.length === 0) openHeaders.push({ label, indent });
+
+    items.push({ label, labelRaw, indent, values, code: codeCandidate });
+  }
+  return items;
+}
+
+// Valor "total" de uma linha: o último valor não-zero (a coluna mais à
+// direita preenchida — normalmente a mais agregada, ex: "Total"/"Soma").
+// Usado para decidir se a própria linha já carrega o total da seção.
+function directValue(item) {
+  for (let i = item.values.length - 1; i >= 0; i--) {
+    if (item.values[i] !== 0) return item.values[i];
   }
   return 0;
+}
+
+// Valor "próprio" de uma linha: o primeiro valor não-zero (a coluna mais à
+// esquerda — o saldo individual daquela linha). Diferente de directValue:
+// a última linha de um grupo às vezes carrega, nas colunas seguintes, o
+// subtotal acumulado da seção — usar a coluna da direita ali faria a soma
+// dos filhos contar esse subtotal duas vezes.
+function ownValue(item) {
+  for (let i = 0; i < item.values.length; i++) {
+    if (item.values[i] !== 0) return item.values[i];
+  }
+  return 0;
+}
+
+// Soma os valores próprios dos descendentes diretos (recursivo para
+// sub-cabeçalhos), usado quando a própria linha não carrega nenhum valor.
+function rollupChildren(items, idx) {
+  const item = items[idx];
+  let sum = 0;
+  let j = idx + 1;
+  while (j < items.length && items[j].indent > item.indent) {
+    const hasChildren = j + 1 < items.length && items[j + 1].indent > items[j].indent;
+    if (hasChildren) {
+      sum += resolveValue(items, j);
+      const childIndent = items[j].indent;
+      let k = j + 1;
+      while (k < items.length && items[k].indent > childIndent) k++;
+      j = k;
+    } else {
+      sum += ownValue(items[j]);
+      j++;
+    }
+  }
+  return sum;
+}
+
+function resolveValue(items, idx) {
+  const item = items[idx];
+  const direct = directValue(item);
+  if (direct !== 0) return direct;
+  if (item.values.length > 0) return 0; // linha tem valor explícito zerado — não é cabeçalho
+  return rollupChildren(items, idx);
+}
+
+// Localiza o item cujo rótulo casa com alguma keyword (string = substring,
+// array = todas as substrings precisam casar). strategy 'shallowest' (padrão)
+// prioriza a linha de nível hierárquico mais alto entre as candidatas (evita
+// pegar uma sub-linha em vez do total da seção); 'largest' prioriza o maior
+// valor absoluto (útil quando várias linhas usam um termo genérico).
+function findItemIndex(items, keywords, opts = {}) {
+  const { exclude = [], strategy = 'shallowest' } = opts;
+  const kws = keywords.map((k) => (Array.isArray(k) ? k.map((x) => x.toLowerCase()) : k.toLowerCase()));
+  const exc = [...BOILERPLATE_EXCLUDE, ...exclude].map((e) => e.toLowerCase());
+  let best = -1;
+  let bestScore = Infinity;
+  for (let i = 0; i < items.length; i++) {
+    const label = items[i].label;
+    if (exc.some((e) => label.includes(e))) continue;
+    const match = kws.some((kw) => (Array.isArray(kw) ? kw.every((k) => label.includes(k)) : label.includes(kw)));
+    if (!match) continue;
+    const score = strategy === 'largest' ? -Math.abs(resolveValue(items, i)) : items[i].indent;
+    if (score < bestScore) { bestScore = score; best = i; }
+  }
+  return best;
+}
+
+function findValue(items, keywords, opts) {
+  const idx = findItemIndex(items, keywords, opts);
+  return idx === -1 ? 0 : resolveValue(items, idx);
 }
 
 // ──────────────────────────────────────────────────────────────────────
 // Parse de cada demonstração
 // ──────────────────────────────────────────────────────────────────────
 
+// Coleta as linhas-folha negativas da DRE junto com a seção de primeiro nível
+// a que pertencem. Os totais agregados respondem "quanto gastou"; só as linhas
+// individuais respondem "onde está gastando".
+function collectLancamentos(items) {
+  if (!items.length) return [];
+  const rootIndent = Math.min(...items.map((i) => i.indent));
+  const out = [];
+  let secao = '';
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item.indent === rootIndent) { secao = item.labelRaw; continue; }
+    const isLeaf = !(i + 1 < items.length && items[i + 1].indent > item.indent);
+    if (!isLeaf) continue;
+    const val = ownValue(item);
+    if (val >= 0) continue;
+    out.push({ desc: item.labelRaw, grupo: secao, valor: Math.abs(val) });
+  }
+  return out.sort((a, b) => b.valor - a.valor);
+}
+
+// Grupos que não são "despesa do negócio" na leitura do empresário: imposto
+// sobre venda e custo da mercadoria já aparecem como etapas próprias no fluxo.
+const GRUPO_NAO_DESPESA = /deduç|dedu[cç]|imposto|cmv|cpv|custo|irpj|csll/i;
+
+export function buildTopDespesas(dre, limite = 8) {
+  const lanc = dre?.lancamentos;
+  if (!Array.isArray(lanc) || !lanc.length) return [];
+  return lanc.filter((l) => !GRUPO_NAO_DESPESA.test(l.grupo || '')).slice(0, limite);
+}
+
 export function parseDRE(rows) {
-  const recBruta   = findVal(rows, ['receita bruta', 'receita operacional bruta', 'faturamento bruto']);
-  const deducoes   = Math.abs(findVal(rows, ['deduç', '(-) deduç', 'deducoes', 'abatimento']));
-  const recLiquida = findVal(rows, ['receita líquida', 'receita operacional líquida']) || recBruta - deducoes;
-  const cmv        = Math.abs(findVal(rows, ['custo', 'cmv', 'cpv', 'custo dos produtos', 'custo das mercadorias', 'custo dos serviços']));
-  const lucroBruto = findVal(rows, ['lucro bruto', 'resultado bruto']) || (recLiquida - cmv);
-  const despOp     = Math.abs(findVal(rows, ['despesas operacionais', 'total despesas operac']));
-  const despAdmin  = Math.abs(findVal(rows, ['administrativ', 'despesas administrativ']));
-  const despVendas = Math.abs(findVal(rows, ['vendas', 'despesas com vendas', 'despesas comerciais']));
-  const despFin    = Math.abs(findVal(rows, ['financeiras', 'despesas financeiras', 'resultado financeiro']));
-  const depAmort   = Math.abs(findVal(rows, ['depreciaç', 'amortizaç', 'deprec']));
-  const lucroOp    = findVal(rows, ['lucro operacional', 'resultado operacional', 'resultado antes']) || (lucroBruto - despOp - despAdmin - despVendas);
-  const ir         = Math.abs(findVal(rows, ['imposto de renda', 'irpj', 'csll', 'provisão para ir']));
-  const lucroLiq   = findVal(rows, ['lucro líquido', 'resultado líquido', 'resultado do exercício', 'lucro/prejuízo']) || (lucroOp - ir);
+  const items = buildItems(rows);
+  const v = (keywords, opts) => findValue(items, keywords, opts);
+
+  const recBruta   = v(['receita bruta', 'receita operacional bruta', 'faturamento bruto']);
+  const deducoes   = Math.abs(v(['deduç', '(-) deduç', 'deducoes', 'abatimento'], { exclude: ['resultado'] }));
+  const recLiquida = v(['receita líquida', 'receita operacional líquida']) || recBruta - deducoes;
+  const cmv        = Math.abs(v(['custo', 'cmv', 'cpv', 'custo dos produtos', 'custo das mercadorias', 'custo dos serviços'], { exclude: ['resultado'] }));
+  const lucroBruto = v(['lucro bruto', 'resultado bruto']) || (recLiquida - cmv);
+  const despOp     = Math.abs(v(['despesas operacionais', 'total despesas operac'], { exclude: ['resultado'] }));
+  const despAdmin  = Math.abs(v(['administrativ', 'despesas administrativ'], { exclude: ['resultado'] }));
+  const despVendas = Math.abs(v(['despesas com vendas', 'despesas comerciais', 'despesas de vendas'], { exclude: ['receita', 'resultado'] }));
+  const despFin    = Math.abs(v(['despesas financeiras', 'resultado financeiro', 'financeiras'], { exclude: ['receita', 'resultado antes'] }));
+  const depAmort   = Math.abs(v(['depreciaç', 'amortizaç', 'deprec'], { exclude: ['resultado'] }));
+  const lucroOp    = v(['lucro operacional', 'resultado operacional', 'resultado antes']) || (lucroBruto - despOp - despAdmin - despVendas);
+  const ir         = Math.abs(v(['imposto de renda', 'irpj e csll', 'provisão para ir'], { exclude: ['receita', 'resultado'] }));
+  const lucroLiq   = v(['lucro líquido', 'resultado líquido', 'resultado do exercício', 'lucro/prejuízo']) || (lucroOp - ir);
   const ebitda     = lucroOp + depAmort;
 
   return {
@@ -81,22 +280,26 @@ export function parseDRE(rows) {
     margemBruta:  recLiquida ? lucroBruto / recLiquida : 0,
     margemLiq:    recLiquida ? lucroLiq   / recLiquida : 0,
     margemEbitda: recLiquida ? ebitda     / recLiquida : 0,
+    lancamentos: collectLancamentos(items),
   };
 }
 
 export function parseBalanco(rows) {
-  const ativoTotal    = findVal(rows, ['ativo total', 'total do ativo', 'total ativo']);
-  const ativoCirc     = findVal(rows, ['ativo circulante', 'total ativo circulante']);
-  const ativoNC       = findVal(rows, ['ativo não circulante', 'ativo nao circulante', 'total ativo não circulante']) || (ativoTotal - ativoCirc);
-  const caixa         = findVal(rows, ['caixa', 'disponibilidades', 'caixa e equivalentes', 'bancos']);
-  const estoques      = findVal(rows, ['estoque', 'estoques']);
-  const contasReceber = findVal(rows, ['contas a receber', 'clientes', 'duplicatas a receber']);
-  const passivoTotal  = findVal(rows, ['passivo total', 'total do passivo', 'total passivo']);
-  const passivoCirc   = findVal(rows, ['passivo circulante', 'total passivo circulante']);
-  const passivoNC     = findVal(rows, ['passivo não circulante', 'passivo nao circulante', 'exigível a longo', 'total passivo não circulante']);
-  const pl            = findVal(rows, ['patrimônio líquido', 'patrimonio liquido', 'total patrimônio', 'total do patrimônio']) || (ativoTotal - passivoTotal);
-  const fornecedores  = findVal(rows, ['fornecedores', 'contas a pagar']);
-  const emprestimos   = findVal(rows, ['empréstimos', 'emprestimos', 'financiamentos']);
+  const items = buildItems(rows);
+  const v = (keywords, opts) => findValue(items, keywords, opts);
+
+  const ativoTotal    = Math.abs(v(['ativo total', 'total do ativo', 'total ativo', 'ativo']));
+  const ativoCirc     = Math.abs(v(['ativo circulante', 'total ativo circulante']));
+  const ativoNC       = Math.abs(v(['ativo não circulante', 'total ativo não circulante'])) || (ativoTotal - ativoCirc);
+  const caixa         = Math.abs(v(['disponível', 'disponibilidades', 'caixa e equivalentes', 'caixa', 'bancos']));
+  const estoques      = Math.abs(v(['estoque', 'estoques']));
+  const contasReceber = Math.abs(v(['contas a receber', 'clientes', 'duplicatas a receber']));
+  const passivoCirc   = Math.abs(v(['passivo circulante', 'total passivo circulante']));
+  const passivoNC     = Math.abs(v(['passivo não circulante', 'exigível a longo', 'total passivo não circulante']));
+  const passivoTotal  = (passivoCirc + passivoNC) || Math.abs(v(['passivo total', 'total do passivo', 'total passivo', 'passivo']));
+  const pl            = Math.abs(v(['patrimônio líquido', 'patrimonio liquido', 'total patrimônio', 'total do patrimônio'])) || (ativoTotal - passivoTotal);
+  const fornecedores  = Math.abs(v(['fornecedores', 'contas a pagar']));
+  const emprestimos   = Math.abs(v(['empréstimos', 'emprestimos', 'financiamentos'], { strategy: 'largest', exclude: ['a receber'] }));
 
   return {
     ativoTotal, ativoCirc, ativoNC, caixa, estoques, contasReceber,
@@ -110,24 +313,71 @@ export function parseBalanco(rows) {
 }
 
 export function parseBalancete(rows) {
+  const items = buildItems(rows);
   const contas = [];
-  for (const row of rows) {
-    if (!row || !row[0]) continue;
-    const cod  = String(row[0]).trim();
-    const desc = String(row[1] || row[0] || '').trim();
-    if (!desc || desc.length < 2) continue;
-    const debito  = parseNum(row[2] || row[1]);
-    const credito = parseNum(row[3] || row[2]);
-    const saldo   = parseNum(row[4] || row[3]) || Math.abs(debito - credito);
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    // Linhas com filhos (nível hierárquico menor que a próxima) são
+    // cabeçalhos/subtotais de agrupamento — só as contas-folha entram na lista.
+    const isLeaf = !(i + 1 < items.length && items[i + 1].indent > item.indent);
+    if (!isLeaf) continue;
+
+    const vals = item.values;
+    let debito = 0, credito = 0, saldo = 0;
+    if (vals.length >= 3) {
+      [debito, credito, saldo] = vals.slice(-3);
+    } else if (vals.length === 2) {
+      [debito, credito] = vals;
+      saldo = Math.abs(debito - credito);
+    } else if (vals.length === 1) {
+      saldo = vals[0];
+    } else {
+      continue;
+    }
     if (debito === 0 && credito === 0 && saldo === 0) continue;
-    contas.push({ cod, desc, debito, credito, saldo: Math.abs(saldo) });
+
+    // Com 4 colunas o layout é [saldo anterior, débito, crédito, saldo atual]:
+    // aí (e só aí) existe uma ponta "antes" confiável para comparar.
+    const saldoAnterior = vals.length >= 4 ? Math.abs(vals[0]) : null;
+
+    contas.push({ cod: item.code, desc: item.labelRaw, debito, credito, saldo: Math.abs(saldo), saldoAnterior });
   }
+
   contas.sort((a, b) => b.saldo - a.saldo);
   return { contas };
 }
 
+// Reconstrói um "início do período × fim do período" das contas patrimoniais
+// a partir do Balancete — a única das três demonstrações que traz as duas
+// pontas na mesma linha. É o que sustenta o "melhorou ou piorou" sem inventar
+// série histórica: quando o arquivo não tem a coluna de saldo anterior, cada
+// item vira null e a seção simplesmente não é exibida.
+export function parseEvolucao(rows) {
+  const items = buildItems(rows);
+  const par = (keywords, opts) => {
+    const idx = findItemIndex(items, keywords, opts);
+    if (idx === -1) return null;
+    const v = items[idx].values;
+    if (v.length < 4) return null;
+    const antes = Math.abs(v[0]);
+    const agora = Math.abs(v[v.length - 1]);
+    if (antes === 0 && agora === 0) return null;
+    return { antes, agora };
+  };
+
+  return {
+    ativoTotal:    par(['ativo total', 'total do ativo', 'total ativo', 'ativo']),
+    caixa:         par(['disponível', 'disponibilidades', 'caixa e equivalentes', 'caixa', 'bancos']),
+    contasReceber: par(['contas a receber', 'clientes', 'duplicatas a receber']),
+    estoques:      par(['estoque', 'estoques']),
+    fornecedores:  par(['fornecedores', 'contas a pagar']),
+    pl:            par(['patrimônio líquido', 'patrimonio liquido', 'total patrimônio', 'total do patrimônio']),
+  };
+}
+
 // ──────────────────────────────────────────────────────────────────────
-// Leitura de arquivo XLSX
+// Leitura de arquivo — XLSX e PDF
 // ──────────────────────────────────────────────────────────────────────
 
 export async function loadXlsxFile(file) {
@@ -137,16 +387,224 @@ export async function loadXlsxFile(file) {
   return XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 }
 
+// pdfjs — carregado dinamicamente para não inflar o bundle inicial.
+let _pdfjsLib = null;
+async function getPdfJs() {
+  if (_pdfjsLib) return _pdfjsLib;
+  _pdfjsLib = await import('pdfjs-dist');
+  _pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.mjs',
+    import.meta.url,
+  ).href;
+  return _pdfjsLib;
+}
+
+// Converte os itens de texto de uma linha do PDF (já ordenados por X, cada um
+// como { x, str }) em uma "pseudo-linha" no mesmo formato das linhas do XLSX:
+// [código?, rótulo (com espaços indicando indentação), valor1, valor2, ...].
+// Não dá para simplesmente procurar o primeiro token numérico como início dos
+// valores — várias contas começam com um código numérico (ex: Balancete)
+// antes da descrição, e o próprio rótulo às vezes vem partido em mais de um
+// item de texto. A indentação usa o X do próprio rótulo (não do primeiro
+// item da linha): numa conta com código, o código fica numa coluna fixa que
+// não se desloca com a hierarquia — quem indenta é a descrição.
+function pdfLineToRow(cellItems, minX) {
+  const cells = cellItems.filter((c) => c.str !== '');
+  if (!cells.length) return null;
+  const out = [];
+  let i = 0;
+  while (i < cells.length && looksNumeric(cells[i].str)) { out.push(cells[i].str); i++; }
+  if (i >= cells.length) return out;
+  const labelX = cells[i].x;
+  let label = cells[i].str; i++;
+  while (i < cells.length && !looksNumeric(cells[i].str)) { label += ' ' + cells[i].str; i++; }
+  const indentSpaces = Math.max(0, Math.round((labelX - minX) / 6));
+  out.push(' '.repeat(indentSpaces) + label);
+  out.push(...cells.slice(i).map((c) => c.str));
+  return out;
+}
+
+export async function loadPdfFile(file) {
+  const pdfjsLib = await getPdfJs();
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+
+  // O pdfjs entrega os itens de texto na ordem do content stream do PDF, que
+  // NÃO é necessariamente a ordem visual esquerda→direita (relatórios
+  // contábeis exportados costumam desenhar a coluna de total antes do rótulo,
+  // por exemplo). Por isso agrupamos por posição Y (mesma linha visual) e só
+  // então ordenamos os itens de cada linha por X antes de juntar o texto.
+  const allBuckets = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+
+    const buckets = [];
+    content.items.forEach((item) => {
+      const str = item.str;
+      if (!str || !str.trim()) return;
+      const x = item.transform[4];
+      const y = Math.round(item.transform[5]);
+      let bucket = buckets.find((b) => Math.abs(b.y - y) <= 2);
+      if (!bucket) { bucket = { y, items: [] }; buckets.push(bucket); }
+      bucket.items.push({ x, str });
+    });
+    buckets.sort((a, b) => b.y - a.y); // topo → base da página
+    allBuckets.push(...buckets);
+  }
+
+  const minX = allBuckets.reduce((m, b) => Math.min(m, ...b.items.map((i) => i.x)), Infinity);
+
+  return allBuckets
+    .map((b) => {
+      const sorted = b.items
+        .slice()
+        .sort((a, c) => a.x - c.x)
+        .map((i) => ({ x: i.x, str: i.str.trim() }));
+      return pdfLineToRow(sorted, minX);
+    })
+    .filter((row) => row && row.length && row[0] && String(row[0]).trim());
+}
+
+export async function loadFile(file) {
+  const name = (file.name || '').toLowerCase();
+  if (name.endsWith('.pdf') || file.type === 'application/pdf') return loadPdfFile(file);
+  return loadXlsxFile(file);
+}
+
 // ──────────────────────────────────────────────────────────────────────
 // Processamento completo (raw → parsed)
 // ──────────────────────────────────────────────────────────────────────
 
 export function processAll(raw) {
   return {
-    dre:       raw.dre       ? parseDRE(raw.dre)           : null,
-    balanco:   raw.balanco   ? parseBalanco(raw.balanco)   : null,
+    dre:       raw.dre       ? parseDRE(raw.dre)             : null,
+    balanco:   raw.balanco   ? parseBalanco(raw.balanco)     : null,
     balancete: raw.balancete ? parseBalancete(raw.balancete) : null,
+    evolucao:  raw.balancete ? parseEvolucao(raw.balancete)  : null,
   };
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Visão gerencial — traduz os números contábeis para a leitura do
+// empresário: quanto vendeu, quanto gastou, quanto sobrou e como está.
+// ──────────────────────────────────────────────────────────────────────
+
+// O caminho do faturamento até o que sobrou. `outros` fecha a conta entre a
+// sobra da operação e o lucro final (resultado financeiro, receitas/despesas
+// não operacionais) — é calculado como resíduo justamente para o fluxo somar
+// exatamente o lucro líquido apurado, sem dupla contagem.
+export function buildResumo(parsed) {
+  const d = parsed?.dre;
+  if (!d) return null;
+  const faturamento = d.recBruta || d.recLiquida;
+  if (!faturamento) return null;
+
+  const impostos  = d.deducoes;
+  const custos    = d.cmv;
+  const despesas  = d.despOp || (d.despAdmin + d.despVendas + d.despFin);
+  const ir        = d.ir;
+  const resultado = d.lucroLiq;
+
+  const saiu            = impostos + custos + despesas + ir;
+  const sobraOperacao   = faturamento - saiu;
+  const outros          = resultado - sobraOperacao;
+
+  return {
+    faturamento, impostos, custos, despesas, ir, outros, resultado,
+    saiu, sobraOperacao,
+    margem: faturamento ? resultado / faturamento : 0,
+  };
+}
+
+const NIVEL = { bom: 'bom', atencao: 'atencao', critico: 'critico' };
+
+function reais(v) {
+  return 'R$ ' + v.toFixed(2).replace('.', ',');
+}
+
+// Indicadores traduzidos para linguagem de dono de negócio. Os limites são as
+// faixas usuais de análise contábil — servem como leitura rápida, não como
+// parecer: o detalhamento contábil continua disponível na outra aba.
+export function buildDiagnostico(parsed) {
+  const d = parsed?.dre;
+  const b = parsed?.balanco;
+  const out = [];
+
+  if (d && d.recLiquida) {
+    const m = d.margemLiq;
+    out.push({
+      chave:  'margem',
+      label:  'Sobra por venda',
+      valor:  pct(m),
+      status: m < 0 ? NIVEL.critico : m < 0.03 ? NIVEL.atencao : NIVEL.bom,
+      texto:  m < 0
+        ? 'O período fechou no prejuízo: as saídas superaram tudo que entrou.'
+        : `De cada R$ 100 vendidos, sobram ${reais(m * 100)} no fim.`,
+    });
+  }
+
+  if (b && b.passivoCirc) {
+    const l = b.liqCorrente;
+    out.push({
+      chave:  'liquidez',
+      label:  'Fôlego de caixa',
+      valor:  l.toFixed(2).replace('.', ','),
+      status: l < 1 ? NIVEL.critico : l < 1.3 ? NIVEL.atencao : NIVEL.bom,
+      texto:  `Para cada R$ 1 a pagar no curto prazo, a empresa tem ${reais(l)} a receber ou disponível.`,
+    });
+  }
+
+  if (b && b.ativoTotal) {
+    const e = b.endividamento;
+    out.push({
+      chave:  'endividamento',
+      label:  'Grau de endividamento',
+      valor:  pct(e),
+      status: e > 0.8 ? NIVEL.critico : e > 0.6 ? NIVEL.atencao : NIVEL.bom,
+      texto:  `${pct(e)} de tudo que a empresa tem está comprometido com terceiros.`,
+    });
+  }
+
+  if (d && d.recLiquida) {
+    const mb = d.margemBruta;
+    out.push({
+      chave:  'margemBruta',
+      label:  'Margem do produto',
+      valor:  pct(mb),
+      status: mb < 0.1 ? NIVEL.critico : mb < 0.2 ? NIVEL.atencao : NIVEL.bom,
+      texto:  `O que sobra depois de pagar a mercadoria, antes das despesas fixas.`,
+    });
+  }
+
+  return out;
+}
+
+// Linhas de "melhorou ou piorou" já rotuladas e com o sentido correto: para
+// caixa/patrimônio subir é bom, para dívida com fornecedor subir não é.
+// `subirEhBom: null` marca o que é genuinamente ambíguo e por isso fica
+// neutro — estoque e contas a receber podem subir por motivo bom (venda
+// crescendo) ou ruim (parado / cliente não pagando), e o balancete sozinho
+// não distingue os dois casos.
+const EVOLUCAO_LINHAS = [
+  { chave: 'pl',            label: 'Patrimônio líquido',      subirEhBom: true  },
+  { chave: 'caixa',         label: 'Caixa e aplicações',      subirEhBom: true  },
+  { chave: 'contasReceber', label: 'Contas a receber',        subirEhBom: null  },
+  { chave: 'estoques',      label: 'Estoque',                 subirEhBom: null  },
+  { chave: 'fornecedores',  label: 'Dívida com fornecedores', subirEhBom: false },
+];
+
+export function buildEvolucao(parsed) {
+  const ev = parsed?.evolucao;
+  if (!ev) return [];
+  return EVOLUCAO_LINHAS.flatMap(({ chave, label, subirEhBom }) => {
+    const par = ev[chave];
+    if (!par || !par.antes) return [];
+    const delta = (par.agora - par.antes) / par.antes;
+    const subiu = par.agora >= par.antes;
+    const status = subirEhBom === null ? 'neutro' : (subiu === subirEhBom ? 'bom' : 'ruim');
+    return [{ chave, label, ...par, delta, subiu, status }];
+  });
 }
 
 // ──────────────────────────────────────────────────────────────────────

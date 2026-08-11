@@ -4,8 +4,9 @@ import SolucoesHeader from '../../components/SolucoesHeader';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
 import {
-  loadXlsxFile, processAll, saveParsed, loadParsed, clearParsed,
+  loadFile, processAll, saveParsed, loadParsed, clearParsed,
   fmt, pct, buildChartConfigs, buildDreRows, buildBalancoRows,
+  buildResumo, buildDiagnostico, buildEvolucao, buildTopDespesas,
 } from './ademEngine';
 import { getCurrentTenantCompanyId } from '../../../../lib/subscriptions';
 
@@ -16,6 +17,47 @@ const PaletteCtx   = createContext(null);
 const useP         = () => useContext(PaletteCtx);
 const CompanyCtx   = createContext(null);
 const useCompanyId = () => useContext(CompanyCtx);
+
+// Rampa monocromática roxa para as etapas de saída do faturamento — o verde
+// fica reservado ao que efetivamente sobrou, para o olho ir direto nele.
+const FLOW = {
+  impostos: 'rgba(124,58,237,0.85)',
+  custos:   'rgba(124,58,237,0.60)',
+  despesas: 'rgba(124,58,237,0.38)',
+  ir:       'rgba(124,58,237,0.20)',
+};
+
+const brl = (v) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+// ── Primitivos de layout ─────────────────────────────────────────────
+const card = (P) => ({
+  background: P.surface,
+  border: `1px solid ${P.border}`,
+  borderRadius: 16,
+  boxShadow: P.shadow,
+});
+
+function Section({ title, hint, children }) {
+  const P = useP();
+  return (
+    <section style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div>
+        <h2 style={{ fontSize: '0.98rem', fontWeight: 700, letterSpacing: -0.2, color: P.text }}>{title}</h2>
+        {hint && <p style={{ fontSize: '0.79rem', color: P.muted, marginTop: 3, lineHeight: 1.5 }}>{hint}</p>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Eyebrow({ children }) {
+  const P = useP();
+  return (
+    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: P.muted, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+      {children}
+    </div>
+  );
+}
 
 // ── Nav / filter buttons ─────────────────────────────────────────────
 function NavBtn({ active, onClick, disabled, children }) {
@@ -62,7 +104,7 @@ function ChartBox({ title, height = 220, chartKey, configs }) {
   const hasCfg = Boolean(configs[chartKey]);
 
   return (
-    <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 14, padding: '18px 20px', boxShadow: P.shadow }}>
+    <div style={{ ...card(P), padding: '18px 20px' }}>
       <div style={{ fontSize: '0.76rem', fontWeight: 700, color: P.muted, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 14 }}>{title}</div>
       {hasCfg ? (
         <div style={{ height, position: 'relative' }}>
@@ -81,13 +123,260 @@ function ChartBox({ title, height = 220, chartKey, configs }) {
 function KpiCard({ label, value, sub, color }) {
   const P = useP();
   return (
-    <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: '16px 18px', boxShadow: P.shadow }}>
+    <div style={{ ...card(P), borderRadius: 12, padding: '16px 18px' }}>
       <div style={{ fontSize: '0.72rem', fontWeight: 600, color: P.muted, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 6 }}>{label}</div>
       <div style={{ fontSize: '1.4rem', fontWeight: 800, color: color || P.text, lineHeight: 1.1 }}>{value}</div>
       {sub && <div style={{ fontSize: '0.72rem', color: P.muted, marginTop: 4 }}>{sub}</div>}
     </div>
   );
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// VISÃO GERENCIAL
+// ══════════════════════════════════════════════════════════════════════
+
+function HeroNum({ eyebrow, valor, cor, sub }) {
+  const P = useP();
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+      <Eyebrow>{eyebrow}</Eyebrow>
+      <div title={brl(valor)} style={{
+        fontSize: 'clamp(1.5rem, 3.2vw, 2.1rem)', fontWeight: 800, letterSpacing: -0.8,
+        color: cor || P.text, lineHeight: 1.05, whiteSpace: 'nowrap',
+      }}>{fmt(valor)}</div>
+      {sub && <div style={{ fontSize: '0.76rem', color: P.muted }}>{sub}</div>}
+    </div>
+  );
+}
+
+// Vendeu → gastou → sobrou, com a barra mostrando em que cada real do
+// faturamento foi consumido.
+function HeroFluxo({ resumo }) {
+  const P = useP();
+  const negativo = resumo.resultado < 0;
+
+  // A base é o maior entre o que entrou e o que saiu: assim, quando as saídas
+  // estouram o faturamento, a barra fica cheia em vez de transbordar.
+  const base = Math.max(resumo.faturamento, resumo.saiu) || 1;
+  const w = (v) => `${Math.max(0, (v / base) * 100)}%`;
+
+  const etapas = [
+    { key: 'impostos', label: 'Impostos sobre venda', valor: resumo.impostos, cor: FLOW.impostos },
+    { key: 'custos',   label: 'Custo da mercadoria',  valor: resumo.custos,   cor: FLOW.custos },
+    { key: 'despesas', label: 'Despesas',             valor: resumo.despesas, cor: FLOW.despesas },
+    { key: 'ir',       label: 'IR / CSLL',            valor: resumo.ir,       cor: FLOW.ir },
+  ].filter((e) => e.valor > 0);
+
+  return (
+    <div style={{ ...card(P), padding: '26px 28px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr auto 1fr', alignItems: 'center', gap: 18 }}>
+        <HeroNum eyebrow="Quanto vendeu" valor={resumo.faturamento} sub="Faturamento bruto do período" />
+        <div aria-hidden style={{ fontSize: '1.3rem', color: P.muted2, fontWeight: 300 }}>→</div>
+        <HeroNum eyebrow="Quanto gastou" valor={resumo.saiu} sub="Impostos, custos, despesas e IR" />
+        <div aria-hidden style={{ fontSize: '1.3rem', color: P.muted2, fontWeight: 300 }}>→</div>
+        <HeroNum
+          eyebrow="Quanto sobrou"
+          valor={resumo.resultado}
+          cor={negativo ? P.red : P.green}
+          sub={`Margem de ${pct(resumo.margem)} sobre o que vendeu`}
+        />
+      </div>
+
+      {/* Barra proporcional: em que o faturamento foi consumido */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', height: 14, borderRadius: 7, overflow: 'hidden', background: P.surface2 }}>
+          {etapas.map((e) => (
+            <div key={e.key} title={`${e.label}: ${brl(e.valor)}`} style={{ width: w(e.valor), background: e.cor }} />
+          ))}
+          {resumo.sobraOperacao > 0 && (
+            <div title={`Sobra da operação: ${brl(resumo.sobraOperacao)}`} style={{ width: w(resumo.sobraOperacao), background: P.green }} />
+          )}
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px' }}>
+          {etapas.map((e) => (
+            <div key={e.key} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: '0.76rem', color: P.muted }}>
+              <span style={{ width: 9, height: 9, borderRadius: 3, background: e.cor, flexShrink: 0 }} />
+              {e.label}
+              <strong style={{ color: P.text, fontWeight: 600 }}>{pct(e.valor / resumo.faturamento)}</strong>
+            </div>
+          ))}
+          {resumo.sobraOperacao > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: '0.76rem', color: P.muted }}>
+              <span style={{ width: 9, height: 9, borderRadius: 3, background: P.green, flexShrink: 0 }} />
+              Sobra da operação
+              <strong style={{ color: P.text, fontWeight: 600 }}>{pct(resumo.sobraOperacao / resumo.faturamento)}</strong>
+            </div>
+          )}
+        </div>
+
+        {Math.abs(resumo.outros) > 0.01 && (
+          <div style={{ fontSize: '0.76rem', color: P.muted, lineHeight: 1.5, paddingTop: 2 }}>
+            {resumo.sobraOperacao < 0
+              ? `A operação em si fechou ${fmt(Math.abs(resumo.sobraOperacao))} negativa. `
+              : ''}
+            O resultado final considera {resumo.outros >= 0 ? '+' : '−'}{fmt(Math.abs(resumo.outros))} de
+            outros resultados (financeiro e não operacional).
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Semáforo: um indicador por card, com a leitura em português.
+function DiagnosticoGrid({ itens }) {
+  const P = useP();
+  const cores = { bom: P.green, atencao: P.gold, critico: P.red };
+  const rotulos = { bom: 'Saudável', atencao: 'Atenção', critico: 'Crítico' };
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 14 }}>
+      {itens.map((it) => (
+        <div key={it.chave} style={{ ...card(P), padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <Eyebrow>{it.label}</Eyebrow>
+            <span style={{
+              fontSize: '0.68rem', fontWeight: 700, padding: '3px 9px', borderRadius: 100,
+              color: cores[it.status], background: `${cores[it.status]}1f`, whiteSpace: 'nowrap',
+            }}>{rotulos[it.status]}</span>
+          </div>
+          <div style={{ fontSize: '1.55rem', fontWeight: 800, letterSpacing: -0.5, color: cores[it.status], lineHeight: 1 }}>
+            {it.valor}
+          </div>
+          <div style={{ fontSize: '0.78rem', color: P.muted, lineHeight: 1.5 }}>{it.texto}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Onde o dinheiro está indo — barras proporcionais à maior despesa.
+function DespesasCard({ despesas, faturamento }) {
+  const P = useP();
+  const maior = despesas[0]?.valor || 1;
+
+  return (
+    <div style={{ ...card(P), padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <Eyebrow>Maiores despesas do período</Eyebrow>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+        {despesas.map((d, i) => (
+          <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: '0.81rem' }}>
+              <span style={{ color: P.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.desc}>
+                {d.desc}
+              </span>
+              <span title={brl(d.valor)} style={{ color: P.text, fontWeight: 600, fontFamily: FONT_MONO, fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                {fmt(d.valor)}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ flex: 1, height: 6, borderRadius: 3, background: P.surface2, overflow: 'hidden' }}>
+                <div style={{ width: `${(d.valor / maior) * 100}%`, height: '100%', background: FLOW.custos, borderRadius: 3 }} />
+              </div>
+              {faturamento > 0 && (
+                <span style={{ fontSize: '0.71rem', color: P.muted2, width: 46, textAlign: 'right', flexShrink: 0 }}>
+                  {pct(d.valor / faturamento)}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      {faturamento > 0 && (
+        <div style={{ fontSize: '0.73rem', color: P.muted2, lineHeight: 1.5, paddingTop: 2 }}>
+          Percentuais calculados sobre o faturamento do período.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Melhorou ou piorou: início × fim do período, a partir do Balancete.
+function EvolucaoCard({ linhas }) {
+  const P = useP();
+  const cores = { bom: P.green, ruim: P.red, neutro: P.muted };
+
+  return (
+    <div style={{ ...card(P), padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <Eyebrow>Como evoluiu no período</Eyebrow>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {linhas.map((l) => (
+          <div key={l.chave} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '0.83rem', color: P.text, marginBottom: 2 }}>{l.label}</div>
+              <div style={{ fontSize: '0.73rem', color: P.muted2, fontFamily: FONT_MONO }}>
+                <span title={brl(l.antes)}>{fmt(l.antes)}</span>
+                <span style={{ margin: '0 6px' }}>→</span>
+                <span title={brl(l.agora)} style={{ color: P.muted }}>{fmt(l.agora)}</span>
+              </div>
+            </div>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+              fontSize: '0.84rem', fontWeight: 700, color: cores[l.status],
+            }}>
+              <span aria-hidden>{l.subiu ? '▲' : '▼'}</span>
+              {pct(Math.abs(l.delta))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: '0.73rem', color: P.muted2, lineHeight: 1.5 }}>
+        Comparação entre o saldo de abertura e o de fechamento do período informado no Balancete.
+      </div>
+    </div>
+  );
+}
+
+function ResumoPanel({ parsed }) {
+  const P = useP();
+  const resumo      = buildResumo(parsed);
+  const diagnostico = buildDiagnostico(parsed);
+  const evolucao    = buildEvolucao(parsed);
+  const despesas    = parsed.dre ? buildTopDespesas(parsed.dre, 7) : [];
+
+  const semDados = !resumo && !diagnostico.length && !evolucao.length;
+  if (semDados) {
+    return (
+      <div style={{ ...card(P), padding: '48px 28px', textAlign: 'center', color: P.muted, fontSize: '0.88rem' }}>
+        Importe a DRE para ver a visão gerencial do período.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+      {resumo && (
+        <Section title="O resultado do período" hint="O caminho do dinheiro: o que entrou, para onde foi e o que sobrou.">
+          <HeroFluxo resumo={resumo} />
+        </Section>
+      )}
+
+      {diagnostico.length > 0 && (
+        <Section title="Como está a saúde do negócio" hint="Leitura rápida dos indicadores — o detalhamento contábil fica nas outras abas.">
+          <DiagnosticoGrid itens={diagnostico} />
+        </Section>
+      )}
+
+      {(despesas.length > 0 || evolucao.length > 0) && (
+        <Section title="Onde está gastando e como evoluiu">
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: despesas.length && evolucao.length ? 'minmax(0,1.25fr) minmax(0,1fr)' : '1fr',
+            gap: 16, alignItems: 'start',
+          }}>
+            {despesas.length > 0 && <DespesasCard despesas={despesas} faturamento={resumo?.faturamento || 0} />}
+            {evolucao.length > 0 && <EvolucaoCard linhas={evolucao} />}
+          </div>
+        </Section>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// DETALHES CONTÁBEIS
+// ══════════════════════════════════════════════════════════════════════
 
 // ── File upload slot ──────────────────────────────────────────────────
 function FileSlot({ label, icon, status, fileName, onFile }) {
@@ -97,7 +386,7 @@ function FileSlot({ label, icon, status, fileName, onFile }) {
   const statusLabels = { idle: 'Pendente', loaded: 'Carregado', error: 'Erro' };
 
   return (
-    <div style={{ background: P.surface, border: `1px solid ${status === 'loaded' ? P.border2 : P.border}`, borderRadius: 12, padding: '18px 20px', boxShadow: P.shadow, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ ...card(P), borderRadius: 12, borderColor: status === 'loaded' ? P.border2 : P.border, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: '1.3rem' }}>{icon}</span>
@@ -110,9 +399,9 @@ function FileSlot({ label, icon, status, fileName, onFile }) {
       {fileName && (
         <div style={{ fontSize: '0.76rem', color: P.muted, fontFamily: FONT_MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileName}</div>
       )}
-      <input ref={inputRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={(e) => { if (e.target.files[0]) onFile(e.target.files[0]); }} />
+      <input ref={inputRef} type="file" accept=".xlsx,.xls,.pdf" style={{ display: 'none' }} onChange={(e) => { if (e.target.files[0]) onFile(e.target.files[0]); }} />
       <button onClick={() => inputRef.current?.click()} style={{ padding: '7px 14px', borderRadius: 8, border: `1px solid ${P.border2}`, background: 'transparent', color: P.muted, fontFamily: FONT_INTER, fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start' }}>
-        {status === 'loaded' ? 'Trocar arquivo' : 'Selecionar XLSX'}
+        {status === 'loaded' ? 'Trocar arquivo' : 'Selecionar arquivo'}
       </button>
     </div>
   );
@@ -129,11 +418,11 @@ function UploadPanel({ onProcessed, onClear, hasParsed }) {
 
   const handleFile = async (type, file) => {
     try {
-      const rows = await loadXlsxFile(file);
+      const rows = await loadFile(file);
       setRaw((r) => ({ ...r, [type]: rows }));
       setStatus((s) => ({ ...s, [type]: 'loaded' }));
       setNames((n) => ({ ...n, [type]: file.name + ' (' + rows.length + ' linhas)' }));
-    } catch (err) {
+    } catch {
       setStatus((s) => ({ ...s, [type]: 'error' }));
       setNames((n) => ({ ...n, [type]: 'Erro ao ler arquivo' }));
     }
@@ -170,12 +459,14 @@ function UploadPanel({ onProcessed, onClear, hasParsed }) {
       </div>
 
       <div style={{ background: P.primarySoft, border: `1px solid ${P.primaryBorder}`, borderRadius: 10, padding: '12px 16px', fontSize: '0.8rem', color: P.primaryText, lineHeight: 1.6 }}>
-        <strong>Formato esperado:</strong> planilha XLSX com a primeira coluna contendo a descrição da linha e as demais contendo valores. Importar pelo menos um dos três arquivos.
+        <strong>Formato esperado:</strong> planilha XLSX ou PDF com a descrição da linha e os valores da demonstração. Importar pelo menos um dos três arquivos.
+        <br />
+        A <strong>DRE</strong> alimenta o resultado e as despesas; o <strong>Balancete</strong> permite comparar início e fim do período.
       </div>
 
       <div style={{ display: 'flex', gap: 10 }}>
         <button onClick={handleProcess} disabled={!anyLoaded || loading} style={{ padding: '10px 24px', borderRadius: 10, background: anyLoaded && !loading ? P.primary : P.surface2, border: 'none', color: anyLoaded && !loading ? '#fff' : P.muted, fontFamily: FONT_INTER, fontSize: '0.87rem', fontWeight: 700, cursor: anyLoaded && !loading ? 'pointer' : 'not-allowed', opacity: anyLoaded && !loading ? 1 : 0.6 }}>
-          {loading ? 'Processando…' : 'Processar e gerar dashboard →'}
+          {loading ? 'Processando…' : 'Processar e gerar relatório →'}
         </button>
         {hasParsed && (
           <button onClick={handleClear} style={{ padding: '10px 18px', borderRadius: 10, border: `1px solid ${P.border2}`, background: 'transparent', color: P.muted, fontFamily: FONT_INTER, fontSize: '0.84rem', fontWeight: 600, cursor: 'pointer' }}>
@@ -187,8 +478,8 @@ function UploadPanel({ onProcessed, onClear, hasParsed }) {
   );
 }
 
-// ── Dashboard panel ───────────────────────────────────────────────────
-function DashboardPanel({ parsed, isDark }) {
+// ── Indicadores (KPIs + gráficos) ─────────────────────────────────────
+function IndicadoresPanel({ parsed, isDark }) {
   const P = useP();
   const d = parsed.dre;
   const b = parsed.balanco;
@@ -282,7 +573,7 @@ function DetailsPanel({ parsed }) {
         {hasTab.balancete && <TabBtn active={tab === 'balancete'} onClick={() => setTab('balancete')}>Balancete</TabBtn>}
       </div>
 
-      <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 14, overflow: 'hidden', boxShadow: P.shadow }}>
+      <div style={{ ...card(P), overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto', maxHeight: 580, overflowY: 'auto' }}>
           {tab === 'dre' && (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem', fontFamily: FONT_INTER }}>
@@ -377,30 +668,36 @@ export default function AnaliseDemonstracoesPage() {
   const P = getPalette(theme);
   const isDark = theme !== 'light';
 
-  const [companyId, setCompanyId] = useState(undefined); // undefined = loading; null = loaded, no org
+  // companyId undefined = carregando; null = carregado, sem organização.
+  // O parse em cache é lido junto com o companyId (ambos dependem dele), para
+  // resolver tudo num setState só, já dentro do callback assíncrono.
+  const [{ companyId, parsed }, setDados] = useState({ companyId: undefined, parsed: null });
+
   useEffect(() => {
-    getCurrentTenantCompanyId().then(id => setCompanyId(id || null)).catch(() => setCompanyId(null));
+    let ativo = true;
+    getCurrentTenantCompanyId()
+      .then((id) => id || null)
+      .catch(() => null)
+      .then((id) => { if (ativo) setDados({ companyId: id, parsed: loadParsed(id) }); });
+    return () => { ativo = false; };
   }, []);
 
-  const [panel,  setPanel]  = useState('upload');
-  const [parsed, setParsed] = useState(null);
+  // panel null = ainda não houve escolha do usuário: cai no painel que faz
+  // sentido para o estado atual (relatório se já há dados, importação se não).
+  const [panel, setPanel] = useState(null);
 
-  useEffect(() => {
-    if (companyId === undefined) return;
-    setParsed(loadParsed(companyId));
-  }, [companyId]);
-
-  const handleProcessed = (p) => { setParsed(p); setPanel('dashboard'); };
+  const setParsed = (p) => setDados((d) => ({ ...d, parsed: p }));
+  const handleProcessed = (p) => { setParsed(p); setPanel('resumo'); };
   const handleClear     = () => { setParsed(null); setPanel('upload'); };
 
   const hasParsed = Boolean(parsed);
-  const hasDRE    = Boolean(parsed?.dre);
-  const hasBP     = Boolean(parsed?.balanco);
+  const painelAtivo = panel ?? (hasParsed ? 'resumo' : 'upload');
 
   const navItems = [
-    { key: 'upload',    label: 'Importar arquivos', disabled: false },
-    { key: 'dashboard', label: 'Dashboard',         disabled: !hasParsed },
-    { key: 'detalhes',  label: 'Detalhamento',      disabled: !hasParsed },
+    { key: 'resumo',      label: 'Visão do mês',         disabled: !hasParsed },
+    { key: 'indicadores', label: 'Indicadores',          disabled: !hasParsed },
+    { key: 'detalhes',    label: 'Detalhamento',         disabled: !hasParsed },
+    { key: 'upload',      label: 'Importar arquivos',    disabled: false },
   ];
 
   return (
@@ -418,16 +715,16 @@ export default function AnaliseDemonstracoesPage() {
         <main style={{ maxWidth: 1240, margin: '0 auto', padding: '36px 32px 80px' }}>
           <div style={{ marginBottom: 28 }}>
             <h1 style={{ fontSize: '1.45rem', fontWeight: 800, letterSpacing: -0.4, marginBottom: 4 }}>
-              Análise de Demonstrações
+              Relatório Gerencial
             </h1>
             <p style={{ fontSize: '0.88rem', color: P.muted }}>
-              Importe DRE, Balanço Patrimonial e Balancete para gerar KPIs e gráficos automaticamente.
+              Quanto vendeu, para onde foi o dinheiro e o que sobrou no período.
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, marginBottom: 28 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 28, flexWrap: 'wrap' }}>
             {navItems.map((n) => (
-              <NavBtn key={n.key} active={panel === n.key} disabled={n.disabled} onClick={() => !n.disabled && setPanel(n.key)}>
+              <NavBtn key={n.key} active={painelAtivo === n.key} disabled={n.disabled} onClick={() => !n.disabled && setPanel(n.key)}>
                 {n.label}
               </NavBtn>
             ))}
@@ -439,9 +736,10 @@ export default function AnaliseDemonstracoesPage() {
             </div>
           ) : (
             <>
-              {panel === 'upload'    && <UploadPanel onProcessed={handleProcessed} onClear={handleClear} hasParsed={hasParsed} />}
-              {panel === 'dashboard' && parsed && <DashboardPanel parsed={parsed} isDark={isDark} />}
-              {panel === 'detalhes'  && parsed && <DetailsPanel parsed={parsed} />}
+              {painelAtivo === 'upload'      && <UploadPanel onProcessed={handleProcessed} onClear={handleClear} hasParsed={hasParsed} />}
+              {painelAtivo === 'resumo'      && parsed && <ResumoPanel parsed={parsed} />}
+              {painelAtivo === 'indicadores' && parsed && <IndicadoresPanel parsed={parsed} isDark={isDark} />}
+              {painelAtivo === 'detalhes'    && parsed && <DetailsPanel parsed={parsed} />}
             </>
           )}
         </main>
