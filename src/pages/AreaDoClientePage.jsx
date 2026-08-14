@@ -11,6 +11,7 @@ import { supabase, AVATARS_BUCKET } from '../lib/supabase';
 import { fetchMyCompany, fetchCompanyMembers, leaveCompany, COMPANY_ROLE_LABEL } from '../lib/companies';
 import { fetchSystems, indexSystems } from '../lib/systems';
 import UserProfileModal from '../components/UserProfileModal';
+import SupportChatPanel from '../components/SupportChatPanel';
 import { getPalette, FONT_INTER, FONT_MONO } from '../modules/solucoes-contabeis/theme';
 
 const MONTHS_PT = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
@@ -290,6 +291,7 @@ function SupportModal({ onClose, P }) {
     closeColor: isDark ? 'rgba(255,255,255,0.7)'  : 'rgba(0,0,0,0.55)',
   };
 
+  const [chatOpen, setChatOpen] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
   const [ticketForm, setTicketForm] = useState({ subject: '', category: '', description: '' });
   const [ticketSent, setTicketSent] = useState(false);
@@ -310,8 +312,8 @@ function SupportModal({ onClose, P }) {
       ),
       label: 'Chat no sistema',
       desc: 'Converse com nosso atendimento por IA dentro da plataforma.',
-      badge: 'Em breve',
-      action: null,
+      badge: null,
+      action: () => setChatOpen(true),
       color: '#6366f1',
       colorSoft: isDark ? 'rgba(99,102,241,0.14)' : 'rgba(99,102,241,0.09)',
       colorBd: isDark ? 'rgba(99,102,241,0.3)' : 'rgba(99,102,241,0.2)',
@@ -376,7 +378,9 @@ function SupportModal({ onClose, P }) {
         <button type="button" onClick={onClose} aria-label="Fechar"
           style={{ position: 'absolute', top: 14, right: 14, zIndex: 2, width: 32, height: 32, borderRadius: '50%', border: `1px solid ${C.closeBd}`, background: C.closeBg, color: C.closeColor, cursor: 'pointer', fontSize: '1rem', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
 
-        {!ticketOpen ? (
+        {chatOpen ? (
+          <SupportChatPanel C={C} isDark={isDark} onBack={() => setChatOpen(false)} />
+        ) : !ticketOpen ? (
           <div style={{ padding: '28px 24px 24px' }}>
             <div style={{ marginBottom: 20 }}>
               <h2 style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: -0.3, marginBottom: 5, color: C.text }}>Falar com suporte</h2>
