@@ -364,7 +364,23 @@ function AddSystemCard({ onClick }) {
   );
 }
 
+// Slot vazio só para manter a grade 2x2 (2 em cima, 2 embaixo) quando há
+// menos sistemas do que espaços — não é clicável nem representa nada real.
+function EmptySystemSlot() {
+  return (
+    <div aria-hidden="true" style={{ borderRadius: 14, border: '1px dashed var(--p-border)', padding: '20px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 52, height: 52, borderRadius: 14, border: '1px dashed var(--p-border)' }} />
+    </div>
+  );
+}
+
 function SystemsGrid({ systems, onAcquire }) {
+  const tiles = [
+    ...systems.map((s) => <SystemCard key={s.slug} s={s} />),
+    <AddSystemCard key="add-system" onClick={onAcquire} />,
+  ];
+  const emptySlots = Math.max(0, 4 - tiles.length);
+
   return (
     <div>
       {systems.length === 0 && (
@@ -372,11 +388,11 @@ function SystemsGrid({ systems, onAcquire }) {
           Ainda sem sistemas ativos. Explore o catálogo e contrate o primeiro sistema da sua equipe.
         </p>
       )}
-      {/* min de 132px: a coluna do card "Meus sistemas" no dashboard tem ~318px
-          úteis — com 160px só cabia 1 card por linha e o bloco ficava enorme. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))', gap: 10 }}>
-        {systems.map((s) => <SystemCard key={s.slug} s={s} />)}
-        <AddSystemCard onClick={onAcquire} />
+      {/* Grade fixa de 2 colunas — 2 em cima, 2 embaixo — para casar com a
+          altura do card "Ações rápidas" ao lado. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+        {tiles}
+        {Array.from({ length: emptySlots }, (_, i) => <EmptySystemSlot key={`empty-${i}`} />)}
       </div>
     </div>
   );
@@ -1123,7 +1139,7 @@ export default function AreaDoClientePage() {
         /* minmax(0,…) e não 1fr puro: 1fr equivale a minmax(auto,1fr) e respeita
            o min-content da coluna — o texto com white-space:nowrap dos cards
            esticava uma coluna e espremia as outras (275/580/246 em vez de 1.12/1/1). */
-        .adc-row3 { display:grid; grid-template-columns:minmax(0,1.12fr) minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start; }
+        .adc-row3 { display:grid; grid-template-columns:minmax(0,1.12fr) minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:stretch; }
         .adc-row2 { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(0,1fr); gap:16px; align-items:start; }
         .adc-card-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 20px 12px; }
         .adc-card-head-l { display:flex; align-items:center; gap:9px; min-width:0; }
@@ -1283,7 +1299,7 @@ export default function AreaDoClientePage() {
           {/* ── Linha 1 ── */}
           <div className="adc-row3">
             {/* Meus sistemas */}
-            <section id="sec-sistemas" style={CARD}>
+            <section id="sec-sistemas" style={{ ...CARD, display: 'flex', flexDirection: 'column' }}>
               <div className="adc-card-head">
                 <div className="adc-card-head-l">
                   <span className="adc-ico">{ICON.grid}</span>
@@ -1299,40 +1315,42 @@ export default function AreaDoClientePage() {
             </section>
 
             {/* Explore nossos sistemas */}
-            <section style={CARD}>
+            <section style={{ ...CARD, display: 'flex', flexDirection: 'column' }}>
               <div className="adc-card-head" style={{ paddingBottom: 4 }}>
                 <div className="adc-card-head-l">
                   <span className="adc-ico">{ICON.bag}</span>
                   <h2 style={CARD_TITLE}>Explore nossos sistemas</h2>
                 </div>
               </div>
-              <p style={{ padding: '0 20px 10px', fontSize: '.8rem', color: 'var(--p-muted)', lineHeight: 1.5 }}>
-                {exploreSystems.length > 0
-                  ? 'Encontre soluções para transformar sua empresa.'
-                  : 'Você já contratou todos os sistemas disponíveis.'}
-              </p>
-              {exploreSystems.map((s) => (
-                <button key={s.slug} type="button" className="adc-list-row"
-                  onClick={() => navigate(`/area-do-cliente/sistemas/${s.slug}`)}>
-                  {s.logo_url
-                    ? <img src={s.logo_url} alt="" style={{ width: 34, height: 34, borderRadius: 9, objectFit: 'cover', flexShrink: 0 }} />
-                    : <span className="adc-ico" style={{ fontSize: '1rem' }}>{s.icon}</span>}
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: 'block', fontSize: '.85rem', fontWeight: 650, color: 'var(--p-text)' }}>{s.name}</span>
-                    <span style={{ display: 'block', fontSize: '.72rem', color: 'var(--p-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {s.description}
+              <div style={{ flex: 1 }}>
+                <p style={{ padding: '0 20px 10px', fontSize: '.8rem', color: 'var(--p-muted)', lineHeight: 1.5 }}>
+                  {exploreSystems.length > 0
+                    ? 'Encontre soluções para transformar sua empresa.'
+                    : 'Você já contratou todos os sistemas disponíveis.'}
+                </p>
+                {exploreSystems.map((s) => (
+                  <button key={s.slug} type="button" className="adc-list-row"
+                    onClick={() => navigate(`/area-do-cliente/sistemas/${s.slug}`)}>
+                    {s.logo_url
+                      ? <img src={s.logo_url} alt="" style={{ width: 34, height: 34, borderRadius: 9, objectFit: 'cover', flexShrink: 0 }} />
+                      : <span className="adc-ico" style={{ fontSize: '1rem' }}>{s.icon}</span>}
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: '.85rem', fontWeight: 650, color: 'var(--p-text)' }}>{s.name}</span>
+                      <span style={{ display: 'block', fontSize: '.72rem', color: 'var(--p-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {s.description}
+                      </span>
                     </span>
-                  </span>
-                  <span style={{ color: 'var(--p-muted2)', display: 'flex' }}>{ICON.chevron}</span>
-                </button>
-              ))}
+                    <span style={{ color: 'var(--p-muted2)', display: 'flex' }}>{ICON.chevron}</span>
+                  </button>
+                ))}
+              </div>
               <button type="button" className="adc-foot-btn" onClick={() => setAcquireModalOpen(true)}>
                 Ver todos os sistemas {ICON.arrow}
               </button>
             </section>
 
             {/* Ações rápidas */}
-            <section style={CARD}>
+            <section style={{ ...CARD, display: 'flex', flexDirection: 'column' }}>
               <div className="adc-card-head">
                 <div className="adc-card-head-l">
                   <span className="adc-ico">{ICON.bolt}</span>
