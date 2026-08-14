@@ -166,16 +166,22 @@ Deno.serve(async (req) => {
     const anthropic = new Anthropic({ apiKey });
 
     const response = await anthropic.messages.create({
-      model: 'claude-opus-5',
-      max_tokens: 8000,
+      // Sonnet em vez de Opus: responder pergunta de suporte a partir de um
+      // contexto pronto é bem mais barato aqui e a qualidade se mantém.
+      model: 'claude-sonnet-5',
+      max_tokens: 4000,
       // effort baixo: perguntas de suporte são curtas e a latência é sentida
       // direto no chat. Não desabilitamos o thinking — com ele desligado o
       // modelo às vezes escreve a chamada de ferramenta como texto e a
       // escalação silenciosamente não acontece.
       output_config: { effort: 'low' },
       system: [
-        { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
-        { type: 'text', text: await buildAccountContext(admin, caller.id) },
+        { type: 'text', text: SYSTEM_PROMPT },
+        // cache_control no ÚLTIMO bloco de system: o cache é por prefixo, então
+        // marcar aqui guarda o prompt E o contexto da conta juntos. Marcar só
+        // no primeiro deixava o contexto (a parte maior) fora do cache, pago
+        // inteiro a cada mensagem da conversa.
+        { type: 'text', text: await buildAccountContext(admin, caller.id), cache_control: { type: 'ephemeral' } },
       ],
       tools: [{
         name: 'escalar_para_humano',

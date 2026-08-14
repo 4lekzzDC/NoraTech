@@ -12,6 +12,7 @@ import { fetchMyCompany, fetchCompanyMembers, leaveCompany, COMPANY_ROLE_LABEL }
 import { fetchSystems, indexSystems } from '../lib/systems';
 import UserProfileModal from '../components/UserProfileModal';
 import SupportChatPanel from '../components/SupportChatPanel';
+import { createTicket } from '../lib/supportChat';
 import { getPalette, FONT_INTER, FONT_MONO } from '../modules/solucoes-contabeis/theme';
 
 const MONTHS_PT = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
@@ -276,7 +277,7 @@ function LeaveTeamModal({ companyName, onClose, onConfirm, confirming, error, P 
 
 const WHATSAPP_NUMBER = '5511999999999'; // substituir pelo número real
 
-function SupportModal({ onClose, P }) {
+function SupportModal({ onClose, P, companyId }) {
   const isDark = P.bg === '#08080a';
   const C = {
     panelBg:    isDark ? '#18181b' : '#ffffff',
@@ -295,6 +296,21 @@ function SupportModal({ onClose, P }) {
   const [ticketOpen, setTicketOpen] = useState(false);
   const [ticketForm, setTicketForm] = useState({ subject: '', category: '', description: '' });
   const [ticketSent, setTicketSent] = useState(false);
+  const [ticketSending, setTicketSending] = useState(false);
+  const [ticketError, setTicketError] = useState(null);
+
+  const handleCreateTicket = async () => {
+    try {
+      setTicketSending(true);
+      setTicketError(null);
+      await createTicket({ ...ticketForm, companyId });
+      setTicketSent(true);
+    } catch (err) {
+      setTicketError(err.message || 'Não foi possível abrir o ticket.');
+    } finally {
+      setTicketSending(false);
+    }
+  };
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -429,8 +445,8 @@ function SupportModal({ onClose, P }) {
                 <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(34,197,94,0.14)', border: '1px solid rgba(34,197,94,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                 </div>
-                <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: 8, color: C.text }}>Ticket em preparação</h3>
-                <p style={{ fontSize: '0.82rem', color: C.muted, lineHeight: 1.5 }}>Esta função estará disponível em breve. Em seguida, sua solicitação será enviada automaticamente para a equipe de suporte.</p>
+                <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: 8, color: C.text }}>Ticket aberto</h3>
+                <p style={{ fontSize: '0.82rem', color: C.muted, lineHeight: 1.5 }}>Sua solicitação foi registrada e a equipe de suporte já pode vê-la. Você será avisado por e-mail quando houver resposta.</p>
                 <button type="button" onClick={onClose}
                   style={{ marginTop: 20, padding: '9px 22px', borderRadius: 10, background: 'rgba(124,58,237,0.16)', border: '1px solid rgba(124,58,237,0.3)', color: '#a78bfa', fontWeight: 700, cursor: 'pointer', fontFamily: FONT_INTER, fontSize: '0.85rem' }}>
                   Fechar
@@ -466,10 +482,16 @@ function SupportModal({ onClose, P }) {
                       rows={4}
                       style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.cardBd}`, background: isDark ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.04)', color: C.text, outline: 'none', fontFamily: FONT_INTER, fontSize: '0.85rem', resize: 'vertical', boxSizing: 'border-box', minHeight: 90 }} />
                   </div>
+                  {ticketError && (
+                    <div style={{ padding: '9px 12px', borderRadius: 10, background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.26)', color: '#ff9ab4', fontSize: '0.78rem', fontWeight: 600 }}>
+                      {ticketError}
+                    </div>
+                  )}
                   <button type="button"
-                    onClick={() => setTicketSent(true)}
-                    style={{ padding: '10px 20px', borderRadius: 10, background: 'rgba(124,58,237,0.16)', border: '1px solid rgba(124,58,237,0.3)', color: '#a78bfa', fontWeight: 800, cursor: 'pointer', fontFamily: FONT_INTER, fontSize: '0.88rem', textAlign: 'center' }}>
-                    Abrir ticket
+                    onClick={handleCreateTicket}
+                    disabled={ticketSending || !ticketForm.subject.trim() || !ticketForm.description.trim()}
+                    style={{ padding: '10px 20px', borderRadius: 10, background: 'rgba(124,58,237,0.16)', border: '1px solid rgba(124,58,237,0.3)', color: '#a78bfa', fontWeight: 800, cursor: ticketSending ? 'wait' : 'pointer', fontFamily: FONT_INTER, fontSize: '0.88rem', textAlign: 'center', opacity: (ticketSending || !ticketForm.subject.trim() || !ticketForm.description.trim()) ? 0.5 : 1 }}>
+                    {ticketSending ? 'Abrindo...' : 'Abrir ticket'}
                   </button>
                 </div>
               </>
@@ -1200,6 +1222,7 @@ export default function AreaDoClientePage() {
         <SupportModal
           onClose={() => setSupportModalOpen(false)}
           P={P}
+          companyId={companyInfo?.company?.id ?? null}
         />
       )}
 

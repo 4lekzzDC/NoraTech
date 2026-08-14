@@ -9,6 +9,7 @@ const NAV = [
   { to: '/admin/empresas', label: 'Empresas', icon: '▣' },
   { to: '/admin/sistemas', label: 'Sistemas', icon: '◆' },
   { to: '/admin/faturas', label: 'Faturas', icon: '◈' },
+  { to: '/admin/suporte', label: 'Suporte', icon: '◐' },
 ];
 
 export default function AdminLayout({ title, subtitle, actions, children }) {

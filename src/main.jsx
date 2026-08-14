@@ -20,6 +20,7 @@ import AdminUsersPage from './pages/admin/AdminUsersPage.jsx'
 import AdminCompaniesPage from './pages/admin/AdminCompaniesPage.jsx'
 import AdminSystemsPage from './pages/admin/AdminSystemsPage.jsx'
 import AdminInvoicesPage from './pages/admin/AdminInvoicesPage.jsx'
+import AdminSupportPage from './pages/admin/AdminSupportPage.jsx'
 import {
   SolucoesContabeisHub,
   SistemaEmConstrucao,
@@ -94,6 +95,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/admin/empresas" element={<AdminRoute><AdminCompaniesPage /></AdminRoute>} />
           <Route path="/admin/sistemas" element={<AdminRoute><AdminSystemsPage /></AdminRoute>} />
           <Route path="/admin/faturas" element={<AdminRoute><AdminInvoicesPage /></AdminRoute>} />
+          <Route path="/admin/suporte" element={<AdminRoute><AdminSupportPage /></AdminRoute>} />
           {/* Hub da suite Soluções Contábeis */}
           <Route
             path={SOLUCOES_CONTABEIS_ROUTE}
