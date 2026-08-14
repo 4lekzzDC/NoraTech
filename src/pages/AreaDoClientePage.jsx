@@ -345,25 +345,21 @@ function SystemCard({ s }) {
         </div>
       )}
       <span style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--p-text)', lineHeight: 1.25, marginTop: 10 }}>{s.name}</span>
-      <p style={{ fontSize: '0.78rem', color: 'var(--p-muted)', lineHeight: 1.5, marginTop: 4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-        {s.description}
-      </p>
     </div>
   );
 
-  const cardStyle = { position: 'relative', aspectRatio: '1 / 1', background: 'var(--p-surface2)', border: '1px solid var(--p-border)', boxShadow: 'var(--p-shadow)', borderRadius: 14, padding: '22px 16px', transition: 'all 0.2s', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+  const cardStyle = { position: 'relative', background: 'var(--p-surface2)', border: '1px solid var(--p-border)', boxShadow: 'var(--p-shadow)', borderRadius: 14, padding: '20px 16px', transition: 'all 0.2s', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
   if (!s.url) return <div className="system-card" style={cardStyle}>{inner}</div>;
   if (s.internal) return <Link to={s.url} className="system-card" style={cardStyle}>{inner}</Link>;
   return <a href={s.url} target="_blank" rel="noopener noreferrer" className="system-card" style={cardStyle}>{inner}</a>;
 }
 
 function AddSystemCard({ onClick }) {
-  const cardStyle = { aspectRatio: '1 / 1', width: '100%', background: 'transparent', border: '1px dashed var(--p-border2)', borderRadius: 14, padding: '22px 16px', transition: 'all 0.2s', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 6, fontFamily: 'inherit' };
+  const cardStyle = { width: '100%', background: 'transparent', border: '1px dashed var(--p-border2)', borderRadius: 14, padding: '20px 16px', transition: 'all 0.2s', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 4, fontFamily: 'inherit' };
   return (
     <button type="button" onClick={onClick} className="system-card" style={cardStyle}>
-      <div style={{ width: 44, height: 44, borderRadius: '50%', border: '1px dashed var(--p-border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--p-muted)', fontSize: '1.3rem', lineHeight: 1 }}>+</div>
-      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--p-text)', marginTop: 6 }}>Adquirir sistema</span>
-      <span style={{ fontSize: '0.72rem', color: 'var(--p-muted)' }}>Explore nossos serviços</span>
+      <div style={{ width: 52, height: 52, borderRadius: 14, border: '1px dashed var(--p-border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--p-muted)', fontSize: '1.3rem', lineHeight: 1 }}>+</div>
+      <span style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--p-text)', marginTop: 10 }}>Adquirir sistema</span>
     </button>
   );
 }
