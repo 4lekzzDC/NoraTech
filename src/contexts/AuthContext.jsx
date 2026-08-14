@@ -17,11 +17,29 @@ function translateAuthError(error) {
   return error.message || 'Erro ao processar a solicitação';
 }
 
+// Cache local do nome (fora do supabase, só localStorage) usado como palpite
+// no primeiro render após reload, enquanto o profile real ainda não chegou —
+// evita o "Olá, você!" piscando antes de virar "Olá, Alexandre!" (profiles.name
+// só existe depois de buscar a tabela `profiles`, e user_metadata.name nem
+// sempre está preenchido).
+const NAME_CACHE_PREFIX = 'nt-cached-name:';
+
+function getCachedName(userId) {
+  try { return localStorage.getItem(NAME_CACHE_PREFIX + userId) || ''; } catch { return ''; }
+}
+
+function setCachedName(userId, name) {
+  try {
+    if (name) localStorage.setItem(NAME_CACHE_PREFIX + userId, name);
+    else localStorage.removeItem(NAME_CACHE_PREFIX + userId);
+  } catch { /* noop */ }
+}
+
 function mapProfile(authUser, profile) {
   return {
     id: authUser.id,
     email: authUser.email,
-    name: profile?.name || authUser.user_metadata?.name || '',
+    name: profile?.name || authUser.user_metadata?.name || getCachedName(authUser.id),
     photoUrl: profile?.photo_url || null,
     bannerUrl: profile?.banner_url || null,
     statusMessage: profile?.status_message || null,
@@ -55,6 +73,7 @@ export function AuthProvider({ children }) {
   const enrichWithProfile = useCallback(async (authUser) => {
     try {
       const profile = await fetchProfileRow(authUser);
+      setCachedName(authUser.id, profile?.name || authUser.user_metadata?.name || '');
       setUser((prev) => (prev && prev.id === authUser.id ? mapProfile(authUser, profile) : prev));
     } catch (err) {
       // Mantém o usuário com os dados de auth — o app não fica bloqueado.
@@ -202,9 +221,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
+    if (user) setCachedName(user.id, '');
     await supabase.auth.signOut();
     setUser(null);
-  }, []);
+  }, [user]);
 
   const updateProfile = useCallback(async ({ name, email, company }) => {
     if (!user) throw new Error('Usuário não autenticado');
@@ -219,6 +239,7 @@ export function AuthProvider({ children }) {
         .update(updates)
         .eq('id', user.id);
       if (error) throw new Error(error.message);
+      if (name !== undefined) setCachedName(user.id, updates.name);
     }
 
     let emailChanged = false;
