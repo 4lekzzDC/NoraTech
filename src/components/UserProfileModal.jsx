@@ -448,7 +448,10 @@ export default function UserProfileModal({ user, companyInfo, initials, onClose,
     <div role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <section role="dialog" aria-modal="true" aria-label="Meu perfil"
-        style={{ width: 'min(640px, 100%)', maxHeight: '90vh', background: C.panelBg, border: `1px solid ${C.panelBorder}`, borderRadius: 20, boxShadow: '0 28px 90px rgba(0,0,0,0.78)', overflowY: 'auto', color: C.text, position: 'relative', fontFamily: "'Inter', sans-serif" }}>
+        // 760px e não os 640px originais: a aba "Conta" empilha formulários
+        // (e-mail + senha em duas colunas) que ficavam espremidos e altos
+        // demais na largura pensada só para a aba "Perfil".
+        style={{ width: 'min(760px, 100%)', maxHeight: '90vh', background: C.panelBg, border: `1px solid ${C.panelBorder}`, borderRadius: 20, boxShadow: '0 28px 90px rgba(0,0,0,0.78)', overflowY: 'auto', color: C.text, position: 'relative', fontFamily: "'Inter', sans-serif" }}>
         <style>{`
           .profile-avatar-edit .profile-avatar-overlay, .profile-banner-edit .profile-banner-overlay { opacity: 0; transition: opacity 0.18s ease; }
           .profile-avatar-edit:hover .profile-avatar-overlay, .profile-avatar-edit:focus-visible .profile-avatar-overlay,
