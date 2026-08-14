@@ -10,6 +10,7 @@ function translateAuthError(error) {
   if (msg.includes('email not confirmed')) return 'Confirme seu e-mail antes de entrar';
   if (msg.includes('user already registered')) return 'Este e-mail já está em uso';
   if (msg.includes('password should be at least')) return 'A senha deve ter pelo menos 6 caracteres';
+  if (msg.includes('new password should be different from the old password')) return 'A nova senha deve ser diferente da senha atual.';
   if (msg.includes('rate limit')) return 'Muitas tentativas. Tente novamente em instantes.';
   if (msg.includes('fetch') || msg.includes('network') || msg.includes('failed to fetch')) return 'Erro de conexão. Verifique sua internet e tente novamente.';
   if (error.status === 404 || error.status === 503) return 'Serviço temporariamente indisponível. Tente novamente em instantes.';
@@ -28,13 +29,14 @@ function mapProfile(authUser, profile) {
     company: profile?.company || null,
     createdAt: authUser.created_at || null,
     emailVerified: Boolean(authUser.email_confirmed_at || authUser.confirmed_at),
+    forcePasswordReset: Boolean(profile?.force_password_reset),
   };
 }
 
 async function fetchProfileRow(authUser) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('name, photo_url, banner_url, status_message, status_expires_at, company')
+    .select('name, photo_url, banner_url, status_message, status_expires_at, company, force_password_reset')
     .eq('id', authUser.id)
     .maybeSingle();
   if (error && error.code !== 'PGRST116') {
@@ -124,6 +126,23 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
+  // "Esqueci minha senha" — dispara o e-mail de recuperação do Supabase. O
+  // link leva para /redefinir-senha, onde a sessão de recovery já vem
+  // autenticada (o Supabase estabelece isso a partir do próprio link).
+  const sendPasswordReset = useCallback(async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      redirectTo: `${window.location.origin}/redefinir-senha`,
+    });
+    if (error) throw new Error(translateAuthError(error));
+  }, []);
+
+  // Completa a recuperação: chamado a partir da sessão de recovery já
+  // estabelecida pelo link do e-mail (ver ResetPasswordPage.jsx).
+  const completePasswordRecovery = useCallback(async (newPassword) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw new Error(translateAuthError(error));
+  }, []);
+
   const register = useCallback(async (name, email, password) => {
     const normalizedEmail = email.trim().toLowerCase();
     const { data, error } = await supabase.auth.signUp({
@@ -200,6 +219,37 @@ export function AuthProvider({ children }) {
     if (error) throw new Error(translateAuthError(error));
   }, [user]);
 
+  // Fluxo de "Forçar troca de senha" (admin): o usuário já está autenticado
+  // (só precisa da nova senha, sem confirmar a atual) e o flag em `profiles`
+  // é limpo para o gate global parar de bloquear a navegação.
+  //
+  // Ordem importa: `auth.updateUser` roda dentro do lock interno do
+  // supabase-js (serializa com refresh/signIn) e, ao suceder, dispara a
+  // notificação de sessão (USER_UPDATED) que o AuthContext escuta para
+  // recarregar o profile — tudo isso ainda sob o lock. Uma chamada
+  // `.from('profiles').update(...)` disparada logo em seguida competia pelo
+  // mesmo lock para obter o token da sessão recém-rotacionada e travava
+  // (nunca resolvia nem rejeitava). Limpar a flag ANTES evita essa disputa:
+  // a chamada usa a sessão ainda estável, sem depender do lock de auth.
+  const completeForcedPasswordReset = useCallback(async (newPassword) => {
+    if (!user) throw new Error('Usuário não autenticado');
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ force_password_reset: false, updated_at: new Date().toISOString() })
+      .eq('id', user.id);
+    if (profileError) throw new Error(profileError.message);
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      // Senha não trocou — restaura a flag para o gate continuar bloqueando.
+      await supabase.from('profiles').update({ force_password_reset: true }).eq('id', user.id);
+      throw new Error(translateAuthError(error));
+    }
+
+    setUser((prev) => (prev ? { ...prev, forcePasswordReset: false } : prev));
+  }, [user]);
+
   const uploadPhoto = useCallback(async (file) => {
     if (!user) throw new Error('Usuário não autenticado');
     if (!file.type.startsWith('image/')) throw new Error('Arquivo deve ser uma imagem');
@@ -259,10 +309,13 @@ export function AuthProvider({ children }) {
     logout,
     updateProfile,
     changePassword,
+    completeForcedPasswordReset,
+    sendPasswordReset,
+    completePasswordRecovery,
     uploadPhoto,
     removePhoto,
     updateUser,
-  }), [user, loading, login, register, logout, updateProfile, changePassword, uploadPhoto, removePhoto, updateUser]);
+  }), [user, loading, login, register, logout, updateProfile, changePassword, completeForcedPasswordReset, sendPasswordReset, completePasswordRecovery, uploadPhoto, removePhoto, updateUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
