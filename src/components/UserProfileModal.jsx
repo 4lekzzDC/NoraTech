@@ -71,9 +71,12 @@ function VerifiedBadge() {
 
 // ─── Campos reutilizados pelas abas do perfil ─────────────────────────────────
 
-function Field({ label, hint, children, span }) {
+// `half`: campo solto que ocupa só a largura de uma coluna do .pf-grid2, para
+// alinhar com os campos que vêm em par (e não esticar de ponta a ponta).
+function Field({ label, hint, children, span, half }) {
   return (
-    <label style={{ display: 'grid', gap: 5, gridColumn: span ? `span ${span}` : undefined, minWidth: 0 }}>
+    <label className={half ? 'pf-field-half' : undefined}
+      style={{ display: 'grid', gap: 5, gridColumn: span ? `span ${span}` : undefined, minWidth: 0 }}>
       <span className="pf-label">{label}</span>
       {children}
       {hint && <span className="pf-hint">{hint}</span>}
@@ -176,7 +179,7 @@ function AccountTab({ user, onNotify }) {
         </div>
 
         <form onSubmit={handleEmail} style={{ display: 'grid', gap: 12, marginTop: 14 }}>
-          <Field label="Endereço de e-mail">
+          <Field label="Endereço de e-mail" half>
             <input type="email" className="pf-input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@empresa.com.br" />
           </Field>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -189,7 +192,7 @@ function AccountTab({ user, onNotify }) {
 
       <SectionCard title="Senha" desc="Use pelo menos 8 caracteres. Confirmamos sua senha atual antes de trocar.">
         <form onSubmit={handlePassword} style={{ display: 'grid', gap: 12 }}>
-          <Field label="Senha atual">
+          <Field label="Senha atual" half>
             <input type="password" className="pf-input" autoComplete="current-password" value={pwd.current}
               onChange={(e) => setPwd((p) => ({ ...p, current: e.target.value }))} placeholder="••••••••" />
           </Field>
@@ -278,7 +281,7 @@ function ContactTab({ user, onNotify }) {
   return (
     <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 14 }}>
       <SectionCard title="Telefone" desc="Usamos para contato sobre suporte e cobranças. Nunca é exibido para outros clientes.">
-        <Field label="Celular / WhatsApp">
+        <Field label="Celular / WhatsApp" half>
           <input type="tel" className="pf-input" value={contact.phone}
             onChange={(e) => setContact((c) => ({ ...c, phone: formatPhone(e.target.value) }))}
             placeholder="(11) 91234-5678" />
@@ -473,6 +476,8 @@ export default function UserProfileModal({ user, companyInfo, initials, onClose,
           .pf-label { font-size:.7rem; font-weight:800; color:${C.gridLabel}; letter-spacing:1px; text-transform:uppercase; }
           .pf-hint { font-size:.72rem; color:${C.muted}; }
           .pf-grid2 { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; }
+          /* mesma largura de uma coluna do .pf-grid2 (metade menos o gap) */
+          .pf-field-half { max-width:calc((100% - 12px) / 2); }
 
           .pf-input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid ${C.inputBd}; background:${C.inputBg}; color:${C.inputColor}; outline:none; font-family:inherit; font-size:.86rem; transition:border-color .15s; }
           .pf-input:focus { border-color:rgba(124,58,237,.55); }
@@ -490,7 +495,7 @@ export default function UserProfileModal({ user, companyInfo, initials, onClose,
           .pf-chip-ok { background:rgba(34,197,94,.1); border:1px solid rgba(34,197,94,.28); color:#22c55e; }
           .pf-chip-warn { background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.3); color:#f59e0b; }
 
-          @media (max-width:560px) { .pf-grid2 { grid-template-columns:minmax(0,1fr); } }
+          @media (max-width:560px) { .pf-grid2 { grid-template-columns:minmax(0,1fr); } .pf-field-half { max-width:none; } }
         `}</style>
         <button type="button" onClick={onClose} aria-label="Fechar perfil"
           style={{ position: 'absolute', top: 14, right: 14, zIndex: 2, width: 34, height: 34, borderRadius: '50%', border: `1px solid ${C.closeBd}`, background: C.closeBg, color: C.closeColor, cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>×</button>
