@@ -388,10 +388,10 @@ export default function App() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eeede9" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
           </button>
           <ThemeToggle style={{ marginLeft: 2 }} />
-          <Link to={user ? "/area-do-cliente" : "/login"} title={user ? "Central de Controle" : "Acesso admin"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: user ? "rgba(124, 58, 237,0.1)" : "rgba(255,255,255,0.04)", border: `1px solid ${user ? "rgba(124, 58, 237,0.2)" : "rgba(255,255,255,0.08)"}`, marginLeft: 2, overflow: "hidden", flexShrink: 0 }}>
+          <Link to={user ? "/area-do-cliente" : "/login"} title={user ? "Central de Controle" : "Área de membro"} className="member-badge" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: user ? "rgba(124, 58, 237,0.1)" : (theme === "light" ? "rgba(124, 58, 237,0.06)" : "rgba(255,255,255,0.04)"), border: `1px solid ${user ? "rgba(124, 58, 237,0.2)" : (theme === "light" ? "rgba(124, 58, 237,0.18)" : "rgba(255,255,255,0.08)")}`, marginLeft: 2, overflow: "hidden", flexShrink: 0 }}>
             {user?.photoUrl
               ? <img src={user.photoUrl} alt="perfil" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={user ? "#7C3AED" : "rgba(255,255,255,0.35)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={user ? "#7C3AED" : (theme === "light" ? "#7C3AED" : "rgba(255,255,255,0.35)")} strokeWidth={theme === "light" ? "2.6" : "2"} strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" }}><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
             }
           </Link>
         </nav>

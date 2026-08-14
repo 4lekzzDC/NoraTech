@@ -7,8 +7,9 @@ import PrivacyPage from './pages/PrivacyPage.jsx'
 import TermsPage from './pages/TermsPage.jsx'
 import SistemasPage from './pages/SistemasPage.jsx'
 import AutomacaoPage from './pages/AutomacaoPage.jsx'
-import LoginPage from './pages/LoginPage.jsx'
-import RegisterPage from './pages/RegisterPage.jsx'
+import AuthPage from './pages/AuthPage.jsx'
+import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx'
+import ResetPasswordPage from './pages/ResetPasswordPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import AreaDoClientePage from './pages/AreaDoClientePage.jsx'
 import SystemDetailsPage from './pages/SystemDetailsPage.jsx'
@@ -41,6 +42,7 @@ import AdminRoute from './components/AdminRoute.jsx'
 import SubscriptionRoute from './components/SubscriptionRoute.jsx'
 import OrgManagerRoute from './components/OrgManagerRoute.jsx'
 import LoadingScreen from './components/LoadingScreen.jsx'
+import ForcePasswordResetGate from './components/ForcePasswordResetGate.jsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
 import { ThemeProvider } from './contexts/ThemeContext.jsx'
 
@@ -71,14 +73,17 @@ createRoot(document.getElementById('root')).render(
     <ThemeProvider>
     <BrowserRouter>
       <AuthProvider>
+        <ForcePasswordResetGate>
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/privacidade" element={<PrivacyPage />} />
           <Route path="/termos" element={<TermsPage />} />
           <Route path="/servicos/sistemas-sob-medida" element={<SistemasPage />} />
           <Route path="/servicos/automacao-de-processos" element={<AutomacaoPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/registro" element={<RegisterPage />} />
+          <Route path="/login" element={<AuthPage />} />
+          <Route path="/registro" element={<AuthPage />} />
+          <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
+          <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
           <Route path="/perfil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/area-do-cliente" element={<ProtectedRoute><AreaDoClientePage /></ProtectedRoute>} />
           <Route path="/area-do-cliente/financeiro" element={<OrgManagerRoute><FinanceiroPage /></OrgManagerRoute>} />
@@ -149,6 +154,7 @@ createRoot(document.getElementById('root')).render(
             element={<Navigate to={`${SOLUCOES_CONTABEIS_ROUTE}/acompanhamento-contabil`} replace />}
           />
         </Routes>
+        </ForcePasswordResetGate>
       </AuthProvider>
     </BrowserRouter>
     </ThemeProvider>

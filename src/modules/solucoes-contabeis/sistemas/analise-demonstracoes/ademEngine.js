@@ -630,6 +630,32 @@ export function clearParsed(companyId) {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Histórico de análises — alimenta o dashboard da tela inicial
+// ──────────────────────────────────────────────────────────────────────
+
+const ADEM_HISTORY_KEY = 'adem_history';
+
+function ademHistoryKey(companyId) {
+  return companyId ? `${ADEM_HISTORY_KEY}_${companyId}` : ADEM_HISTORY_KEY;
+}
+
+export function getHistory(companyId) {
+  try { return JSON.parse(localStorage.getItem(ademHistoryKey(companyId)) || '[]'); }
+  catch { return []; }
+}
+
+export function recordAnalysis(companyId, resumo) {
+  const historico = getHistory(companyId);
+  historico.push({
+    data: new Date().toISOString(),
+    faturamento: resumo?.faturamento ?? null,
+    resultado: resumo?.resultado ?? null,
+  });
+  try { localStorage.setItem(ademHistoryKey(companyId), JSON.stringify(historico)); } catch { /* quota */ }
+  return historico;
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Dados de gráficos — retorna config Chart.js pronta
 // ──────────────────────────────────────────────────────────────────────
 

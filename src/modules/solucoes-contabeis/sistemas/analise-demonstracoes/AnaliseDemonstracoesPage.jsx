@@ -7,8 +7,10 @@ import {
   loadFile, processAll, saveParsed, loadParsed, clearParsed,
   fmt, pct, buildChartConfigs, buildDreRows, buildBalancoRows,
   buildResumo, buildDiagnostico, buildEvolucao, buildTopDespesas,
+  getHistory, recordAnalysis,
 } from './ademEngine';
 import { getCurrentTenantCompanyId } from '../../../../lib/subscriptions';
+import { getClientes, TRIBUT_COLORS, TRIBUT_OPTIONS } from '../gestao-clientes/gcService';
 
 Chart.register(...registerables);
 
@@ -127,6 +129,212 @@ function KpiCard({ label, value, sub, color }) {
       <div style={{ fontSize: '0.72rem', fontWeight: 600, color: P.muted, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 6 }}>{label}</div>
       <div style={{ fontSize: '1.4rem', fontWeight: 800, color: color || P.text, lineHeight: 1.1 }}>{value}</div>
       {sub && <div style={{ fontSize: '0.72rem', color: P.muted, marginTop: 4 }}>{sub}</div>}
+    </div>
+  );
+}
+
+// ── Modal ────────────────────────────────────────────────────────────
+function Modal({ open, onClose, children }) {
+  const P = useP();
+  if (!open) return null;
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.62)',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        padding: '60px 24px', overflowY: 'auto',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: P.surfaceSolid, border: `1px solid ${P.border2}`, borderRadius: 16,
+          boxShadow: '0 20px 60px rgba(0,0,0,0.45)', width: '100%', maxWidth: 760, padding: '28px 30px', position: 'relative',
+        }}
+      >
+        <button
+          onClick={onClose}
+          aria-label="Fechar"
+          style={{
+            position: 'absolute', top: 18, right: 18, width: 30, height: 30, borderRadius: 8,
+            border: `1px solid ${P.border2}`, background: 'transparent', color: P.muted,
+            fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >✕</button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// TELA INICIAL
+// ══════════════════════════════════════════════════════════════════════
+
+// Donut compacto com o total no centro — usado nos dois indicadores do
+// dashboard da tela inicial (sem estourar o tamanho do card).
+function MiniPie({ label, data, size = 84 }) {
+  const P = useP();
+  const canvasRef = useRef(null);
+  const instanceRef = useRef(null);
+  const total = data.reduce((s, d) => s + d.value, 0);
+  const fatias = data.filter((d) => d.value > 0);
+  const key = fatias.map((d) => `${d.label}:${d.value}`).join('|');
+
+  useEffect(() => {
+    if (!canvasRef.current || total === 0) return;
+    if (instanceRef.current) instanceRef.current.destroy();
+    instanceRef.current = new Chart(canvasRef.current, {
+      type: 'doughnut',
+      data: {
+        labels: fatias.map((d) => d.label),
+        datasets: [{ data: fatias.map((d) => d.value), backgroundColor: fatias.map((d) => d.color), borderWidth: 0 }],
+      },
+      options: {
+        cutout: '70%',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+      },
+    });
+    return () => { if (instanceRef.current) { instanceRef.current.destroy(); instanceRef.current = null; } };
+  }, [key, total]); // eslint-disable-line react-hooks/exhaustive-deps -- `key` já resume o conteúdo de `fatias`
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '10px 8px', borderRadius: 10, background: P.surface2 }}>
+      {total === 0 ? (
+        <div style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center', color: P.muted2, fontSize: '0.68rem', textAlign: 'center' }}>
+          Sem dados
+        </div>
+      ) : (
+        <div style={{ width: size, height: size, position: 'relative' }}>
+          <canvas ref={canvasRef} />
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.05rem', fontWeight: 800, color: P.text }}>
+            {total}
+          </div>
+        </div>
+      )}
+      <div style={{ fontSize: '0.72rem', color: P.muted, fontWeight: 600, textAlign: 'center' }}>{label}</div>
+      {fatias.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+          {fatias.map((d) => (
+            <div key={d.label} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: '0.62rem', color: P.muted2 }}>
+              <span style={{ width: 6, height: 6, borderRadius: 2, background: d.color, flexShrink: 0 }} />
+              {d.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Linha do log — data + resultado do período daquela análise.
+function LogRow({ entry }) {
+  const P = useP();
+  const data = new Date(entry.data);
+  const semDre = entry.resultado == null;
+  const negativo = !semDre && entry.resultado < 0;
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+      padding: '11px 4px', borderBottom: `1px solid ${P.border}`,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        <span style={{
+          width: 7, height: 7, borderRadius: 4, flexShrink: 0,
+          background: semDre ? P.muted2 : negativo ? P.red : P.green,
+        }} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: '0.83rem', color: P.text, fontWeight: 600 }}>
+            {data.toLocaleDateString('pt-BR')}
+          </div>
+          <div style={{ fontSize: '0.71rem', color: P.muted2 }}>
+            {data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </div>
+      </div>
+
+      {semDre ? (
+        <span style={{ fontSize: '0.78rem', color: P.muted2 }}>Sem DRE importada</span>
+      ) : (
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: '0.83rem', fontWeight: 700, color: negativo ? P.red : P.green, fontFamily: FONT_MONO }}>
+            {fmt(entry.resultado)}
+          </div>
+          <div style={{ fontSize: '0.71rem', color: P.muted2 }}>
+            Faturamento {fmt(entry.faturamento)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AnalisesLog({ historico }) {
+  const P = useP();
+  const ordenado = [...historico].reverse();
+
+  return (
+    <div style={{ ...card(P), padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <Eyebrow>Análises realizadas</Eyebrow>
+      {ordenado.length === 0 ? (
+        <div style={{ padding: '24px 0', textAlign: 'center', color: P.muted2, fontSize: '0.83rem' }}>
+          Nenhuma análise realizada ainda. Importe arquivos para começar.
+        </div>
+      ) : (
+        <div style={{ maxHeight: 340, overflowY: 'auto' }}>
+          {ordenado.map((entry, i) => <LogRow key={i} entry={entry} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HomePanel({ onOpenUpload, stats }) {
+  const P = useP();
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.15fr) minmax(0,1fr)', gap: 20, alignItems: 'stretch' }}>
+        <button
+          onClick={onOpenUpload}
+          style={{
+            ...card(P), cursor: 'pointer', textAlign: 'center', border: `1px solid ${P.primaryBorder}`,
+            background: P.primarySoft, padding: '36px 32px', display: 'flex', flexDirection: 'column',
+            alignItems: 'center', gap: 14, justifyContent: 'center', minHeight: 260,
+          }}
+        >
+          <span style={{
+            width: 56, height: 56, borderRadius: 14, background: 'rgba(124,58,237,0.18)',
+            border: `1px solid ${P.primaryBorder}`, display: 'flex', alignItems: 'center',
+            justifyContent: 'center', fontSize: '1.6rem',
+          }}>📥</span>
+          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: P.text, letterSpacing: -0.3 }}>Importar arquivos</div>
+          <p style={{ fontSize: '0.86rem', color: P.muted, lineHeight: 1.6, maxWidth: 380 }}>
+            Envie a DRE, o Balanço Patrimonial e o Balancete para gerar o relatório gerencial do período.
+          </p>
+          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: P.primaryText }}>Selecionar arquivos →</span>
+        </button>
+
+        <div style={{ ...card(P), padding: '24px 26px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ textAlign: 'center' }}>
+            <Eyebrow>Estatísticas</Eyebrow>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <MiniPie label="Empresas cadastradas" data={stats.empresasPorTributacao} />
+            <MiniPie label="Análises realizadas"  data={stats.analisesPorResultado} />
+          </div>
+          <div style={{ fontSize: '0.78rem', color: P.muted, paddingTop: 4, borderTop: `1px solid ${P.border}`, textAlign: 'center' }}>
+            {stats.ultima
+              ? <>Última análise em <strong style={{ color: P.text }}>{stats.ultima}</strong></>
+              : 'Nenhuma análise realizada ainda.'}
+          </div>
+        </div>
+      </div>
+
+      <AnalisesLog historico={stats.historico} />
     </div>
   );
 }
@@ -434,6 +642,7 @@ function UploadPanel({ onProcessed, onClear, hasParsed }) {
     try {
       const parsed = processAll(raw);
       saveParsed(parsed, companyId);
+      recordAnalysis(companyId, parsed.dre ? buildResumo(parsed) : null);
       onProcessed(parsed);
     } finally {
       setLoading(false);
@@ -464,12 +673,12 @@ function UploadPanel({ onProcessed, onClear, hasParsed }) {
         A <strong>DRE</strong> alimenta o resultado e as despesas; o <strong>Balancete</strong> permite comparar início e fim do período.
       </div>
 
-      <div style={{ display: 'flex', gap: 10 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
         <button onClick={handleProcess} disabled={!anyLoaded || loading} style={{ padding: '10px 24px', borderRadius: 10, background: anyLoaded && !loading ? P.primary : P.surface2, border: 'none', color: anyLoaded && !loading ? '#fff' : P.muted, fontFamily: FONT_INTER, fontSize: '0.87rem', fontWeight: 700, cursor: anyLoaded && !loading ? 'pointer' : 'not-allowed', opacity: anyLoaded && !loading ? 1 : 0.6 }}>
           {loading ? 'Processando…' : 'Processar e gerar relatório →'}
         </button>
         {hasParsed && (
-          <button onClick={handleClear} style={{ padding: '10px 18px', borderRadius: 10, border: `1px solid ${P.border2}`, background: 'transparent', color: P.muted, fontFamily: FONT_INTER, fontSize: '0.84rem', fontWeight: 600, cursor: 'pointer' }}>
+          <button onClick={handleClear} style={{ padding: '8px 16px', borderRadius: 10, border: `1px solid ${P.border2}`, background: 'transparent', color: P.muted, fontFamily: FONT_INTER, fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}>
             Limpar dados
           </button>
         )}
@@ -683,21 +892,56 @@ export default function AnaliseDemonstracoesPage() {
   }, []);
 
   // panel null = ainda não houve escolha do usuário: cai no painel que faz
-  // sentido para o estado atual (relatório se já há dados, importação se não).
+  // sentido para o estado atual (relatório se já há dados, tela inicial se não).
   const [panel, setPanel] = useState(null);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
   const setParsed = (p) => setDados((d) => ({ ...d, parsed: p }));
-  const handleProcessed = (p) => { setParsed(p); setPanel('resumo'); };
-  const handleClear     = () => { setParsed(null); setPanel('upload'); };
+  const handleProcessed = (p) => { setParsed(p); setUploadModalOpen(false); setPanel('resumo'); };
+  const handleClear     = () => { setParsed(null); setUploadModalOpen(false); setPanel('home'); };
 
   const hasParsed = Boolean(parsed);
-  const painelAtivo = panel ?? (hasParsed ? 'resumo' : 'upload');
+  const painelAtivo = panel ?? (hasParsed ? 'resumo' : 'home');
+
+  const historico = companyId !== undefined ? getHistory(companyId) : [];
+
+  const stats = {
+    historico,
+    // Empresas cadastradas, agrupadas por regime tributário.
+    empresasPorTributacao: (() => {
+      if (!companyId) return [];
+      const contagem = {};
+      getClientes(companyId).forEach((c) => {
+        const t = TRIBUT_OPTIONS.includes(c.tributacao) ? c.tributacao : 'Outro';
+        contagem[t] = (contagem[t] || 0) + 1;
+      });
+      return Object.entries(contagem).map(([label, value]) => ({ label, value, color: TRIBUT_COLORS[label] || TRIBUT_COLORS.Outro }));
+    })(),
+    // Análises realizadas, agrupadas por resultado do período (lucro/prejuízo).
+    analisesPorResultado: (() => {
+      let lucro = 0, prejuizo = 0, semDre = 0;
+      historico.forEach((h) => {
+        if (h.resultado == null) semDre += 1;
+        else if (h.resultado >= 0) lucro += 1;
+        else prejuizo += 1;
+      });
+      return [
+        { label: 'Lucro',    value: lucro,    color: P.green },
+        { label: 'Prejuízo', value: prejuizo, color: P.red },
+        { label: 'Sem DRE',  value: semDre,   color: P.muted2 },
+      ];
+    })(),
+    ultima: (() => {
+      const ultimo = historico[historico.length - 1];
+      return ultimo ? new Date(ultimo.data).toLocaleDateString('pt-BR') : null;
+    })(),
+  };
 
   const navItems = [
+    { key: 'home',        label: 'Início',               disabled: false },
     { key: 'resumo',      label: 'Visão do mês',         disabled: !hasParsed },
     { key: 'indicadores', label: 'Indicadores',          disabled: !hasParsed },
     { key: 'detalhes',    label: 'Detalhamento',         disabled: !hasParsed },
-    { key: 'upload',      label: 'Importar arquivos',    disabled: false },
   ];
 
   return (
@@ -713,13 +957,21 @@ export default function AnaliseDemonstracoesPage() {
         <SolucoesHeader />
 
         <main style={{ maxWidth: 1240, margin: '0 auto', padding: '36px 32px 80px' }}>
-          <div style={{ marginBottom: 28 }}>
-            <h1 style={{ fontSize: '1.45rem', fontWeight: 800, letterSpacing: -0.4, marginBottom: 4 }}>
-              Relatório Gerencial
-            </h1>
-            <p style={{ fontSize: '0.88rem', color: P.muted }}>
-              Quanto vendeu, para onde foi o dinheiro e o que sobrou no período.
-            </p>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 28, flexWrap: 'wrap' }}>
+            <div>
+              <h1 style={{ fontSize: '1.45rem', fontWeight: 800, letterSpacing: -0.4, marginBottom: 4 }}>
+                Relatório Gerencial
+              </h1>
+              <p style={{ fontSize: '0.88rem', color: P.muted }}>
+                Quanto vendeu, para onde foi o dinheiro e o que sobrou no período.
+              </p>
+            </div>
+            <button onClick={() => setUploadModalOpen(true)} style={{
+              padding: '9px 18px', borderRadius: 9, border: 'none', background: P.primary, color: '#fff',
+              fontFamily: FONT_INTER, fontSize: '0.83rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+            }}>
+              📥 Importar arquivos
+            </button>
           </div>
 
           <div style={{ display: 'flex', gap: 8, marginBottom: 28, flexWrap: 'wrap' }}>
@@ -736,13 +988,23 @@ export default function AnaliseDemonstracoesPage() {
             </div>
           ) : (
             <>
-              {painelAtivo === 'upload'      && <UploadPanel onProcessed={handleProcessed} onClear={handleClear} hasParsed={hasParsed} />}
+              {painelAtivo === 'home'        && <HomePanel onOpenUpload={() => setUploadModalOpen(true)} stats={stats} />}
               {painelAtivo === 'resumo'      && parsed && <ResumoPanel parsed={parsed} />}
               {painelAtivo === 'indicadores' && parsed && <IndicadoresPanel parsed={parsed} isDark={isDark} />}
               {painelAtivo === 'detalhes'    && parsed && <DetailsPanel parsed={parsed} />}
             </>
           )}
         </main>
+
+        <Modal open={uploadModalOpen} onClose={() => setUploadModalOpen(false)}>
+          <div style={{ marginBottom: 20 }}>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: P.text, marginBottom: 4 }}>Importar arquivos</h2>
+            <p style={{ fontSize: '0.82rem', color: P.muted }}>
+              Envie a DRE, o Balanço Patrimonial e o Balancete para gerar o relatório gerencial.
+            </p>
+          </div>
+          <UploadPanel onProcessed={handleProcessed} onClear={handleClear} hasParsed={hasParsed} />
+        </Modal>
       </div>
     </PaletteCtx.Provider>
     </CompanyCtx.Provider>
