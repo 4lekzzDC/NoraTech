@@ -1041,7 +1041,7 @@ export default function AreaDoClientePage() {
     { key: 'inicio',      label: 'Início',            icon: ICON.home,    onClick: () => goTo('inicio') },
     { key: 'sistemas',    label: 'Meus sistemas',     icon: ICON.grid,    onClick: () => goTo('sistemas', 'sec-sistemas') },
     { key: 'explorar',    label: 'Explorar sistemas', icon: ICON.bag,     onClick: () => { setActiveNav('explorar'); setMobileNavOpen(false); setAcquireModalOpen(true); } },
-    { key: 'assinaturas', label: 'Assinaturas',       icon: ICON.card,    onClick: () => navigate('/area-do-cliente/financeiro') },
+    { key: 'assinaturas', label: 'Financeiro',        icon: ICON.card,    onClick: () => navigate('/area-do-cliente/financeiro') },
     { key: 'equipe',      label: 'Equipe',            icon: ICON.team,    onClick: () => { setActiveNav('equipe'); setMobileNavOpen(false); handleTeamNav(); }, badge: pendingCount > 0 ? pendingCount : null },
     { key: 'suporte',     label: 'Suporte',           icon: ICON.support, onClick: () => { setActiveNav('suporte'); setMobileNavOpen(false); setSupportModalOpen(true); } },
     { key: 'perfil',      label: 'Meu perfil',        icon: ICON.user,    onClick: () => { setActiveNav('perfil'); setMobileNavOpen(false); setProfileModalOpen(true); } },
