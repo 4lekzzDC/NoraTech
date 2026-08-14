@@ -44,6 +44,7 @@ function mapProfile(authUser, profile) {
     bannerUrl: profile?.banner_url || null,
     statusMessage: profile?.status_message || null,
     statusExpiresAt: profile?.status_expires_at || null,
+    bio: profile?.bio || '',
     company: profile?.company || null,
     createdAt: authUser.created_at || null,
     emailVerified: Boolean(authUser.email_confirmed_at || authUser.confirmed_at),
@@ -54,7 +55,7 @@ function mapProfile(authUser, profile) {
 async function fetchProfileRow(authUser) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('name, photo_url, banner_url, status_message, status_expires_at, company, force_password_reset')
+    .select('name, photo_url, banner_url, status_message, status_expires_at, company, force_password_reset, bio')
     .eq('id', authUser.id)
     .maybeSingle();
   if (error && error.code !== 'PGRST116') {

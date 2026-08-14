@@ -18,6 +18,7 @@ import {
   EMPTY_CONTACT, fetchProfileContact, saveProfileContact,
   formatPhone, formatZip, isValidPhone, isValidZip, lookupZip,
 } from '../lib/profileContacts';
+import { sanitizeBioHtml, bioPlainText, BIO_MAX_CHARS } from '../lib/richText';
 
 const PRESENCE = {
   online:    { label: 'Online',    color: '#22c55e', bg: 'rgba(34,197,94,0.1)',   bd: 'rgba(34,197,94,0.26)'   },
@@ -71,9 +72,40 @@ function VerifiedBadge() {
 
 // ─── Campos reutilizados pelas abas do perfil ─────────────────────────────────
 
-function Field({ label, hint, children, span }) {
+// Check compacto com tooltip no hover/foco — mesma interação do VerifiedBadge
+// (definido mais abaixo), mas menor e sem o fundo em gradiente, para caber
+// junto ao rótulo de um campo em vez de ao lado de um nome.
+function InlineConfirmedCheck({ label }) {
+  const [tip, setTip] = useState(false);
   return (
-    <label style={{ display: 'grid', gap: 5, gridColumn: span ? `span ${span}` : undefined, minWidth: 0 }}>
+    <span
+      style={{ position: 'relative', display: 'inline-flex', verticalAlign: 'middle', marginLeft: 6 }}
+      onMouseEnter={() => setTip(true)}
+      onMouseLeave={() => setTip(false)}
+      onFocus={() => setTip(true)}
+      onBlur={() => setTip(false)}
+      tabIndex={0}
+      role="img"
+      aria-label={label}
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+      {tip && (
+        <span style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap', padding: '4px 8px', borderRadius: 7, background: '#18181b', border: '1px solid rgba(255,255,255,0.14)', color: '#e4e4e7', fontSize: '0.68rem', fontWeight: 700, pointerEvents: 'none', zIndex: 20, boxShadow: '0 6px 18px rgba(0,0,0,0.4)' }}>
+          {label}
+        </span>
+      )}
+    </span>
+  );
+}
+
+// `half`: campo solto que ocupa só a largura de uma coluna do .pf-grid2, para
+// alinhar com os campos que vêm em par (e não esticar de ponta a ponta).
+function Field({ label, hint, children, span, half }) {
+  return (
+    <label className={half ? 'pf-field-half' : undefined}
+      style={{ display: 'grid', gap: 5, gridColumn: span ? `span ${span}` : undefined, minWidth: 0 }}>
       <span className="pf-label">{label}</span>
       {children}
       {hint && <span className="pf-hint">{hint}</span>}
@@ -91,6 +123,126 @@ function SectionCard({ title, desc, children, footer }) {
       {children}
       {footer}
     </div>
+  );
+}
+
+// ─── Editor da bio ────────────────────────────────────────────────────────────
+
+const BIO_TOOLS = [
+  { cmd: 'bold',          titulo: 'Negrito (Ctrl+B)',   rotulo: <strong>N</strong> },
+  { cmd: 'italic',        titulo: 'Itálico (Ctrl+I)',   rotulo: <em>I</em> },
+  { cmd: 'underline',     titulo: 'Sublinhado (Ctrl+U)', rotulo: <span style={{ textDecoration: 'underline' }}>S</span> },
+  { cmd: 'strikeThrough', titulo: 'Riscado',            rotulo: <span style={{ textDecoration: 'line-through' }}>R</span> },
+  { sep: true },
+  { cmd: 'insertUnorderedList', titulo: 'Lista com marcadores', rotulo: '•' },
+  { cmd: 'insertOrderedList',   titulo: 'Lista numerada',       rotulo: '1.' },
+  { sep: true },
+  { cmd: 'removeFormat',  titulo: 'Limpar formatação',  rotulo: '✕' },
+];
+
+// contentEditable + execCommand. execCommand é formalmente obsoleto, mas é o
+// único caminho nativo e continua suportado em todos os navegadores atuais —
+// a alternativa seria trazer um editor completo (TipTap/Lexical) e centenas de
+// KB para quatro botões de formatação.
+function BioEditor({ valueHtml, onChangeHtml, disabled }) {
+  const ref = useRef(null);
+
+  // Escreve o HTML no DOM só quando ele diverge do que já está lá. Um
+  // `dangerouslySetInnerHTML` controlado a cada tecla reposicionaria o cursor
+  // para o início a cada caractere digitado.
+  useEffect(() => {
+    const el = ref.current;
+    if (el && el.innerHTML !== (valueHtml || '')) el.innerHTML = valueHtml || '';
+  }, [valueHtml]);
+
+  const exec = (cmd) => {
+    ref.current?.focus();
+    document.execCommand(cmd, false, null);
+    onChangeHtml(ref.current?.innerHTML || '');
+  };
+
+  return (
+    <div className="pf-bio-wrap" aria-disabled={disabled || undefined}>
+      <div className="pf-bio-toolbar" role="toolbar" aria-label="Formatação">
+        {BIO_TOOLS.map((t, i) => (
+          t.sep
+            ? <span key={`sep-${i}`} className="pf-bio-sep" />
+            : (
+              <button key={t.cmd} type="button" className="pf-bio-btn" title={t.titulo} aria-label={t.titulo}
+                disabled={disabled}
+                // onMouseDown + preventDefault: um clique normal tiraria o foco
+                // do editor antes do comando rodar, e a seleção se perderia.
+                onMouseDown={(e) => { e.preventDefault(); exec(t.cmd); }}>
+                {t.rotulo}
+              </button>
+            )
+        ))}
+      </div>
+      <div
+        ref={ref}
+        className="pf-bio-input"
+        contentEditable={!disabled}
+        suppressContentEditableWarning
+        role="textbox"
+        aria-multiline="true"
+        aria-label="Sobre mim"
+        data-placeholder="Conte o que quiser sobre você, sua função ou sua rotina..."
+        onInput={(e) => onChangeHtml(e.currentTarget.innerHTML)}
+        // Cola sempre como texto puro: colar de um site traria HTML arbitrário
+        // (o sanitizador barraria depois, mas o editor já ficaria bagunçado).
+        onPaste={(e) => {
+          e.preventDefault();
+          const texto = e.clipboardData.getData('text/plain');
+          document.execCommand('insertText', false, texto);
+        }}
+      />
+    </div>
+  );
+}
+
+function BioSection({ user, onNotify, onUserUpdate }) {
+  const [html, setHtml] = useState(() => sanitizeBioHtml(user?.bio || ''));
+  const [saving, setSaving] = useState(false);
+
+  const chars = bioPlainText(html).length;
+  const excedeu = chars > BIO_MAX_CHARS;
+  const sujo = sanitizeBioHtml(user?.bio || '') !== html;
+
+  const handleSave = async () => {
+    // Sanitiza ANTES de gravar: o contentEditable aceita HTML colado/injetado
+    // e nada garante que só passou pelos botões da barra.
+    const limpo = sanitizeBioHtml(html);
+    if (bioPlainText(limpo).length > BIO_MAX_CHARS) {
+      onNotify({ type: 'error', text: `A descrição passa de ${BIO_MAX_CHARS} caracteres.` });
+      return;
+    }
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .from('profiles')
+        .update({ bio: limpo || null, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+      if (error) throw new Error(error.message);
+      setHtml(limpo);
+      onUserUpdate({ bio: limpo });
+      onNotify({ type: 'success', text: 'Descrição salva.' });
+    } catch (err) {
+      onNotify({ type: 'error', text: err.message || 'Não foi possível salvar a descrição.' });
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <SectionCard title="Sobre mim" desc="Um texto livre sobre você. Seus colegas de equipe podem ver.">
+      <BioEditor valueHtml={html} onChangeHtml={setHtml} disabled={saving} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
+        <span className="pf-hint" style={{ color: excedeu ? '#ff9ab4' : undefined }}>
+          {chars} / {BIO_MAX_CHARS} caracteres
+        </span>
+        <button type="button" className="pf-btn-primary" onClick={handleSave} disabled={saving || excedeu || !sujo}>
+          {saving ? 'Salvando...' : 'Salvar descrição'}
+        </button>
+      </div>
+    </SectionCard>
   );
 }
 
@@ -156,40 +308,41 @@ function AccountTab({ user, onNotify }) {
         title="E-mail de acesso"
         desc="É com ele que você entra na plataforma e recebe avisos de cobrança."
       >
-        <div className="pf-status-line">
-          {user?.emailVerified ? (
-            <span className="pf-chip pf-chip-ok">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-              E-mail confirmado
+        {/* Confirmado: some o chip, sobra só o check junto ao rótulo do campo
+            abaixo — a frase inteira ("E-mail confirmado") virou tooltip.
+            Não confirmado continua com o chip + botão de reenviar, porque
+            aí é uma pendência que precisa de ação, não só um status. */}
+        {!user?.emailVerified && (
+          <div className="pf-status-line">
+            <span className="pf-chip pf-chip-warn">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v4" /><path d="M12 17h.01" /><circle cx="12" cy="12" r="9" /></svg>
+              E-mail não confirmado
             </span>
-          ) : (
-            <>
-              <span className="pf-chip pf-chip-warn">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v4" /><path d="M12 17h.01" /><circle cx="12" cy="12" r="9" /></svg>
-                E-mail não confirmado
-              </span>
-              <button type="button" className="pf-btn-ghost" onClick={handleResend} disabled={busy === 'resend'}>
-                {busy === 'resend' ? 'Enviando...' : 'Reenviar confirmação'}
-              </button>
-            </>
-          )}
-        </div>
-
-        <form onSubmit={handleEmail} style={{ display: 'grid', gap: 12, marginTop: 14 }}>
-          <Field label="Endereço de e-mail">
-            <input type="email" className="pf-input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@empresa.com.br" />
-          </Field>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button type="submit" className="pf-btn-primary" disabled={!emailDirty || busy === 'email'}>
-              {busy === 'email' ? 'Enviando...' : 'Alterar e-mail'}
+            <button type="button" className="pf-btn-ghost" onClick={handleResend} disabled={busy === 'resend'}>
+              {busy === 'resend' ? 'Enviando...' : 'Reenviar confirmação'}
             </button>
           </div>
+        )}
+
+        {/* Botão em linha com o campo (não embaixo, alinhado à direita): com o
+            input em meia largura, um botão "flex-end" ficava boiando sozinho
+            no vão vazio da direita, sem relação visual com o campo. */}
+        <form onSubmit={handleEmail} style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+          <Field
+            half
+            label={<>Endereço de e-mail{user?.emailVerified && <InlineConfirmedCheck label="E-mail confirmado" />}</>}
+          >
+            <input type="email" className="pf-input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@empresa.com.br" />
+          </Field>
+          <button type="submit" className="pf-btn-primary" disabled={!emailDirty || busy === 'email'}>
+            {busy === 'email' ? 'Enviando...' : 'Alterar e-mail'}
+          </button>
         </form>
       </SectionCard>
 
       <SectionCard title="Senha" desc="Use pelo menos 8 caracteres. Confirmamos sua senha atual antes de trocar.">
         <form onSubmit={handlePassword} style={{ display: 'grid', gap: 12 }}>
-          <Field label="Senha atual">
+          <Field label="Senha atual" half>
             <input type="password" className="pf-input" autoComplete="current-password" value={pwd.current}
               onChange={(e) => setPwd((p) => ({ ...p, current: e.target.value }))} placeholder="••••••••" />
           </Field>
@@ -203,11 +356,13 @@ function AccountTab({ user, onNotify }) {
                 onChange={(e) => setPwd((p) => ({ ...p, confirm: e.target.value }))} placeholder="••••••••" />
             </Field>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button type="submit" className="pf-btn-primary" disabled={!pwd.current || !pwd.next || busy === 'password'}>
-              {busy === 'password' ? 'Salvando...' : 'Alterar senha'}
-            </button>
-          </div>
+          {/* Alinhado à esquerda, sob os campos: o botão depende dos três
+              campos (não de um só), então não faz sentido colado a nenhum
+              deles — mas "flex-end" o jogava sozinho no vão vazio à direita,
+              sem nenhuma relação visual com o formulário. */}
+          <button type="submit" className="pf-btn-primary" style={{ justifySelf: 'start' }} disabled={!pwd.current || !pwd.next || busy === 'password'}>
+            {busy === 'password' ? 'Salvando...' : 'Alterar senha'}
+          </button>
         </form>
       </SectionCard>
     </div>
@@ -278,7 +433,7 @@ function ContactTab({ user, onNotify }) {
   return (
     <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 14 }}>
       <SectionCard title="Telefone" desc="Usamos para contato sobre suporte e cobranças. Nunca é exibido para outros clientes.">
-        <Field label="Celular / WhatsApp">
+        <Field label="Celular / WhatsApp" half>
           <input type="tel" className="pf-input" value={contact.phone}
             onChange={(e) => setContact((c) => ({ ...c, phone: formatPhone(e.target.value) }))}
             placeholder="(11) 91234-5678" />
@@ -473,6 +628,24 @@ export default function UserProfileModal({ user, companyInfo, initials, onClose,
           .pf-label { font-size:.7rem; font-weight:800; color:${C.gridLabel}; letter-spacing:1px; text-transform:uppercase; }
           .pf-hint { font-size:.72rem; color:${C.muted}; }
           .pf-grid2 { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; }
+          /* mesma largura de uma coluna do .pf-grid2 (metade menos o gap) */
+          .pf-field-half { max-width:calc((100% - 12px) / 2); }
+
+          /* ── Editor da bio ── */
+          .pf-bio-wrap { border:1px solid ${C.inputBd}; border-radius:10px; background:${C.inputBg}; overflow:hidden; transition:border-color .15s; }
+          .pf-bio-wrap:focus-within { border-color:rgba(124,58,237,.55); }
+          .pf-bio-toolbar { display:flex; align-items:center; gap:2px; padding:6px 8px; border-bottom:1px solid ${C.sectionBd}; flex-wrap:wrap; }
+          .pf-bio-btn { min-width:28px; height:28px; padding:0 7px; border-radius:7px; border:1px solid transparent; background:transparent; color:${C.text}; font-family:inherit; font-size:.82rem; line-height:1; cursor:pointer; transition:all .12s; }
+          .pf-bio-btn:hover:not(:disabled) { background:${C.pressBtnSelBg}; border-color:${C.inputBd}; }
+          .pf-bio-btn:disabled { opacity:.4; cursor:not-allowed; }
+          .pf-bio-sep { width:1px; height:18px; margin:0 4px; background:${C.sectionBd}; }
+          .pf-bio-input { min-height:110px; max-height:260px; overflow-y:auto; padding:11px 13px; outline:none; font-family:inherit; font-size:.86rem; line-height:1.6; color:${C.inputColor}; }
+          /* :empty sozinho falha quando o navegador deixa um <br> residual */
+          .pf-bio-input:empty::before { content:attr(data-placeholder); color:${C.muted}; pointer-events:none; }
+          .pf-bio-input ul, .pf-bio-input ol { padding-left:22px; margin:6px 0; }
+          .pf-bio-input li { margin:2px 0; }
+          .pf-bio-input p { margin:6px 0; }
+          .pf-bio-input a { color:#a78bfa; text-decoration:underline; }
 
           .pf-input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid ${C.inputBd}; background:${C.inputBg}; color:${C.inputColor}; outline:none; font-family:inherit; font-size:.86rem; transition:border-color .15s; }
           .pf-input:focus { border-color:rgba(124,58,237,.55); }
@@ -490,7 +663,7 @@ export default function UserProfileModal({ user, companyInfo, initials, onClose,
           .pf-chip-ok { background:rgba(34,197,94,.1); border:1px solid rgba(34,197,94,.28); color:#22c55e; }
           .pf-chip-warn { background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.3); color:#f59e0b; }
 
-          @media (max-width:560px) { .pf-grid2 { grid-template-columns:minmax(0,1fr); } }
+          @media (max-width:560px) { .pf-grid2 { grid-template-columns:minmax(0,1fr); } .pf-field-half { max-width:none; } }
         `}</style>
         <button type="button" onClick={onClose} aria-label="Fechar perfil"
           style={{ position: 'absolute', top: 14, right: 14, zIndex: 2, width: 34, height: 34, borderRadius: '50%', border: `1px solid ${C.closeBd}`, background: C.closeBg, color: C.closeColor, cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>×</button>
@@ -614,6 +787,8 @@ export default function UserProfileModal({ user, companyInfo, initials, onClose,
                       <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{companyRole ? roleLabel : 'Não definido'}</div>
                     </div>
                   </div>
+
+                  <BioSection user={user} onNotify={notify} onUserUpdate={onUserUpdate} />
                 </div>
               )}
 
