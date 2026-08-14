@@ -260,14 +260,42 @@ export function AuthProvider({ children }) {
     return { emailChanged };
   }, [user]);
 
+  // ⚠️ Ambas as chamadas abaixo (signInWithPassword e updateUser) rodam dentro
+  // do lock interno de auth do supabase-js e já travaram indefinidamente neste
+  // projeto — sem resolver nem rejeitar, deixando o botão em "Salvando..." para
+  // sempre. Mesmo guard de timeout usado em ForcePasswordResetGate/ResetPasswordPage.
   const changePassword = useCallback(async (currentPassword, newPassword) => {
     if (!user) throw new Error('Usuário não autenticado');
-    const { error: verifyError } = await supabase.auth.signInWithPassword({
-      email: user.email,
-      password: currentPassword,
-    });
+
+    const withTimeout = (promise, label) => Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(
+        () => reject(new Error(`${label} demorou demais. Recarregue a página e tente novamente.`)),
+        15000,
+      )),
+    ]);
+
+    const { error: verifyError } = await withTimeout(
+      supabase.auth.signInWithPassword({ email: user.email, password: currentPassword }),
+      'A verificação da senha atual',
+    );
     if (verifyError) throw new Error('Senha atual incorreta');
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+    const { error } = await withTimeout(
+      supabase.auth.updateUser({ password: newPassword }),
+      'A troca de senha',
+    );
+    if (error) throw new Error(translateAuthError(error));
+  }, [user]);
+
+  // Reenvia o e-mail de confirmação de cadastro para quem ainda não verificou.
+  const resendEmailConfirmation = useCallback(async () => {
+    if (!user) throw new Error('Usuário não autenticado');
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: user.email,
+      options: { emailRedirectTo: `${window.location.origin}/area-do-cliente` },
+    });
     if (error) throw new Error(translateAuthError(error));
   }, [user]);
 
@@ -361,13 +389,14 @@ export function AuthProvider({ children }) {
     logout,
     updateProfile,
     changePassword,
+    resendEmailConfirmation,
     completeForcedPasswordReset,
     sendPasswordReset,
     completePasswordRecovery,
     uploadPhoto,
     removePhoto,
     updateUser,
-  }), [user, loading, login, register, logout, updateProfile, changePassword, completeForcedPasswordReset, sendPasswordReset, completePasswordRecovery, uploadPhoto, removePhoto, updateUser]);
+  }), [user, loading, login, register, logout, updateProfile, changePassword, resendEmailConfirmation, completeForcedPasswordReset, sendPasswordReset, completePasswordRecovery, uploadPhoto, removePhoto, updateUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

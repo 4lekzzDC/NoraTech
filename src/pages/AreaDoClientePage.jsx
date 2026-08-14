@@ -10,6 +10,10 @@ import UserProfileMenu from '../components/UserProfileMenu';
 import { supabase, AVATARS_BUCKET } from '../lib/supabase';
 import { fetchMyCompany, fetchCompanyMembers, leaveCompany } from '../lib/companies';
 import { fetchSystems, indexSystems } from '../lib/systems';
+import {
+  EMPTY_CONTACT, fetchProfileContact, saveProfileContact,
+  formatPhone, formatZip, isValidPhone, isValidZip, lookupZip,
+} from '../lib/profileContacts';
 import { getPalette, FONT_INTER, FONT_MONO } from '../modules/solucoes-contabeis/theme';
 
 const MONTHS_PT = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
@@ -90,7 +94,267 @@ function VerifiedBadge() {
   );
 }
 
+// ─── Campos reutilizados pelas abas do perfil ─────────────────────────────────
+
+function Field({ label, hint, children, span }) {
+  return (
+    <label style={{ display: 'grid', gap: 5, gridColumn: span ? `span ${span}` : undefined, minWidth: 0 }}>
+      <span className="pf-label">{label}</span>
+      {children}
+      {hint && <span className="pf-hint">{hint}</span>}
+    </label>
+  );
+}
+
+function SectionCard({ title, desc, children, footer }) {
+  return (
+    <div className="pf-section">
+      <div style={{ marginBottom: 14 }}>
+        <div className="pf-section-title">{title}</div>
+        {desc && <p className="pf-section-desc">{desc}</p>}
+      </div>
+      {children}
+      {footer}
+    </div>
+  );
+}
+
+// ─── Aba "Conta": e-mail, confirmação e senha ─────────────────────────────────
+
+function AccountTab({ user, onNotify }) {
+  const { updateProfile, changePassword, resendEmailConfirmation } = useAuth();
+  const [busy, setBusy] = useState('');
+  const [email, setEmail] = useState(user?.email || '');
+  const [pwd, setPwd] = useState({ current: '', next: '', confirm: '' });
+
+  const emailDirty = email.trim().toLowerCase() !== (user?.email || '').toLowerCase();
+
+  const handleResend = async () => {
+    try {
+      setBusy('resend');
+      await resendEmailConfirmation();
+      onNotify({ type: 'success', text: 'E-mail de confirmação reenviado. Verifique sua caixa de entrada.' });
+    } catch (err) {
+      onNotify({ type: 'error', text: err.message || 'Não foi possível reenviar o e-mail.' });
+    } finally { setBusy(''); }
+  };
+
+  const handleEmail = async (e) => {
+    e.preventDefault();
+    const next = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next)) {
+      onNotify({ type: 'error', text: 'Informe um e-mail válido.' });
+      return;
+    }
+    try {
+      setBusy('email');
+      await updateProfile({ email: next });
+      onNotify({ type: 'success', text: 'Enviamos um link de confirmação para o novo e-mail. A troca só vale após confirmar.' });
+    } catch (err) {
+      onNotify({ type: 'error', text: err.message || 'Não foi possível alterar o e-mail.' });
+    } finally { setBusy(''); }
+  };
+
+  const handlePassword = async (e) => {
+    e.preventDefault();
+    if (pwd.next.length < 8) {
+      onNotify({ type: 'error', text: 'A nova senha deve ter pelo menos 8 caracteres.' });
+      return;
+    }
+    if (pwd.next !== pwd.confirm) {
+      onNotify({ type: 'error', text: 'A confirmação não confere com a nova senha.' });
+      return;
+    }
+    try {
+      setBusy('password');
+      await changePassword(pwd.current, pwd.next);
+      setPwd({ current: '', next: '', confirm: '' });
+      onNotify({ type: 'success', text: 'Senha alterada com sucesso.' });
+    } catch (err) {
+      onNotify({ type: 'error', text: err.message || 'Não foi possível alterar a senha.' });
+    } finally { setBusy(''); }
+  };
+
+  return (
+    <div style={{ display: 'grid', gap: 14 }}>
+      <SectionCard
+        title="E-mail de acesso"
+        desc="É com ele que você entra na plataforma e recebe avisos de cobrança."
+      >
+        <div className="pf-status-line">
+          {user?.emailVerified ? (
+            <span className="pf-chip pf-chip-ok">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+              E-mail confirmado
+            </span>
+          ) : (
+            <>
+              <span className="pf-chip pf-chip-warn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v4" /><path d="M12 17h.01" /><circle cx="12" cy="12" r="9" /></svg>
+                E-mail não confirmado
+              </span>
+              <button type="button" className="pf-btn-ghost" onClick={handleResend} disabled={busy === 'resend'}>
+                {busy === 'resend' ? 'Enviando...' : 'Reenviar confirmação'}
+              </button>
+            </>
+          )}
+        </div>
+
+        <form onSubmit={handleEmail} style={{ display: 'grid', gap: 12, marginTop: 14 }}>
+          <Field label="Endereço de e-mail">
+            <input type="email" className="pf-input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@empresa.com.br" />
+          </Field>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button type="submit" className="pf-btn-primary" disabled={!emailDirty || busy === 'email'}>
+              {busy === 'email' ? 'Enviando...' : 'Alterar e-mail'}
+            </button>
+          </div>
+        </form>
+      </SectionCard>
+
+      <SectionCard title="Senha" desc="Use pelo menos 8 caracteres. Confirmamos sua senha atual antes de trocar.">
+        <form onSubmit={handlePassword} style={{ display: 'grid', gap: 12 }}>
+          <Field label="Senha atual">
+            <input type="password" className="pf-input" autoComplete="current-password" value={pwd.current}
+              onChange={(e) => setPwd((p) => ({ ...p, current: e.target.value }))} placeholder="••••••••" />
+          </Field>
+          <div className="pf-grid2">
+            <Field label="Nova senha">
+              <input type="password" className="pf-input" autoComplete="new-password" value={pwd.next}
+                onChange={(e) => setPwd((p) => ({ ...p, next: e.target.value }))} placeholder="••••••••" />
+            </Field>
+            <Field label="Confirmar nova senha">
+              <input type="password" className="pf-input" autoComplete="new-password" value={pwd.confirm}
+                onChange={(e) => setPwd((p) => ({ ...p, confirm: e.target.value }))} placeholder="••••••••" />
+            </Field>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button type="submit" className="pf-btn-primary" disabled={!pwd.current || !pwd.next || busy === 'password'}>
+              {busy === 'password' ? 'Salvando...' : 'Alterar senha'}
+            </button>
+          </div>
+        </form>
+      </SectionCard>
+    </div>
+  );
+}
+
+// ─── Aba "Contato": telefone e endereço ───────────────────────────────────────
+
+const UF_LIST = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
+
+function ContactTab({ user, onNotify }) {
+  const [contact, setContact] = useState(EMPTY_CONTACT);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [zipBusy, setZipBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await fetchProfileContact(user.id);
+        if (active) setContact(data);
+      } catch (err) {
+        if (active) onNotify({ type: 'error', text: err.message || 'Não foi possível carregar seus dados de contato.' });
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [user.id, onNotify]);
+
+  const set = (key) => (e) => setContact((c) => ({ ...c, [key]: e.target.value }));
+
+  // Ao completar o CEP, preenche o endereço automaticamente (ViaCEP).
+  const handleZip = async (e) => {
+    const masked = formatZip(e.target.value);
+    setContact((c) => ({ ...c, addressZip: masked }));
+    if (masked.replace(/\D/g, '').length !== 8) return;
+    setZipBusy(true);
+    const found = await lookupZip(masked);
+    setZipBusy(false);
+    if (found) setContact((c) => ({ ...c, ...found }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!isValidPhone(contact.phone)) {
+      onNotify({ type: 'error', text: 'Telefone incompleto. Use DDD + número.' });
+      return;
+    }
+    if (!isValidZip(contact.addressZip)) {
+      onNotify({ type: 'error', text: 'CEP incompleto. Use 8 dígitos.' });
+      return;
+    }
+    try {
+      setSaving(true);
+      await saveProfileContact(user.id, contact);
+      onNotify({ type: 'success', text: 'Dados de contato salvos.' });
+    } catch (err) {
+      onNotify({ type: 'error', text: err.message || 'Não foi possível salvar seus dados.' });
+    } finally { setSaving(false); }
+  };
+
+  if (loading) {
+    return <div className="pf-section" style={{ textAlign: 'center' }}><span className="pf-hint">Carregando seus dados...</span></div>;
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 14 }}>
+      <SectionCard title="Telefone" desc="Usamos para contato sobre suporte e cobranças. Nunca é exibido para outros clientes.">
+        <Field label="Celular / WhatsApp">
+          <input type="tel" className="pf-input" value={contact.phone}
+            onChange={(e) => setContact((c) => ({ ...c, phone: formatPhone(e.target.value) }))}
+            placeholder="(11) 91234-5678" />
+        </Field>
+      </SectionCard>
+
+      <SectionCard title="Endereço" desc="Preencha o CEP que o resto vem automático.">
+        <div className="pf-grid2">
+          <Field label="CEP" hint={zipBusy ? 'Buscando endereço...' : null}>
+            <input className="pf-input" value={contact.addressZip} onChange={handleZip} placeholder="01310-100" inputMode="numeric" />
+          </Field>
+          <Field label="Número">
+            <input className="pf-input" value={contact.addressNumber} onChange={set('addressNumber')} placeholder="1000" />
+          </Field>
+          <Field label="Logradouro" span={2}>
+            <input className="pf-input" value={contact.addressStreet} onChange={set('addressStreet')} placeholder="Av. Paulista" />
+          </Field>
+          <Field label="Complemento">
+            <input className="pf-input" value={contact.addressComplement} onChange={set('addressComplement')} placeholder="Sala 42" />
+          </Field>
+          <Field label="Bairro">
+            <input className="pf-input" value={contact.addressDistrict} onChange={set('addressDistrict')} placeholder="Bela Vista" />
+          </Field>
+          <Field label="Cidade">
+            <input className="pf-input" value={contact.addressCity} onChange={set('addressCity')} placeholder="São Paulo" />
+          </Field>
+          <Field label="Estado">
+            <select className="pf-input" value={contact.addressState} onChange={set('addressState')}>
+              <option value="">—</option>
+              {UF_LIST.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+            </select>
+          </Field>
+        </div>
+      </SectionCard>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button type="submit" className="pf-btn-primary" disabled={saving}>
+          {saving ? 'Salvando...' : 'Salvar dados de contato'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 // ─── UserProfileModal ─────────────────────────────────────────────────────────
+
+const PROFILE_TABS = [
+  { key: 'perfil',  label: 'Perfil' },
+  { key: 'conta',   label: 'Conta' },
+  { key: 'contato', label: 'Contato' },
+];
 
 function UserProfileModal({ user, companyInfo, initials, onClose, onUserUpdate, theme }) {
   const isDark = theme !== 'light';
@@ -139,6 +403,9 @@ function UserProfileModal({ user, companyInfo, initials, onClose, onUserUpdate, 
   const [presence, setPresence] = useState('online');
   const [presenceOpen, setPresenceOpen] = useState(false);
   const [message, setMessage] = useState(null);
+  const [tab, setTab] = useState('perfil');
+  // Estável: ContactTab usa onNotify numa dependência de useEffect.
+  const notify = useCallback((msg) => setMessage(msg), []);
   const companyName = companyInfo?.company?.name || user?.company || 'Sem empresa vinculada';
   const companyRole = companyInfo?.membership?.role || null;
   const roleLabel = COMPANY_ROLE_LABEL[companyRole] || 'Membro';
@@ -205,11 +472,41 @@ function UserProfileModal({ user, companyInfo, initials, onClose, onUserUpdate, 
     <div role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <section role="dialog" aria-modal="true" aria-label="Meu perfil"
-        style={{ width: 'min(640px, 100%)', background: C.panelBg, border: `1px solid ${C.panelBorder}`, borderRadius: 20, boxShadow: '0 28px 90px rgba(0,0,0,0.78)', overflow: 'hidden', color: C.text, position: 'relative', fontFamily: "'Inter', sans-serif" }}>
+        style={{ width: 'min(640px, 100%)', maxHeight: '90vh', background: C.panelBg, border: `1px solid ${C.panelBorder}`, borderRadius: 20, boxShadow: '0 28px 90px rgba(0,0,0,0.78)', overflowY: 'auto', color: C.text, position: 'relative', fontFamily: "'Inter', sans-serif" }}>
         <style>{`
           .profile-avatar-edit .profile-avatar-overlay, .profile-banner-edit .profile-banner-overlay { opacity: 0; transition: opacity 0.18s ease; }
           .profile-avatar-edit:hover .profile-avatar-overlay, .profile-avatar-edit:focus-visible .profile-avatar-overlay,
           .profile-banner-edit:hover .profile-banner-overlay, .profile-banner-edit:focus-visible .profile-banner-overlay { opacity: 1; }
+
+          .pf-tabs { display:flex; gap:4px; border-bottom:1px solid ${C.sectionBd}; margin-top:18px; }
+          .pf-tab { position:relative; padding:10px 14px; background:transparent; border:none; border-bottom:2px solid transparent; color:${C.muted}; font-family:inherit; font-size:.85rem; font-weight:700; cursor:pointer; transition:color .15s, border-color .15s; }
+          .pf-tab:hover { color:${C.text}; }
+          .pf-tab[data-active="true"] { color:#a78bfa; border-bottom-color:#a78bfa; }
+
+          .pf-section { background:${C.sectionBg}; border:1px solid ${C.sectionBd}; border-radius:14px; padding:16px; }
+          .pf-section-title { font-size:.86rem; font-weight:800; color:${C.text}; letter-spacing:-.2px; }
+          .pf-section-desc { font-size:.76rem; color:${C.muted}; line-height:1.5; margin-top:3px; }
+          .pf-label { font-size:.7rem; font-weight:800; color:${C.gridLabel}; letter-spacing:1px; text-transform:uppercase; }
+          .pf-hint { font-size:.72rem; color:${C.muted}; }
+          .pf-grid2 { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; }
+
+          .pf-input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid ${C.inputBd}; background:${C.inputBg}; color:${C.inputColor}; outline:none; font-family:inherit; font-size:.86rem; transition:border-color .15s; }
+          .pf-input:focus { border-color:rgba(124,58,237,.55); }
+          .pf-input option { background:${C.popupBg}; color:${C.inputColor}; }
+
+          .pf-btn-primary { padding:9px 15px; border-radius:10px; border:1px solid rgba(124,58,237,.34); background:rgba(124,58,237,.16); color:#c4b5fd; font-family:inherit; font-size:.82rem; font-weight:800; cursor:pointer; transition:filter .15s; }
+          .pf-btn-primary:hover:not(:disabled) { filter:brightness(1.22); }
+          .pf-btn-primary:disabled { opacity:.45; cursor:not-allowed; }
+          .pf-btn-ghost { padding:7px 12px; border-radius:9px; border:1px solid ${C.cancelBd}; background:transparent; color:${C.cancelCol}; font-family:inherit; font-size:.78rem; font-weight:700; cursor:pointer; transition:all .15s; }
+          .pf-btn-ghost:hover:not(:disabled) { border-color:rgba(124,58,237,.4); color:#a78bfa; }
+          .pf-btn-ghost:disabled { opacity:.5; cursor:wait; }
+
+          .pf-status-line { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+          .pf-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:999px; font-size:.74rem; font-weight:800; }
+          .pf-chip-ok { background:rgba(34,197,94,.1); border:1px solid rgba(34,197,94,.28); color:#22c55e; }
+          .pf-chip-warn { background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.3); color:#f59e0b; }
+
+          @media (max-width:560px) { .pf-grid2 { grid-template-columns:minmax(0,1fr); } }
         `}</style>
         <button type="button" onClick={onClose} aria-label="Fechar perfil"
           style={{ position: 'absolute', top: 14, right: 14, zIndex: 2, width: 34, height: 34, borderRadius: '50%', border: `1px solid ${C.closeBd}`, background: C.closeBg, color: C.closeColor, cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>×</button>
@@ -285,7 +582,7 @@ function UserProfileModal({ user, companyInfo, initials, onClose, onUserUpdate, 
             </div>
           </div>
 
-          <div style={{ marginTop: 18, display: 'grid', gap: 16 }}>
+          <div style={{ marginTop: 18 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
                 <h2 style={{ fontSize: '1.55rem', fontWeight: 850, letterSpacing: -0.6, lineHeight: 1.1, color: C.text }}>{user?.name || 'Usuário'}</h2>
@@ -294,28 +591,47 @@ function UserProfileModal({ user, companyInfo, initials, onClose, onUserUpdate, 
               <div style={{ marginTop: 6, color: C.muted, fontSize: '0.9rem' }}>{user?.email}</div>
             </div>
 
-            <div style={{ background: C.sectionBg, border: `1px solid ${C.sectionBd}`, borderRadius: 14, padding: 16 }}>
-              <div style={{ fontSize: '0.7rem', fontWeight: 800, color: C.muted, letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 12 }}>Badges</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {user?.emailVerified ? <VerifiedBadge /> : <span style={{ color: C.muted, fontSize: '0.82rem' }}>Nenhuma badge disponível.</span>}
-              </div>
+            <div className="pf-tabs" role="tablist">
+              {PROFILE_TABS.map((t) => (
+                <button key={t.key} type="button" role="tab" aria-selected={tab === t.key}
+                  className="pf-tab" data-active={tab === t.key}
+                  onClick={() => { setTab(t.key); setMessage(null); }}>
+                  {t.label}
+                </button>
+              ))}
             </div>
 
             {message && (
-              <div style={{ padding: '11px 13px', borderRadius: 12, background: message.type === 'error' ? 'rgba(255,80,80,0.1)' : 'rgba(34,197,94,0.1)', border: `1px solid ${message.type === 'error' ? 'rgba(255,80,80,0.24)' : 'rgba(34,197,94,0.24)'}`, color: message.type === 'error' ? '#ff9ab4' : '#86efac', fontSize: '0.82rem', fontWeight: 700 }}>
+              <div style={{ marginTop: 16, padding: '11px 13px', borderRadius: 12, background: message.type === 'error' ? 'rgba(255,80,80,0.1)' : 'rgba(34,197,94,0.1)', border: `1px solid ${message.type === 'error' ? 'rgba(255,80,80,0.24)' : 'rgba(34,197,94,0.24)'}`, color: message.type === 'error' ? '#ff9ab4' : '#86efac', fontSize: '0.82rem', fontWeight: 700 }}>
                 {message.text}
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
-              <div style={{ padding: 14, borderRadius: 14, background: C.gridBg, border: `1px solid ${C.gridBd}`, color: C.text }}>
-                <div style={{ fontSize: '0.68rem', fontWeight: 800, color: C.gridLabel, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 6 }}>Empresa</div>
-                <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{companyName}</div>
-              </div>
-              <div style={{ padding: 14, borderRadius: 14, background: C.gridBg, border: `1px solid ${C.gridBd}`, color: C.text }}>
-                <div style={{ fontSize: '0.68rem', fontWeight: 800, color: C.gridLabel, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 6 }}>Cargo</div>
-                <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{companyRole ? roleLabel : 'Não definido'}</div>
-              </div>
+            <div style={{ marginTop: 16 }}>
+              {tab === 'perfil' && (
+                <div style={{ display: 'grid', gap: 16 }}>
+                  <div style={{ background: C.sectionBg, border: `1px solid ${C.sectionBd}`, borderRadius: 14, padding: 16 }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: C.muted, letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 12 }}>Badges</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {user?.emailVerified ? <VerifiedBadge /> : <span style={{ color: C.muted, fontSize: '0.82rem' }}>Nenhuma badge disponível.</span>}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                    <div style={{ padding: 14, borderRadius: 14, background: C.gridBg, border: `1px solid ${C.gridBd}`, color: C.text }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 800, color: C.gridLabel, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 6 }}>Empresa</div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{companyName}</div>
+                    </div>
+                    <div style={{ padding: 14, borderRadius: 14, background: C.gridBg, border: `1px solid ${C.gridBd}`, color: C.text }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 800, color: C.gridLabel, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 6 }}>Cargo</div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{companyRole ? roleLabel : 'Não definido'}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {tab === 'conta' && <AccountTab user={user} onNotify={notify} />}
+              {tab === 'contato' && <ContactTab user={user} onNotify={notify} />}
             </div>
           </div>
         </div>
