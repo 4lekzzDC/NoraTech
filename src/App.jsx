@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import MeetingScheduler from "./components/MeetingScheduler";
 import ThemeToggle from "./components/ThemeToggle";
 import { useAuth } from "./contexts/AuthContext";
@@ -175,6 +175,7 @@ function StatusBadge({ status }) {
 // ═══════════════════════════════════════
 export default function App() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [scrollY, setScrollY] = useState(0);
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
   const [navScrolled, setNavScrolled] = useState(false);
@@ -193,6 +194,16 @@ export default function App() {
     window.addEventListener("mousemove", onMouse, { passive: true });
     return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("mousemove", onMouse); };
   }, []);
+
+  // Rede de segurança: se o link de recuperação de senha cair aqui (porque
+  // a redirect_to configurada no Supabase ainda não bate exatamente com
+  // /redefinir-senha, e por isso ele volta pra Site URL), reencaminha
+  // preservando o "code" pra ResetPasswordPage terminar a troca de sessão.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("code")) {
+      navigate(`/redefinir-senha${window.location.search}`, { replace: true });
+    }
+  }, [navigate]);
 
   const faqTabs = Object.keys(FAQS);
   const faqsByTab = Object.values(FAQS);

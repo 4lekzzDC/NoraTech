@@ -111,11 +111,28 @@ export default function ResetPasswordPage() {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY' && active) setReady(true);
     });
-    supabase.auth.getSession().then(({ data }) => {
+
+    // O link do e-mail chega com ?code=... (fluxo PKCE) — o @supabase/ssr
+    // não troca isso por uma sessão sozinho, precisa dessa chamada explícita
+    // (diferente do cliente padrão @supabase/supabase-js, que faz isso
+    // automaticamente). Sem isso, a página nunca via a sessão de recovery.
+    const code = new URL(window.location.href).searchParams.get('code');
+
+    (async () => {
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (!active) return;
+        if (error) { setInvalid(true); return; }
+        window.history.replaceState({}, '', window.location.pathname);
+        setReady(true);
+        return;
+      }
+      const { data } = await supabase.auth.getSession();
       if (!active) return;
       if (data.session) setReady(true);
       else setInvalid(true);
-    });
+    })();
+
     return () => { active = false; sub.subscription.unsubscribe(); };
   }, []);
 
