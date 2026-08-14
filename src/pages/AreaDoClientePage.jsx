@@ -21,6 +21,13 @@ const PRESENCE = {
   invisible: { label: 'Invisível', color: '#9ca3af', bg: 'rgba(156,163,175,0.1)', bd: 'rgba(156,163,175,0.28)' },
 };
 
+function formatShortDate(isoDate) {
+  if (!isoDate) return null;
+  const d = new Date(isoDate);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('pt-BR');
+}
+
 function formatMemberSince(isoDate) {
   if (!isoDate) return null;
   const d = new Date(isoDate);
@@ -369,7 +376,9 @@ function SystemsGrid({ systems, onAcquire }) {
           Ainda sem sistemas ativos. Explore o catálogo e contrate o primeiro sistema da sua equipe.
         </p>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+      {/* min de 132px: a coluna do card "Meus sistemas" no dashboard tem ~318px
+          úteis — com 160px só cabia 1 card por linha e o bloco ficava enorme. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))', gap: 10 }}>
         {systems.map((s) => <SystemCard key={s.slug} s={s} />)}
         <AddSystemCard onClick={onAcquire} />
       </div>
@@ -855,8 +864,11 @@ export default function AreaDoClientePage() {
   const memberSince = useMemo(() => formatMemberSince(user?.createdAt), [user]);
 
   const [systems, setSystems] = useState([]);
+  const [catalog, setCatalog] = useState([]);
   const [companyInfo, setCompanyInfo] = useState(null);
   const [members, setMembers] = useState([]);
+  const [activeNav, setActiveNav] = useState('inicio');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [orgModalOpen, setOrgModalOpen] = useState(false);
   const [supportModalOpen, setSupportModalOpen] = useState(false);
@@ -869,6 +881,12 @@ export default function AreaDoClientePage() {
     try {
       const my = await fetchMyCompany();
       if (active.current) setCompanyInfo(my);
+
+      // Catálogo completo: alimenta tanto o vínculo das assinaturas quanto o
+      // card "Explore nossos sistemas" (que lista o que ainda não foi contratado).
+      const allSystems = await fetchSystems();
+      if (active.current) setCatalog(allSystems);
+
       const companyId = my?.company?.id;
       const list = [];
       if (companyId) {
@@ -878,7 +896,7 @@ export default function AreaDoClientePage() {
           .eq('company_id', companyId)
           .in('status', ['active', 'trialing']);
         if (active.current && !error) {
-          const bySlug = indexSystems(await fetchSystems());
+          const bySlug = indexSystems(allSystems);
           const seen = new Set();
           (data || []).forEach((s) => {
             const sys = bySlug[s.system_slug];
@@ -951,6 +969,30 @@ export default function AreaDoClientePage() {
     return events.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
   }, [members, systems]);
 
+  // Sistemas do catálogo que a equipe ainda não contratou — alimentam o card
+  // "Explore nossos sistemas".
+  const exploreSystems = useMemo(() => {
+    const owned = new Set(systems.map((s) => s.slug));
+    return catalog.filter((s) => !owned.has(s.slug)).slice(0, 4);
+  }, [catalog, systems]);
+
+  // Resumo da conta: plano e próxima cobrança saem da assinatura mais próxima
+  // de renovar; os contadores, do que já está carregado na tela.
+  const accountSummary = useMemo(() => {
+    const subs = systems.map((s) => s.subscription).filter(Boolean);
+    const nextCharge = subs
+      .map((s) => s.current_period_end)
+      .filter(Boolean)
+      .sort((a, b) => new Date(a) - new Date(b))[0] || null;
+    return {
+      plan: subs.find((s) => s.plan)?.plan || null,
+      trial: subs.some((s) => s.status === 'trialing'),
+      systemsCount: systems.length,
+      membersCount: members.length,
+      nextCharge,
+    };
+  }, [systems, members]);
+
   const cssVars = {
     '--p-bg': P.bg, '--p-surface': P.surface, '--p-surface2': P.surface2, '--p-surface-solid': P.surfaceSolid,
     '--p-text': P.text, '--p-muted': P.muted, '--p-muted2': P.muted2,
@@ -959,65 +1001,229 @@ export default function AreaDoClientePage() {
     '--p-input-bg': P.inputBg, '--p-shadow': P.shadow, '--p-row-hover': P.rowHover,
   };
 
-  const CARD = { background: 'var(--p-surface)', border: '1px solid var(--p-border)', boxShadow: 'var(--p-shadow)', borderRadius: 16, padding: '20px 24px' };
-  const EYEBROW = { fontSize: '0.65rem', fontWeight: 700, letterSpacing: 1.5, color: 'var(--p-primary)', textTransform: 'uppercase' };
-  const CARD_H = { fontSize: '1.15rem', fontWeight: 800, letterSpacing: -0.4, marginTop: 2, color: 'var(--p-text)' };
+  const CARD = { background: 'var(--p-surface)', border: '1px solid var(--p-border)', boxShadow: 'var(--p-shadow)', borderRadius: 16 };
+  const CARD_TITLE = { fontSize: '1.02rem', fontWeight: 800, letterSpacing: -0.3, color: 'var(--p-text)' };
+
+  const svg = (children, size = 17) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">{children}</svg>
+  );
+  const ICON = {
+    home:    svg(<><path d="M3 10.5 12 3l9 7.5" /><path d="M5.5 9.8V21h13V9.8" /></>),
+    grid:    svg(<><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /></>),
+    bag:     svg(<><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><path d="M3 6h18M16 10a4 4 0 0 1-8 0" /></>),
+    card:    svg(<><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></>),
+    team:    svg(<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></>),
+    support: svg(<><path d="M3 18v-6a9 9 0 0 1 18 0v6" /><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" /></>),
+    user:    svg(<><path d="M20 21a8 8 0 0 0-16 0" /><circle cx="12" cy="7" r="4" /></>),
+    gear:    svg(<><circle cx="12" cy="12" r="3" /><path d="M19.9 14.6a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3 1.6 1.6 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8 1.6 1.6 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z" /></>),
+    clock:   svg(<><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></>),
+    chart:   svg(<><path d="M21.2 15.9A10 10 0 1 1 8.1 2.8" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></>),
+    bolt:    svg(<><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" /></>),
+    bell:    svg(<><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></>),
+    chevron: svg(<polyline points="9 18 15 12 9 6" />, 14),
+    arrow:   svg(<><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></>, 14),
+    logout:  svg(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></>, 15),
+    menu:    svg(<><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></>),
+  };
+
+  // Ação do item "Equipe": respeita exatamente o mesmo guard de cargo de antes —
+  // gestor (ou sem equipe) abre o modal de gestão; membro comum só pode sair.
+  const handleTeamNav = () => {
+    if (hasCompany && !isOrgManager) { setLeaveError(null); setLeaveModalOpen(true); return; }
+    handleOpenOrgModal();
+  };
+
+  const goTo = (key, sectionId) => {
+    setActiveNav(key);
+    setMobileNavOpen(false);
+    const el = sectionId ? document.getElementById(sectionId) : null;
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navItems = [
+    { key: 'inicio',      label: 'Início',            icon: ICON.home,    onClick: () => goTo('inicio') },
+    { key: 'sistemas',    label: 'Meus sistemas',     icon: ICON.grid,    onClick: () => goTo('sistemas', 'sec-sistemas') },
+    { key: 'explorar',    label: 'Explorar sistemas', icon: ICON.bag,     onClick: () => { setActiveNav('explorar'); setMobileNavOpen(false); setAcquireModalOpen(true); } },
+    { key: 'assinaturas', label: 'Assinaturas',       icon: ICON.card,    onClick: () => navigate('/area-do-cliente/financeiro') },
+    { key: 'equipe',      label: 'Equipe',            icon: ICON.team,    onClick: () => { setActiveNav('equipe'); setMobileNavOpen(false); handleTeamNav(); }, badge: pendingCount > 0 ? pendingCount : null },
+    { key: 'suporte',     label: 'Suporte',           icon: ICON.support, onClick: () => { setActiveNav('suporte'); setMobileNavOpen(false); setSupportModalOpen(true); } },
+    { key: 'perfil',      label: 'Meu perfil',        icon: ICON.user,    onClick: () => { setActiveNav('perfil'); setMobileNavOpen(false); setProfileModalOpen(true); } },
+    { key: 'config',      label: 'Configurações',     icon: ICON.gear,    disabled: true, tag: 'Em breve' },
+  ];
+
+  const quickActions = [
+    { title: 'Falar com suporte', desc: 'Tire dúvidas ou abra um atendimento', icon: ICON.support, onClick: () => setSupportModalOpen(true) },
+    hasCompany && !isOrgManager
+      ? { title: 'Sair da equipe', desc: `Deixar ${companyName || 'a organização'}`, icon: ICON.team, onClick: () => { setLeaveError(null); setLeaveModalOpen(true); } }
+      : { title: hasCompany ? 'Gerenciar equipe' : 'Criar equipe', desc: hasCompany ? 'Convide e gerencie membros' : 'Configure sua organização', icon: ICON.team, onClick: handleOpenOrgModal },
+    { title: 'Assinaturas e pagamentos', desc: 'Planos e histórico de cobranças', icon: ICON.card, onClick: () => navigate('/area-do-cliente/financeiro') },
+    { title: 'Meu perfil', desc: 'Avatar, banner e status da conta', icon: ICON.user, onClick: () => setProfileModalOpen(true) },
+  ];
 
   return (
-    <div style={{ minHeight: '100vh', background: P.bg, color: P.text, fontFamily: FONT_INTER, ...cssVars }}>
+    <div className="adc-shell" data-nav={mobileNavOpen ? 'open' : 'closed'} style={{ minHeight: '100vh', background: P.bg, color: P.text, fontFamily: FONT_INTER, ...cssVars }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         body { -webkit-font-smoothing: antialiased; }
         a { text-decoration: none; color: inherit; }
 
-        /* Dark header — uses class so index.css [style*="rgb(8,8,10)"] override doesn't apply */
-        .adc-header { position:sticky;top:0;z-index:100;background:#08080A;border-bottom:1px solid rgba(139,61,255,0.25);box-shadow:0 8px 30px rgba(0,0,0,0.28); }
-        .adc-back { display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);color:#fff;text-decoration:none;transition:background 0.17s,border-color 0.17s; }
-        .adc-back:hover { background:rgba(139,61,255,0.14);border-color:#8B3DFF; }
-        .adc-crumb { display:inline-flex;align-items:center;height:26px;padding:0 7px;border-radius:6px;font-size:13px;font-weight:500;white-space:nowrap;color:rgba(255,255,255,0.68);text-decoration:none;transition:color 0.15s,background 0.15s; }
-        .adc-crumb-link:hover { color:#fff;background:rgba(139,61,255,0.14); }
-        .adc-crumb-current { color:#fff;font-weight:600; }
-        .adc-crumb-sep { display:inline-flex;align-items:center;padding:0 5px;font-size:13px;color:rgba(139,61,255,0.75);user-select:none; }
-        .adc-toggle-slot button.theme-toggle,.adc-toggle-slot [class*="theme-toggle"] { width:34px!important;height:34px!important;border-radius:10px!important;background:rgba(255,255,255,0.06)!important;border:1px solid rgba(255,255,255,0.14)!important;color:#fff!important;transition:background 0.17s,border-color 0.17s!important; }
-        .adc-toggle-slot button.theme-toggle:hover,.adc-toggle-slot [class*="theme-toggle"]:hover { background:rgba(139,61,255,0.14)!important;border-color:#8B3DFF!important; }
-        .adc-admin-btn { display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1px solid rgba(124,58,237,0.4);background:rgba(124,58,237,0.1);color:#a78bfa;font-size:0.75rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;text-decoration:none;transition:background 0.15s,border-color 0.15s; }
-        .adc-admin-btn:hover { background:rgba(124,58,237,0.2);border-color:rgba(124,58,237,0.6); }
+        .adc-shell { display: flex; align-items: stretch; }
 
-        /* Content */
-        .system-card:hover { border-color:var(--p-primary-border)!important;background:var(--p-primary-soft)!important; }
-        .adc-member-row { border-radius:10px;transition:background 0.13s; }
-        .adc-member-row:hover { background:var(--p-row-hover); }
-        .adc-qa-row { display:flex;align-items:center;gap:12px;width:100%;padding:9px 8px;border-radius:12px;background:transparent;border:none;cursor:pointer;font-family:inherit;text-align:left;transition:background 0.13s; }
-        .adc-qa-row:hover { background:var(--p-primary-soft); }
-        .adc-qa-row:disabled { opacity:0.45;cursor:default; }
-        .adc-expand-btn { display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:9px 12px;border-radius:10px;background:transparent;border:1px solid var(--p-border);color:var(--p-muted);font-family:inherit;font-size:0.8rem;font-weight:600;cursor:pointer;transition:all 0.15s; }
-        .adc-expand-btn:hover { background:var(--p-primary-soft);border-color:var(--p-primary-border);color:var(--p-primary); }
-        @keyframes pulse { 0%,100% { opacity:0.9; } 50% { opacity:0.4; } }
+        /* ── Sidebar ── */
+        .adc-side {
+          width: 236px; flex-shrink: 0; position: sticky; top: 0; height: 100vh;
+          background: var(--p-surface-solid); border-right: 1px solid var(--p-border);
+          display: flex; flex-direction: column; z-index: 60;
+        }
+        .adc-brand { display:flex; align-items:center; gap:10px; padding:22px 20px 18px; }
+        .adc-brand-mark { width:32px; height:32px; border-radius:9px; background:linear-gradient(135deg,#8B5CF6,#6D28D9); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:1rem; flex-shrink:0; }
+        .adc-brand-name { font-size:1.05rem; font-weight:800; letter-spacing:-0.4px; color:var(--p-text); }
+        .adc-nav { flex:1; overflow-y:auto; padding:4px 12px; display:flex; flex-direction:column; gap:2px; }
+        .adc-nav-item {
+          display:flex; align-items:center; gap:11px; width:100%; padding:9px 12px; border-radius:10px;
+          background:transparent; border:none; cursor:pointer; font-family:inherit; font-size:0.87rem;
+          font-weight:500; color:var(--p-muted); text-align:left; transition:background .14s,color .14s;
+        }
+        .adc-nav-item:hover:not(:disabled) { background:var(--p-row-hover); color:var(--p-text); }
+        .adc-nav-item[data-active="true"] { background:var(--p-primary-soft); color:var(--p-primary); font-weight:650; }
+        .adc-nav-item:disabled { opacity:.5; cursor:default; }
+        .adc-nav-item svg { flex-shrink:0; }
+        .adc-nav-tag { margin-left:auto; font-size:.58rem; font-weight:800; letter-spacing:.4px; padding:2px 6px; border-radius:5px; background:var(--p-surface2); color:var(--p-muted2); }
+        .adc-nav-badge { margin-left:auto; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--p-primary); color:#fff; font-size:.65rem; font-weight:800; display:flex; align-items:center; justify-content:center; }
+
+        .adc-side-foot { padding:12px; border-top:1px solid var(--p-border); display:flex; flex-direction:column; gap:10px; }
+        .adc-help { background:var(--p-primary-soft); border:1px solid var(--p-primary-border); border-radius:12px; padding:14px; }
+        .adc-help-btn { display:flex; align-items:center; justify-content:center; gap:7px; width:100%; margin-top:10px; padding:8px; border-radius:9px; background:var(--p-primary); border:none; color:#fff; font-family:inherit; font-size:.78rem; font-weight:700; cursor:pointer; transition:filter .15s; }
+        .adc-help-btn:hover { filter:brightness(1.1); }
+        .adc-user-chip { display:flex; align-items:center; gap:10px; flex:1; min-width:0; padding:8px; border-radius:11px; background:transparent; border:none; cursor:pointer; font-family:inherit; text-align:left; transition:background .14s; }
+        .adc-user-chip:hover { background:var(--p-row-hover); }
+        .adc-avatar { width:34px; height:34px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:.75rem; font-weight:800; color:#fff; background:linear-gradient(135deg,#8B5CF6,#6D28D9); object-fit:cover; }
+        .adc-logout { width:32px; height:32px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:9px; background:transparent; border:1px solid var(--p-border); color:var(--p-muted2); cursor:pointer; transition:all .15s; }
+        .adc-logout:hover { color:#dc2626; border-color:rgba(220,38,38,.4); background:rgba(220,38,38,.07); }
+
+        /* ── Body / topbar ── */
+        .adc-body { flex:1; min-width:0; display:flex; flex-direction:column; }
+        .adc-top { position:sticky; top:0; z-index:50; height:64px; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:0 28px; background:var(--p-bg); border-bottom:1px solid var(--p-border); }
+        .adc-burger { display:none; width:34px; height:34px; align-items:center; justify-content:center; border-radius:9px; background:transparent; border:1px solid var(--p-border); color:var(--p-text); cursor:pointer; }
+        .adc-top-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+        .adc-icon-btn { position:relative; width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:10px; background:transparent; border:1px solid var(--p-border); color:var(--p-muted); cursor:pointer; transition:all .15s; }
+        .adc-icon-btn:hover { color:var(--p-text); border-color:var(--p-border2); }
+        .adc-dot { position:absolute; top:7px; right:8px; width:6px; height:6px; border-radius:50%; background:var(--p-primary); }
+        .adc-toggle-slot button.theme-toggle,.adc-toggle-slot [class*="theme-toggle"] { width:34px!important; height:34px!important; border-radius:10px!important; background:transparent!important; border:1px solid var(--p-border)!important; color:var(--p-muted)!important; }
+        .adc-toggle-slot button.theme-toggle:hover { color:var(--p-text)!important; border-color:var(--p-border2)!important; }
+        .adc-admin-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border-radius:9px; border:1px solid var(--p-primary-border); background:var(--p-primary-soft); color:var(--p-primary); font-size:.72rem; font-weight:700; letter-spacing:.5px; text-transform:uppercase; transition:filter .15s; }
+        .adc-admin-btn:hover { filter:brightness(1.15); }
+
+        .adc-main { padding:24px 28px 72px; display:flex; flex-direction:column; gap:18px; }
+
+        /* ── Hero ── */
+        .adc-hero { position:relative; overflow:hidden; border-radius:18px; border:1px solid var(--p-primary-border); background:linear-gradient(115deg,var(--p-primary-soft) 0%,var(--p-surface) 62%); padding:30px 32px; min-height:150px; display:flex; align-items:center; justify-content:space-between; gap:24px; }
+        .adc-hero-art { flex-shrink:0; opacity:.9; }
+        .adc-pill { display:inline-flex; align-items:center; gap:7px; padding:6px 13px; border-radius:999px; font-size:.75rem; font-weight:600; }
+
+        /* ── Cards / linhas ── */
+        /* minmax(0,…) e não 1fr puro: 1fr equivale a minmax(auto,1fr) e respeita
+           o min-content da coluna — o texto com white-space:nowrap dos cards
+           esticava uma coluna e espremia as outras (275/580/246 em vez de 1.12/1/1). */
+        .adc-row3 { display:grid; grid-template-columns:minmax(0,1.12fr) minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start; }
+        .adc-row2 { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(0,1fr); gap:16px; align-items:start; }
+        .adc-card-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 20px 12px; }
+        .adc-card-head-l { display:flex; align-items:center; gap:9px; min-width:0; }
+        .adc-list-row { display:flex; align-items:center; gap:11px; width:100%; padding:10px 20px; background:transparent; border:none; cursor:pointer; font-family:inherit; text-align:left; transition:background .13s; }
+        .adc-list-row:hover { background:var(--p-row-hover); }
+        .adc-ico { width:34px; height:34px; border-radius:9px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:var(--p-primary-soft); border:1px solid var(--p-primary-border); color:var(--p-primary); }
+        .adc-qa { display:grid; grid-template-columns:1fr 1fr; gap:9px; padding:0 16px 16px; }
+        .adc-qa-tile { display:flex; flex-direction:column; gap:7px; padding:13px; border-radius:12px; background:var(--p-surface2); border:1px solid var(--p-border); cursor:pointer; font-family:inherit; text-align:left; transition:all .15s; }
+        .adc-qa-tile:hover { border-color:var(--p-primary-border); background:var(--p-primary-soft); }
+        .adc-summary-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 20px; border-bottom:1px solid var(--p-border); font-size:.83rem; }
+        .adc-foot-btn { display:flex; align-items:center; justify-content:center; gap:6px; width:calc(100% - 40px); margin:14px 20px 18px; padding:10px; border-radius:10px; background:var(--p-primary-soft); border:1px solid var(--p-primary-border); color:var(--p-primary); font-family:inherit; font-size:.82rem; font-weight:700; cursor:pointer; transition:filter .15s; }
+        .adc-foot-btn:hover { filter:brightness(1.12); }
+        .system-card:hover { border-color:var(--p-primary-border)!important; background:var(--p-primary-soft)!important; }
+        @keyframes pulse { 0%,100%{opacity:.9} 50%{opacity:.4} }
         .live-dot { animation:pulse 1.6s ease-in-out infinite; }
-        .adc-header-inner { max-width:1240px;margin:0 auto;padding:0 32px;height:60px;display:flex;align-items:center;justify-content:space-between;gap:16px; }
-        .org-modal-section::-webkit-scrollbar { width:6px; }
-        .org-modal-section::-webkit-scrollbar-track { background:transparent; }
-        .org-modal-section::-webkit-scrollbar-thumb { background:var(--p-border2);border-radius:3px; }
-        @media (max-width:960px) { .adc-grid { grid-template-columns:1fr!important; } .adc-sidebar { order:-1; } }
-        @media (max-width:640px) { .adc-header-inner { padding:0 14px!important; } .adc-crumb-link,.adc-crumb-sep { display:none!important; } .adc-admin-btn { display:none!important; } }
-        @media (max-width:600px) { .adc-main { padding:16px 16px 64px!important; } }
+        .adc-scrim { display:none; }
+
+        @media (max-width:1180px) { .adc-row3 { grid-template-columns:minmax(0,1fr) minmax(0,1fr); } .adc-row3 > :first-child { grid-column:1 / -1; } }
+        @media (max-width:900px) {
+          .adc-side { position:fixed; left:0; top:0; transform:translateX(-100%); transition:transform .25s ease; box-shadow:0 0 40px rgba(0,0,0,.4); }
+          .adc-shell[data-nav="open"] .adc-side { transform:translateX(0); }
+          .adc-shell[data-nav="open"] .adc-scrim { display:block; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:55; }
+          .adc-burger { display:flex; }
+          .adc-row3, .adc-row2 { grid-template-columns:minmax(0,1fr); }
+          .adc-row3 > :first-child { grid-column:auto; }
+          .adc-hero-art { display:none; }
+        }
+        @media (max-width:600px) {
+          .adc-top { padding:0 14px; } .adc-main { padding:16px 14px 64px; }
+          .adc-hero { padding:22px 20px; } .adc-qa { grid-template-columns:1fr; }
+        }
       `}</style>
 
-      {/* ── Header (always dark) ── */}
-      <header className="adc-header">
-        <div className="adc-header-inner">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-            <Link to="/" aria-label="Voltar ao site" className="adc-back">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
-            </Link>
-            <nav aria-label="Breadcrumb" style={{ display: 'flex', alignItems: 'center' }}>
-              <Link to="/" className="adc-crumb adc-crumb-link" style={{ fontFamily: FONT_MONO, letterSpacing: -0.2 }}>Noratech</Link>
-              <span className="adc-crumb-sep">/</span>
-              <span className="adc-crumb adc-crumb-current">Área do Cliente</span>
-            </nav>
+      <div className="adc-scrim" onClick={() => setMobileNavOpen(false)} />
+
+      {/* ══ Sidebar ══ */}
+      <aside className="adc-side">
+        <Link to="/" className="adc-brand" aria-label="Voltar ao site">
+          <span className="adc-brand-mark">N</span>
+          <span className="adc-brand-name">NoraTech</span>
+        </Link>
+
+        <nav className="adc-nav">
+          {navItems.map((n) => (
+            <button key={n.key} type="button" className="adc-nav-item" data-active={activeNav === n.key}
+              disabled={n.disabled} onClick={n.onClick}>
+              {n.icon}
+              <span>{n.label}</span>
+              {n.tag && <span className="adc-nav-tag">{n.tag}</span>}
+              {n.badge && <span className="adc-nav-badge">{n.badge}</span>}
+            </button>
+          ))}
+        </nav>
+
+        <div className="adc-side-foot">
+          <div className="adc-help">
+            <div style={{ fontSize: '.84rem', fontWeight: 700, color: 'var(--p-text)' }}>Precisa de ajuda?</div>
+            <p style={{ fontSize: '.75rem', color: 'var(--p-muted)', lineHeight: 1.45, marginTop: 3 }}>
+              Estamos aqui para te ajudar.
+            </p>
+            <button type="button" className="adc-help-btn" onClick={() => setSupportModalOpen(true)}>
+              {ICON.support} Falar com suporte
+            </button>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button type="button" className="adc-user-chip" onClick={() => setProfileModalOpen(true)}>
+              {user?.photoUrl
+                ? <img src={user.photoUrl} alt="" className="adc-avatar" />
+                : <span className="adc-avatar">{initials}</span>}
+              <span style={{ minWidth: 0, flex: 1 }}>
+                <span style={{ display: 'block', fontSize: '.82rem', fontWeight: 700, color: 'var(--p-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user?.name || 'Minha conta'}
+                </span>
+                <span style={{ display: 'block', fontSize: '.7rem', color: 'var(--p-muted2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {hasCompany ? `${companyName} · ${roleLabel}` : 'Sem equipe'}
+                </span>
+              </span>
+            </button>
+            <button type="button" className="adc-logout" onClick={handleLogout} title="Encerrar sessão" aria-label="Encerrar sessão">
+              {ICON.logout}
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* ══ Conteúdo ══ */}
+      <div className="adc-body">
+        <header className="adc-top">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+            <button type="button" className="adc-burger" onClick={() => setMobileNavOpen(true)} aria-label="Abrir menu">
+              {ICON.menu}
+            </button>
+            <span style={{ fontSize: '.95rem', fontWeight: 700, color: 'var(--p-text)' }}>Área do Cliente</span>
+          </div>
+          <div className="adc-top-actions">
             {isAdmin && (
               <Link to="/admin" className="adc-admin-btn">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1026,214 +1232,197 @@ export default function AreaDoClientePage() {
                 Admin
               </Link>
             )}
+            <button type="button" className="adc-icon-btn" onClick={() => goTo('inicio', 'sec-atividade')} title="Atividade recente" aria-label="Atividade recente">
+              {ICON.bell}
+              {activity.length > 0 && <span className="adc-dot" />}
+            </button>
             <span className="adc-toggle-slot" style={{ display: 'inline-flex' }}><ThemeToggle /></span>
             <UserProfileMenu />
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* ── Main content ── */}
-      <main className="adc-main" style={{ maxWidth: 1240, margin: '0 auto', padding: '28px 32px 80px' }}>
-        <div className="adc-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 20, alignItems: 'start' }}>
-
-          {/* ════ Left column ════ */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-            {/* Welcome card */}
-            <div style={{ ...CARD, display: 'flex', alignItems: 'center', gap: 20, padding: '20px 24px' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <h1 style={{ fontSize: '1.55rem', fontWeight: 800, letterSpacing: -0.6, lineHeight: 1.1, marginBottom: 6 }}>
-                  Olá, <span style={{ color: P.primary }}>{firstName}</span>
-                </h1>
-                <p style={{ fontSize: '0.85rem', color: 'var(--p-muted)', lineHeight: 1.5, marginBottom: 14 }}>
-                  {systems.length > 0
-                    ? 'Sua central está ativa. Acompanhe o que importa e tome decisões com confiança.'
-                    : 'Ainda sem sistemas ativos. Contrate um serviço e a operação aparece aqui.'}
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: systems.length > 0 ? 'rgba(0,212,138,0.1)' : 'var(--p-surface2)', border: `1px solid ${systems.length > 0 ? 'rgba(0,212,138,0.25)' : 'var(--p-border)'}`, fontSize: '0.68rem', fontWeight: 700, letterSpacing: 0.8, color: systems.length > 0 ? '#00d48a' : 'var(--p-muted)', textTransform: 'uppercase' }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: systems.length > 0 ? '#00d48a' : 'var(--p-muted2)', boxShadow: systems.length > 0 ? '0 0 8px rgba(0,212,138,0.55)' : 'none' }} className={systems.length > 0 ? 'live-dot' : ''} />
-                    {systems.length > 0 ? 'Operação ativa' : 'Sem operação'}
+        <main className="adc-main" id="inicio">
+          {/* ── Hero ── */}
+          <section className="adc-hero">
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{ fontSize: 'clamp(1.5rem,2.4vw,1.95rem)', fontWeight: 800, letterSpacing: -0.8, lineHeight: 1.15 }}>
+                Olá, <span style={{ color: P.primary }}>{firstName}</span>! 👋
+              </h1>
+              <p style={{ fontSize: '.9rem', color: 'var(--p-muted)', marginTop: 6 }}>
+                {systems.length > 0
+                  ? 'Bem-vindo à sua central NoraTech.'
+                  : 'Bem-vindo! Contrate um sistema e sua operação aparece aqui.'}
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', marginTop: 16 }}>
+                <span className="adc-pill" style={{ background: 'rgba(0,212,138,.1)', border: '1px solid rgba(0,212,138,.28)', color: '#00d48a' }}>
+                  <span className="live-dot" style={{ width: 7, height: 7, borderRadius: '50%', background: '#00d48a' }} />
+                  Conta ativa
+                </span>
+                <span className="adc-pill" style={{ background: 'var(--p-surface2)', border: '1px solid var(--p-border)', color: 'var(--p-text)' }}>
+                  {systems.length} {systems.length === 1 ? 'sistema contratado' : 'sistemas contratados'}
+                </span>
+                {memberSince && (
+                  <span style={{ fontFamily: FONT_MONO, fontSize: '.7rem', color: 'var(--p-muted2)' }}>
+                    Membro desde {memberSince}
                   </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999, background: 'var(--p-primary-soft)', border: '1px solid var(--p-primary-border)', fontSize: '0.68rem', fontWeight: 700, letterSpacing: 0.8, color: 'var(--p-primary)', textTransform: 'uppercase' }}>
-                    {systems.length} {systems.length === 1 ? 'sistema ativo' : 'sistemas ativos'}
-                  </span>
-                  {memberSince && (
-                    <span style={{ fontFamily: FONT_MONO, fontSize: '0.66rem', fontWeight: 500, color: 'var(--p-muted2)', letterSpacing: 0.3 }}>
-                      Membro desde {memberSince}
+                )}
+              </div>
+            </div>
+
+            <svg className="adc-hero-art" width="230" height="130" viewBox="0 0 230 130" fill="none" aria-hidden="true">
+              <rect x="42" y="14" width="150" height="98" rx="10" fill="var(--p-primary-soft)" stroke="var(--p-primary-border)" />
+              <rect x="42" y="14" width="150" height="20" rx="10" fill="var(--p-primary-border)" opacity=".5" />
+              <circle cx="55" cy="24" r="3" fill="var(--p-primary)" opacity=".7" />
+              <circle cx="65" cy="24" r="3" fill="var(--p-primary)" opacity=".45" />
+              <circle cx="75" cy="24" r="3" fill="var(--p-primary)" opacity=".3" />
+              <rect x="54" y="46" width="40" height="40" rx="8" fill="var(--p-primary)" opacity=".22" />
+              <path d="M62 74v-12M70 74v-20M78 74v-8" stroke="var(--p-primary)" strokeWidth="3.5" strokeLinecap="round" />
+              <rect x="106" y="46" width="70" height="8" rx="4" fill="var(--p-primary)" opacity=".3" />
+              <rect x="106" y="62" width="52" height="8" rx="4" fill="var(--p-primary)" opacity=".2" />
+              <rect x="106" y="78" width="62" height="8" rx="4" fill="var(--p-primary)" opacity=".14" />
+              <path d="M18 40l4-8 4 8-4 3zM206 92l4-8 4 8-4 3z" fill="var(--p-primary)" opacity=".35" />
+            </svg>
+          </section>
+
+          {/* ── Linha 1 ── */}
+          <div className="adc-row3">
+            {/* Meus sistemas */}
+            <section id="sec-sistemas" style={CARD}>
+              <div className="adc-card-head">
+                <div className="adc-card-head-l">
+                  <span className="adc-ico">{ICON.grid}</span>
+                  <h2 style={CARD_TITLE}>Meus sistemas</h2>
+                </div>
+                <span style={{ fontFamily: FONT_MONO, fontSize: '.72rem', color: 'var(--p-muted2)' }}>
+                  {systems.length} ativo{systems.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div style={{ padding: '0 20px 20px' }}>
+                <SystemsGrid systems={systems} onAcquire={() => setAcquireModalOpen(true)} />
+              </div>
+            </section>
+
+            {/* Explore nossos sistemas */}
+            <section style={CARD}>
+              <div className="adc-card-head" style={{ paddingBottom: 4 }}>
+                <div className="adc-card-head-l">
+                  <span className="adc-ico">{ICON.bag}</span>
+                  <h2 style={CARD_TITLE}>Explore nossos sistemas</h2>
+                </div>
+              </div>
+              <p style={{ padding: '0 20px 10px', fontSize: '.8rem', color: 'var(--p-muted)', lineHeight: 1.5 }}>
+                {exploreSystems.length > 0
+                  ? 'Encontre soluções para transformar sua empresa.'
+                  : 'Você já contratou todos os sistemas disponíveis.'}
+              </p>
+              {exploreSystems.map((s) => (
+                <button key={s.slug} type="button" className="adc-list-row"
+                  onClick={() => navigate(`/area-do-cliente/sistemas/${s.slug}`)}>
+                  {s.logo_url
+                    ? <img src={s.logo_url} alt="" style={{ width: 34, height: 34, borderRadius: 9, objectFit: 'cover', flexShrink: 0 }} />
+                    : <span className="adc-ico" style={{ fontSize: '1rem' }}>{s.icon}</span>}
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: '.85rem', fontWeight: 650, color: 'var(--p-text)' }}>{s.name}</span>
+                    <span style={{ display: 'block', fontSize: '.72rem', color: 'var(--p-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {s.description}
                     </span>
-                  )}
-                </div>
-              </div>
-              <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div>
-                  <span style={{ ...EYEBROW, display: 'block', marginBottom: 2 }}>Equipe</span>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--p-text)' }}>
-                    {hasCompany ? companyName : 'Sem equipe'}
                   </span>
-                </div>
-                <div style={{ width: 1, alignSelf: 'stretch', background: 'var(--p-border)' }} />
-                {isOrgManager ? (
-                  <button type="button" onClick={handleOpenOrgModal} className="adc-expand-btn" style={{ width: 'auto', fontSize: '0.76rem', padding: '6px 14px', flexShrink: 0 }}>
-                    Gerenciar equipe
-                  </button>
-                ) : !hasCompany ? (
-                  <button type="button" onClick={handleOpenOrgModal} className="adc-expand-btn" style={{ width: 'auto', fontSize: '0.76rem', padding: '6px 14px', flexShrink: 0 }}>
-                    Criar equipe
-                  </button>
-                ) : (
-                  <button type="button" onClick={() => { setLeaveError(null); setLeaveModalOpen(true); }} className="adc-expand-btn"
-                    style={{ width: 'auto', fontSize: '0.76rem', padding: '6px 14px', flexShrink: 0, borderColor: 'rgba(220,38,38,0.25)', color: 'rgba(220,38,38,0.75)' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(220,38,38,0.06)'; e.currentTarget.style.borderColor = 'rgba(220,38,38,0.4)'; e.currentTarget.style.color = '#dc2626'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(220,38,38,0.25)'; e.currentTarget.style.color = 'rgba(220,38,38,0.75)'; }}>
-                    Sair da equipe
-                  </button>
-                )}
-              </div>
-            </div>
+                  <span style={{ color: 'var(--p-muted2)', display: 'flex' }}>{ICON.chevron}</span>
+                </button>
+              ))}
+              <button type="button" className="adc-foot-btn" onClick={() => setAcquireModalOpen(true)}>
+                Ver todos os sistemas {ICON.arrow}
+              </button>
+            </section>
 
-            {/* Systems card */}
-            <div style={CARD}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--p-primary-soft)', border: '1px solid var(--p-primary-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--p-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
-                    </svg>
-                  </div>
-                  <div>
-                    <span style={EYEBROW}>Operação</span>
-                    <h2 style={{ ...CARD_H, marginTop: 1 }}>Sistemas em operação</h2>
-                  </div>
-                </div>
-                {systems.length > 0 && (
-                  <span style={{ fontFamily: FONT_MONO, fontSize: '0.7rem', color: 'var(--p-muted)' }}>
-                    {systems.length} ativo{systems.length !== 1 ? 's' : ''}
-                  </span>
-                )}
-              </div>
-              <SystemsGrid systems={systems} onAcquire={() => setAcquireModalOpen(true)} />
-            </div>
-
-            {/* Activity card */}
-            <div style={CARD}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--p-primary-soft)', border: '1px solid var(--p-primary-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--p-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-                  </svg>
-                </div>
-                <div>
-                  <span style={EYEBROW}>Histórico</span>
-                  <h2 style={{ ...CARD_H, marginTop: 1 }}>Atividade recente</h2>
+            {/* Ações rápidas */}
+            <section style={CARD}>
+              <div className="adc-card-head">
+                <div className="adc-card-head-l">
+                  <span className="adc-ico">{ICON.bolt}</span>
+                  <h2 style={CARD_TITLE}>Ações rápidas</h2>
                 </div>
               </div>
+              <div className="adc-qa">
+                {quickActions.map((a) => (
+                  <button key={a.title} type="button" className="adc-qa-tile" onClick={a.onClick}>
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--p-primary)', display: 'flex' }}>{a.icon}</span>
+                      <span style={{ color: 'var(--p-muted2)', display: 'flex' }}>{ICON.chevron}</span>
+                    </span>
+                    <span>
+                      <span style={{ display: 'block', fontSize: '.82rem', fontWeight: 700, color: 'var(--p-text)' }}>{a.title}</span>
+                      <span style={{ display: 'block', fontSize: '.7rem', color: 'var(--p-muted)', lineHeight: 1.4, marginTop: 2 }}>{a.desc}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          </div>
 
+          {/* ── Linha 2 ── */}
+          <div className="adc-row2">
+            {/* Atividade recente */}
+            <section id="sec-atividade" style={CARD}>
+              <div className="adc-card-head">
+                <div className="adc-card-head-l">
+                  <span className="adc-ico">{ICON.clock}</span>
+                  <h2 style={CARD_TITLE}>Atividade recente</h2>
+                </div>
+              </div>
               {activity.length === 0 ? (
-                <p style={{ color: 'var(--p-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '20px 0' }}>
+                <p style={{ color: 'var(--p-muted)', fontSize: '.85rem', textAlign: 'center', padding: '24px 20px 32px' }}>
                   Nenhuma atividade registrada ainda.
                 </p>
               ) : (
-                <div>
-                  {activity.map((ev, i) => (
-                    <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < activity.length - 1 ? '1px solid var(--p-border)' : 'none' }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 8, background: ev.type === 'member' ? 'rgba(99,102,241,0.12)' : 'rgba(16,185,129,0.12)', border: ev.type === 'member' ? '1px solid rgba(99,102,241,0.25)' : '1px solid rgba(16,185,129,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {ev.type === 'member' ? (
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={ev.type === 'member' ? '#6366f1' : '#10b981'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21a8 8 0 0 0-16 0" /><circle cx="12" cy="7" r="4" /></svg>
-                        ) : (
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
-                        )}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--p-text)' }}>{ev.label}</span>
-                        <span style={{ fontSize: '0.78rem', color: 'var(--p-muted)', marginLeft: 6 }}>{ev.sublabel}</span>
-                      </div>
-                      <span style={{ fontSize: '0.68rem', color: 'var(--p-muted2)', whiteSpace: 'nowrap', fontFamily: FONT_MONO }}>
+                <div style={{ paddingBottom: 10 }}>
+                  {activity.map((ev) => (
+                    <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 20px' }}>
+                      <span style={{ width: 30, height: 30, borderRadius: 9, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: ev.type === 'member' ? 'rgba(99,102,241,.12)' : 'rgba(16,185,129,.12)',
+                        border: `1px solid ${ev.type === 'member' ? 'rgba(99,102,241,.25)' : 'rgba(16,185,129,.25)'}`,
+                        color: ev.type === 'member' ? '#6366f1' : '#10b981' }}>
+                        {ev.type === 'member' ? ICON.user : ICON.grid}
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: '.85rem', fontWeight: 650, color: 'var(--p-text)' }}>{ev.label}</span>
+                        <span style={{ fontSize: '.78rem', color: 'var(--p-muted)', marginLeft: 6 }}>{ev.sublabel}</span>
+                      </span>
+                      <span style={{ fontFamily: FONT_MONO, fontSize: '.68rem', color: 'var(--p-muted2)', whiteSpace: 'nowrap' }}>
                         {formatRelativeDate(ev.date)}
                       </span>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
+            </section>
 
-          </div>
-
-          {/* ════ Right sidebar ════ */}
-          <div className="adc-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-            {/* Quick actions card */}
-            <div style={{ ...CARD, padding: '18px 20px' }}>
-              <span style={EYEBROW}>{isOrgManager || !hasCompany ? 'Ações rápidas' : 'Ajuda'}</span>
-              <h2 style={{ ...CARD_H, fontSize: '1rem', marginBottom: 10 }}>{isOrgManager || !hasCompany ? 'Comandos' : 'Central de apoio'}</h2>
-
-              {/* Ações condicionais por cargo na organização */}
-              {(() => {
-                const iconOrg = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--p-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" /></svg>;
-                const iconFinanceiro = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--p-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>;
-                const iconProfile = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--p-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21a8 8 0 0 0-16 0" /><circle cx="12" cy="7" r="4" /></svg>;
-                const iconSupport = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--p-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>;
-                const iconTraining = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--p-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>;
-
-                // owner / admin: suporte + assinaturas + perfil
-                // Gerenciar organização, Convidar membro e Copiar código ficam no card Equipe.
-                if (isOrgManager) {
-                  return [
-                    { title: 'Falar com suporte', desc: 'Tire dúvidas com nossa equipe', action: () => setSupportModalOpen(true), icon: iconSupport },
-                    { title: 'Treinamentos', desc: 'Aprenda a usar os sistemas', icon: iconTraining, disabled: true, badge: 'Em breve' },
-                    { title: 'Gerenciar assinaturas', desc: 'Visualize e administre os sistemas contratados', action: () => navigate('/area-do-cliente/financeiro'), icon: iconFinanceiro },
-                    { title: 'Editar perfil', desc: 'Avatar, banner e status da conta', action: () => setProfileModalOpen(true), icon: iconProfile },
-                  ];
-                }
-
-                // membro comum com empresa: suporte e acesso a recursos
-                if (hasCompany) {
-                  return [
-                    { title: 'Falar com suporte', desc: 'Tire dúvidas com nossa equipe', action: () => setSupportModalOpen(true), icon: iconSupport },
-                    { title: 'Treinamentos', desc: 'Aprenda a usar os sistemas', icon: iconTraining, disabled: true, badge: 'Em breve' },
-                    { title: 'Editar perfil', desc: 'Avatar, banner e status da conta', action: () => setProfileModalOpen(true), icon: iconProfile },
-                  ];
-                }
-
-                // sem empresa: criar organização
-                return [
-                  { title: 'Criar organização', desc: 'Configure sua organização no sistema', action: handleOpenOrgModal, icon: iconOrg },
-                  { title: 'Gerenciar assinaturas', desc: 'Visualize os sistemas contratados', action: () => navigate('/area-do-cliente/financeiro'), icon: iconFinanceiro },
-                  { title: 'Editar perfil', desc: 'Avatar, banner e status da conta', action: () => setProfileModalOpen(true), icon: iconProfile },
-                ];
-              })().map(({ title, desc, action, icon, disabled, badge }) => (
-                <button key={title} type="button" onClick={disabled ? undefined : action} disabled={disabled} className="adc-qa-row"
-                  style={disabled ? { opacity: 0.55, cursor: 'default' } : undefined}>
-                  <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--p-primary-soft)', border: '1px solid var(--p-primary-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {icon}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--p-text)' }}>{title}</span>
-                      {badge && <span style={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: 0.6, padding: '2px 6px', borderRadius: 5, background: 'var(--p-primary-soft)', border: '1px solid var(--p-primary-border)', color: 'var(--p-primary)' }}>{badge}</span>}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--p-muted)' }}>{desc}</div>
-                  </div>
-                  {!disabled && (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--p-muted2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                  )}
-                </button>
-              ))}
-
-              <div style={{ marginTop: 8, paddingTop: 10, borderTop: '1px solid var(--p-border)' }}>
-                <button type="button" onClick={handleLogout}
-                  style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 9, color: 'rgba(220,38,38,0.75)', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(220,38,38,0.07)'; e.currentTarget.style.borderColor = 'rgba(220,38,38,0.4)'; e.currentTarget.style.color = '#dc2626'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(220,38,38,0.25)'; e.currentTarget.style.color = 'rgba(220,38,38,0.75)'; }}>
-                  Encerrar sessão
-                </button>
+            {/* Resumo da conta */}
+            <section style={CARD}>
+              <div className="adc-card-head">
+                <div className="adc-card-head-l">
+                  <span className="adc-ico">{ICON.chart}</span>
+                  <h2 style={CARD_TITLE}>Resumo da conta</h2>
+                </div>
               </div>
-            </div>
+              {[
+                { k: 'Plano atual', v: accountSummary.plan || (accountSummary.systemsCount > 0 ? (accountSummary.trial ? 'Trial' : 'Ativo') : '—'), strong: true },
+                { k: 'Sistemas contratados', v: String(accountSummary.systemsCount) },
+                { k: 'Membros da equipe', v: hasCompany ? String(accountSummary.membersCount) : '—' },
+                { k: 'Próxima cobrança', v: formatShortDate(accountSummary.nextCharge) || '—' },
+              ].map((r) => (
+                <div key={r.k} className="adc-summary-row">
+                  <span style={{ color: 'var(--p-muted)' }}>{r.k}</span>
+                  <span style={{ fontWeight: 700, color: r.strong ? 'var(--p-primary)' : 'var(--p-text)' }}>{r.v}</span>
+                </div>
+              ))}
+              <button type="button" className="adc-foot-btn" onClick={() => navigate('/area-do-cliente/financeiro')}>
+                Ver assinaturas {ICON.arrow}
+              </button>
+            </section>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
 
       {profileModalOpen && (
         <UserProfileModal
