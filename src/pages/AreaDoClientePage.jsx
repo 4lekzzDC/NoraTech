@@ -1053,7 +1053,7 @@ export default function AreaDoClientePage() {
     hasCompany && !isOrgManager
       ? { title: 'Sair da equipe', desc: `Deixar ${companyName || 'a organização'}`, icon: ICON.team, onClick: () => { setLeaveError(null); setLeaveModalOpen(true); } }
       : { title: hasCompany ? 'Gerenciar equipe' : 'Criar equipe', desc: hasCompany ? 'Convide e gerencie membros' : 'Configure sua organização', icon: ICON.team, onClick: handleOpenOrgModal },
-    { title: 'Assinaturas e pagamentos', desc: 'Planos e histórico de cobranças', icon: ICON.card, onClick: () => navigate('/area-do-cliente/financeiro') },
+    { title: 'Financeiro e pagamentos', desc: 'Planos e histórico de cobranças', icon: ICON.card, onClick: () => navigate('/area-do-cliente/financeiro') },
     { title: 'Meu perfil', desc: 'Avatar, banner e status da conta', icon: ICON.user, onClick: () => setProfileModalOpen(true) },
   ];
 
