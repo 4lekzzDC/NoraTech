@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { supabase, AVATARS_BUCKET } from '../lib/supabase';
+import { supabase, AVATARS_BUCKET, purgeLocalSession } from '../lib/supabase';
 
 const AuthContext = createContext(null);
 
@@ -49,17 +49,16 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // loadUser nunca deve lançar — erros são absorvidos aqui para não
-  // deixar o caller (getSession / onAuthStateChange) sem um finally seguro.
-  const loadUser = useCallback(async (authUser) => {
-    if (!authUser) { setUser(null); return; }
+  // Enriquece o usuário já setado com os dados da tabela `profiles`.
+  // SEMPRE chamado FORA do callback de onAuthStateChange (ver comentário no
+  // useEffect abaixo) — nunca mova esta chamada para dentro dele.
+  const enrichWithProfile = useCallback(async (authUser) => {
     try {
       const profile = await fetchProfileRow(authUser);
-      setUser(mapProfile(authUser, profile));
+      setUser((prev) => (prev && prev.id === authUser.id ? mapProfile(authUser, profile) : prev));
     } catch (err) {
-      console.error('[Auth] loadUser failed, using auth data only:', err);
-      // Fallback: usa dados do authUser sem perfil para não bloquear o app
-      setUser(mapProfile(authUser, null));
+      // Mantém o usuário com os dados de auth — o app não fica bloqueado.
+      console.error('[Auth] enrichWithProfile failed, keeping auth data only:', err);
     }
   }, []);
 
@@ -77,46 +76,78 @@ export function AuthProvider({ children }) {
       }
     };
 
-    // Single source of truth: onAuthStateChange fires INITIAL_SESSION as its
-    // very first event (Supabase v2), giving us the cached session from
-    // localStorage immediately — no extra network call needed.
-    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // ⚠️ ESTE CALLBACK É SÍNCRONO DE PROPÓSITO — NÃO O TORNE `async` NEM
+    // CHAME OUTRO MÉTODO DO SUPABASE AQUI DENTRO.
+    //
+    // O supabase-js executa os callbacks de onAuthStateChange DENTRO do seu
+    // lock interno de auth (navigator.locks). Qualquer outra chamada ao
+    // supabase feita aqui (ex.: supabase.from('profiles')) precisa do access
+    // token e tenta adquirir o MESMO lock — que só é liberado quando este
+    // callback termina. Deadlock: o callback espera a query, a query espera o
+    // lock, o lock espera o callback.
+    //
+    // O sintoma era exatamente esse: com sessão salva (janela normal), o
+    // evento inicial vinha com sessão, a query rodava dentro do lock e travava
+    // tudo — login, refresh e troca de senha ficavam presos na fila do lock,
+    // sem NENHUMA requisição sair (nada no Network) e sem erro no console.
+    // Em janela anônima não havia sessão para recuperar, o callback retornava
+    // na hora e por isso "funcionava".
+    //
+    // Regra: aqui só mexemos em estado local do React. O que depende do
+    // supabase vai para fora do lock, via setTimeout(0).
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
       console.debug('[Auth] onAuthStateChange:', event, session ? 'session present' : 'no session');
-      try {
-        await loadUser(session?.user ?? null);
-      } catch (err) {
-        console.error('[Auth] onAuthStateChange loadUser failed:', err);
-        if (active) setUser(null);
-      } finally {
-        // Always resolve loading after the first event (INITIAL_SESSION).
-        // Subsequent events (SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED) don't
-        // need to touch loading — they just update user state.
-        resolve();
+
+      const authUser = session?.user ?? null;
+      setUser(authUser ? mapProfile(authUser, null) : null);
+      resolve();
+
+      if (authUser) {
+        setTimeout(() => { if (active) enrichWithProfile(authUser); }, 0);
       }
     });
 
-    // Hard fallback: if onAuthStateChange never fires within 15s (extreme edge
-    // case — e.g. Supabase client never initialises), unblock the UI.
+    // Rede de segurança: se o evento inicial não vier a tempo, a sessão
+    // persistida está inutilizável (lock preso / token corrompido).
+    //
+    // Só liberar a UI não basta: o cookie ruim continua lá e envenena o
+    // próximo carregamento igual, para sempre — era por isso que só janela
+    // anônima funcionava. Apagamos a sessão local para que o próximo load
+    // comece limpo, do mesmo jeito que a anônima começa.
     const fallback = setTimeout(() => {
       if (!resolved) {
-        console.warn('[Auth] Session check fallback timeout (15s). Clearing loading.');
+        console.warn('[Auth] Sessão não resolveu em 8s — descartando sessão local corrompida.');
+        purgeLocalSession();
         if (active) setUser(null);
         resolve();
       }
-    }, 15000);
+    }, 8000);
 
     return () => {
       active = false;
       clearTimeout(fallback);
       sub.subscription.unsubscribe();
     };
-  }, [loadUser]);
+  }, [enrichWithProfile]);
 
   const login = useCallback(async (email, password) => {
     // Limpa qualquer sessão local stale antes de autenticar, evitando que
     // cookies/tokens de uma tentativa anterior interrompida bloqueiem o fluxo.
-    try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* noop */ }
+    //
+    // ⚠️ NUNCA dê `await` puro aqui. `signOut()` precisa do lock de auth do
+    // supabase-js; se esse lock estiver preso (sessão persistida em estado
+    // ruim), o await nunca resolve e o login morre ANTES de fazer qualquer
+    // requisição — sintoma clássico: "conexão demorou demais" sem nenhuma
+    // chamada aparecendo no Network. Damos 2s e seguimos de qualquer forma;
+    // o purge direto do cookie não depende de lock nenhum.
+    try {
+      await Promise.race([
+        supabase.auth.signOut({ scope: 'local' }),
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ]);
+    } catch { /* noop */ }
+    purgeLocalSession();
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
