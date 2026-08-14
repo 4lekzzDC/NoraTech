@@ -53,8 +53,10 @@ function VerifiedBadge() {
       role="img"
       aria-label="E-mail verificado"
     >
-      <span style={{ width: 26, height: 26, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #8b5cf6, #22c55e)', boxShadow: '0 0 14px rgba(139,92,246,0.38)', cursor: 'default' }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      {/* 18px: a badge agora fica em linha com o nome da equipe (0.88rem) —
+          nos 26px do antigo card "Badges" ela ficava quase o dobro do texto. */}
+      <span style={{ width: 18, height: 18, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #8b5cf6, #22c55e)', boxShadow: '0 0 10px rgba(139,92,246,0.38)', cursor: 'default' }}>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="20 6 9 17 4 12" />
         </svg>
       </span>
@@ -560,7 +562,12 @@ export default function UserProfileModal({ user, companyInfo, initials, onClose,
             <div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
                 <h2 style={{ fontSize: '1.55rem', fontWeight: 850, letterSpacing: -0.6, lineHeight: 1.1, color: C.text }}>{user?.name || 'Usuário'}</h2>
-                <span style={{ color: '#a78bfa', fontSize: '0.88rem', fontWeight: 700 }}>{companyName}</span>
+                {/* alignItems center (e não o baseline da linha) para a badge
+                    centralizar na altura do texto da equipe, não sentar nele. */}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                  <span style={{ color: '#a78bfa', fontSize: '0.88rem', fontWeight: 700 }}>{companyName}</span>
+                  {user?.emailVerified && <VerifiedBadge />}
+                </span>
               </div>
               <div style={{ marginTop: 6, color: C.muted, fontSize: '0.9rem' }}>{user?.email}</div>
             </div>
@@ -584,13 +591,6 @@ export default function UserProfileModal({ user, companyInfo, initials, onClose,
             <div style={{ marginTop: 16 }}>
               {tab === 'perfil' && (
                 <div style={{ display: 'grid', gap: 16 }}>
-                  <div style={{ background: C.sectionBg, border: `1px solid ${C.sectionBd}`, borderRadius: 14, padding: 16 }}>
-                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: C.muted, letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 12 }}>Badges</div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {user?.emailVerified ? <VerifiedBadge /> : <span style={{ color: C.muted, fontSize: '0.82rem' }}>Nenhuma badge disponível.</span>}
-                    </div>
-                  </div>
-
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
                     <div style={{ padding: 14, borderRadius: 14, background: C.gridBg, border: `1px solid ${C.gridBd}`, color: C.text }}>
                       <div style={{ fontSize: '0.68rem', fontWeight: 800, color: C.gridLabel, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 6 }}>Empresa</div>
