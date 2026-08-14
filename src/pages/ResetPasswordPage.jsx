@@ -108,32 +108,49 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     let active = true;
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY' && active) setReady(true);
+    let settled = false;
+    const finish = (ok) => {
+      if (!active || settled) return;
+      settled = true;
+      if (ok) setReady(true); else setInvalid(true);
+    };
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) && active) finish(true);
     });
 
-    // O link do e-mail chega com ?code=... (fluxo PKCE) — o @supabase/ssr
-    // não troca isso por uma sessão sozinho, precisa dessa chamada explícita
-    // (diferente do cliente padrão @supabase/supabase-js, que faz isso
-    // automaticamente). Sem isso, a página nunca via a sessão de recovery.
-    const code = new URL(window.location.href).searchParams.get('code');
-
+    // O link do e-mail chega com ?code=... (fluxo PKCE). O próprio cliente
+    // supabase-js pode tentar processar esse código sozinho ao carregar a
+    // página (detecção automática de sessão na URL), ao mesmo tempo que o
+    // código abaixo tenta trocar explicitamente — como o código só vale uma
+    // vez, um dos dois processos ganha a corrida e o outro erra ou trava. Por
+    // isso: primeiro confere se já existe sessão (caso o outro já tenha
+    // resolvido), só então tenta trocar, e se a troca falhar confere de novo
+    // antes de desistir. Um timeout garante que a tela nunca fique presa em
+    // "Verificando o link..." pra sempre.
     (async () => {
-      if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (!active) return;
-        if (error) { setInvalid(true); return; }
+      const { data: existing } = await supabase.auth.getSession();
+      if (!active) return;
+      if (existing.session) { finish(true); return; }
+
+      const code = new URL(window.location.href).searchParams.get('code');
+      if (!code) { finish(false); return; }
+
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (!active) return;
+      if (!error) {
         window.history.replaceState({}, '', window.location.pathname);
-        setReady(true);
+        finish(true);
         return;
       }
-      const { data } = await supabase.auth.getSession();
+      const { data: retry } = await supabase.auth.getSession();
       if (!active) return;
-      if (data.session) setReady(true);
-      else setInvalid(true);
+      finish(Boolean(retry.session));
     })();
 
-    return () => { active = false; sub.subscription.unsubscribe(); };
+    const timeoutId = window.setTimeout(() => finish(false), 12000);
+
+    return () => { active = false; settled = true; sub.subscription.unsubscribe(); clearTimeout(timeoutId); };
   }, []);
 
   const handleSubmit = async (e) => {
