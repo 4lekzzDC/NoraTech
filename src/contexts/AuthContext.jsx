@@ -17,11 +17,29 @@ function translateAuthError(error) {
   return error.message || 'Erro ao processar a solicitação';
 }
 
+// Cache local do nome (fora do supabase, só localStorage) usado como palpite
+// no primeiro render após reload, enquanto o profile real ainda não chegou —
+// evita o "Olá, você!" piscando antes de virar "Olá, Alexandre!" (profiles.name
+// só existe depois de buscar a tabela `profiles`, e user_metadata.name nem
+// sempre está preenchido).
+const NAME_CACHE_PREFIX = 'nt-cached-name:';
+
+function getCachedName(userId) {
+  try { return localStorage.getItem(NAME_CACHE_PREFIX + userId) || ''; } catch { return ''; }
+}
+
+function setCachedName(userId, name) {
+  try {
+    if (name) localStorage.setItem(NAME_CACHE_PREFIX + userId, name);
+    else localStorage.removeItem(NAME_CACHE_PREFIX + userId);
+  } catch { /* noop */ }
+}
+
 function mapProfile(authUser, profile) {
   return {
     id: authUser.id,
     email: authUser.email,
-    name: profile?.name || authUser.user_metadata?.name || '',
+    name: profile?.name || authUser.user_metadata?.name || getCachedName(authUser.id),
     photoUrl: profile?.photo_url || null,
     bannerUrl: profile?.banner_url || null,
     statusMessage: profile?.status_message || null,
@@ -55,6 +73,7 @@ export function AuthProvider({ children }) {
   const enrichWithProfile = useCallback(async (authUser) => {
     try {
       const profile = await fetchProfileRow(authUser);
+      setCachedName(authUser.id, profile?.name || authUser.user_metadata?.name || '');
       setUser((prev) => (prev && prev.id === authUser.id ? mapProfile(authUser, profile) : prev));
     } catch (err) {
       // Mantém o usuário com os dados de auth — o app não fica bloqueado.
@@ -202,9 +221,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
+    if (user) setCachedName(user.id, '');
     await supabase.auth.signOut();
     setUser(null);
-  }, []);
+  }, [user]);
 
   const updateProfile = useCallback(async ({ name, email, company }) => {
     if (!user) throw new Error('Usuário não autenticado');
@@ -219,6 +239,7 @@ export function AuthProvider({ children }) {
         .update(updates)
         .eq('id', user.id);
       if (error) throw new Error(error.message);
+      if (name !== undefined) setCachedName(user.id, updates.name);
     }
 
     let emailChanged = false;
@@ -239,14 +260,42 @@ export function AuthProvider({ children }) {
     return { emailChanged };
   }, [user]);
 
+  // ⚠️ Ambas as chamadas abaixo (signInWithPassword e updateUser) rodam dentro
+  // do lock interno de auth do supabase-js e já travaram indefinidamente neste
+  // projeto — sem resolver nem rejeitar, deixando o botão em "Salvando..." para
+  // sempre. Mesmo guard de timeout usado em ForcePasswordResetGate/ResetPasswordPage.
   const changePassword = useCallback(async (currentPassword, newPassword) => {
     if (!user) throw new Error('Usuário não autenticado');
-    const { error: verifyError } = await supabase.auth.signInWithPassword({
-      email: user.email,
-      password: currentPassword,
-    });
+
+    const withTimeout = (promise, label) => Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(
+        () => reject(new Error(`${label} demorou demais. Recarregue a página e tente novamente.`)),
+        15000,
+      )),
+    ]);
+
+    const { error: verifyError } = await withTimeout(
+      supabase.auth.signInWithPassword({ email: user.email, password: currentPassword }),
+      'A verificação da senha atual',
+    );
     if (verifyError) throw new Error('Senha atual incorreta');
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+    const { error } = await withTimeout(
+      supabase.auth.updateUser({ password: newPassword }),
+      'A troca de senha',
+    );
+    if (error) throw new Error(translateAuthError(error));
+  }, [user]);
+
+  // Reenvia o e-mail de confirmação de cadastro para quem ainda não verificou.
+  const resendEmailConfirmation = useCallback(async () => {
+    if (!user) throw new Error('Usuário não autenticado');
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: user.email,
+      options: { emailRedirectTo: `${window.location.origin}/area-do-cliente` },
+    });
     if (error) throw new Error(translateAuthError(error));
   }, [user]);
 
@@ -340,13 +389,14 @@ export function AuthProvider({ children }) {
     logout,
     updateProfile,
     changePassword,
+    resendEmailConfirmation,
     completeForcedPasswordReset,
     sendPasswordReset,
     completePasswordRecovery,
     uploadPhoto,
     removePhoto,
     updateUser,
-  }), [user, loading, login, register, logout, updateProfile, changePassword, completeForcedPasswordReset, sendPasswordReset, completePasswordRecovery, uploadPhoto, removePhoto, updateUser]);
+  }), [user, loading, login, register, logout, updateProfile, changePassword, resendEmailConfirmation, completeForcedPasswordReset, sendPasswordReset, completePasswordRecovery, uploadPhoto, removePhoto, updateUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

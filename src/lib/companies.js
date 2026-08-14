@@ -1,5 +1,8 @@
 import { supabase } from './supabase';
 
+// Rótulo em português do papel do membro dentro da empresa.
+export const COMPANY_ROLE_LABEL = { owner: 'Dono', admin: 'Admin / Gestor', member: 'Membro' };
+
 function translate(error) {
   if (!error) return 'Erro desconhecido';
   const msg = error.message || '';
