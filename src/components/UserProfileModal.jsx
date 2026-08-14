@@ -451,7 +451,12 @@ export default function UserProfileModal({ user, companyInfo, initials, onClose,
         // 760px e não os 640px originais: a aba "Conta" empilha formulários
         // (e-mail + senha em duas colunas) que ficavam espremidos e altos
         // demais na largura pensada só para a aba "Perfil".
-        style={{ width: 'min(760px, 100%)', maxHeight: '90vh', background: C.panelBg, border: `1px solid ${C.panelBorder}`, borderRadius: 20, boxShadow: '0 28px 90px rgba(0,0,0,0.78)', overflowY: 'auto', color: C.text, position: 'relative', fontFamily: "'Inter', sans-serif" }}>
+        //
+        // Coluna flex com overflow hidden: quem rola é só o painel da aba
+        // (ver adiante). Antes o <section> inteiro rolava, então para chegar
+        // no botão de salvar da aba "Conta" era preciso rolar o banner, o
+        // avatar e as próprias abas para fora da tela.
+        style={{ width: 'min(760px, 100%)', maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: C.panelBg, border: `1px solid ${C.panelBorder}`, borderRadius: 20, boxShadow: '0 28px 90px rgba(0,0,0,0.78)', overflow: 'hidden', color: C.text, position: 'relative', fontFamily: "'Inter', sans-serif" }}>
         <style>{`
           .profile-avatar-edit .profile-avatar-overlay, .profile-banner-edit .profile-banner-overlay { opacity: 0; transition: opacity 0.18s ease; }
           .profile-avatar-edit:hover .profile-avatar-overlay, .profile-avatar-edit:focus-visible .profile-avatar-overlay,
@@ -490,7 +495,10 @@ export default function UserProfileModal({ user, companyInfo, initials, onClose,
         <button type="button" onClick={onClose} aria-label="Fechar perfil"
           style={{ position: 'absolute', top: 14, right: 14, zIndex: 2, width: 34, height: 34, borderRadius: '50%', border: `1px solid ${C.closeBd}`, background: C.closeBg, color: C.closeColor, cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>×</button>
 
-        <div className="profile-banner-edit" style={{ height: 156, borderBottom: `1px solid ${C.bannerBd}`, position: 'relative', overflow: 'hidden', cursor: 'pointer', ...bannerStyle }}>
+        {/* 120px e não 156px: o banner era o maior consumidor de altura do
+            modal e empurrava o botão de salvar da aba "Conta" para fora da
+            área visível em telas de 900px. */}
+        <div className="profile-banner-edit" style={{ height: 120, flexShrink: 0, borderBottom: `1px solid ${C.bannerBd}`, position: 'relative', overflow: 'hidden', cursor: 'pointer', ...bannerStyle }}>
           <button type="button" onClick={() => bannerInputRef.current?.click()} disabled={saving === 'banner'}
             style={{ position: 'absolute', inset: 0, border: 'none', background: 'transparent', color: '#fff', cursor: saving === 'banner' ? 'wait' : 'pointer', zIndex: 1 }}>
             <span className="profile-banner-overlay" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.34)' }}>
@@ -503,8 +511,10 @@ export default function UserProfileModal({ user, companyInfo, initials, onClose,
           <input ref={bannerInputRef} type="file" accept="image/png,image/jpeg,image/jpg,image/webp" hidden onChange={(e) => uploadImage(e.target.files?.[0], 'banner')} />
         </div>
 
-        <div style={{ padding: '0 28px 28px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 18, marginTop: -46, flexWrap: 'wrap' }}>
+        {/* padding-bottom vai para o painel rolável, senão sobraria um vão
+            morto embaixo da barra de rolagem. */}
+        <div style={{ padding: '0 28px', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 18, marginTop: -46, flexShrink: 0, flexWrap: 'wrap' }}>
             <button className="profile-avatar-edit" type="button" onClick={() => avatarInputRef.current?.click()} disabled={saving === 'avatar'} title="Alterar foto"
               style={{ position: 'relative', width: 104, height: 104, borderRadius: '50%', padding: 6, background: C.avatarBg, boxShadow: C.avatarShad, border: 'none', cursor: saving === 'avatar' ? 'wait' : 'pointer' }}>
               {user?.photoUrl
@@ -561,8 +571,8 @@ export default function UserProfileModal({ user, companyInfo, initials, onClose,
             </div>
           </div>
 
-          <div style={{ marginTop: 18 }}>
-            <div>
+          <div style={{ marginTop: 18, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
                 <h2 style={{ fontSize: '1.55rem', fontWeight: 850, letterSpacing: -0.6, lineHeight: 1.1, color: C.text }}>{user?.name || 'Usuário'}</h2>
                 {/* alignItems center (e não o baseline da linha) para a badge
@@ -586,12 +596,12 @@ export default function UserProfileModal({ user, companyInfo, initials, onClose,
             </div>
 
             {message && (
-              <div style={{ marginTop: 16, padding: '11px 13px', borderRadius: 12, background: message.type === 'error' ? 'rgba(255,80,80,0.1)' : 'rgba(34,197,94,0.1)', border: `1px solid ${message.type === 'error' ? 'rgba(255,80,80,0.24)' : 'rgba(34,197,94,0.24)'}`, color: message.type === 'error' ? '#ff9ab4' : '#86efac', fontSize: '0.82rem', fontWeight: 700 }}>
+              <div style={{ marginTop: 16, flexShrink: 0, padding: '11px 13px', borderRadius: 12, background: message.type === 'error' ? 'rgba(255,80,80,0.1)' : 'rgba(34,197,94,0.1)', border: `1px solid ${message.type === 'error' ? 'rgba(255,80,80,0.24)' : 'rgba(34,197,94,0.24)'}`, color: message.type === 'error' ? '#ff9ab4' : '#86efac', fontSize: '0.82rem', fontWeight: 700 }}>
                 {message.text}
               </div>
             )}
 
-            <div style={{ marginTop: 16 }}>
+            <div style={{ marginTop: 16, flex: 1, minHeight: 0, overflowY: 'auto', paddingBottom: 28 }}>
               {tab === 'perfil' && (
                 <div style={{ display: 'grid', gap: 16 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
