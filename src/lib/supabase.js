@@ -50,3 +50,34 @@ export const supabase = createBrowserClient(supabaseUrl ?? '', supabaseAnonKey ?
 });
 
 export const AVATARS_BUCKET = 'avatars';
+
+// Apaga a sessão persistida SEM passar pelo cliente supabase.
+//
+// `supabase.auth.signOut()` precisa do lock de auth — que é exatamente o que
+// pode estar preso quando precisamos desta função. Mexer direto no cookie/
+// localStorage é o único caminho que não depende do lock.
+//
+// Sem isto, uma sessão persistida em estado ruim se auto-perpetua: a cada
+// reload ela é lida de novo, trava o lock de novo, e o usuário fica sem
+// conseguir entrar por dias — só funcionando em janela anônima, que começa
+// sem cookie. Chamar isto devolve o navegador ao mesmo estado limpo da
+// janela anônima.
+export function purgeLocalSession() {
+  const isAuthKey = (k) => k.startsWith('sb-') && k.includes('-auth-token');
+  try {
+    // Cookies: só somem se o `domain`/`path` do delete baterem com os do set,
+    // por isso repetimos nas variações usadas em cookieOptions acima.
+    const domains = [null, hostname, isNoratechHost ? '.noratech.com.br' : null].filter(Boolean);
+    document.cookie.split(';').forEach((raw) => {
+      const name = raw.split('=')[0].trim();
+      if (!name || !isAuthKey(name)) return;
+      document.cookie = `${name}=; Max-Age=0; path=/`;
+      domains.forEach((d) => {
+        document.cookie = `${name}=; Max-Age=0; path=/; domain=${d}`;
+      });
+    });
+  } catch { /* noop */ }
+  try {
+    Object.keys(localStorage).filter(isAuthKey).forEach((k) => localStorage.removeItem(k));
+  } catch { /* noop */ }
+}
