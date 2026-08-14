@@ -161,7 +161,15 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
     try {
-      await completePasswordRecovery(newPassword);
+      // Mesma guarda usada em ForcePasswordResetGate: supabase.auth.updateUser
+      // pode ficar preso indefinidamente (disputa pelo lock interno de auth
+      // do supabase-js) sem nunca resolver nem rejeitar — sem isso, o botão
+      // fica em "Salvando…" pra sempre, mesmo quando a troca já foi
+      // concluída no servidor.
+      await Promise.race([
+        completePasswordRecovery(newPassword),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Tempo esgotado. Recarregue a página e tente novamente — a senha pode já ter sido trocada.')), 15000)),
+      ]);
       setDone(true);
       setTimeout(() => navigate('/area-do-cliente'), 1800);
     } catch (err) {
