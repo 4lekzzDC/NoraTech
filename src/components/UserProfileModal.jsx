@@ -178,15 +178,16 @@ function AccountTab({ user, onNotify }) {
           )}
         </div>
 
-        <form onSubmit={handleEmail} style={{ display: 'grid', gap: 12, marginTop: 14 }}>
+        {/* Botão em linha com o campo (não embaixo, alinhado à direita): com o
+            input em meia largura, um botão "flex-end" ficava boiando sozinho
+            no vão vazio da direita, sem relação visual com o campo. */}
+        <form onSubmit={handleEmail} style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
           <Field label="Endereço de e-mail" half>
             <input type="email" className="pf-input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@empresa.com.br" />
           </Field>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button type="submit" className="pf-btn-primary" disabled={!emailDirty || busy === 'email'}>
-              {busy === 'email' ? 'Enviando...' : 'Alterar e-mail'}
-            </button>
-          </div>
+          <button type="submit" className="pf-btn-primary" disabled={!emailDirty || busy === 'email'}>
+            {busy === 'email' ? 'Enviando...' : 'Alterar e-mail'}
+          </button>
         </form>
       </SectionCard>
 
@@ -206,11 +207,13 @@ function AccountTab({ user, onNotify }) {
                 onChange={(e) => setPwd((p) => ({ ...p, confirm: e.target.value }))} placeholder="••••••••" />
             </Field>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button type="submit" className="pf-btn-primary" disabled={!pwd.current || !pwd.next || busy === 'password'}>
-              {busy === 'password' ? 'Salvando...' : 'Alterar senha'}
-            </button>
-          </div>
+          {/* Alinhado à esquerda, sob os campos: o botão depende dos três
+              campos (não de um só), então não faz sentido colado a nenhum
+              deles — mas "flex-end" o jogava sozinho no vão vazio à direita,
+              sem nenhuma relação visual com o formulário. */}
+          <button type="submit" className="pf-btn-primary" style={{ justifySelf: 'start' }} disabled={!pwd.current || !pwd.next || busy === 'password'}>
+            {busy === 'password' ? 'Salvando...' : 'Alterar senha'}
+          </button>
         </form>
       </SectionCard>
     </div>
