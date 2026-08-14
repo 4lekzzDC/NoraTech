@@ -71,6 +71,34 @@ function VerifiedBadge() {
 
 // ─── Campos reutilizados pelas abas do perfil ─────────────────────────────────
 
+// Check compacto com tooltip no hover/foco — mesma interação do VerifiedBadge
+// (definido mais abaixo), mas menor e sem o fundo em gradiente, para caber
+// junto ao rótulo de um campo em vez de ao lado de um nome.
+function InlineConfirmedCheck({ label }) {
+  const [tip, setTip] = useState(false);
+  return (
+    <span
+      style={{ position: 'relative', display: 'inline-flex', verticalAlign: 'middle', marginLeft: 6 }}
+      onMouseEnter={() => setTip(true)}
+      onMouseLeave={() => setTip(false)}
+      onFocus={() => setTip(true)}
+      onBlur={() => setTip(false)}
+      tabIndex={0}
+      role="img"
+      aria-label={label}
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+      {tip && (
+        <span style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap', padding: '4px 8px', borderRadius: 7, background: '#18181b', border: '1px solid rgba(255,255,255,0.14)', color: '#e4e4e7', fontSize: '0.68rem', fontWeight: 700, pointerEvents: 'none', zIndex: 20, boxShadow: '0 6px 18px rgba(0,0,0,0.4)' }}>
+          {label}
+        </span>
+      )}
+    </span>
+  );
+}
+
 // `half`: campo solto que ocupa só a largura de uma coluna do .pf-grid2, para
 // alinhar com os campos que vêm em par (e não esticar de ponta a ponta).
 function Field({ label, hint, children, span, half }) {
@@ -159,30 +187,30 @@ function AccountTab({ user, onNotify }) {
         title="E-mail de acesso"
         desc="É com ele que você entra na plataforma e recebe avisos de cobrança."
       >
-        <div className="pf-status-line">
-          {user?.emailVerified ? (
-            <span className="pf-chip pf-chip-ok">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-              E-mail confirmado
+        {/* Confirmado: some o chip, sobra só o check junto ao rótulo do campo
+            abaixo — a frase inteira ("E-mail confirmado") virou tooltip.
+            Não confirmado continua com o chip + botão de reenviar, porque
+            aí é uma pendência que precisa de ação, não só um status. */}
+        {!user?.emailVerified && (
+          <div className="pf-status-line">
+            <span className="pf-chip pf-chip-warn">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v4" /><path d="M12 17h.01" /><circle cx="12" cy="12" r="9" /></svg>
+              E-mail não confirmado
             </span>
-          ) : (
-            <>
-              <span className="pf-chip pf-chip-warn">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v4" /><path d="M12 17h.01" /><circle cx="12" cy="12" r="9" /></svg>
-                E-mail não confirmado
-              </span>
-              <button type="button" className="pf-btn-ghost" onClick={handleResend} disabled={busy === 'resend'}>
-                {busy === 'resend' ? 'Enviando...' : 'Reenviar confirmação'}
-              </button>
-            </>
-          )}
-        </div>
+            <button type="button" className="pf-btn-ghost" onClick={handleResend} disabled={busy === 'resend'}>
+              {busy === 'resend' ? 'Enviando...' : 'Reenviar confirmação'}
+            </button>
+          </div>
+        )}
 
         {/* Botão em linha com o campo (não embaixo, alinhado à direita): com o
             input em meia largura, um botão "flex-end" ficava boiando sozinho
             no vão vazio da direita, sem relação visual com o campo. */}
         <form onSubmit={handleEmail} style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
-          <Field label="Endereço de e-mail" half>
+          <Field
+            half
+            label={<>Endereço de e-mail{user?.emailVerified && <InlineConfirmedCheck label="E-mail confirmado" />}</>}
+          >
             <input type="email" className="pf-input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@empresa.com.br" />
           </Field>
           <button type="submit" className="pf-btn-primary" disabled={!emailDirty || busy === 'email'}>
