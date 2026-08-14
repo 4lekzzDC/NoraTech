@@ -18,6 +18,7 @@ import {
   EMPTY_CONTACT, fetchProfileContact, saveProfileContact,
   formatPhone, formatZip, isValidPhone, isValidZip, lookupZip,
 } from '../lib/profileContacts';
+import { sanitizeBioHtml, bioPlainText, BIO_MAX_CHARS } from '../lib/richText';
 
 const PRESENCE = {
   online:    { label: 'Online',    color: '#22c55e', bg: 'rgba(34,197,94,0.1)',   bd: 'rgba(34,197,94,0.26)'   },
@@ -122,6 +123,126 @@ function SectionCard({ title, desc, children, footer }) {
       {children}
       {footer}
     </div>
+  );
+}
+
+// ─── Editor da bio ────────────────────────────────────────────────────────────
+
+const BIO_TOOLS = [
+  { cmd: 'bold',          titulo: 'Negrito (Ctrl+B)',   rotulo: <strong>N</strong> },
+  { cmd: 'italic',        titulo: 'Itálico (Ctrl+I)',   rotulo: <em>I</em> },
+  { cmd: 'underline',     titulo: 'Sublinhado (Ctrl+U)', rotulo: <span style={{ textDecoration: 'underline' }}>S</span> },
+  { cmd: 'strikeThrough', titulo: 'Riscado',            rotulo: <span style={{ textDecoration: 'line-through' }}>R</span> },
+  { sep: true },
+  { cmd: 'insertUnorderedList', titulo: 'Lista com marcadores', rotulo: '•' },
+  { cmd: 'insertOrderedList',   titulo: 'Lista numerada',       rotulo: '1.' },
+  { sep: true },
+  { cmd: 'removeFormat',  titulo: 'Limpar formatação',  rotulo: '✕' },
+];
+
+// contentEditable + execCommand. execCommand é formalmente obsoleto, mas é o
+// único caminho nativo e continua suportado em todos os navegadores atuais —
+// a alternativa seria trazer um editor completo (TipTap/Lexical) e centenas de
+// KB para quatro botões de formatação.
+function BioEditor({ valueHtml, onChangeHtml, disabled }) {
+  const ref = useRef(null);
+
+  // Escreve o HTML no DOM só quando ele diverge do que já está lá. Um
+  // `dangerouslySetInnerHTML` controlado a cada tecla reposicionaria o cursor
+  // para o início a cada caractere digitado.
+  useEffect(() => {
+    const el = ref.current;
+    if (el && el.innerHTML !== (valueHtml || '')) el.innerHTML = valueHtml || '';
+  }, [valueHtml]);
+
+  const exec = (cmd) => {
+    ref.current?.focus();
+    document.execCommand(cmd, false, null);
+    onChangeHtml(ref.current?.innerHTML || '');
+  };
+
+  return (
+    <div className="pf-bio-wrap" aria-disabled={disabled || undefined}>
+      <div className="pf-bio-toolbar" role="toolbar" aria-label="Formatação">
+        {BIO_TOOLS.map((t, i) => (
+          t.sep
+            ? <span key={`sep-${i}`} className="pf-bio-sep" />
+            : (
+              <button key={t.cmd} type="button" className="pf-bio-btn" title={t.titulo} aria-label={t.titulo}
+                disabled={disabled}
+                // onMouseDown + preventDefault: um clique normal tiraria o foco
+                // do editor antes do comando rodar, e a seleção se perderia.
+                onMouseDown={(e) => { e.preventDefault(); exec(t.cmd); }}>
+                {t.rotulo}
+              </button>
+            )
+        ))}
+      </div>
+      <div
+        ref={ref}
+        className="pf-bio-input"
+        contentEditable={!disabled}
+        suppressContentEditableWarning
+        role="textbox"
+        aria-multiline="true"
+        aria-label="Sobre mim"
+        data-placeholder="Conte o que quiser sobre você, sua função ou sua rotina..."
+        onInput={(e) => onChangeHtml(e.currentTarget.innerHTML)}
+        // Cola sempre como texto puro: colar de um site traria HTML arbitrário
+        // (o sanitizador barraria depois, mas o editor já ficaria bagunçado).
+        onPaste={(e) => {
+          e.preventDefault();
+          const texto = e.clipboardData.getData('text/plain');
+          document.execCommand('insertText', false, texto);
+        }}
+      />
+    </div>
+  );
+}
+
+function BioSection({ user, onNotify, onUserUpdate }) {
+  const [html, setHtml] = useState(() => sanitizeBioHtml(user?.bio || ''));
+  const [saving, setSaving] = useState(false);
+
+  const chars = bioPlainText(html).length;
+  const excedeu = chars > BIO_MAX_CHARS;
+  const sujo = sanitizeBioHtml(user?.bio || '') !== html;
+
+  const handleSave = async () => {
+    // Sanitiza ANTES de gravar: o contentEditable aceita HTML colado/injetado
+    // e nada garante que só passou pelos botões da barra.
+    const limpo = sanitizeBioHtml(html);
+    if (bioPlainText(limpo).length > BIO_MAX_CHARS) {
+      onNotify({ type: 'error', text: `A descrição passa de ${BIO_MAX_CHARS} caracteres.` });
+      return;
+    }
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .from('profiles')
+        .update({ bio: limpo || null, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+      if (error) throw new Error(error.message);
+      setHtml(limpo);
+      onUserUpdate({ bio: limpo });
+      onNotify({ type: 'success', text: 'Descrição salva.' });
+    } catch (err) {
+      onNotify({ type: 'error', text: err.message || 'Não foi possível salvar a descrição.' });
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <SectionCard title="Sobre mim" desc="Um texto livre sobre você. Seus colegas de equipe podem ver.">
+      <BioEditor valueHtml={html} onChangeHtml={setHtml} disabled={saving} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
+        <span className="pf-hint" style={{ color: excedeu ? '#ff9ab4' : undefined }}>
+          {chars} / {BIO_MAX_CHARS} caracteres
+        </span>
+        <button type="button" className="pf-btn-primary" onClick={handleSave} disabled={saving || excedeu || !sujo}>
+          {saving ? 'Salvando...' : 'Salvar descrição'}
+        </button>
+      </div>
+    </SectionCard>
   );
 }
 
@@ -510,6 +631,22 @@ export default function UserProfileModal({ user, companyInfo, initials, onClose,
           /* mesma largura de uma coluna do .pf-grid2 (metade menos o gap) */
           .pf-field-half { max-width:calc((100% - 12px) / 2); }
 
+          /* ── Editor da bio ── */
+          .pf-bio-wrap { border:1px solid ${C.inputBd}; border-radius:10px; background:${C.inputBg}; overflow:hidden; transition:border-color .15s; }
+          .pf-bio-wrap:focus-within { border-color:rgba(124,58,237,.55); }
+          .pf-bio-toolbar { display:flex; align-items:center; gap:2px; padding:6px 8px; border-bottom:1px solid ${C.sectionBd}; flex-wrap:wrap; }
+          .pf-bio-btn { min-width:28px; height:28px; padding:0 7px; border-radius:7px; border:1px solid transparent; background:transparent; color:${C.text}; font-family:inherit; font-size:.82rem; line-height:1; cursor:pointer; transition:all .12s; }
+          .pf-bio-btn:hover:not(:disabled) { background:${C.pressBtnSelBg}; border-color:${C.inputBd}; }
+          .pf-bio-btn:disabled { opacity:.4; cursor:not-allowed; }
+          .pf-bio-sep { width:1px; height:18px; margin:0 4px; background:${C.sectionBd}; }
+          .pf-bio-input { min-height:110px; max-height:260px; overflow-y:auto; padding:11px 13px; outline:none; font-family:inherit; font-size:.86rem; line-height:1.6; color:${C.inputColor}; }
+          /* :empty sozinho falha quando o navegador deixa um <br> residual */
+          .pf-bio-input:empty::before { content:attr(data-placeholder); color:${C.muted}; pointer-events:none; }
+          .pf-bio-input ul, .pf-bio-input ol { padding-left:22px; margin:6px 0; }
+          .pf-bio-input li { margin:2px 0; }
+          .pf-bio-input p { margin:6px 0; }
+          .pf-bio-input a { color:#a78bfa; text-decoration:underline; }
+
           .pf-input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid ${C.inputBd}; background:${C.inputBg}; color:${C.inputColor}; outline:none; font-family:inherit; font-size:.86rem; transition:border-color .15s; }
           .pf-input:focus { border-color:rgba(124,58,237,.55); }
           .pf-input option { background:${C.popupBg}; color:${C.inputColor}; }
@@ -650,6 +787,8 @@ export default function UserProfileModal({ user, companyInfo, initials, onClose,
                       <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{companyRole ? roleLabel : 'Não definido'}</div>
                     </div>
                   </div>
+
+                  <BioSection user={user} onNotify={notify} onUserUpdate={onUserUpdate} />
                 </div>
               )}
 
