@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import MeetingScheduler from "./components/MeetingScheduler";
+import NoriRobot from "./components/NoriRobot";
 import ThemeToggle from "./components/ThemeToggle";
 import { useAuth } from "./contexts/AuthContext";
 import { useTheme } from "./contexts/ThemeContext";
@@ -39,6 +40,38 @@ const SERVICES = [
     desc: "Conectamos ERP, CRM, WhatsApp, gateways de pagamento e APIs externas em um fluxo único — eliminando planilhas intermediárias e retrabalho entre áreas.",
     tags: ["APIs & Webhooks", "ERP / CRM", "Migração de dados"],
   },
+];
+
+// O que a automação entrega, em uma linha cada — é a promessa do hero
+// traduzida em benefício concreto, logo abaixo da primeira dobra.
+const HERO_BENEFITS = [
+  {
+    title: "Mais rapidez",
+    desc: "Processos ágeis que economizam tempo.",
+    icon: <path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12z" />,
+  },
+  {
+    title: "Menos erros",
+    desc: "Redução de falhas humanas e retrabalho.",
+    icon: <><path d="M12 3l7.5 3v6.2c0 4.6-3.1 8.2-7.5 9.3-4.4-1.1-7.5-4.7-7.5-9.3V6z" /><path d="M8.8 12.2l2.2 2.2 4.2-4.4" /></>,
+  },
+  {
+    title: "Padronização",
+    desc: "Fluxos consistentes e dados confiáveis.",
+    icon: <><path d="M4 20h16" /><path d="M7.5 20v-7" /><path d="M12 20V6" /><path d="M16.5 20v-10" /></>,
+  },
+  {
+    title: "Escalabilidade",
+    desc: "Soluções que crescem com o seu negócio.",
+    icon: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5.3l3.4 2" /></>,
+  },
+];
+
+const HERO_STATS = [
+  ["50+", "Clientes"],
+  ["200+", "Automações"],
+  ["99.9%", "Uptime"],
+  ["24/7", "Suporte"],
 ];
 
 const DIFFERENTIALS = [
@@ -212,7 +245,7 @@ export default function App() {
   return (
     <div style={{ background: "#08080a", color: "#eeede9", fontFamily: "'Inter', sans-serif", overflowX: "hidden", minHeight: "100vh" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&family=Caveat:wght@500;600;700&display=swap');
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
         body { -webkit-font-smoothing: antialiased; }
@@ -239,12 +272,138 @@ export default function App() {
         .form-option:hover { border-color: rgba(124, 58, 237,0.4) !important; background: rgba(124, 58, 237,0.04) !important; }
         a { text-decoration: none; color: inherit; }
 
+        /* ═══ HERO ═══ */
+        @keyframes hero-float-slow { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-16px); } }
+        @keyframes hero-chip { 0%,100% { transform: translateY(0) rotate(var(--r,0deg)); } 50% { transform: translateY(-14px) rotate(var(--r,0deg)); } }
+        @keyframes hero-mesh-drift { 0% { transform: translateX(0); } 100% { transform: translateX(-40px); } }
+        @keyframes hero-aura-breathe { 0%,100% { opacity: .75; transform: scale(1); } 50% { opacity: 1; transform: scale(1.08); } }
+
+        .hero-section {
+          position: relative; z-index: 1; max-width: 1440px; margin: 0 auto;
+          min-height: 100vh; padding: 132px 60px 46px;
+          display: grid; grid-template-columns: 1.04fr 0.96fr; grid-template-rows: 1fr auto;
+          align-items: center; gap: 34px 44px;
+        }
+
+        /* fundo roxo restrito ao hero, dissolvendo no fundo do site */
+        /* 100vw + centralização: a seção é limitada a 1440px, mas o fundo
+           precisa sangrar até a borda da viewport em telas largas. */
+        .hero-aura { position: absolute; top: 0; bottom: 0; left: 50%; width: 100vw; transform: translateX(-50%);
+          z-index: -1; overflow: hidden; pointer-events: none;
+          background:
+            radial-gradient(115% 85% at 68% 18%, rgba(124,58,237,0.30) 0%, rgba(76,29,149,0.15) 38%, transparent 72%),
+            linear-gradient(180deg, #150c28 0%, #0d0718 52%, #08080a 100%);
+        }
+        .hero-aura-glow { position: absolute; border-radius: 50%; filter: blur(70px); animation: hero-aura-breathe 9s ease-in-out infinite; }
+        .hero-aura-glow.a { width: 520px; height: 520px; top: 4%; right: 6%; background: radial-gradient(circle, rgba(139,92,246,0.30), transparent 65%); }
+        .hero-aura-glow.b { width: 420px; height: 420px; bottom: 6%; left: -4%; background: radial-gradient(circle, rgba(37,99,235,0.18), transparent 65%); animation-delay: 2.5s; }
+        .hero-mesh { position: absolute; left: -40px; bottom: 0; width: calc(100% + 80px); height: 300px;
+          color: rgba(167,139,250,0.30); animation: hero-mesh-drift 14s linear infinite alternate;
+          mask-image: linear-gradient(180deg, transparent, #000 45%, transparent); }
+
+        .hero-badge {
+          display: inline-flex; align-items: center; gap: 9px; margin-bottom: 26px;
+          padding: 7px 17px 7px 13px; border-radius: 100px;
+          background: rgba(124,58,237,0.12); border: 1px solid rgba(167,139,250,0.26);
+          font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #c4b5fd;
+        }
+        .hero-badge-dot { position: relative; width: 7px; height: 7px; border-radius: 50%; background: #a78bfa; flex-shrink: 0; }
+        .hero-badge-dot::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 1px solid #a78bfa; animation: pulse-ring 2s cubic-bezier(0,0,0.2,1) infinite; }
+
+        .hero-title { font-size: clamp(2.6rem, 5vw, 4.4rem); font-weight: 800; line-height: 1.03; letter-spacing: -2.4px; margin-bottom: 22px; color: #ffffff; }
+        .hero-title-accent { display: block; background: linear-gradient(100deg, #a78bfa 0%, #7C3AED 55%, #6d28d9 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: #a78bfa; }
+        .hero-sub { font-size: 1.05rem; line-height: 1.7; color: rgba(255,255,255,0.55); max-width: 470px; margin-bottom: 34px; }
+
+        .hero-buttons { display: flex; gap: 12px; flex-wrap: wrap; }
+        .hero-cta-primary, .hero-cta-ghost { display: inline-flex; align-items: center; gap: 8px; border-radius: 100px; font-size: 0.92rem; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); }
+        .hero-cta-primary { padding: 15px 30px; background: #7C3AED; color: #fff; font-weight: 700; box-shadow: 0 14px 40px -12px rgba(124,58,237,0.9); }
+        .hero-cta-primary:hover { background: #6d28d9; transform: translateY(-2px); box-shadow: 0 20px 50px -12px rgba(124,58,237,1); }
+        .hero-cta-ghost { padding: 15px 28px; border: 1px solid rgba(255,255,255,0.16); font-weight: 600; color: #eeede9; }
+        .hero-cta-ghost:hover { border-color: rgba(167,139,250,0.55); background: rgba(124,58,237,0.10); transform: translateY(-2px); }
+
+        /* ── Nori ── */
+        .hero-visual { position: relative; display: flex; justify-content: flex-end; align-items: flex-end; min-height: 500px; }
+        /* padding-top empurra o robô pra baixo, abrindo espaço pro balão
+           acima da cabeça sem que ele cubra o rosto. */
+        .nori-stage { position: relative; width: min(346px, 100%); padding-top: 96px; transition: transform 0.5s cubic-bezier(0.16,1,0.3,1); }
+        .nori-figure { animation: hero-float-slow 6s ease-in-out infinite; }
+
+        .nori-bubble {
+          position: absolute; top: 0; left: -22%; z-index: 3; width: min(292px, 96%);
+          padding: 18px 20px 16px; border-radius: 20px;
+          background: rgba(20,12,38,0.78); border: 1px solid rgba(167,139,250,0.34);
+          backdrop-filter: blur(16px); box-shadow: 0 24px 60px -22px rgba(124,58,237,0.85);
+          transition: transform 0.5s cubic-bezier(0.16,1,0.3,1);
+        }
+        /* rabinho apontando para o Nori */
+        .nori-bubble::after {
+          content: ""; position: absolute; right: -8px; bottom: 26px; width: 16px; height: 16px;
+          background: rgba(20,12,38,0.78); border-right: 1px solid rgba(167,139,250,0.34); border-bottom: 1px solid rgba(167,139,250,0.34);
+          transform: rotate(45deg);
+        }
+        .nori-bubble-icon { display: inline-flex; color: #a78bfa; margin-bottom: 9px; }
+        .nori-bubble-title { font-family: 'Caveat', cursive; font-size: 1.5rem; font-weight: 700; color: #eeede9; line-height: 1.1; margin-bottom: 2px; }
+        .nori-bubble-title strong { color: #a78bfa; font-weight: 700; }
+        .nori-bubble-text { font-family: 'Caveat', cursive; font-size: 1.22rem; line-height: 1.34; color: rgba(255,255,255,0.82); }
+
+        .nori-chip {
+          position: absolute; z-index: 1; display: flex; align-items: center; justify-content: center;
+          width: 52px; height: 52px; border-radius: 16px; color: #a78bfa;
+          background: rgba(124,58,237,0.14); border: 1px solid rgba(167,139,250,0.28);
+          backdrop-filter: blur(10px); animation: hero-chip 7s ease-in-out infinite;
+        }
+        .nori-chip.check { left: -4%; bottom: 26%; --r: -8deg; }
+        .nori-chip.gear { left: 12%; bottom: 6%; --r: 6deg; animation-delay: 1.2s; }
+        .nori-chip.grid { right: -2%; top: 34%; --r: 9deg; animation-delay: 2.4s; }
+
+        /* ── Barra de benefícios + números ── */
+        .hero-bar-slot { grid-column: 1 / -1; }
+        .hero-bar {
+          display: flex; align-items: stretch; gap: 26px;
+          padding: 20px 26px; border-radius: 22px;
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(167,139,250,0.18);
+          backdrop-filter: blur(18px); box-shadow: 0 26px 70px -40px rgba(124,58,237,0.9);
+        }
+        .hero-benefits { flex: 1 1 auto; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 20px; }
+        .hero-benefit { display: flex; align-items: flex-start; gap: 11px; min-width: 0; }
+        .hero-benefit-icon { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex-shrink: 0;
+          border-radius: 11px; background: rgba(124,58,237,0.16); border: 1px solid rgba(167,139,250,0.24); color: #a78bfa; }
+        .hero-benefit-title { font-size: 0.85rem; font-weight: 700; color: #eeede9; margin-bottom: 3px; }
+        .hero-benefit-desc { font-size: 0.74rem; line-height: 1.45; color: rgba(255,255,255,0.42); }
+        .hero-bar-divider { width: 1px; flex-shrink: 0; background: linear-gradient(180deg, transparent, rgba(167,139,250,0.32), transparent); }
+        .hero-stats { flex: 0 0 auto; display: grid; grid-template-columns: repeat(2, auto); gap: 10px 26px; align-content: center; }
+        .hero-stat-value { font-family: 'JetBrains Mono', monospace; font-size: 1.18rem; font-weight: 700; color: #a78bfa; line-height: 1.15; }
+        .hero-stat-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-top: 1px; }
+
+        @media (prefers-reduced-motion: reduce) {
+          .nori-figure, .nori-chip, .hero-mesh, .hero-aura-glow { animation: none; }
+        }
+
         /* ═══ TABLET ═══ */
         @media (max-width: 1024px) {
           .section-padding { padding: 100px 32px !important; }
           .cta-section { padding: 100px 32px !important; }
           .footer-section { padding: 60px 32px 40px !important; }
-          .hero-section { padding: 110px 32px 60px !important; gap: 32px !important; }
+          .hero-section {
+            grid-template-columns: 1fr !important;
+            grid-template-rows: auto auto auto !important;
+            padding: 118px 32px 48px !important;
+            gap: 30px !important;
+            justify-items: center; text-align: center;
+          }
+          .hero-copy { max-width: 640px; }
+          .hero-sub { margin-left: auto; margin-right: auto; }
+          .hero-buttons { justify-content: center; }
+          /* Coluna única: o balão sai do posicionamento absoluto e entra em
+             fluxo acima do robô — em layout centralizado não há espaço
+             lateral pra ele flutuar sem cobrir alguma coisa. */
+          .hero-visual { flex-direction: column; align-items: center; justify-content: flex-start;
+            min-height: 0; width: 100%; max-width: 460px; gap: 4px; }
+          .nori-stage { padding-top: 0; width: min(320px, 100%); }
+          .nori-bubble { position: relative; top: auto; left: auto; width: min(340px, 100%); text-align: left; }
+          .nori-bubble::after { right: 34px; bottom: -8px; }
+          .nori-chip.check { left: -6%; }
+          .nori-chip.grid { right: -6%; }
         }
 
         /* ═══ MOBILE RESPONSIVE ═══ */
@@ -282,18 +441,18 @@ export default function App() {
           }
 
           .hero-section {
-            grid-template-columns: 1fr !important;
-            padding: 100px 20px 60px !important;
+            padding: 104px 20px 44px !important;
             min-height: auto !important;
-            gap: 0px !important;
+            gap: 26px !important;
           }
-          .hero-windows { display: none !important; }
-          .hero-stats {
-            flex-wrap: wrap !important;
-            gap: 20px !important;
-          }
-          .hero-stats > div { min-width: calc(50% - 20px); }
-          .hero-buttons { flex-wrap: wrap !important; }
+          .hero-title { letter-spacing: -1.4px; }
+          .nori-stage { width: min(270px, 82%); }
+          .nori-bubble { width: 100%; }
+          .nori-chip { width: 44px; height: 44px; border-radius: 13px; }
+          .hero-bar { flex-direction: column; gap: 20px; padding: 20px; }
+          .hero-benefits { grid-template-columns: repeat(2, minmax(0,1fr)); text-align: left; }
+          .hero-bar-divider { width: 100%; height: 1px; background: linear-gradient(90deg, transparent, rgba(167,139,250,0.3), transparent); }
+          .hero-stats { grid-template-columns: repeat(4, 1fr); justify-items: center; text-align: center; gap: 12px; }
           .hero-buttons a { flex: 1; text-align: center; justify-content: center; min-width: 140px; }
 
           .section-padding { padding: 72px 20px !important; }
@@ -338,9 +497,10 @@ export default function App() {
         @media (max-width: 480px) {
           .process-grid { grid-template-columns: 1fr !important; }
           .footer-grid { grid-template-columns: 1fr !important; }
-          .hero-stats { gap: 16px !important; }
+          .hero-benefits { grid-template-columns: 1fr !important; }
+          .hero-stats { grid-template-columns: repeat(2, 1fr) !important; gap: 14px !important; }
           .section-padding { padding: 56px 16px !important; }
-          .hero-section { padding: 96px 16px 48px !important; }
+          .hero-section { padding: 96px 16px 40px !important; }
           .cta-section { padding: 64px 16px 80px !important; }
           .featured-text { padding: 24px 18px !important; }
           .featured-mockup { padding: 18px !important; }
@@ -433,116 +593,126 @@ export default function App() {
       )}
 
       {/* ═══ HERO ═══ */}
-      <section className="hero-section" style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "1.1fr 0.9fr", alignItems: "center", padding: "120px 60px 80px", gap: 60, maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
-        <div>
-          <Reveal delay={0.1}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 16px 6px 10px", background: "rgba(124, 58, 237,0.08)", border: "1px solid rgba(124, 58, 237,0.12)", borderRadius: 100, marginBottom: 28 }}>
-              <div style={{ position: "relative" }}>
-                <div style={{ width: 8, height: 8, background: "#7C3AED", borderRadius: "50%" }} />
-                <div style={{ position: "absolute", inset: -4, borderRadius: "50%", border: "1px solid #7C3AED", animation: "pulse-ring 2s cubic-bezier(0,0,0.2,1) infinite" }} />
-              </div>
-              <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#7C3AED", textTransform: "uppercase", letterSpacing: 2 }}>Noratech · Software sob medida</span>
+      <section className="hero-section">
+        {/* Atmosfera própria do hero: o roxo fica concentrado na primeira
+            dobra e se dissolve no #08080a do resto do site. */}
+        <div className="hero-aura" aria-hidden="true">
+          <div className="hero-aura-glow a" />
+          <div className="hero-aura-glow b" />
+          <svg className="hero-mesh" viewBox="0 0 1440 340" preserveAspectRatio="none">
+            {Array.from({ length: 11 }, (_, i) => (
+              <path
+                key={i}
+                d={`M0 ${96 + i * 21} C 260 ${52 + i * 19}, 470 ${152 + i * 17}, 730 ${112 + i * 19} S 1210 ${64 + i * 21}, 1440 ${124 + i * 19}`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1"
+                opacity={0.55 - i * 0.03}
+              />
+            ))}
+          </svg>
+        </div>
+
+        <div className="hero-copy">
+          <Reveal delay={0.05}>
+            <div className="hero-badge">
+              <span className="hero-badge-dot" />
+              Noratech · Software sob medida
             </div>
           </Reveal>
 
-          <Reveal delay={0.25}>
-            <h1 style={{ fontSize: "clamp(2.8rem, 5.2vw, 4.8rem)", fontWeight: 800, lineHeight: 1.05, letterSpacing: -2.5, marginBottom: 24 }}>
-              Automação e software sob medida para{" "}
-              <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#7C3AED" }}>escalar</span>{" "}
-              sua operação.
+          <Reveal delay={0.18}>
+            <h1 className="hero-title">
+              Automatizamos processos.
+              <span className="hero-title-accent">Potencializamos resultados.</span>
             </h1>
           </Reveal>
 
-          <Reveal delay={0.4}>
-            <p style={{ fontSize: "1.08rem", lineHeight: 1.7, color: "rgba(255,255,255,0.45)", maxWidth: 480, marginBottom: 40 }}>
-              Desenvolvemos sistemas, bots de atendimento e integrações que eliminam retrabalho, reduzem custos operacionais e liberam seu time para focar no que gera receita.
+          <Reveal delay={0.3}>
+            <p className="hero-sub">
+              Soluções de software sob medida que eliminam falhas humanas, aumentam a produtividade e aceleram o crescimento da sua empresa.
             </p>
           </Reveal>
 
-          <Reveal delay={0.55}>
-            <div className="hero-buttons" style={{ display: "flex", gap: 12 }}>
-              <a href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20solicitar%20um%20or%C3%A7amento%20com%20a%20Noratech." target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 30px", background: "#7C3AED", color: "#ffffff", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", transition: "all 0.3s" }}>
-                Solicitar orçamento <span style={{ fontSize: "1.1rem" }}>↗</span>
+          <Reveal delay={0.42}>
+            <div className="hero-buttons">
+              <a className="hero-cta-primary" href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20solicitar%20um%20or%C3%A7amento%20com%20a%20Noratech." target="_blank" rel="noopener noreferrer">
+                Solicitar orçamento <span aria-hidden="true">↗</span>
               </a>
-              <a href="#produtos" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 28px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, fontWeight: 600, fontSize: "0.92rem", transition: "all 0.3s" }}>
+              <a className="hero-cta-ghost" href="#produtos">
                 Conhecer soluções
               </a>
             </div>
           </Reveal>
 
-          {/* Stats row */}
-          <Reveal delay={0.7}>
-            <div className="hero-stats" style={{ display: "flex", gap: 40, marginTop: 56, paddingTop: 32, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-              {[["50+", "Clientes"], ["200+", "Automações"], ["99.9%", "Uptime"], ["24/7", "Suporte"]].map(([val, label], i) => (
-                <div key={i}>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "1.5rem", fontWeight: 700, color: "#7C3AED" }}>{val}</div>
-                  <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: 1, marginTop: 2 }}>{label}</div>
-                </div>
-              ))}
-            </div>
-          </Reveal>
         </div>
 
-        {/* Hero right — floating windows with mouse parallax */}
-        <div className="hero-windows" style={{ position: "relative", height: 520, perspective: 1200 }}>
-          {/* Terminal window */}
-          <div style={{
-            position: "absolute", width: 340, top: 0, left: 0, background: "#141416", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, overflow: "hidden",
-            boxShadow: "0 25px 80px rgba(0,0,0,0.5)", zIndex: 3, animation: "float1 8s ease-in-out infinite",
-            transform: `translate(${(mousePos.x - 0.5) * 15}px, ${(mousePos.y - 0.5) * 12}px)`
-          }}>
-            <WinBar title="terminal — noratech" />
-            <div style={{ padding: 16, fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", lineHeight: 2 }}>
-              <div><span style={{ color: "#7C3AED" }}>▸</span> <span style={{ color: "#eeede9" }}>noratech deploy</span> <span style={{ color: "#25D366" }}>--production</span></div>
-              <div style={{ color: "#00d48a" }}>✓ WhatsApp Bot conectado</div>
-              <div style={{ color: "#00d48a" }}>✓ Finzo sync — 3 contas ativas</div>
-              <div style={{ color: "#00d48a" }}>✓ Sites publicados com sucesso</div>
-              <div><span style={{ color: "#7C3AED" }}>▸</span> <span style={{ color: "#eeede9" }}>status</span></div>
-              <div style={{ color: "#00d48a" }}>● Todos os serviços online</div>
-              <div><span style={{ color: "#7C3AED" }}>▸</span> <span style={{ display: "inline-block", width: 7, height: 14, background: "#7C3AED", animation: "blink 1s step-end infinite", verticalAlign: "middle" }} /></div>
-            </div>
+        {/* Nori + balão. O parallax do mouse é sutil e em sentidos opostos
+            entre o robô e os cartões, o que dá sensação de profundidade. */}
+        <div className="hero-visual">
+          <div
+            className="nori-bubble"
+            style={{ transform: `translate(${(mousePos.x - 0.5) * -14}px, ${(mousePos.y - 0.5) * -10}px)` }}
+          >
+            <span className="nori-bubble-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.3-.6L3 21l1.7-5a8.2 8.2 0 0 1-.7-3.4 8.4 8.4 0 0 1 8.5-8.4 8.4 8.4 0 0 1 8.5 8.3z" />
+              </svg>
+            </span>
+            <p className="nori-bubble-title">Eu sou o <strong>Nori!</strong></p>
+            <p className="nori-bubble-text">
+              Automatizo seus processos para eliminar falhas humanas e entregar mais rapidez, padronização e precisão.
+            </p>
           </div>
 
-          {/* Store window */}
-          <div style={{
-            position: "absolute", width: 260, top: 50, right: 0, background: "#141416", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, overflow: "hidden",
-            boxShadow: "0 25px 80px rgba(0,0,0,0.5)", zIndex: 2, animation: "float2 10s ease-in-out infinite",
-            transform: `translate(${(mousePos.x - 0.5) * -10}px, ${(mousePos.y - 0.5) * 8}px)`
-          }}>
-            <WinBar title="store.app" />
-            <div style={{ padding: 10 }}>
-              {PRODUCTS.slice(0, 3).map(p => (
-                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 12, marginBottom: 4, border: "1px solid rgba(255,255,255,0.04)", transition: "all 0.3s" }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem", background: `${p.color}12`, flexShrink: 0 }}>{p.icon}</div>
+          <div
+            className="nori-stage"
+            style={{ transform: `translate(${(mousePos.x - 0.5) * 16}px, ${(mousePos.y - 0.5) * 10}px)` }}
+          >
+            <span className="nori-chip check" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+            </span>
+            <span className="nori-chip gear" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3.2" /><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z" /></svg>
+            </span>
+            <span className="nori-chip grid" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="6" r="1.8" /><circle cx="12" cy="6" r="1.8" /><circle cx="18" cy="6" r="1.8" /><circle cx="6" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="18" cy="12" r="1.8" /><circle cx="6" cy="18" r="1.8" /><circle cx="12" cy="18" r="1.8" /><circle cx="18" cy="18" r="1.8" /></svg>
+            </span>
+
+            <NoriRobot className="nori-figure" />
+          </div>
+        </div>
+
+        <Reveal delay={0.55} className="hero-bar-slot">
+          <div className="hero-bar">
+            <div className="hero-benefits">
+              {HERO_BENEFITS.map((b) => (
+                <div className="hero-benefit" key={b.title}>
+                  <span className="hero-benefit-icon" aria-hidden="true">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                      {b.icon}
+                    </svg>
+                  </span>
                   <div>
-                    <div style={{ fontSize: "0.76rem", fontWeight: 700 }}>{p.name}</div>
-                    <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.3)" }}>{p.tags.join(" · ")}</div>
+                    <div className="hero-benefit-title">{b.title}</div>
+                    <div className="hero-benefit-desc">{b.desc}</div>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
 
-          {/* Metrics window */}
-          <div style={{
-            position: "absolute", width: 200, bottom: 10, left: 60, background: "#141416", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, overflow: "hidden",
-            boxShadow: "0 25px 80px rgba(0,0,0,0.5)", zIndex: 4, animation: "float3 9s ease-in-out infinite",
-            transform: `translate(${(mousePos.x - 0.5) * 18}px, ${(mousePos.y - 0.5) * -10}px)`
-          }}>
-            <WinBar title="metrics.live" />
-            <div style={{ padding: "8px 14px" }}>
-              {[["Projetos", "4"], ["Clientes", "50+"], ["Automações", "200+"], ["Uptime", "99.9%"]].map(([k, v], i) => (
-                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < 3 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
-                  <span style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.3)" }}>{k}</span>
-                  <span style={{ fontSize: "0.76rem", fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: "#7C3AED" }}>{v}</span>
+            <div className="hero-bar-divider" aria-hidden="true" />
+
+            <div className="hero-stats">
+              {HERO_STATS.map(([val, label]) => (
+                <div className="hero-stat" key={label}>
+                  <div className="hero-stat-value">{val}</div>
+                  <div className="hero-stat-label">{label}</div>
                 </div>
               ))}
             </div>
           </div>
-
-          {/* Decorative glow behind windows */}
-          <div style={{ position: "absolute", width: 300, height: 300, top: "30%", left: "30%", background: "radial-gradient(circle, rgba(124, 58, 237,0.06) 0%, transparent 60%)", filter: "blur(50px)", pointerEvents: "none" }} />
-        </div>
+        </Reveal>
       </section>
 
       {/* ═══ MARQUEE ═══ */}
