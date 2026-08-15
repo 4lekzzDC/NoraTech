@@ -127,6 +127,9 @@ export default function SupportChatPanel({ C, isDark, onBack }) {
         .sc-dot:nth-child(2){ animation-delay:.2s } .sc-dot:nth-child(3){ animation-delay:.4s }
         .sc-send:disabled { opacity:.45; cursor:not-allowed; }
         .sc-input::placeholder { color:${C.muted}; }
+        /* rola normalmente ao passar de 6 linhas, só a barra visível some */
+        .sc-input { scrollbar-width:none; -ms-overflow-style:none; }
+        .sc-input::-webkit-scrollbar { display:none; width:0; height:0; }
       `}</style>
 
       <div style={{ padding: '22px 24px 12px', flexShrink: 0 }}>
