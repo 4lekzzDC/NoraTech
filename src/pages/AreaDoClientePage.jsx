@@ -11,6 +11,9 @@ import { supabase, AVATARS_BUCKET } from '../lib/supabase';
 import { fetchMyCompany, fetchCompanyMembers, leaveCompany, COMPANY_ROLE_LABEL } from '../lib/companies';
 import { fetchSystems, indexSystems } from '../lib/systems';
 import UserProfileModal from '../components/UserProfileModal';
+import SupportChatPanel from '../components/SupportChatPanel';
+import SupportTicketsPanel from '../components/SupportTicketsPanel';
+import { createTicket } from '../lib/supportChat';
 import { getPalette, FONT_INTER, FONT_MONO } from '../modules/solucoes-contabeis/theme';
 
 const MONTHS_PT = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
@@ -275,7 +278,7 @@ function LeaveTeamModal({ companyName, onClose, onConfirm, confirming, error, P 
 
 const WHATSAPP_NUMBER = '5511999999999'; // substituir pelo número real
 
-function SupportModal({ onClose, P }) {
+function SupportModal({ onClose, P, companyId }) {
   const isDark = P.bg === '#08080a';
   const C = {
     panelBg:    isDark ? '#18181b' : '#ffffff',
@@ -290,9 +293,28 @@ function SupportModal({ onClose, P }) {
     closeColor: isDark ? 'rgba(255,255,255,0.7)'  : 'rgba(0,0,0,0.55)',
   };
 
+  const [chatOpen, setChatOpen] = useState(false);
+  const [ticketsOpen, setTicketsOpen] = useState(false);
+  // Muda para forçar a remontagem da listagem depois de abrir um ticket novo.
+  const [ticketsKey, setTicketsKey] = useState(0);
   const [ticketOpen, setTicketOpen] = useState(false);
   const [ticketForm, setTicketForm] = useState({ subject: '', category: '', description: '' });
   const [ticketSent, setTicketSent] = useState(false);
+  const [ticketSending, setTicketSending] = useState(false);
+  const [ticketError, setTicketError] = useState(null);
+
+  const handleCreateTicket = async () => {
+    try {
+      setTicketSending(true);
+      setTicketError(null);
+      await createTicket({ ...ticketForm, companyId });
+      setTicketSent(true);
+    } catch (err) {
+      setTicketError(err.message || 'Não foi possível abrir o ticket.');
+    } finally {
+      setTicketSending(false);
+    }
+  };
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -310,8 +332,8 @@ function SupportModal({ onClose, P }) {
       ),
       label: 'Chat no sistema',
       desc: 'Converse com nosso atendimento por IA dentro da plataforma.',
-      badge: 'Em breve',
-      action: null,
+      badge: null,
+      action: () => setChatOpen(true),
       color: '#6366f1',
       colorSoft: isDark ? 'rgba(99,102,241,0.14)' : 'rgba(99,102,241,0.09)',
       colorBd: isDark ? 'rgba(99,102,241,0.3)' : 'rgba(99,102,241,0.2)',
@@ -326,10 +348,10 @@ function SupportModal({ onClose, P }) {
           <line x1="16" y1="17" x2="8" y2="17" />
         </svg>
       ),
-      label: 'Abrir ticket',
-      desc: 'Registre uma solicitação para acompanhamento pelo suporte.',
+      label: 'Tickets',
+      desc: 'Acompanhe suas solicitações e abra novos chamados.',
       badge: null,
-      action: () => setTicketOpen(true),
+      action: () => setTicketsOpen(true),
       color: '#7C3AED',
       colorSoft: isDark ? 'rgba(124,58,237,0.14)' : 'rgba(124,58,237,0.09)',
       colorBd: isDark ? 'rgba(124,58,237,0.3)' : 'rgba(124,58,237,0.2)',
@@ -371,12 +393,23 @@ function SupportModal({ onClose, P }) {
     <div role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(14px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <section role="dialog" aria-modal="true" aria-label="Falar com suporte"
-        style={{ width: 'min(520px, 100%)', background: C.panelBg, border: `1px solid ${C.panelBd}`, borderRadius: 20, boxShadow: '0 24px 80px rgba(0,0,0,0.55)', overflow: 'hidden', color: C.text, fontFamily: FONT_INTER, position: 'relative' }}>
+        // A listagem de tickets tem 6 colunas e não cabe nos 520px das outras
+        // telas do modal; só ela alarga.
+        style={{ width: ticketsOpen ? 'min(940px, 100%)' : 'min(520px, 100%)', background: C.panelBg, border: `1px solid ${C.panelBd}`, borderRadius: 20, boxShadow: '0 24px 80px rgba(0,0,0,0.55)', overflow: 'hidden', color: C.text, fontFamily: FONT_INTER, position: 'relative', transition: 'width .2s ease' }}>
 
         <button type="button" onClick={onClose} aria-label="Fechar"
           style={{ position: 'absolute', top: 14, right: 14, zIndex: 2, width: 32, height: 32, borderRadius: '50%', border: `1px solid ${C.closeBd}`, background: C.closeBg, color: C.closeColor, cursor: 'pointer', fontSize: '1rem', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
 
-        {!ticketOpen ? (
+        {chatOpen ? (
+          <SupportChatPanel C={C} isDark={isDark} onBack={() => setChatOpen(false)} />
+        ) : ticketsOpen && !ticketOpen ? (
+          <SupportTicketsPanel
+            key={ticketsKey}
+            C={C} isDark={isDark}
+            onBack={() => setTicketsOpen(false)}
+            onNewTicket={() => setTicketOpen(true)}
+          />
+        ) : !ticketOpen ? (
           <div style={{ padding: '28px 24px 24px' }}>
             <div style={{ marginBottom: 20 }}>
               <h2 style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: -0.3, marginBottom: 5, color: C.text }}>Falar com suporte</h2>
@@ -425,11 +458,20 @@ function SupportModal({ onClose, P }) {
                 <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(34,197,94,0.14)', border: '1px solid rgba(34,197,94,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                 </div>
-                <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: 8, color: C.text }}>Ticket em preparação</h3>
-                <p style={{ fontSize: '0.82rem', color: C.muted, lineHeight: 1.5 }}>Esta função estará disponível em breve. Em seguida, sua solicitação será enviada automaticamente para a equipe de suporte.</p>
-                <button type="button" onClick={onClose}
+                <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: 8, color: C.text }}>Ticket aberto</h3>
+                <p style={{ fontSize: '0.82rem', color: C.muted, lineHeight: 1.5 }}>Sua solicitação foi registrada e a equipe de suporte já pode vê-la. Você será avisado por e-mail quando houver resposta.</p>
+                {/* Volta para a listagem (remontando-a, para o ticket novo já
+                    aparecer) em vez de fechar o modal — fechar esconderia
+                    justamente o que o usuário acabou de criar. */}
+                <button type="button" onClick={() => {
+                  setTicketOpen(false);
+                  setTicketSent(false);
+                  setTicketForm({ subject: '', category: '', description: '' });
+                  setTicketsOpen(true);
+                  setTicketsKey((k) => k + 1);
+                }}
                   style={{ marginTop: 20, padding: '9px 22px', borderRadius: 10, background: 'rgba(124,58,237,0.16)', border: '1px solid rgba(124,58,237,0.3)', color: '#a78bfa', fontWeight: 700, cursor: 'pointer', fontFamily: FONT_INTER, fontSize: '0.85rem' }}>
-                  Fechar
+                  Ver meus tickets
                 </button>
               </div>
             ) : (
@@ -462,10 +504,16 @@ function SupportModal({ onClose, P }) {
                       rows={4}
                       style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.cardBd}`, background: isDark ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.04)', color: C.text, outline: 'none', fontFamily: FONT_INTER, fontSize: '0.85rem', resize: 'vertical', boxSizing: 'border-box', minHeight: 90 }} />
                   </div>
+                  {ticketError && (
+                    <div style={{ padding: '9px 12px', borderRadius: 10, background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.26)', color: '#ff9ab4', fontSize: '0.78rem', fontWeight: 600 }}>
+                      {ticketError}
+                    </div>
+                  )}
                   <button type="button"
-                    onClick={() => setTicketSent(true)}
-                    style={{ padding: '10px 20px', borderRadius: 10, background: 'rgba(124,58,237,0.16)', border: '1px solid rgba(124,58,237,0.3)', color: '#a78bfa', fontWeight: 800, cursor: 'pointer', fontFamily: FONT_INTER, fontSize: '0.88rem', textAlign: 'center' }}>
-                    Abrir ticket
+                    onClick={handleCreateTicket}
+                    disabled={ticketSending || !ticketForm.subject.trim() || !ticketForm.description.trim()}
+                    style={{ padding: '10px 20px', borderRadius: 10, background: 'rgba(124,58,237,0.16)', border: '1px solid rgba(124,58,237,0.3)', color: '#a78bfa', fontWeight: 800, cursor: ticketSending ? 'wait' : 'pointer', fontFamily: FONT_INTER, fontSize: '0.88rem', textAlign: 'center', opacity: (ticketSending || !ticketForm.subject.trim() || !ticketForm.description.trim()) ? 0.5 : 1 }}>
+                    {ticketSending ? 'Abrindo...' : 'Abrir ticket'}
                   </button>
                 </div>
               </>
@@ -1196,6 +1244,7 @@ export default function AreaDoClientePage() {
         <SupportModal
           onClose={() => setSupportModalOpen(false)}
           P={P}
+          companyId={companyInfo?.company?.id ?? null}
         />
       )}
 
