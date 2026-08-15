@@ -105,6 +105,28 @@ export async function createTicket({ subject, category, description, companyId }
   return ticket;
 }
 
+/**
+ * Responde a um ticket já aberto (fora do chat de IA). A RLS só aceita a
+ * inserção com sender_type='user' se o ticket for do próprio usuário e
+ * ainda não estiver fechado; o trigger do banco reabre o ticket (volta pra
+ * 'open') quando ele estava em 'waiting_user'/'resolved'.
+ */
+export async function sendTicketReply({ ticketId, message }) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Sessão expirada. Entre novamente.');
+
+  const text = message.trim();
+  if (!text) throw new Error('Mensagem vazia');
+
+  const { error } = await supabase.from('support_messages').insert({
+    ticket_id: ticketId,
+    sender_type: 'user',
+    sender_id: user.id,
+    message: text,
+  });
+  if (error) throw new Error(error.message);
+}
+
 /** Todos os tickets do usuário (RLS já limita aos dele). */
 export async function fetchMyTickets() {
   const { data, error } = await supabase

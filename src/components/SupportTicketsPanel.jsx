@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
-  fetchMyTickets, fetchChatMessages,
+  fetchMyTickets, fetchChatMessages, sendTicketReply,
   TICKET_STATUS, TICKET_CATEGORY, SENDER_LABEL,
 } from '../lib/supportChat';
 import { sanitizeBioHtml } from '../lib/richText';
@@ -58,6 +58,9 @@ export default function SupportTicketsPanel({ C, isDark, onBack, onNewTicket }) 
   const [openTicket, setOpenTicket] = useState(null);
   const [thread, setThread] = useState([]);
   const [loadingThread, setLoadingThread] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+  const threadRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -118,6 +121,7 @@ export default function SupportTicketsPanel({ C, isDark, onBack, onNewTicket }) 
   const openThread = useCallback(async (ticket) => {
     setOpenTicket(ticket);
     setLoadingThread(true);
+    setReplyText('');
     try {
       setThread(await fetchChatMessages(ticket.id));
     } catch (err) {
@@ -127,17 +131,62 @@ export default function SupportTicketsPanel({ C, isDark, onBack, onNewTicket }) 
     }
   }, []);
 
+  // Abre a conversa já na última mensagem — é o que interessa quem voltou
+  // pra ver se a equipe respondeu, não o início do histórico.
+  useEffect(() => {
+    const el = threadRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [thread]);
+
+  const sendReply = useCallback(async () => {
+    const text = replyText.trim();
+    if (!text || !openTicket || sendingReply) return;
+    setSendingReply(true);
+    setError(null);
+    try {
+      await sendTicketReply({ ticketId: openTicket.id, message: text });
+      setReplyText('');
+      const [msgs, rows] = await Promise.all([fetchChatMessages(openTicket.id), fetchMyTickets()]);
+      setThread(msgs);
+      setTickets(rows);
+      setOpenTicket((cur) => rows.find((t) => t.id === cur?.id) || cur);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSendingReply(false);
+    }
+  }, [replyText, openTicket, sendingReply]);
+
   const inputStyle = {
     padding: '7px 10px', borderRadius: 9, border: `1px solid ${C.cardBd}`,
     background: isDark ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.04)', color: C.text,
     outline: 'none', fontFamily: FONT_INTER, fontSize: '0.78rem', boxSizing: 'border-box',
   };
 
+  // Barra fina na cor do tema em vez da barra cinza padrão do SO — some tanto
+  // em telas claras quanto escuras porque a cor do polegar vem de C/isDark.
+  const scrollThumb = isDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.16)';
+  const scrollThumbHover = isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.28)';
+  const scrollCss = `
+    .tk-scroll { scrollbar-width:thin; scrollbar-color:${scrollThumb} transparent; }
+    .tk-scroll::-webkit-scrollbar { width:8px; height:8px; }
+    .tk-scroll::-webkit-scrollbar-track { background:transparent; }
+    .tk-scroll::-webkit-scrollbar-thumb { background:${scrollThumb}; border-radius:8px; }
+    .tk-scroll::-webkit-scrollbar-thumb:hover { background:${scrollThumbHover}; }
+  `;
+
   // ── Conversa de um ticket ──
   if (openTicket) {
     const st = TICKET_STATUS[openTicket.status] || TICKET_STATUS.open;
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: 'min(560px, 72vh)', fontFamily: FONT_INTER }}>
+        <style>{`
+          ${scrollCss}
+          .tk-msg-rich ul, .tk-msg-rich ol { padding-left:20px; margin:6px 0; }
+          .tk-msg-rich li { margin:2px 0; }
+          .tk-msg-rich p { margin:6px 0; }
+          .tk-msg-rich a { color:#a78bfa; text-decoration:underline; }
+        `}</style>
         <div style={{ padding: '22px 24px 12px', flexShrink: 0 }}>
           <button type="button" onClick={() => { setOpenTicket(null); setThread([]); }} style={backBtn(C)}>
             <ChevronLeft /> Voltar aos tickets
@@ -152,7 +201,7 @@ export default function SupportTicketsPanel({ C, isDark, onBack, onNewTicket }) 
             {st.label} · {TICKET_CATEGORY[openTicket.category] || openTicket.category} · aberto em {formatDate(openTicket.created_at)}
           </p>
         </div>
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 24px 20px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <div ref={threadRef} className="tk-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 9 }}>
           {loadingThread ? (
             <div style={{ margin: 'auto', color: C.muted, fontSize: '0.82rem' }}>Carregando...</div>
           ) : thread.length === 0 ? (
@@ -180,6 +229,24 @@ export default function SupportTicketsPanel({ C, isDark, onBack, onNewTicket }) 
             );
           })}
         </div>
+        {openTicket.status === 'closed' ? (
+          <div style={{ padding: '14px 24px 20px', flexShrink: 0, borderTop: `1px solid ${C.cardBd}`, marginTop: 10 }}>
+            <p style={{ fontSize: '0.76rem', color: C.muted, textAlign: 'center' }}>
+              Este ticket foi encerrado. Abra um novo ticket se precisar de mais ajuda.
+            </p>
+          </div>
+        ) : (
+          <div style={{ padding: '14px 24px 20px', flexShrink: 0, borderTop: `1px solid ${C.cardBd}`, marginTop: 10, display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+            <textarea value={replyText} onChange={(e) => setReplyText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
+              placeholder="Responder..." rows={1} maxLength={4000}
+              style={{ flex: 1, resize: 'none', minHeight: 40, maxHeight: 120, padding: '10px 13px', borderRadius: 12, border: `1px solid ${C.cardBd}`, background: isDark ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.04)', color: C.text, outline: 'none', fontFamily: FONT_INTER, fontSize: '0.84rem', lineHeight: 1.4, boxSizing: 'border-box' }} />
+            <button type="button" onClick={sendReply} disabled={!replyText.trim() || sendingReply} aria-label="Enviar mensagem"
+              style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 12, border: '1px solid rgba(124,58,237,0.32)', background: 'rgba(124,58,237,0.16)', color: '#a78bfa', cursor: (!replyText.trim() || sendingReply) ? 'not-allowed' : 'pointer', opacity: (!replyText.trim() || sendingReply) ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -188,6 +255,7 @@ export default function SupportTicketsPanel({ C, isDark, onBack, onNewTicket }) 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'min(600px, 78vh)', fontFamily: FONT_INTER }}>
       <style>{`
+        ${scrollCss}
         .tk-th { text-align:left; font-size:.66rem; font-weight:800; letter-spacing:.7px; text-transform:uppercase; color:${C.muted}; padding:0 8px 8px; white-space:nowrap; }
         .tk-th[data-sortable="true"] { cursor:pointer; user-select:none; }
         .tk-th[data-sortable="true"]:hover { color:${C.text}; }
@@ -237,7 +305,7 @@ export default function SupportTicketsPanel({ C, isDark, onBack, onNewTicket }) 
         </div>
       )}
 
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 24px' }}>
+      <div className="tk-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 24px' }}>
         {loading ? (
           <div style={{ padding: 40, textAlign: 'center', color: C.muted, fontSize: '0.82rem' }}>Carregando...</div>
         ) : filtered.length === 0 ? (
