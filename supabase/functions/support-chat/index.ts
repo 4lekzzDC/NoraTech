@@ -1,5 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import Anthropic from 'https://esm.sh/@anthropic-ai/sdk@0.70.0?target=deno';
 import { corsHeaders } from '../_shared/cors.ts';
 
 function json(data: unknown, status = 200) {
@@ -84,6 +83,26 @@ Use escalar_para_humano quando: você não souber responder, o cliente pedir par
 
 Você não executa ações na conta — não cancela, não cobra, não altera nada. Você orienta e escala.`;
 
+const GEMINI_MODEL = 'gemini-3.1-flash-lite';
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+
+// Schema da ferramenta de escalação, no formato que a API do Gemini espera
+// (tipos em maiúsculo — é assim que a documentação oficial do Google mostra).
+const ESCALATE_TOOL = {
+  functionDeclarations: [{
+    name: 'escalar_para_humano',
+    description: 'Encaminha esta conversa para a equipe de suporte humano. Use quando não souber responder, quando o cliente pedir uma pessoa, quando for preciso executar uma ação na conta, ou quando o cliente estiver insatisfeito.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        motivo: { type: 'STRING', description: 'Por que está escalando, em uma frase, para a equipe ler.' },
+        prioridade: { type: 'STRING', enum: ['low', 'medium', 'high', 'urgent'] },
+      },
+      required: ['motivo', 'prioridade'],
+    },
+  }],
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -91,9 +110,9 @@ Deno.serve(async (req) => {
   if (!authHeader) return json({ error: 'Não autorizado' }, 401);
 
   try {
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    const apiKey = Deno.env.get('GEMINI_API_KEY');
     if (!apiKey) {
-      return json({ error: 'O chat com IA ainda não foi configurado (ANTHROPIC_API_KEY ausente).' }, 503);
+      return json({ error: 'O chat com IA ainda não foi configurado (GEMINI_API_KEY ausente).' }, 503);
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
@@ -156,65 +175,51 @@ Deno.serve(async (req) => {
       .order('created_at', { ascending: true })
       .limit(40);
 
-    // 'admin' e 'system' também entram como assistant: do ponto de vista da
-    // conversa são "o lado do atendimento" falando.
-    const messages = (history || []).map((m: Record<string, unknown>) => ({
-      role: m.sender_type === 'user' ? 'user' as const : 'assistant' as const,
-      content: String(m.message),
+    // O Gemini só tem os papéis "user" e "model" no histórico de conversa —
+    // admin/system/ai entram como "model", do ponto de vista de quem
+    // pergunta é tudo "o lado do atendimento" falando.
+    const contents = (history || []).map((m: Record<string, unknown>) => ({
+      role: m.sender_type === 'user' ? 'user' : 'model',
+      parts: [{ text: String(m.message) }],
     }));
 
-    const anthropic = new Anthropic({ apiKey });
-
-    const response = await anthropic.messages.create({
-      // Sonnet em vez de Opus: responder pergunta de suporte a partir de um
-      // contexto pronto é bem mais barato aqui e a qualidade se mantém.
-      model: 'claude-sonnet-5',
-      max_tokens: 4000,
-      // effort baixo: perguntas de suporte são curtas e a latência é sentida
-      // direto no chat. Não desabilitamos o thinking — com ele desligado o
-      // modelo às vezes escreve a chamada de ferramenta como texto e a
-      // escalação silenciosamente não acontece.
-      output_config: { effort: 'low' },
-      system: [
-        { type: 'text', text: SYSTEM_PROMPT },
-        // cache_control no ÚLTIMO bloco de system: o cache é por prefixo, então
-        // marcar aqui guarda o prompt E o contexto da conta juntos. Marcar só
-        // no primeiro deixava o contexto (a parte maior) fora do cache, pago
-        // inteiro a cada mensagem da conversa.
-        { type: 'text', text: await buildAccountContext(admin, caller.id), cache_control: { type: 'ephemeral' } },
-      ],
-      tools: [{
-        name: 'escalar_para_humano',
-        description: 'Encaminha esta conversa para a equipe de suporte humano. Use quando não souber responder, quando o cliente pedir uma pessoa, quando for preciso executar uma ação na conta, ou quando o cliente estiver insatisfeito.',
-        input_schema: {
-          type: 'object',
-          properties: {
-            motivo: { type: 'string', description: 'Por que está escalando, em uma frase, para a equipe ler.' },
-            prioridade: { type: 'string', enum: ['low', 'medium', 'high', 'urgent'] },
-          },
-          required: ['motivo', 'prioridade'],
-        },
-      }],
-      messages,
+    const geminiRes = await fetch(GEMINI_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify({
+        contents,
+        systemInstruction: { parts: [{ text: `${SYSTEM_PROMPT}\n\n${await buildAccountContext(admin, caller.id)}` }] },
+        tools: [ESCALATE_TOOL],
+        generationConfig: { maxOutputTokens: 2000 },
+      }),
     });
+
+    if (!geminiRes.ok) {
+      const errBody = await geminiRes.text().catch(() => '');
+      console.error('[support-chat] Gemini error', geminiRes.status, errBody);
+      throw new Error(`Falha ao consultar a IA (${geminiRes.status}).`);
+    }
+
+    const data = await geminiRes.json();
+    const parts = data?.candidates?.[0]?.content?.parts ?? [];
 
     let escalated = false;
     let reply = '';
 
-    for (const block of response.content) {
-      if (block.type === 'text') reply += block.text;
-      if (block.type === 'tool_use' && block.name === 'escalar_para_humano') {
-        const input = block.input as { motivo?: string; prioridade?: string };
+    for (const part of parts) {
+      if (typeof part.text === 'string') reply += part.text;
+      if (part.functionCall?.name === 'escalar_para_humano') {
+        const args = part.functionCall.args as { motivo?: string; prioridade?: string };
         escalated = true;
         await admin.from('support_tickets').update({
           escalated_at: new Date().toISOString(),
-          priority: ['low', 'medium', 'high', 'urgent'].includes(input.prioridade ?? '') ? input.prioridade : 'medium',
+          priority: ['low', 'medium', 'high', 'urgent'].includes(args.prioridade ?? '') ? args.prioridade : 'medium',
           status: 'open',
           updated_at: new Date().toISOString(),
         }).eq('id', ticketId);
         await admin.from('support_messages').insert({
           ticket_id: ticketId, sender_type: 'system',
-          message: `Conversa encaminhada para a equipe. Motivo: ${input.motivo ?? 'não informado'}`,
+          message: `Conversa encaminhada para a equipe. Motivo: ${args.motivo ?? 'não informado'}`,
         });
       }
     }
