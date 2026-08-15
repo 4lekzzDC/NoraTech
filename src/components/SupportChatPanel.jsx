@@ -2,6 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { sendChatMessage, fetchOpenChat, fetchChatMessages } from '../lib/supportChat';
 
 const FONT_INTER = "'Inter', sans-serif";
+// 0.85rem * 1.5 de line-height ≈ 20.4px por linha; 6 linhas + os 20px de
+// padding vertical do campo (10px em cima e embaixo) dá a altura máxima.
+const INPUT_LINE_HEIGHT = 20.4;
+const INPUT_MAX_LINES = 6;
+const INPUT_MAX_HEIGHT = Math.round(INPUT_LINE_HEIGHT * INPUT_MAX_LINES + 20);
 
 function Bubble({ role, text, C }) {
   const isUser = role === 'user';
@@ -76,6 +81,14 @@ export default function SupportChatPanel({ C, isDark, onBack }) {
   }, [messages, sending]);
 
   useEffect(() => { if (!loading) inputRef.current?.focus(); }, [loading]);
+
+  // Cresce junto com o texto até 6 linhas; depois disso rola dentro do campo.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, INPUT_MAX_HEIGHT)}px`;
+  }, [draft]);
 
   const handleSend = useCallback(async () => {
     const text = draft.trim();
@@ -165,7 +178,7 @@ export default function SupportChatPanel({ C, isDark, onBack }) {
           placeholder="Escreva sua mensagem..."
           rows={1}
           maxLength={4000}
-          style={{ flex: 1, resize: 'none', maxHeight: 120, padding: '10px 13px', borderRadius: 12, border: `1px solid ${C.cardBd}`, background: isDark ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.04)', color: C.text, outline: 'none', fontFamily: FONT_INTER, fontSize: '0.85rem', lineHeight: 1.5, boxSizing: 'border-box' }}
+          style={{ flex: 1, resize: 'none', overflowY: 'auto', maxHeight: INPUT_MAX_HEIGHT, padding: '10px 13px', borderRadius: 12, border: `1px solid ${C.cardBd}`, background: isDark ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.04)', color: C.text, outline: 'none', fontFamily: FONT_INTER, fontSize: '0.85rem', lineHeight: 1.5, boxSizing: 'border-box' }}
         />
         <button type="button" className="sc-send" onClick={handleSend} disabled={!draft.trim() || sending} aria-label="Enviar mensagem"
           style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 12, border: '1px solid rgba(99,102,241,0.32)', background: 'rgba(99,102,241,0.18)', color: '#818cf8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
