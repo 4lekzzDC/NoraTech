@@ -12,6 +12,7 @@ import { fetchMyCompany, fetchCompanyMembers, leaveCompany, COMPANY_ROLE_LABEL }
 import { fetchSystems, indexSystems } from '../lib/systems';
 import UserProfileModal from '../components/UserProfileModal';
 import SupportChatPanel from '../components/SupportChatPanel';
+import SupportTicketsPanel from '../components/SupportTicketsPanel';
 import { createTicket } from '../lib/supportChat';
 import { getPalette, FONT_INTER, FONT_MONO } from '../modules/solucoes-contabeis/theme';
 
@@ -293,6 +294,9 @@ function SupportModal({ onClose, P, companyId }) {
   };
 
   const [chatOpen, setChatOpen] = useState(false);
+  const [ticketsOpen, setTicketsOpen] = useState(false);
+  // Muda para forçar a remontagem da listagem depois de abrir um ticket novo.
+  const [ticketsKey, setTicketsKey] = useState(0);
   const [ticketOpen, setTicketOpen] = useState(false);
   const [ticketForm, setTicketForm] = useState({ subject: '', category: '', description: '' });
   const [ticketSent, setTicketSent] = useState(false);
@@ -344,10 +348,10 @@ function SupportModal({ onClose, P, companyId }) {
           <line x1="16" y1="17" x2="8" y2="17" />
         </svg>
       ),
-      label: 'Abrir ticket',
-      desc: 'Registre uma solicitação para acompanhamento pelo suporte.',
+      label: 'Tickets',
+      desc: 'Acompanhe suas solicitações e abra novos chamados.',
       badge: null,
-      action: () => setTicketOpen(true),
+      action: () => setTicketsOpen(true),
       color: '#7C3AED',
       colorSoft: isDark ? 'rgba(124,58,237,0.14)' : 'rgba(124,58,237,0.09)',
       colorBd: isDark ? 'rgba(124,58,237,0.3)' : 'rgba(124,58,237,0.2)',
@@ -389,13 +393,22 @@ function SupportModal({ onClose, P, companyId }) {
     <div role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(14px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <section role="dialog" aria-modal="true" aria-label="Falar com suporte"
-        style={{ width: 'min(520px, 100%)', background: C.panelBg, border: `1px solid ${C.panelBd}`, borderRadius: 20, boxShadow: '0 24px 80px rgba(0,0,0,0.55)', overflow: 'hidden', color: C.text, fontFamily: FONT_INTER, position: 'relative' }}>
+        // A listagem de tickets tem 6 colunas e não cabe nos 520px das outras
+        // telas do modal; só ela alarga.
+        style={{ width: ticketsOpen ? 'min(940px, 100%)' : 'min(520px, 100%)', background: C.panelBg, border: `1px solid ${C.panelBd}`, borderRadius: 20, boxShadow: '0 24px 80px rgba(0,0,0,0.55)', overflow: 'hidden', color: C.text, fontFamily: FONT_INTER, position: 'relative', transition: 'width .2s ease' }}>
 
         <button type="button" onClick={onClose} aria-label="Fechar"
           style={{ position: 'absolute', top: 14, right: 14, zIndex: 2, width: 32, height: 32, borderRadius: '50%', border: `1px solid ${C.closeBd}`, background: C.closeBg, color: C.closeColor, cursor: 'pointer', fontSize: '1rem', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
 
         {chatOpen ? (
           <SupportChatPanel C={C} isDark={isDark} onBack={() => setChatOpen(false)} />
+        ) : ticketsOpen && !ticketOpen ? (
+          <SupportTicketsPanel
+            key={ticketsKey}
+            C={C} isDark={isDark}
+            onBack={() => setTicketsOpen(false)}
+            onNewTicket={() => setTicketOpen(true)}
+          />
         ) : !ticketOpen ? (
           <div style={{ padding: '28px 24px 24px' }}>
             <div style={{ marginBottom: 20 }}>
@@ -447,9 +460,18 @@ function SupportModal({ onClose, P, companyId }) {
                 </div>
                 <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: 8, color: C.text }}>Ticket aberto</h3>
                 <p style={{ fontSize: '0.82rem', color: C.muted, lineHeight: 1.5 }}>Sua solicitação foi registrada e a equipe de suporte já pode vê-la. Você será avisado por e-mail quando houver resposta.</p>
-                <button type="button" onClick={onClose}
+                {/* Volta para a listagem (remontando-a, para o ticket novo já
+                    aparecer) em vez de fechar o modal — fechar esconderia
+                    justamente o que o usuário acabou de criar. */}
+                <button type="button" onClick={() => {
+                  setTicketOpen(false);
+                  setTicketSent(false);
+                  setTicketForm({ subject: '', category: '', description: '' });
+                  setTicketsOpen(true);
+                  setTicketsKey((k) => k + 1);
+                }}
                   style={{ marginTop: 20, padding: '9px 22px', borderRadius: 10, background: 'rgba(124,58,237,0.16)', border: '1px solid rgba(124,58,237,0.3)', color: '#a78bfa', fontWeight: 700, cursor: 'pointer', fontFamily: FONT_INTER, fontSize: '0.85rem' }}>
-                  Fechar
+                  Ver meus tickets
                 </button>
               </div>
             ) : (

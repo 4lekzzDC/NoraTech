@@ -1,11 +1,36 @@
-// Chat de suporte com IA.
+// Suporte: chat com IA e tickets.
 //
-// A chave da Anthropic e o contexto da conta ficam na Edge Function
+// A chave do Gemini e o contexto da conta ficam na Edge Function
 // `support-chat` — o navegador só manda o texto digitado e o id da conversa.
 // Montar o contexto no cliente permitiria a qualquer um forjar "sou dono da
 // empresa X" e fazer a IA falar dos dados de outro cliente.
 
 import { supabase } from './supabase';
+
+// Os 5 status do banco viram 3 rótulos para o cliente: o que ele precisa
+// saber é de quem é a vez, não o estado interno da fila do suporte.
+export const TICKET_STATUS = {
+  open:         { label: 'Aguardando', color: '#f59e0b', group: 'aguardando' },
+  in_progress:  { label: 'Aguardando', color: '#f59e0b', group: 'aguardando' },
+  waiting_user: { label: 'Respondido', color: '#60a5fa', group: 'respondido' },
+  resolved:     { label: 'Concluído',  color: '#22c55e', group: 'concluido' },
+  closed:       { label: 'Concluído',  color: '#22c55e', group: 'concluido' },
+};
+
+export const TICKET_CATEGORY = {
+  account:   'Acesso / Login',
+  technical: 'Problema no sistema',
+  billing:   'Financeiro / Assinatura',
+  general:   'Dúvida geral',
+  other:     'Outro',
+};
+
+export const SENDER_LABEL = {
+  user: 'Você',
+  admin: 'Equipe',
+  ai: 'Atendimento IA',
+  system: 'Sistema',
+};
 
 /** Envia uma mensagem. `ticketId` null inicia uma conversa nova. */
 export async function sendChatMessage({ ticketId, message }) {
@@ -78,6 +103,16 @@ export async function createTicket({ subject, category, description, companyId }
   if (msgError) throw new Error(msgError.message);
 
   return ticket;
+}
+
+/** Todos os tickets do usuário (RLS já limita aos dele). */
+export async function fetchMyTickets() {
+  const { data, error } = await supabase
+    .from('support_tickets')
+    .select('id, ticket_number, subject, status, category, channel, created_at, last_message_at, last_message_sender')
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return data || [];
 }
 
 export async function fetchChatMessages(ticketId) {
