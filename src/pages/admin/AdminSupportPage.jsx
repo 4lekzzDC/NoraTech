@@ -373,7 +373,7 @@ export default function AdminSupportPage() {
                 {selected.escalated_at && ` · escalado em ${formatDateTime(selected.escalated_at)}`}
               </div>
               <div style={{ display: 'flex', gap: 7, marginTop: 10, flexWrap: 'wrap' }}>
-                {['in_progress', 'resolved', 'closed'].map((s) => (
+                {['in_progress', 'waiting_user', 'resolved', 'closed'].map((s) => (
                   <button key={s} type="button" className="sup-tab" data-active={selected.status === s}
                     onClick={() => setStatus(s)}>{STATUS_META[s].label}</button>
                 ))}
