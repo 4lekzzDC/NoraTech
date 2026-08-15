@@ -3,6 +3,7 @@ import {
   fetchMyTickets, fetchChatMessages,
   TICKET_STATUS, TICKET_CATEGORY, SENDER_LABEL,
 } from '../lib/supportChat';
+import { sanitizeBioHtml } from '../lib/richText';
 
 const FONT_INTER = "'Inter', sans-serif";
 const PAGE_SIZES = [5, 10, 15];
@@ -158,20 +159,23 @@ export default function SupportTicketsPanel({ C, isDark, onBack, onNewTicket }) 
             <div style={{ margin: 'auto', color: C.muted, fontSize: '0.82rem' }}>Sem mensagens neste ticket.</div>
           ) : thread.map((m) => {
             const mine = m.sender_type === 'user';
+            const isAdmin = m.sender_type === 'admin';
             return (
               <div key={m.id} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
                 <div style={{ fontSize: '0.66rem', color: C.muted, marginBottom: 3, textAlign: mine ? 'right' : 'left' }}>
                   {SENDER_LABEL[m.sender_type] || m.sender_type} · {formatRelative(m.created_at)}
                 </div>
-                <div style={{
-                  padding: '10px 13px', borderRadius: 13,
-                  background: mine ? 'rgba(99,102,241,0.16)' : C.cardBg,
-                  border: `1px solid ${mine ? 'rgba(99,102,241,0.3)' : C.cardBd}`,
-                  color: C.text, fontSize: '0.84rem', lineHeight: 1.55,
-                  whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                }}>
-                  {m.message}
-                </div>
+                <div
+                  className={isAdmin ? 'tk-msg-rich' : undefined}
+                  style={{
+                    padding: '10px 13px', borderRadius: 13,
+                    background: mine ? 'rgba(99,102,241,0.16)' : C.cardBg,
+                    border: `1px solid ${mine ? 'rgba(99,102,241,0.3)' : C.cardBd}`,
+                    color: C.text, fontSize: '0.84rem', lineHeight: 1.55,
+                    whiteSpace: isAdmin ? 'normal' : 'pre-wrap', wordBreak: 'break-word',
+                  }}
+                  {...(isAdmin ? { dangerouslySetInnerHTML: { __html: sanitizeBioHtml(m.message) } } : { children: m.message })}
+                />
               </div>
             );
           })}
@@ -191,6 +195,10 @@ export default function SupportTicketsPanel({ C, isDark, onBack, onNewTicket }) 
         .tk-row:hover td { background:${isDark ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.035)'}; }
         .tk-td { padding:11px 8px; font-size:.79rem; color:${C.text}; border-top:1px solid ${C.cardBd}; vertical-align:middle; }
         .tk-page-btn:disabled { opacity:.35; cursor:not-allowed; }
+        .tk-msg-rich ul, .tk-msg-rich ol { padding-left:20px; margin:6px 0; }
+        .tk-msg-rich li { margin:2px 0; }
+        .tk-msg-rich p { margin:6px 0; }
+        .tk-msg-rich a { color:#a78bfa; text-decoration:underline; }
       `}</style>
 
       <div style={{ padding: '22px 24px 14px', flexShrink: 0 }}>

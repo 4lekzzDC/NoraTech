@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { sendChatMessage, fetchOpenChat, fetchChatMessages } from '../lib/supportChat';
+import { sanitizeBioHtml } from '../lib/richText';
 
 const FONT_INTER = "'Inter', sans-serif";
 // 0.85rem * 1.5 de line-height ≈ 20.4px por linha; 6 linhas + os 20px de
@@ -20,6 +21,10 @@ function Bubble({ role, text, C }) {
     );
   }
 
+  // Só a equipe compõe em rich text (painel do admin); cliente e IA
+  // continuam texto puro, então só "admin" precisa do HTML sanitizado.
+  const isAdmin = role === 'admin';
+
   return (
     <div style={{
       alignSelf: isUser ? 'flex-end' : 'flex-start',
@@ -33,11 +38,12 @@ function Bubble({ role, text, C }) {
       color: C.text,
       fontSize: '0.85rem',
       lineHeight: 1.55,
-      whiteSpace: 'pre-wrap',
+      whiteSpace: isAdmin ? 'normal' : 'pre-wrap',
       wordBreak: 'break-word',
-    }}>
-      {text}
-    </div>
+    }}
+      className={isAdmin ? 'sc-msg-rich' : undefined}
+      {...(isAdmin ? { dangerouslySetInnerHTML: { __html: sanitizeBioHtml(text) } } : { children: text })}
+    />
   );
 }
 
@@ -130,6 +136,10 @@ export default function SupportChatPanel({ C, isDark, onBack }) {
         /* rola normalmente ao passar de 6 linhas, só a barra visível some */
         .sc-input { scrollbar-width:none; -ms-overflow-style:none; }
         .sc-input::-webkit-scrollbar { display:none; width:0; height:0; }
+        .sc-msg-rich ul, .sc-msg-rich ol { padding-left:20px; margin:6px 0; }
+        .sc-msg-rich li { margin:2px 0; }
+        .sc-msg-rich p { margin:6px 0; }
+        .sc-msg-rich a { color:#a78bfa; text-decoration:underline; }
       `}</style>
 
       <div style={{ padding: '22px 24px 12px', flexShrink: 0 }}>
