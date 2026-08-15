@@ -213,10 +213,6 @@ export default function SupportTicketsPanel({ C, isDark, onBack, onNewTicket }) 
       </div>
 
       <div style={{ padding: '0 24px 12px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} aria-label="Tickets por página"
-          style={{ ...inputStyle, cursor: 'pointer', flexShrink: 0 }}>
-          {PAGE_SIZES.map((n) => <option key={n} value={n}>{n} por página</option>)}
-        </select>
         <input value={search} onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por assunto ou nº"
           style={{ ...inputStyle, flex: 1, minWidth: 150 }} />
@@ -292,8 +288,24 @@ export default function SupportTicketsPanel({ C, isDark, onBack, onNewTicket }) 
 
       {!loading && filtered.length > 0 && (
         <div style={{ padding: '12px 24px 20px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderTop: `1px solid ${C.cardBd}`, marginTop: 8 }}>
-          <span style={{ fontSize: '0.74rem', color: C.muted }}>
+          <span style={{ fontSize: '0.74rem', color: C.muted, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
             {filtered.length} ticket{filtered.length !== 1 ? 's' : ''} · página {page + 1} de {totalPages}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginLeft: 4 }}>
+              {PAGE_SIZES.map((n, i) => (
+                <span key={n} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  {i > 0 && <span style={{ color: C.muted, opacity: 0.5 }}>|</span>}
+                  <button type="button" onClick={() => setPageSize(n)} aria-label={`${n} por página`}
+                    style={{
+                      background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+                      fontFamily: FONT_INTER, fontSize: '0.74rem',
+                      fontWeight: pageSize === n ? 800 : 600,
+                      color: pageSize === n ? '#a78bfa' : C.muted,
+                    }}>
+                    {n}
+                  </button>
+                </span>
+              ))}
+            </span>
           </span>
           <div style={{ display: 'flex', gap: 6 }}>
             <button type="button" className="tk-page-btn" disabled={page === 0} onClick={() => setPage((p) => p - 1)}
