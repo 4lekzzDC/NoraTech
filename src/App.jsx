@@ -343,7 +343,9 @@ export default function App() {
            material do visor do Nori — é o que faz os dois lerem como a mesma
            peça em vez de um card solto ao lado de um boneco. */
         .nori-bubble {
-          position: absolute; top: 0; left: -22%; z-index: 3; width: min(308px, 96%);
+          /* top negativo sobe o balão inteiro (corpo + bico) pra mirar o
+             rosto do robô — em 0 o bico caía na altura do pescoço. */
+          position: absolute; top: -38px; left: -22%; z-index: 3; width: min(308px, 96%);
           padding: 22px 24px 20px; border-radius: 26px;
           background: linear-gradient(152deg, rgba(26,16,50,0.92) 0%, rgba(13,8,26,0.94) 100%);
           border: 1.5px solid #a78bfa;
