@@ -333,39 +333,40 @@ export default function App() {
            um card solto ao lado de um boneco. Quase opaco de propósito: o bico
            é um pseudo-elemento com a mesma cor, e com muita transparência ele
            destoaria do corpo do balão. */
+        /* Balão em contorno neon: fio roxo aceso sobre vidro escuro, no mesmo
+           material do visor do Nori — é o que faz os dois lerem como a mesma
+           peça em vez de um card solto ao lado de um boneco. */
         .nori-bubble {
-          position: absolute; top: 0; left: -22%; z-index: 3; width: min(300px, 96%);
-          padding: 20px 23px 19px; border-radius: 28px;
-          background: linear-gradient(152deg, rgba(36,27,64,0.95) 0%, rgba(16,11,32,0.96) 60%, rgba(9,6,20,0.96) 100%);
-          border: 1px solid rgba(167,139,250,0.30);
+          position: absolute; top: 0; left: -22%; z-index: 3; width: min(308px, 96%);
+          padding: 22px 24px 20px; border-radius: 26px;
+          background: linear-gradient(152deg, rgba(26,16,50,0.92) 0%, rgba(13,8,26,0.94) 100%);
+          border: 1.5px solid #a78bfa;
           box-shadow:
-            inset 0 1px 0 rgba(255,255,255,0.08),
-            0 0 34px -6px rgba(124,58,237,0.30),
-            0 26px 64px -26px rgba(124,58,237,0.75);
+            0 0 22px rgba(124,58,237,0.45),
+            0 0 60px -10px rgba(124,58,237,0.5),
+            inset 0 0 26px rgba(124,58,237,0.12);
           transition: transform 0.5s cubic-bezier(0.16,1,0.3,1);
         }
-        /* Bico: triângulo em clip-path com a ponta deslocada pra direita, pra
-           mirar o Nori (o quadrado rotacionado só apontava reto pra baixo).
-           Duas camadas — a de baixo faz a borda. */
+        /* Bico em duas camadas: a de baixo é o fio neon, a de cima preenche e
+           avança 2px sobre a borda do balão para apagar a emenda — sem isso
+           fica um risco atravessando a base do bico. */
         .nori-bubble::before, .nori-bubble::after {
-          content: ""; position: absolute; right: 30px; bottom: -17px;
-          width: 30px; height: 20px;
-          clip-path: polygon(0 0, 100% 0, 74% 100%);
+          content: ""; position: absolute;
+          clip-path: polygon(0 0, 100% 0, 66% 100%);
         }
-        .nori-bubble::before { background: rgba(167,139,250,0.34); }
+        .nori-bubble::before {
+          right: 32px; bottom: -21px; width: 38px; height: 23px;
+          background: #a78bfa;
+          filter: drop-shadow(0 3px 9px rgba(124,58,237,0.7));
+        }
         .nori-bubble::after {
-          background: rgba(11,7,24,0.96);
-          transform: scale(0.88); transform-origin: 50% 0;
+          right: 34px; bottom: -18px; width: 34px; height: 20px;
+          background: #100a20;
         }
-        /* ícone num chip, ecoando o emblema do peito do Nori */
-        .nori-bubble-icon {
-          display: inline-flex; align-items: center; justify-content: center;
-          width: 30px; height: 30px; margin-bottom: 12px; border-radius: 10px;
-          color: #a78bfa; background: rgba(124,58,237,0.16); border: 1px solid rgba(167,139,250,0.26);
-        }
-        .nori-bubble-title { font-size: 1rem; font-weight: 700; letter-spacing: -0.2px; color: #f3f1fa; line-height: 1.25; margin-bottom: 5px; }
-        .nori-bubble-title strong { color: #a78bfa; font-weight: 700; }
-        .nori-bubble-text { font-size: 0.84rem; line-height: 1.6; color: rgba(255,255,255,0.62); }
+        .nori-bubble-icon { display: inline-flex; color: #a78bfa; margin-bottom: 11px; }
+        .nori-bubble-title { font-size: 1.14rem; font-weight: 800; letter-spacing: -0.3px; color: #ffffff; line-height: 1.25; margin-bottom: 7px; }
+        .nori-bubble-title strong { color: #a78bfa; font-weight: 800; font-style: italic; }
+        .nori-bubble-text { font-size: 0.86rem; line-height: 1.62; color: rgba(255,255,255,0.68); }
 
         .nori-chip {
           position: absolute; z-index: 1; display: flex; align-items: center; justify-content: center;
@@ -373,9 +374,10 @@ export default function App() {
           background: rgba(124,58,237,0.14); border: 1px solid rgba(167,139,250,0.28);
           backdrop-filter: blur(10px); animation: hero-chip 7s ease-in-out infinite;
         }
-        .nori-chip.check { left: -4%; bottom: 26%; --r: -8deg; }
-        .nori-chip.gear { left: 12%; bottom: 6%; --r: 6deg; animation-delay: 1.2s; }
-        .nori-chip.grid { right: -2%; top: 34%; --r: 9deg; animation-delay: 2.4s; }
+        .nori-chip.check { left: -6%; bottom: 30%; --r: -8deg; }
+        .nori-chip.gear { left: 8%; bottom: 8%; --r: 6deg; animation-delay: 1.2s; }
+        .nori-chip.chart { right: -4%; top: 42%; --r: 9deg; animation-delay: 2.4s; }
+        .nori-chip.bolt { right: 6%; top: 9%; --r: -7deg; animation-delay: 3.4s; }
 
         /* ── Barra de benefícios + números ── */
         .hero-bar-slot { grid-column: 1 / -1; }
@@ -438,8 +440,9 @@ export default function App() {
           .nori-bubble { position: relative; top: auto; left: auto; width: min(340px, 100%); text-align: left; }
           /* coluna única: o Nori fica exatamente embaixo, então o bico aponta reto */
           .nori-bubble::before, .nori-bubble::after { right: 50%; margin-right: -19px; clip-path: polygon(0 0, 100% 0, 50% 100%); }
-          .nori-chip.check { left: -6%; }
-          .nori-chip.grid { right: -6%; }
+          .nori-chip.check { left: -8%; }
+          .nori-chip.chart { right: -8%; }
+          .nori-chip.bolt { right: 2%; }
         }
 
         /* ═══ MOBILE RESPONSIVE ═══ */
@@ -691,11 +694,15 @@ export default function App() {
             style={{ transform: `translate(${(mousePos.x - 0.5) * -14}px, ${(mousePos.y - 0.5) * -10}px)` }}
           >
             <span className="nori-bubble-icon" aria-hidden="true">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.3-.6L3 21l1.7-5a8.2 8.2 0 0 1-.7-3.4 8.4 8.4 0 0 1 8.5-8.4 8.4 8.4 0 0 1 8.5 8.3z" />
+              <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2.6" y="4.2" width="18.8" height="13.6" rx="5" />
+                <path d="M8.6 17.8 7.2 21.2l4-3.4" />
+                <circle cx="8.2" cy="11" r="1.15" fill="currentColor" stroke="none" />
+                <circle cx="12" cy="11" r="1.15" fill="currentColor" stroke="none" />
+                <circle cx="15.8" cy="11" r="1.15" fill="currentColor" stroke="none" />
               </svg>
             </span>
-            <p className="nori-bubble-title">Eu sou o <strong>Nori!</strong></p>
+            <p className="nori-bubble-title">Eu sou o <strong>Nori!</strong> <span aria-hidden="true">👋</span></p>
             <p className="nori-bubble-text">
               Automatizo seus processos para eliminar falhas humanas e entregar mais rapidez, padronização e precisão.
             </p>
@@ -711,8 +718,11 @@ export default function App() {
             <span className="nori-chip gear" aria-hidden="true">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3.2" /><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z" /></svg>
             </span>
-            <span className="nori-chip grid" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="6" r="1.8" /><circle cx="12" cy="6" r="1.8" /><circle cx="18" cy="6" r="1.8" /><circle cx="6" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="18" cy="12" r="1.8" /><circle cx="6" cy="18" r="1.8" /><circle cx="12" cy="18" r="1.8" /><circle cx="18" cy="18" r="1.8" /></svg>
+            <span className="nori-chip chart" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round"><path d="M5 19v-5" /><path d="M12 19V7" /><path d="M19 19v-9" /></svg>
+            </span>
+            <span className="nori-chip bolt" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12z" /></svg>
             </span>
 
             <NoriRobot className="nori-figure" />

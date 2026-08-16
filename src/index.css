@@ -165,16 +165,21 @@ html[data-theme="light"] .hero-cta-ghost:hover { background: rgba(124, 58, 237, 
 
 /* Robô claro sobre fundo claro precisa de sombra pra não sumir */
 html[data-theme="light"] .nori-svg { filter: drop-shadow(0 14px 34px rgba(80, 50, 150, 0.24)); }
+/* No claro o mesmo contorno neon, com o brilho puxado pra baixo: glow forte
+   sobre fundo claro vira borrão em vez de luz. */
 html[data-theme="light"] .nori-bubble {
-  background: linear-gradient(152deg, rgba(255, 255, 255, 0.96) 0%, rgba(250, 248, 255, 0.95) 100%);
-  border-color: rgba(124, 58, 237, 0.20);
+  background: linear-gradient(152deg, #ffffff 0%, #faf8ff 100%);
+  border-color: rgba(124, 58, 237, 0.75);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 0 34px -8px rgba(124, 58, 237, 0.22),
-    0 26px 64px -28px rgba(80, 50, 150, 0.55);
+    0 0 16px rgba(124, 58, 237, 0.20),
+    0 26px 64px -28px rgba(80, 50, 150, 0.5),
+    inset 0 0 22px rgba(124, 58, 237, 0.05);
 }
-html[data-theme="light"] .nori-bubble::before { background: rgba(124, 58, 237, 0.24); }
-html[data-theme="light"] .nori-bubble::after { background: rgba(252, 250, 255, 0.96); }
+html[data-theme="light"] .nori-bubble::before {
+  background: rgba(124, 58, 237, 0.75);
+  filter: drop-shadow(0 3px 8px rgba(124, 58, 237, 0.3));
+}
+html[data-theme="light"] .nori-bubble::after { background: #fdfcff; }
 html[data-theme="light"] .nori-bubble-icon {
   color: #7C3AED;
   background: rgba(124, 58, 237, 0.10);
