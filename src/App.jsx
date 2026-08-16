@@ -323,9 +323,11 @@ export default function App() {
 
         /* ── Nori ── */
         .hero-visual { position: relative; display: flex; justify-content: flex-end; align-items: flex-end; min-height: 500px; }
-        /* padding-top empurra o robô pra baixo, abrindo espaço pro balão
-           acima da cabeça sem que ele cubra o rosto. */
-        .nori-stage { position: relative; width: min(346px, 100%); padding-top: 96px; transition: transform 0.5s cubic-bezier(0.16,1,0.3,1); }
+        /* A arte em PNG é quase quadrada (o vetor antigo era mais alto que
+           largo), então o mesmo padding-top calculado pro vetor deixava uma
+           sobra vazia embaixo do balão e o robô "afundado" perto do rodapé.
+           38px é só o necessário pra cabeça não encostar no bico do balão. */
+        .nori-stage { position: relative; width: min(392px, 100%); padding-top: 38px; padding-bottom: 26px; transition: transform 0.5s cubic-bezier(0.16,1,0.3,1); }
         .nori-figure { animation: hero-float-slow 6s ease-in-out infinite; }
 
         /* O balão usa o MESMO vidro escuro do visor do Nori (nori-visor) —
