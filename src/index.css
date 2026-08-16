@@ -164,7 +164,11 @@ html[data-theme="light"] .hero-cta-ghost { border-color: rgba(124, 58, 237, 0.22
 html[data-theme="light"] .hero-cta-ghost:hover { background: rgba(124, 58, 237, 0.07); }
 
 /* Robô claro sobre fundo claro precisa de sombra pra não sumir */
-html[data-theme="light"] .nori-svg { filter: drop-shadow(0 14px 34px rgba(80, 50, 150, 0.24)); }
+html[data-theme="light"] .nori-svg,
+html[data-theme="light"] .nori-art img { filter: drop-shadow(0 14px 34px rgba(80, 50, 150, 0.24)); }
+/* o glow roxo em volta do recorte precisa recuar no claro, senão vira borrão */
+html[data-theme="light"] .nori-art-halo { background: radial-gradient(circle, rgba(124, 58, 237, 0.18) 0%, transparent 62%); }
+html[data-theme="light"] .nori-art-pool { background: radial-gradient(ellipse at center, rgba(124, 58, 237, 0.3) 0%, transparent 70%); }
 /* No claro o mesmo contorno neon, com o brilho puxado pra baixo: glow forte
    sobre fundo claro vira borrão em vez de luz. */
 html[data-theme="light"] .nori-bubble {
