@@ -166,13 +166,20 @@ html[data-theme="light"] .hero-cta-ghost:hover { background: rgba(124, 58, 237, 
 /* Robô claro sobre fundo claro precisa de sombra pra não sumir */
 html[data-theme="light"] .nori-svg { filter: drop-shadow(0 14px 34px rgba(80, 50, 150, 0.24)); }
 html[data-theme="light"] .nori-bubble {
-  background: rgba(255, 255, 255, 0.90);
+  background: linear-gradient(152deg, rgba(255, 255, 255, 0.96) 0%, rgba(250, 248, 255, 0.95) 100%);
   border-color: rgba(124, 58, 237, 0.20);
-  box-shadow: 0 24px 60px -26px rgba(80, 50, 150, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 34px -8px rgba(124, 58, 237, 0.22),
+    0 26px 64px -28px rgba(80, 50, 150, 0.55);
 }
-html[data-theme="light"] .nori-bubble::before { background: rgba(124, 58, 237, 0.26); }
-html[data-theme="light"] .nori-bubble::after { background: rgba(255, 255, 255, 0.90); }
-html[data-theme="light"] .nori-bubble-icon { color: #7C3AED; }
+html[data-theme="light"] .nori-bubble::before { background: rgba(124, 58, 237, 0.24); }
+html[data-theme="light"] .nori-bubble::after { background: rgba(252, 250, 255, 0.96); }
+html[data-theme="light"] .nori-bubble-icon {
+  color: #7C3AED;
+  background: rgba(124, 58, 237, 0.10);
+  border-color: rgba(124, 58, 237, 0.20);
+}
 html[data-theme="light"] .nori-bubble-title { color: #18181b; }
 html[data-theme="light"] .nori-bubble-title strong { color: #6d28d9 !important; }
 html[data-theme="light"] .nori-bubble-text { color: rgba(24, 24, 27, 0.74); }

@@ -245,7 +245,7 @@ export default function App() {
   return (
     <div style={{ background: "#08080a", color: "#eeede9", fontFamily: "'Inter', sans-serif", overflowX: "hidden", minHeight: "100vh" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&family=Caveat:wght@500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
         body { -webkit-font-smoothing: antialiased; }
@@ -328,32 +328,44 @@ export default function App() {
         .nori-stage { position: relative; width: min(346px, 100%); padding-top: 96px; transition: transform 0.5s cubic-bezier(0.16,1,0.3,1); }
         .nori-figure { animation: hero-float-slow 6s ease-in-out infinite; }
 
+        /* O balão usa o MESMO vidro escuro do visor do Nori (nori-visor) —
+           é o que faz os dois lerem como a mesma peça de hardware, em vez de
+           um card solto ao lado de um boneco. Quase opaco de propósito: o bico
+           é um pseudo-elemento com a mesma cor, e com muita transparência ele
+           destoaria do corpo do balão. */
         .nori-bubble {
-          position: absolute; top: 0; left: -22%; z-index: 3; width: min(292px, 96%);
-          padding: 20px 22px 18px; border-radius: 26px;
-          /* quase opaco de propósito: o bico é um pseudo-elemento com a mesma
-             cor, e com fundo muito translúcido ele destoaria do corpo do balão */
-          background: rgba(23,14,44,0.94); border: 1px solid rgba(167,139,250,0.34);
-          box-shadow: 0 24px 60px -22px rgba(124,58,237,0.85);
+          position: absolute; top: 0; left: -22%; z-index: 3; width: min(300px, 96%);
+          padding: 20px 23px 19px; border-radius: 28px;
+          background: linear-gradient(152deg, rgba(36,27,64,0.95) 0%, rgba(16,11,32,0.96) 60%, rgba(9,6,20,0.96) 100%);
+          border: 1px solid rgba(167,139,250,0.30);
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.08),
+            0 0 34px -6px rgba(124,58,237,0.30),
+            0 26px 64px -26px rgba(124,58,237,0.75);
           transition: transform 0.5s cubic-bezier(0.16,1,0.3,1);
         }
-        /* Bico do balão: triângulo em clip-path, com a ponta deslocada pra
-           direita para mirar o Nori (o quadrado rotacionado só conseguia
-           apontar reto pra baixo). Duas camadas — a de baixo faz a borda. */
+        /* Bico: triângulo em clip-path com a ponta deslocada pra direita, pra
+           mirar o Nori (o quadrado rotacionado só apontava reto pra baixo).
+           Duas camadas — a de baixo faz a borda. */
         .nori-bubble::before, .nori-bubble::after {
-          content: ""; position: absolute; right: 26px; bottom: -22px;
-          width: 38px; height: 26px;
-          clip-path: polygon(0 0, 100% 0, 86% 100%);
+          content: ""; position: absolute; right: 30px; bottom: -17px;
+          width: 30px; height: 20px;
+          clip-path: polygon(0 0, 100% 0, 74% 100%);
         }
-        .nori-bubble::before { background: rgba(167,139,250,0.40); }
+        .nori-bubble::before { background: rgba(167,139,250,0.34); }
         .nori-bubble::after {
-          background: rgba(23,14,44,0.94);
-          transform: scale(0.9); transform-origin: 50% 0;
+          background: rgba(11,7,24,0.96);
+          transform: scale(0.88); transform-origin: 50% 0;
         }
-        .nori-bubble-icon { display: inline-flex; color: #a78bfa; margin-bottom: 9px; }
-        .nori-bubble-title { font-family: 'Caveat', cursive; font-size: 1.5rem; font-weight: 700; color: #eeede9; line-height: 1.1; margin-bottom: 2px; }
+        /* ícone num chip, ecoando o emblema do peito do Nori */
+        .nori-bubble-icon {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 30px; height: 30px; margin-bottom: 12px; border-radius: 10px;
+          color: #a78bfa; background: rgba(124,58,237,0.16); border: 1px solid rgba(167,139,250,0.26);
+        }
+        .nori-bubble-title { font-size: 1rem; font-weight: 700; letter-spacing: -0.2px; color: #f3f1fa; line-height: 1.25; margin-bottom: 5px; }
         .nori-bubble-title strong { color: #a78bfa; font-weight: 700; }
-        .nori-bubble-text { font-family: 'Caveat', cursive; font-size: 1.22rem; line-height: 1.34; color: rgba(255,255,255,0.82); }
+        .nori-bubble-text { font-size: 0.84rem; line-height: 1.6; color: rgba(255,255,255,0.62); }
 
         .nori-chip {
           position: absolute; z-index: 1; display: flex; align-items: center; justify-content: center;
