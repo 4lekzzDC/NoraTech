@@ -323,11 +323,15 @@ export default function App() {
 
         /* ── Nori ── */
         .hero-visual { position: relative; display: flex; justify-content: flex-end; align-items: flex-end; min-height: 500px; }
+        /* Largura própria do cluster (não a da coluna do grid, que em telas
+           largas fica bem maior que o robô): é o que ancora o balão perto
+           dele em vez de deixar sobrar espaço vazio entre os dois. */
+        .nori-cluster { position: relative; width: min(392px, 100%); }
         /* A arte em PNG é quase quadrada (o vetor antigo era mais alto que
            largo), então o mesmo padding-top calculado pro vetor deixava uma
            sobra vazia embaixo do balão e o robô "afundado" perto do rodapé.
            38px é só o necessário pra cabeça não encostar no bico do balão. */
-        .nori-stage { position: relative; width: min(392px, 100%); padding-top: 38px; padding-bottom: 26px; transition: transform 0.5s cubic-bezier(0.16,1,0.3,1); }
+        .nori-stage { position: relative; width: 100%; padding-top: 38px; padding-bottom: 26px; transition: transform 0.5s cubic-bezier(0.16,1,0.3,1); }
         .nori-figure { animation: hero-float-slow 6s ease-in-out infinite; }
 
         /* O balão usa o MESMO vidro escuro do visor do Nori (nori-visor) —
@@ -435,9 +439,14 @@ export default function App() {
           .hero-buttons { justify-content: center; }
           /* Coluna única: o balão sai do posicionamento absoluto e entra em
              fluxo acima do robô — em layout centralizado não há espaço
-             lateral pra ele flutuar sem cobrir alguma coisa. */
-          .hero-visual { flex-direction: column; align-items: center; justify-content: flex-start;
-            min-height: 0; width: 100%; max-width: 460px; gap: 4px; }
+             lateral pra ele flutuar sem cobrir alguma coisa. O cluster é
+             quem empilha os dois agora (o hero-visual só centraliza o
+             cluster inteiro). */
+          .hero-visual { flex-direction: column; align-items: center; justify-content: flex-start; min-height: 0; }
+          .nori-cluster {
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            width: 100%; max-width: 460px;
+          }
           .nori-stage { padding-top: 0; width: min(320px, 100%); }
           .nori-bubble { position: relative; top: auto; left: auto; width: min(340px, 100%); text-align: left; }
           /* coluna única: o Nori fica exatamente embaixo, então o bico aponta reto */
@@ -688,46 +697,52 @@ export default function App() {
 
         </div>
 
-        {/* Nori + balão. O parallax do mouse é sutil e em sentidos opostos
-            entre o robô e os cartões, o que dá sensação de profundidade. */}
+        {/* Nori + balão. Os dois vivem dentro de um cluster com largura
+            própria (não a da coluna do grid), então o balão fica sempre
+            ancorado ao robô — em telas largas a coluna cresce muito além do
+            robô, e um balão posicionado em % dela ficava perdido longe dele.
+            O parallax do mouse é sutil e em sentidos opostos entre o robô e
+            os cartões, o que dá sensação de profundidade. */}
         <div className="hero-visual">
-          <div
-            className="nori-bubble"
-            style={{ transform: `translate(${(mousePos.x - 0.5) * -14}px, ${(mousePos.y - 0.5) * -10}px)` }}
-          >
-            <span className="nori-bubble-icon" aria-hidden="true">
-              <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2.6" y="4.2" width="18.8" height="13.6" rx="5" />
-                <path d="M8.6 17.8 7.2 21.2l4-3.4" />
-                <circle cx="8.2" cy="11" r="1.15" fill="currentColor" stroke="none" />
-                <circle cx="12" cy="11" r="1.15" fill="currentColor" stroke="none" />
-                <circle cx="15.8" cy="11" r="1.15" fill="currentColor" stroke="none" />
-              </svg>
-            </span>
-            <p className="nori-bubble-title">Eu sou o <strong>Nori!</strong> <span aria-hidden="true">👋</span></p>
-            <p className="nori-bubble-text">
-              Automatizo seus processos para eliminar falhas humanas e entregar mais rapidez, padronização e precisão.
-            </p>
-          </div>
+          <div className="nori-cluster">
+            <div
+              className="nori-bubble"
+              style={{ transform: `translate(${(mousePos.x - 0.5) * -14}px, ${(mousePos.y - 0.5) * -10}px)` }}
+            >
+              <span className="nori-bubble-icon" aria-hidden="true">
+                <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2.6" y="4.2" width="18.8" height="13.6" rx="5" />
+                  <path d="M8.6 17.8 7.2 21.2l4-3.4" />
+                  <circle cx="8.2" cy="11" r="1.15" fill="currentColor" stroke="none" />
+                  <circle cx="12" cy="11" r="1.15" fill="currentColor" stroke="none" />
+                  <circle cx="15.8" cy="11" r="1.15" fill="currentColor" stroke="none" />
+                </svg>
+              </span>
+              <p className="nori-bubble-title">Eu sou o <strong>Nori!</strong> <span aria-hidden="true">👋</span></p>
+              <p className="nori-bubble-text">
+                Automatizo seus processos para eliminar falhas humanas e entregar mais rapidez, padronização e precisão.
+              </p>
+            </div>
 
-          <div
-            className="nori-stage"
-            style={{ transform: `translate(${(mousePos.x - 0.5) * 16}px, ${(mousePos.y - 0.5) * 10}px)` }}
-          >
-            <span className="nori-chip check" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-            </span>
-            <span className="nori-chip gear" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3.2" /><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z" /></svg>
-            </span>
-            <span className="nori-chip chart" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round"><path d="M5 19v-5" /><path d="M12 19V7" /><path d="M19 19v-9" /></svg>
-            </span>
-            <span className="nori-chip bolt" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12z" /></svg>
-            </span>
+            <div
+              className="nori-stage"
+              style={{ transform: `translate(${(mousePos.x - 0.5) * 16}px, ${(mousePos.y - 0.5) * 10}px)` }}
+            >
+              <span className="nori-chip check" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+              </span>
+              <span className="nori-chip gear" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3.2" /><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z" /></svg>
+              </span>
+              <span className="nori-chip chart" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round"><path d="M5 19v-5" /><path d="M12 19V7" /><path d="M19 19v-9" /></svg>
+              </span>
+              <span className="nori-chip bolt" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12z" /></svg>
+              </span>
 
-            <NoriRobot className="nori-figure" />
+              <NoriRobot className="nori-figure" />
+            </div>
           </div>
         </div>
 
