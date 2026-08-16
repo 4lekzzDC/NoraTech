@@ -170,11 +170,8 @@ html[data-theme="light"] .nori-bubble {
   border-color: rgba(124, 58, 237, 0.20);
   box-shadow: 0 24px 60px -26px rgba(80, 50, 150, 0.55);
 }
-html[data-theme="light"] .nori-bubble::after {
-  background: rgba(255, 255, 255, 0.90);
-  border-right-color: rgba(124, 58, 237, 0.20);
-  border-bottom-color: rgba(124, 58, 237, 0.20);
-}
+html[data-theme="light"] .nori-bubble::before { background: rgba(124, 58, 237, 0.26); }
+html[data-theme="light"] .nori-bubble::after { background: rgba(255, 255, 255, 0.90); }
 html[data-theme="light"] .nori-bubble-icon { color: #7C3AED; }
 html[data-theme="light"] .nori-bubble-title { color: #18181b; }
 html[data-theme="light"] .nori-bubble-title strong { color: #6d28d9 !important; }

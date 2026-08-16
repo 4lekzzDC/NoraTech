@@ -337,13 +337,18 @@ export default function App() {
           box-shadow: 0 24px 60px -22px rgba(124,58,237,0.85);
           transition: transform 0.5s cubic-bezier(0.16,1,0.3,1);
         }
-        /* bico do balão, descendo em direção ao Nori */
+        /* Bico do balão: triângulo em clip-path, com a ponta deslocada pra
+           direita para mirar o Nori (o quadrado rotacionado só conseguia
+           apontar reto pra baixo). Duas camadas — a de baixo faz a borda. */
+        .nori-bubble::before, .nori-bubble::after {
+          content: ""; position: absolute; right: 26px; bottom: -22px;
+          width: 38px; height: 26px;
+          clip-path: polygon(0 0, 100% 0, 86% 100%);
+        }
+        .nori-bubble::before { background: rgba(167,139,250,0.40); }
         .nori-bubble::after {
-          content: ""; position: absolute; right: 42px; bottom: -11px; width: 20px; height: 20px;
           background: rgba(23,14,44,0.94);
-          border-right: 1px solid rgba(167,139,250,0.34); border-bottom: 1px solid rgba(167,139,250,0.34);
-          border-bottom-right-radius: 6px;
-          transform: rotate(45deg);
+          transform: scale(0.9); transform-origin: 50% 0;
         }
         .nori-bubble-icon { display: inline-flex; color: #a78bfa; margin-bottom: 9px; }
         .nori-bubble-title { font-family: 'Caveat', cursive; font-size: 1.5rem; font-weight: 700; color: #eeede9; line-height: 1.1; margin-bottom: 2px; }
@@ -419,7 +424,8 @@ export default function App() {
             min-height: 0; width: 100%; max-width: 460px; gap: 4px; }
           .nori-stage { padding-top: 0; width: min(320px, 100%); }
           .nori-bubble { position: relative; top: auto; left: auto; width: min(340px, 100%); text-align: left; }
-          .nori-bubble::after { right: 46px; bottom: -11px; }
+          /* coluna única: o Nori fica exatamente embaixo, então o bico aponta reto */
+          .nori-bubble::before, .nori-bubble::after { right: 50%; margin-right: -19px; clip-path: polygon(0 0, 100% 0, 50% 100%); }
           .nori-chip.check { left: -6%; }
           .nori-chip.grid { right: -6%; }
         }
