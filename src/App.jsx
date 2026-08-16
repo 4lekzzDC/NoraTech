@@ -74,6 +74,18 @@ const HERO_STATS = [
   ["24/7", "Suporte"],
 ];
 
+// O balão do Nori "digita" essas duas frases em sequência — título primeiro,
+// depois o texto. Segmentado (não uma string única) porque "Nori!" precisa
+// continuar em negrito/itálico enquanto é revelado, não só depois de pronto.
+const NORI_TITLE_SEGMENTS = [
+  { text: "Eu sou o " },
+  { text: "Nori!", strong: true },
+  { text: " 👋" },
+];
+const NORI_BUBBLE_TEXT = "Automatizo seus processos para eliminar falhas humanas e entregar mais rapidez, padronização e precisão.";
+const NORI_TITLE_LENGTH = NORI_TITLE_SEGMENTS.reduce((n, s) => n + Array.from(s.text).length, 0);
+const NORI_BUBBLE_TEXT_LENGTH = Array.from(NORI_BUBBLE_TEXT).length;
+
 const DIFFERENTIALS = [
   {
     num: "01",
@@ -154,6 +166,50 @@ function useInView(options = {}) {
   return [ref, isInView];
 }
 
+// ═══ Typewriter Hook ═══
+// Revela por code point (Array.from, não string.slice) para o emoji nunca
+// aparecer "partido" no meio de um surrogate pair durante a digitação.
+// Respeita prefers-reduced-motion mostrando o texto inteiro já no primeiro
+// render, sem passar por nenhum frame vazio.
+function useTypewriter(totalLength, { active = true, speed = 30, startDelay = 0 } = {}) {
+  const prefersReduced = typeof window !== "undefined"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const [count, setCount] = useState(() => (prefersReduced ? totalLength : 0));
+
+  useEffect(() => {
+    if (!active || prefersReduced) return undefined;
+    const timeouts = [];
+    const startTimer = setTimeout(() => {
+      let i = 0;
+      const tick = () => {
+        i += 1;
+        setCount(i);
+        if (i < totalLength) timeouts.push(setTimeout(tick, speed));
+      };
+      tick();
+    }, startDelay);
+    return () => { clearTimeout(startTimer); timeouts.forEach(clearTimeout); };
+  }, [active, totalLength, speed, startDelay, prefersReduced]);
+
+  return { count, done: count >= totalLength };
+}
+
+// Corta uma lista de segmentos { text, strong? } pelo total de code points já
+// "digitados", preservando qual trecho fica em negrito.
+function typedSegments(segments, count) {
+  let remaining = count;
+  const nodes = [];
+  segments.forEach((seg, i) => {
+    if (remaining <= 0) return;
+    const chars = Array.from(seg.text);
+    const slice = chars.slice(0, remaining).join("");
+    remaining -= chars.length;
+    if (!slice) return;
+    nodes.push(seg.strong ? <strong key={i}>{slice}</strong> : <span key={i}>{slice}</span>);
+  });
+  return nodes;
+}
+
 // ═══ Animated element wrapper ═══
 function Reveal({ children, type = "up", delay = 0, className = "", style = {} }) {
   const [ref, inView] = useInView();
@@ -219,6 +275,13 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [schedulerOpen, setSchedulerOpen] = useState(false);
   const { theme } = useTheme();
+
+  // Título digita primeiro; o texto só começa depois que o título termina —
+  // startDelay de cada um soma o tempo de acomodação da entrada do balão.
+  const noriTitleTyping = useTypewriter(NORI_TITLE_LENGTH, { speed: 46, startDelay: 550 });
+  const noriTextTyping = useTypewriter(NORI_BUBBLE_TEXT_LENGTH, {
+    active: noriTitleTyping.done, speed: 15, startDelay: 200,
+  });
 
   useEffect(() => {
     const onScroll = () => { setScrollY(window.scrollY); setNavScrolled(window.scrollY > 60); };
@@ -375,6 +438,12 @@ export default function App() {
         .nori-bubble-title { font-size: 1.14rem; font-weight: 800; letter-spacing: -0.3px; color: #ffffff; line-height: 1.25; margin-bottom: 7px; }
         .nori-bubble-title strong { color: #a78bfa; font-weight: 800; font-style: italic; }
         .nori-bubble-text { font-size: 0.86rem; line-height: 1.62; color: rgba(255,255,255,0.68); }
+        .nori-caret {
+          display: inline-block; width: 2px; height: 0.95em; margin-left: 2px;
+          vertical-align: -0.14em; background: #a78bfa; animation: nori-caret-blink 0.85s steps(1) infinite;
+        }
+        @keyframes nori-caret-blink { 50% { opacity: 0; } }
+        @media (prefers-reduced-motion: reduce) { .nori-caret { display: none; } }
 
         .nori-chip {
           position: absolute; z-index: 1; display: flex; align-items: center; justify-content: center;
@@ -720,9 +789,21 @@ export default function App() {
                   <circle cx="15.8" cy="11" r="1.15" fill="currentColor" stroke="none" />
                 </svg>
               </span>
-              <p className="nori-bubble-title">Eu sou o <strong>Nori!</strong> <span aria-hidden="true">👋</span></p>
-              <p className="nori-bubble-text">
-                Automatizo seus processos para eliminar falhas humanas e entregar mais rapidez, padronização e precisão.
+              {/* Texto duplicado: aria-label carrega a frase inteira e correta
+                  pra leitor de tela, o conteúdo visível (aria-hidden) é só a
+                  encenação da digitação — sem isso quem usa leitor de tela
+                  ouviria o texto sendo montado letra a letra. */}
+              <p className="nori-bubble-title" aria-label="Eu sou o Nori! 👋">
+                <span aria-hidden="true">
+                  {typedSegments(NORI_TITLE_SEGMENTS, noriTitleTyping.count)}
+                  {!noriTitleTyping.done && <span className="nori-caret" />}
+                </span>
+              </p>
+              <p className="nori-bubble-text" aria-label={NORI_BUBBLE_TEXT}>
+                <span aria-hidden="true">
+                  {Array.from(NORI_BUBBLE_TEXT).slice(0, noriTextTyping.count).join("")}
+                  {noriTitleTyping.done && !noriTextTyping.done && <span className="nori-caret" />}
+                </span>
               </p>
             </div>
 
