@@ -330,15 +330,19 @@ export default function App() {
 
         .nori-bubble {
           position: absolute; top: 0; left: -22%; z-index: 3; width: min(292px, 96%);
-          padding: 18px 20px 16px; border-radius: 20px;
-          background: rgba(20,12,38,0.78); border: 1px solid rgba(167,139,250,0.34);
-          backdrop-filter: blur(16px); box-shadow: 0 24px 60px -22px rgba(124,58,237,0.85);
+          padding: 20px 22px 18px; border-radius: 26px;
+          /* quase opaco de propósito: o bico é um pseudo-elemento com a mesma
+             cor, e com fundo muito translúcido ele destoaria do corpo do balão */
+          background: rgba(23,14,44,0.94); border: 1px solid rgba(167,139,250,0.34);
+          box-shadow: 0 24px 60px -22px rgba(124,58,237,0.85);
           transition: transform 0.5s cubic-bezier(0.16,1,0.3,1);
         }
-        /* rabinho apontando para o Nori */
+        /* bico do balão, descendo em direção ao Nori */
         .nori-bubble::after {
-          content: ""; position: absolute; right: -8px; bottom: 26px; width: 16px; height: 16px;
-          background: rgba(20,12,38,0.78); border-right: 1px solid rgba(167,139,250,0.34); border-bottom: 1px solid rgba(167,139,250,0.34);
+          content: ""; position: absolute; right: 42px; bottom: -11px; width: 20px; height: 20px;
+          background: rgba(23,14,44,0.94);
+          border-right: 1px solid rgba(167,139,250,0.34); border-bottom: 1px solid rgba(167,139,250,0.34);
+          border-bottom-right-radius: 6px;
           transform: rotate(45deg);
         }
         .nori-bubble-icon { display: inline-flex; color: #a78bfa; margin-bottom: 9px; }
@@ -359,24 +363,38 @@ export default function App() {
         /* ── Barra de benefícios + números ── */
         .hero-bar-slot { grid-column: 1 / -1; }
         .hero-bar {
-          display: flex; align-items: stretch; gap: 26px;
+          display: flex; align-items: center; gap: 26px;
           padding: 20px 26px; border-radius: 22px;
           background: rgba(255,255,255,0.04); border: 1px solid rgba(167,139,250,0.18);
           backdrop-filter: blur(18px); box-shadow: 0 26px 70px -40px rgba(124,58,237,0.9);
         }
-        .hero-benefits { flex: 1 1 auto; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 20px; }
-        .hero-benefit { display: flex; align-items: flex-start; gap: 11px; min-width: 0; }
+        /* Os textos têm alturas diferentes (2 ou 3 linhas), então alinhar pelo
+           topo deixava a linha visualmente desalinhada — centralizar resolve. */
+        .hero-benefits { flex: 1 1 auto; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 20px; align-items: center; }
+        .hero-benefit { display: flex; align-items: center; gap: 11px; min-width: 0; }
         .hero-benefit-icon { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex-shrink: 0;
           border-radius: 11px; background: rgba(124,58,237,0.16); border: 1px solid rgba(167,139,250,0.24); color: #a78bfa; }
         .hero-benefit-title { font-size: 0.85rem; font-weight: 700; color: #eeede9; margin-bottom: 3px; }
         .hero-benefit-desc { font-size: 0.74rem; line-height: 1.45; color: rgba(255,255,255,0.42); }
-        .hero-bar-divider { width: 1px; flex-shrink: 0; background: linear-gradient(180deg, transparent, rgba(167,139,250,0.32), transparent); }
+        .hero-bar-divider { width: 1px; flex-shrink: 0; align-self: stretch; background: linear-gradient(180deg, transparent, rgba(167,139,250,0.32), transparent); }
         .hero-stats { flex: 0 0 auto; display: grid; grid-template-columns: repeat(2, auto); gap: 10px 26px; align-content: center; }
         .hero-stat-value { font-family: 'JetBrains Mono', monospace; font-size: 1.18rem; font-weight: 700; color: #a78bfa; line-height: 1.15; }
         .hero-stat-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-top: 1px; }
 
         @media (prefers-reduced-motion: reduce) {
           .nori-figure, .nori-chip, .hero-mesh, .hero-aura-glow { animation: none; }
+        }
+
+        /* Faixa estreita em que a barra ainda tem 4 colunas + números: sem
+           apertar, uma das descrições quebra em 3 linhas e desalinha a fila. */
+        @media (max-width: 1200px) {
+          .hero-bar { gap: 18px; padding: 18px 20px; }
+          .hero-benefits { gap: 14px; }
+          .hero-benefit { gap: 9px; }
+          .hero-benefit-icon { width: 31px; height: 31px; border-radius: 10px; }
+          .hero-benefit-desc { font-size: 0.7rem; }
+          .hero-stats { gap: 9px 18px; }
+          .hero-stat-value { font-size: 1.05rem; }
         }
 
         /* ═══ TABLET ═══ */
@@ -401,7 +419,7 @@ export default function App() {
             min-height: 0; width: 100%; max-width: 460px; gap: 4px; }
           .nori-stage { padding-top: 0; width: min(320px, 100%); }
           .nori-bubble { position: relative; top: auto; left: auto; width: min(340px, 100%); text-align: left; }
-          .nori-bubble::after { right: 34px; bottom: -8px; }
+          .nori-bubble::after { right: 46px; bottom: -11px; }
           .nori-chip.check { left: -6%; }
           .nori-chip.grid { right: -6%; }
         }
