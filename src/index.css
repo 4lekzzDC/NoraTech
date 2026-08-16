@@ -140,6 +140,84 @@ html[data-theme="light"] [style*="rgba(255, 255, 255, 0.15)"] { color: rgba(24, 
 html[data-theme="light"] [style*="rgba(180, 132, 255, 0.55)"],
 html[data-theme="light"] [style*="rgba(180,132,255,0.55)"] { color: rgba(124, 58, 237, 0.70) !important; }
 
+/* ── HERO (App.jsx) — classes próprias, fora do alcance dos seletores
+      [style*="..."] acima, então precisam de regras explícitas ── */
+html[data-theme="light"] .hero-aura {
+  background:
+    radial-gradient(115% 85% at 68% 18%, rgba(124, 58, 237, 0.16) 0%, rgba(167, 139, 250, 0.09) 38%, transparent 72%),
+    linear-gradient(180deg, #f2edfb 0%, #f7f5fb 55%, #f6f5f1 100%) !important;
+}
+html[data-theme="light"] .hero-aura-glow.a { background: radial-gradient(circle, rgba(124, 58, 237, 0.16), transparent 65%); }
+html[data-theme="light"] .hero-aura-glow.b { background: radial-gradient(circle, rgba(37, 99, 235, 0.10), transparent 65%); }
+html[data-theme="light"] .hero-mesh { color: rgba(124, 58, 237, 0.22); }
+
+html[data-theme="light"] .hero-badge {
+  background: rgba(124, 58, 237, 0.08);
+  border-color: rgba(124, 58, 237, 0.20);
+  color: #6d28d9;
+}
+html[data-theme="light"] .hero-badge-dot { background: #7C3AED; }
+html[data-theme="light"] .hero-badge-dot::after { border-color: #7C3AED; }
+html[data-theme="light"] .hero-title { color: #15111f; }
+html[data-theme="light"] .hero-sub { color: rgba(24, 24, 27, 0.62); }
+html[data-theme="light"] .hero-cta-ghost { border-color: rgba(124, 58, 237, 0.22); color: #18181b; }
+html[data-theme="light"] .hero-cta-ghost:hover { background: rgba(124, 58, 237, 0.07); }
+
+/* Robô claro sobre fundo claro precisa de sombra pra não sumir */
+html[data-theme="light"] .nori-svg,
+html[data-theme="light"] .nori-art img { filter: drop-shadow(0 14px 34px rgba(80, 50, 150, 0.24)); }
+/* o glow roxo em volta do recorte precisa recuar no claro, senão vira borrão */
+html[data-theme="light"] .nori-art-halo { background: radial-gradient(circle, rgba(124, 58, 237, 0.18) 0%, transparent 62%); }
+html[data-theme="light"] .nori-art-pool { background: radial-gradient(ellipse at center, rgba(124, 58, 237, 0.3) 0%, transparent 70%); }
+/* No claro o mesmo contorno neon, com o brilho puxado pra baixo: glow forte
+   sobre fundo claro vira borrão em vez de luz. */
+html[data-theme="light"] .nori-bubble {
+  background: linear-gradient(152deg, #ffffff 0%, #faf8ff 100%);
+  border-color: rgba(124, 58, 237, 0.75);
+  box-shadow:
+    0 0 16px rgba(124, 58, 237, 0.20),
+    0 26px 64px -28px rgba(80, 50, 150, 0.5),
+    inset 0 0 22px rgba(124, 58, 237, 0.05);
+}
+html[data-theme="light"] .nori-bubble::before {
+  background: rgba(124, 58, 237, 0.75);
+  filter: drop-shadow(0 3px 8px rgba(124, 58, 237, 0.3));
+}
+html[data-theme="light"] .nori-bubble::after { background: #fdfcff; }
+html[data-theme="light"] .nori-bubble-icon {
+  color: #7C3AED;
+  background: rgba(124, 58, 237, 0.10);
+  border-color: rgba(124, 58, 237, 0.20);
+}
+html[data-theme="light"] .nori-bubble-title { color: #18181b; }
+html[data-theme="light"] .nori-bubble-title strong { color: #6d28d9 !important; }
+html[data-theme="light"] .nori-bubble-text { color: rgba(24, 24, 27, 0.74); }
+html[data-theme="light"] .nori-chip {
+  background: rgba(124, 58, 237, 0.08);
+  border-color: rgba(124, 58, 237, 0.18);
+  color: #7C3AED;
+}
+
+html[data-theme="light"] .hero-bar {
+  background: rgba(255, 255, 255, 0.74);
+  border-color: rgba(124, 58, 237, 0.14);
+  box-shadow: 0 26px 70px -44px rgba(80, 50, 150, 0.6);
+}
+html[data-theme="light"] .hero-benefit-icon {
+  background: rgba(124, 58, 237, 0.09);
+  border-color: rgba(124, 58, 237, 0.18);
+  color: #7C3AED;
+}
+html[data-theme="light"] .hero-benefit-title { color: #18181b; }
+html[data-theme="light"] .hero-benefit-desc { color: rgba(24, 24, 27, 0.58); }
+html[data-theme="light"] .hero-bar-divider { background: linear-gradient(180deg, transparent, rgba(124, 58, 237, 0.22), transparent); }
+html[data-theme="light"] .hero-stat-value { color: #7C3AED; }
+html[data-theme="light"] .hero-stat-label { color: rgba(24, 24, 27, 0.50); }
+
+@media (max-width: 768px) {
+  html[data-theme="light"] .hero-bar-divider { background: linear-gradient(90deg, transparent, rgba(124, 58, 237, 0.22), transparent); }
+}
+
 /* ── Navegação principal (App.jsx classes) ── */
 html[data-theme="light"] .nav-link { color: rgba(24, 24, 27, 0.55); }
 html[data-theme="light"] .nav-link:hover { color: #18181b; background: rgba(124, 58, 237, 0.08); }

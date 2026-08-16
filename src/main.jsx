@@ -43,6 +43,7 @@ import AdminRoute from './components/AdminRoute.jsx'
 import SubscriptionRoute from './components/SubscriptionRoute.jsx'
 import OrgManagerRoute from './components/OrgManagerRoute.jsx'
 import LoadingScreen from './components/LoadingScreen.jsx'
+import SplashScreen from './components/SplashScreen.jsx'
 import ForcePasswordResetGate from './components/ForcePasswordResetGate.jsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
 import { ThemeProvider } from './contexts/ThemeContext.jsx'
@@ -72,6 +73,9 @@ function SolucoesContabeisRoute({ children }) {
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ThemeProvider>
+    {/* Sobreposição: o app monta embaixo enquanto a marca se desenha, então a
+        splash não adia a renderização — só cobre o tempo de carga. */}
+    <SplashScreen />
     <BrowserRouter>
       <AuthProvider>
         <ForcePasswordResetGate>
