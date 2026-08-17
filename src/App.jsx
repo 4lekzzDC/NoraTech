@@ -133,33 +133,27 @@ const DIFFERENTIALS = [
 ];
 
 const PRODUCTS = [
+  { id: 5, icon: "📊", name: "Soluções Contábeis", desc: "Suíte completa para escritórios contábeis: gestão de clientes, conciliação de extratos, controle de prazos e apuração de impostos em um só lugar.", tags: ["Contabilidade", "Automação Fiscal", "Multiempresa"], color: "#7C3AED", featured: true, features: ["Gestão de clientes e regime tributário", "Conciliação automática de extratos", "Controle de prazos e obrigações", "Calculadora de IRPJ e CSLL", "Codificação e análise de demonstrações"] },
   { id: 2, icon: "💬", name: "WhatsApp Bot", desc: "Sistema de atendimento via WhatsApp que categoriza conversas, realiza o pré-atendimento e organiza o fluxo antes da interação humana.", tags: ["Chatbot", "WhatsApp API", "NLP"], color: "#25D366", featured: true, features: ["Atendimento automatizado 24/7", "Categorização por intenção (NLP)", "Pré-atendimento e triagem inteligente", "Transferência fluida para humanos", "Relatórios de atendimento e métricas"] },
-  { id: 4, icon: "🌐", name: "Sites para Empresas", desc: "Criação de sites profissionais com IA, adaptados ao modelo e necessidade de cada cliente. Design moderno, responsivo e otimizado para conversão.", tags: ["Web Design", "IA", "SEO"], color: "#ff6b9d", featured: true, features: ["Design personalizado gerado com IA", "Layout 100% responsivo (mobile/tablet/desktop)", "SEO técnico e performance otimizada", "Integrações (pagamento, CRM, analytics)", "Hospedagem, deploy e suporte contínuo"] },
-  { id: 1, icon: "💰", name: "Finzo App", desc: "Plataforma de gestão financeira inteligente que conecta contas, organiza movimentações e transforma dados em análises claras sobre gastos, rendimento e oportunidades de economia.", tags: ["FinTech", "Analytics", "Open Finance"], color: "#7C3AED", featured: true, features: ["Integração via Open Finance com bancos", "Categorização automática de transações", "Análises e insights com IA", "Metas de economia e alertas inteligentes", "Dashboard unificado em tempo real"] },
 ];
 
 const TESTIMONIALS = [
   { name: "Juliana Martins", role: "Empresária — Studio JM", text: "O site que criaram para minha empresa triplicou os contatos pelo WhatsApp no primeiro mês. Design incrível.", initials: "JM" },
   { name: "Ana Ferreira", role: "Gerente — Clínica Vitale", text: "O WhatsApp Bot organiza todo nosso atendimento. O pré-atendimento filtra 70% das dúvidas antes de chegar na recepção.", initials: "AF" },
-  { name: "Carlos Mendes", role: "CFO — Grupo Orion", text: "Estou testando o Finzo e a visão que ele dá sobre gastos e rendimentos é algo que nenhum app de banco oferece.", initials: "CM" },
+  { name: "Carlos Mendes", role: "Sócio — Contabilidade Orion", text: "Migramos a conciliação de extratos e o controle de prazos das planilhas para o sistema. O tempo que a equipe gasta em tarefas repetitivas caiu demais.", initials: "CM" },
 ];
 
 const FAQS = {
-  "Finzo App": [
-    { q: "Como funciona o Finzo App?", a: "O Finzo conecta suas contas bancárias via Open Finance, organiza todas as movimentações automaticamente e gera análises visuais sobre seus gastos, rendimento e oportunidades de economia." },
-    { q: "O Finzo é seguro para conectar minhas contas?", a: "Sim. A conexão é feita via Open Finance, regulamentado pelo Banco Central. O Finzo não armazena senhas bancárias e todos os dados são criptografados de ponta a ponta." },
-    { q: "Posso testar o Finzo gratuitamente?", a: "Sim, o Finzo terá um período de teste gratuito para novos usuários. Você poderá explorar todas as funcionalidades — integração bancária, categorização automática e insights com IA — sem compromisso." },
-    { q: "Quais bancos são compatíveis com o Finzo?", a: "O Finzo se integra com todas as instituições participantes do Open Finance no Brasil, incluindo os principais bancos e fintechs. A lista é atualizada automaticamente conforme novas instituições aderem." },
+  "Soluções Contábeis": [
+    { q: "O sistema calcula IRPJ e CSLL automaticamente?", a: "Sim. A Calculadora de IRPJ e CSLL identifica o regime da empresa (Lucro Real ou Presumido) e apura os impostos a partir de arquivos anexados ou de valores informados manualmente, aplicando as alíquotas corretas por atividade." },
+    { q: "Dá para gerenciar mais de uma empresa no mesmo login?", a: "Sim, o sistema é multiempresa. Cada cliente do escritório fica cadastrado com seu regime tributário e atividade, e você alterna entre eles sem perder o histórico de cada um." },
+    { q: "Como funciona a conciliação de extratos?", a: "Você importa o extrato bancário e o razão da empresa, e o sistema concilia automaticamente, sinalizando inconsistências e sugerindo lançamentos — sem precisar cruzar linha por linha manualmente." },
+    { q: "É possível controlar prazos e obrigações por empresa?", a: "Sim. O Controle de Prazos organiza tarefas e vencimentos por empresa, com alertas antes de cada obrigação vencer." },
   ],
   "WhatsApp Bot": [
     { q: "O WhatsApp Bot precisa de número comercial?", a: "Sim, utilizamos a API oficial do WhatsApp Business. Configuramos tudo para você — desde a categorização automática de conversas até o fluxo de pré-atendimento antes da interação humana." },
     { q: "O bot consegue atender fora do horário comercial?", a: "Sim, o atendimento automatizado funciona 24/7. O bot realiza a triagem, responde dúvidas frequentes e coleta informações do cliente. Quando necessário, agenda o contato humano para o próximo horário disponível." },
     { q: "É possível personalizar as respostas do bot?", a: "Totalmente. O bot é treinado com o fluxo e a linguagem da sua empresa. Você define os temas, respostas e regras de encaminhamento para que o atendimento reflita a identidade do seu negócio." },
-  ],
-  "Sites": [
-    { q: "Quanto tempo leva para criar um site?", a: "Sites profissionais ficam prontos em 1 a 3 semanas dependendo da complexidade. Cada site é adaptado ao negócio do cliente com design moderno, responsivo e otimizado para conversão." },
-    { q: "O site é otimizado para celular e SEO?", a: "Sim. Todos os sites são 100% responsivos (mobile, tablet e desktop) e incluem SEO técnico desde o início — estrutura semântica, performance otimizada e boas práticas para ranqueamento no Google." },
-    { q: "O que está incluso após a entrega do site?", a: "O pacote inclui hospedagem, deploy e suporte contínuo. Também realizamos atualizações de conteúdo, monitoramento de performance e ajustes técnicos para manter seu site sempre no ar e atualizado." },
   ],
 };
 
@@ -417,7 +411,7 @@ export default function App() {
 
   const faqTabs = Object.keys(FAQS);
   const faqsByTab = Object.values(FAQS);
-  const faqTabColors = ["#7C3AED", "#25D366", "#2563EB", "#ff6b9d"];
+  const faqTabColors = ["#7C3AED", "#25D366"];
 
   return (
     <div style={{ background: "#08080a", color: "#eeede9", fontFamily: "'Inter', sans-serif", overflowX: "hidden", minHeight: "100vh" }}>
@@ -1305,51 +1299,48 @@ export default function App() {
                       <div style={{ position: "absolute", width: 120, height: 120, borderRadius: "50%", background: `${p.color}15`, filter: "blur(40px)", top: "20%", left: "30%", animation: "float1 6s ease-in-out infinite" }} />
                       <div style={{ position: "absolute", width: 90, height: 90, borderRadius: "50%", background: "rgba(37, 99, 235,0.1)", filter: "blur(40px)", bottom: "20%", right: "25%", animation: "float2 8s ease-in-out infinite" }} />
 
-                      {/* Finzo App */}
-                      {p.id === 1 && (
+                      {/* Soluções Contábeis */}
+                      {p.id === 5 && (
                         <div className="featured-mockup" style={{ zIndex: 1, padding: 28, width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 14 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.55)", fontFamily: "'JetBrains Mono', monospace" }}>Contas conectadas</div>
-                            <div style={{ fontSize: "0.58rem", color: "rgba(76,217,100,0.7)", fontFamily: "'JetBrains Mono', monospace" }}>● 3 ativas</div>
+                            <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.55)", fontFamily: "'JetBrains Mono', monospace" }}>Painel do escritório</div>
+                            <div style={{ fontSize: "0.58rem", color: "rgba(124,58,237,0.8)", fontFamily: "'JetBrains Mono', monospace" }}>● 24 empresas ativas</div>
                           </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
-                              <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #820ad1, #9b30ff)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 700, color: "#fff" }}>Nu</div>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: "0.74rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>Nubank</div>
-                                <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)" }}>Conta corrente</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            <div style={{ padding: "10px 14px", background: "rgba(124,58,237,0.06)", border: "1px solid rgba(124,58,237,0.14)", borderRadius: 12 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>Extratos do mês</div>
+                                <span style={{ padding: "2px 8px", background: "rgba(76,217,100,0.15)", borderRadius: 100, fontSize: "0.52rem", fontWeight: 600, color: "#4cd964" }}>Conciliado</span>
                               </div>
-                              <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>R$ 4.8k</div>
+                              <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.35)" }}>18 empresas com extrato e razão batendo</div>
                             </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
-                              <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #ff7a00, #ff9533)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: 700, color: "#fff" }}>Inter</div>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: "0.74rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>Inter</div>
-                                <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)" }}>Poupança</div>
+                            <div style={{ padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>DAS e obrigações</div>
+                                <span style={{ padding: "2px 8px", background: "rgba(255,180,0,0.15)", borderRadius: 100, fontSize: "0.52rem", fontWeight: 600, color: "#ffb400" }}>Vence em 3 dias</span>
                               </div>
-                              <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>R$ 12.3k</div>
+                              <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.35)" }}>6 empresas com prazo próximo do vencimento</div>
                             </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
-                              <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #ec1c2e, #ff3b4f)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.58rem", fontWeight: 700, color: "#fff" }}>Itaú</div>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: "0.74rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>Itaú</div>
-                                <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)" }}>Investimentos</div>
+                            <div style={{ padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>IRPJ e CSLL — 3º Trimestre</div>
+                                <span style={{ padding: "2px 8px", background: "rgba(124,58,237,0.15)", borderRadius: 100, fontSize: "0.52rem", fontWeight: 600, color: "#b18aff" }}>Em apuração</span>
                               </div>
-                              <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>R$ 28.6k</div>
+                              <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.35)" }}>Lucro Real e Presumido calculados automaticamente</div>
                             </div>
                           </div>
                           <div style={{ padding: "12px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12 }}>
-                            <div style={{ fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 10, fontFamily: "'JetBrains Mono', monospace" }}>Categorias do mês</div>
+                            <div style={{ fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 10, fontFamily: "'JetBrains Mono', monospace" }}>Status por área</div>
                             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                               {[
-                                { name: "Alimentação", value: "R$ 840", pct: 85, color: "#7C3AED" },
-                                { name: "Transporte", value: "R$ 420", pct: 55, color: "#2563EB" },
-                                { name: "Lazer", value: "R$ 310", pct: 38, color: "#ff6b9d" },
+                                { name: "Conciliação", pct: 88, color: "#7C3AED" },
+                                { name: "Prazos e obrigações", pct: 64, color: "#ffb400" },
+                                { name: "Apuração fiscal", pct: 42, color: "#25D366" },
                               ].map((c, idx) => (
                                 <div key={idx}>
                                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
                                     <span style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.55)" }}>{c.name}</span>
-                                    <span style={{ fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>{c.value}</span>
+                                    <span style={{ fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>{c.pct}%</span>
                                   </div>
                                   <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 100, overflow: "hidden" }}>
                                     <div style={{ height: "100%", width: `${c.pct}%`, background: c.color, borderRadius: 100 }} />
@@ -1360,19 +1351,19 @@ export default function App() {
                           </div>
                           <div style={{ display: "flex", gap: 8 }}>
                             <div style={{ flex: 1, padding: "10px 12px", background: "rgba(124, 58, 237,0.05)", border: "1px solid rgba(124, 58, 237,0.1)", borderRadius: 10 }}>
-                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Economia</div>
-                              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#7C3AED" }}>+12%</div>
+                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Empresas</div>
+                              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#7C3AED" }}>24</div>
                             </div>
-                            <div style={{ flex: 1, padding: "10px 12px", background: "rgba(37, 99, 235,0.05)", border: "1px solid rgba(37, 99, 235,0.1)", borderRadius: 10 }}>
-                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Gastos</div>
-                              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#2563EB" }}>R$ 2.4k</div>
+                            <div style={{ flex: 1, padding: "10px 12px", background: "rgba(76,217,100,0.05)", border: "1px solid rgba(76,217,100,0.1)", borderRadius: 10 }}>
+                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Conciliados</div>
+                              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#4cd964" }}>18</div>
                             </div>
-                            <div style={{ flex: 1, padding: "10px 12px", background: "rgba(255,107,157,0.05)", border: "1px solid rgba(255,107,157,0.1)", borderRadius: 10 }}>
-                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Investido</div>
-                              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#ff6b9d" }}>R$ 800</div>
+                            <div style={{ flex: 1, padding: "10px 12px", background: "rgba(255,180,0,0.05)", border: "1px solid rgba(255,180,0,0.1)", borderRadius: 10 }}>
+                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Prazos</div>
+                              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#ffb400" }}>6</div>
                             </div>
                           </div>
-                          <div style={{ fontSize: "0.6rem", color: "rgba(76,217,100,0.65)", fontFamily: "'JetBrains Mono', monospace", textAlign: "center" }}>● Sincronizado em tempo real</div>
+                          <div style={{ fontSize: "0.6rem", color: "rgba(124,58,237,0.7)", fontFamily: "'JetBrains Mono', monospace", textAlign: "center" }}>● Atualizado em tempo real</div>
                         </div>
                       )}
 
@@ -1445,61 +1436,6 @@ export default function App() {
                               <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "rgba(255,255,255,0.65)" }}>8s</div>
                             </div>
                           </div>
-                        </div>
-                      )}
-
-                      {/* Sites para Empresas */}
-                      {p.id === 4 && (
-                        <div className="featured-mockup" style={{ zIndex: 1, padding: 28, width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 12 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.55)", fontFamily: "'JetBrains Mono', monospace" }}>Projeto em andamento</div>
-                            <div style={{ fontSize: "0.58rem", color: "rgba(255,107,157,0.8)", fontFamily: "'JetBrains Mono', monospace" }}>● Sprint 3/4</div>
-                          </div>
-                          <div style={{ padding: "14px 16px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                              <div style={{ width: 36, height: 36, borderRadius: 9, background: "linear-gradient(135deg, #ff6b9d, #ff8fb5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", color: "#fff" }}>🏪</div>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>Loja Bella</div>
-                                <div style={{ fontSize: "0.58rem", color: "rgba(255,255,255,0.35)" }}>E-commerce · Moda feminina</div>
-                              </div>
-                              <span style={{ padding: "3px 8px", background: "rgba(255,107,157,0.15)", borderRadius: 100, fontSize: "0.52rem", fontWeight: 600, color: "#ff6b9d" }}>Em produção</span>
-                            </div>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                              {[
-                                { label: "Briefing e identidade visual", done: true },
-                                { label: "Design personalizado com IA", done: true },
-                                { label: "Layout responsivo (mobile/desktop)", done: true },
-                                { label: "SEO técnico e performance", done: true },
-                                { label: "Integração pagamento e CRM", done: false },
-                                { label: "Deploy e domínio", done: false },
-                              ].map((step, idx) => (
-                                <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                  <div style={{ width: 16, height: 16, borderRadius: "50%", background: step.done ? "rgba(76,217,100,0.15)" : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.52rem", color: step.done ? "#4cd964" : "rgba(255,255,255,0.25)" }}>{step.done ? "✓" : "○"}</div>
-                                  <span style={{ fontSize: "0.64rem", color: step.done ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.3)" }}>{step.label}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                            {["Next.js", "Tailwind", "Stripe", "Analytics", "CDN"].map(t => (
-                              <span key={t} style={{ padding: "3px 9px", background: "rgba(255,107,157,0.06)", border: "1px solid rgba(255,107,157,0.15)", borderRadius: 100, fontSize: "0.56rem", fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: "rgba(255,107,157,0.8)" }}>{t}</span>
-                            ))}
-                          </div>
-                          <div className="mockup-stats-3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
-                            <div style={{ padding: "8px 10px", background: "rgba(255,107,157,0.05)", border: "1px solid rgba(255,107,157,0.1)", borderRadius: 10, textAlign: "center" }}>
-                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Progresso</div>
-                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#ff6b9d" }}>75%</div>
-                            </div>
-                            <div style={{ padding: "8px 10px", background: "rgba(124, 58, 237,0.05)", border: "1px solid rgba(124, 58, 237,0.1)", borderRadius: 10, textAlign: "center" }}>
-                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Performance</div>
-                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#7C3AED" }}>98</div>
-                            </div>
-                            <div style={{ padding: "8px 10px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, textAlign: "center" }}>
-                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Entrega</div>
-                              <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.65)" }}>5 dias</div>
-                            </div>
-                          </div>
-                          <div style={{ fontSize: "0.6rem", color: "rgba(255,107,157,0.65)", fontFamily: "'JetBrains Mono', monospace", textAlign: "center" }}>● Design gerado por IA</div>
                         </div>
                       )}
                     </div>
@@ -1623,9 +1559,8 @@ export default function App() {
             {
               title: "Produtos",
               links: [
-                { label: "Finzo App", href: "#produtos", external: false },
+                { label: "Soluções Contábeis", href: "#produtos", external: false },
                 { label: "WhatsApp Bot", href: "https://whatsapp-mu.vercel.app", external: true },
-                { label: "Criador de Sites", href: "https://criadordesites-rose.vercel.app", external: true },
               ],
             },
             {
