@@ -180,10 +180,17 @@ const SUBCATS = [
   {
     id: 'extrato', label: 'Extrato', TabIcon: IBank,
     desc: 'Codificação, conciliação e transformação de extratos bancários.',
+    // Cabeçalho próprio deste hub (ver "Category banner" mais abaixo, que usa
+    // bannerTitle/bannerDesc no lugar de label/desc quando existem) e cards
+    // compactos/centralizados (CompactSystemCard) — pedido só pra esta aba,
+    // as demais continuam com o SystemCard padrão.
+    bannerTitle: 'Ferramentas para seus extratos',
+    bannerDesc: 'Escolha a ferramenta que você precisa',
+    compact: true,
     items: [
-      { name: 'Codificador de Arquivos',  CardIcon: IFileCode,  accent: '#3b82f6', slug: 'codificador',          desc: 'Codifique extratos bancários para importação no Domínio Contábil.' },
-      { name: 'Conciliador de Extratos',  CardIcon: IArrows,    accent: '#f97316', slug: 'conciliador-extratos', desc: 'Concilie automaticamente o razão contábil com o extrato bancário.' },
       { name: 'Transformador de Extrato', CardIcon: IRefreshCw, accent: '#6366f1', slug: 'transformador-extrato', desc: 'Converta extratos em PDF para Excel com extração estruturada.' },
+      { name: 'Codificador de Arquivos',  CardIcon: IFileCode,  accent: '#3b82f6', slug: 'codificador',          desc: 'Codifique extratos bancários e relatórios de pagamentos de forma automática para importação em seu sistema.' },
+      { name: 'Conciliador de Extratos',  CardIcon: IArrows,    accent: '#f97316', slug: 'conciliador-extratos', desc: 'Concilie de forma automática seu extrato utilizando o Razão e Extrato bancário, identificando inconsistências e gerando lançamentos.' },
     ],
   },
   {
@@ -478,6 +485,91 @@ function SystemCard({ item, P, isDark, onNavigate, blocked }) {
   );
 }
 
+// Versão compacta e centralizada do SystemCard — usada só no hub "Extrato"
+// (ver `compact: true` em SUBCATS). Mesma linguagem visual (cor de destaque
+// no ícone, borda/hover, badges de "Em breve"/"Fora do plano"), mas ícone,
+// título, descrição e o botão de acesso ficam centralizados, com menos
+// padding — pedido explícito de deixar os cards "mais compactos e elegantes".
+function CompactSystemCard({ item, P, isDark, onNavigate, blocked }) {
+  const [hov, setHov] = useState(false);
+  const soon = !!item.soon;
+  const locked = soon || blocked;
+  const canHov = hov && !locked;
+  return (
+    <button
+      onClick={locked ? undefined : onNavigate}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      title={blocked && !soon ? 'Não incluído no plano contratado — fale com o suporte para liberar.' : undefined}
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative',
+        background: canHov ? (isDark ? 'rgba(255,255,255,0.03)' : '#fafafd') : P.surface,
+        border: `1px solid ${canHov ? item.accent + '55' : P.border}`,
+        borderRadius: 14, padding: '20px 18px 16px',
+        cursor: locked ? 'default' : 'pointer', textAlign: 'center', fontFamily: FONT_INTER,
+        color: P.text, boxShadow: canHov ? `0 4px 20px ${item.accent}18` : P.shadow,
+        transition: 'all 0.18s ease',
+        transform: canHov ? 'translateY(-2px)' : 'translateY(0)',
+        opacity: locked ? 0.72 : 1,
+      }}
+    >
+      {soon && (
+        <div style={{
+          position: 'absolute', top: 10, right: 10,
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
+          padding: '3px 8px', borderRadius: 20,
+          background: isDark ? 'rgba(124,58,237,0.18)' : 'rgba(124,58,237,0.1)',
+          color: '#7C3AED',
+          border: '1px solid rgba(124,58,237,0.25)',
+        }}>Em breve</div>
+      )}
+      {blocked && !soon && (
+        <div style={{
+          position: 'absolute', top: 10, right: 10,
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
+          padding: '3px 8px', borderRadius: 20,
+          background: isDark ? 'rgba(245,158,11,0.16)' : 'rgba(245,158,11,0.12)',
+          color: '#d97706',
+          border: '1px solid rgba(245,158,11,0.3)',
+        }}>🔒 Fora do plano</div>
+      )}
+
+      {/* Icon box */}
+      <div style={{
+        width: 46, height: 46, borderRadius: 12, marginBottom: 14,
+        background: item.accent,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: '#fff',
+        boxShadow: `0 4px 14px ${item.accent}42`,
+        transition: 'box-shadow 0.18s',
+      }}>
+        <item.CardIcon size={21} />
+      </div>
+
+      <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 7, letterSpacing: -0.2, lineHeight: 1.3 }}>
+        {item.name}
+      </div>
+      <div style={{ fontSize: 12, color: P.muted, lineHeight: 1.55, marginBottom: 16 }}>
+        {item.desc}
+      </div>
+
+      {/* Access button */}
+      {!locked && (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 20,
+          background: canHov ? item.accent : (isDark ? P.surface2 : '#f5f4fb'),
+          border: `1px solid ${canHov ? item.accent : P.border}`,
+          color: canHov ? '#fff' : item.accent,
+          fontSize: 12, fontWeight: 700, transition: 'all 0.18s',
+        }}>
+          Acessar <IChevronRight size={12} />
+        </span>
+      )}
+    </button>
+  );
+}
+
 // ── Right panel ────────────────────────────────────────────────────────────────
 function RightPanel({ P, isDark, active, activeId, onSelect, onNavigate, isBlocked }) {
   return (
@@ -542,10 +634,10 @@ function RightPanel({ P, isDark, active, activeId, onSelect, onNavigate, isBlock
           </div>
           <div>
             <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5, color: P.text, marginBottom: 6, lineHeight: 1.1 }}>
-              {active.label}
+              {active.bannerTitle || active.label}
             </div>
             <div style={{ fontSize: 13, color: P.muted, lineHeight: 1.55, maxWidth: 460 }}>
-              {active.desc}
+              {active.bannerDesc || active.desc}
             </div>
           </div>
         </div>
@@ -582,8 +674,9 @@ function RightPanel({ P, isDark, active, activeId, onSelect, onNavigate, isBlock
       <div className="contabil-sys-grid">
         {active.items.map((item, i) => {
           const blocked = isBlocked(item.slug);
+          const Card = active.compact ? CompactSystemCard : SystemCard;
           return (
-            <SystemCard
+            <Card
               key={item.slug ?? `soon-${i}`}
               item={item}
               P={P}
