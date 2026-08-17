@@ -87,9 +87,22 @@ export function parseExtrato(text) {
 
   let currentDate = '';
   let lastRow = null;
+  // Linhas sem valor ficam aqui até aparecer uma linha com valor: só então
+  // dá pra saber se elas eram a descrição de uma transação nova (valor veio
+  // numa linha separada, ex: "CANCELAMENTO PGTO TITULO" + "DADOS TITULO NAO
+  // VALIDOS" + "- 4.398,00") ou só um complemento da transação anterior.
+  let pendingDesc = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+
+    // O PDF do Santander emenda, depois do último lançamento, um resumo de
+    // "Saldos por Período" seguido de um relatório à parte de investimentos
+    // (CDB) com sua própria tabela "Valor Principal (R$)...". Nada dali é
+    // lançamento de extrato — para por aqui para não confundir texto de
+    // rodapé/disclaimer/relatório de CDB com descrição de transação.
+    if (/^saldos por per[íi]odo/i.test(line) || /valor\s+principal\s*\(r\$\)/i.test(line)) break;
+
     if (skipLine(line)) continue;
 
     let rest = line;
@@ -128,9 +141,14 @@ export function parseExtrato(text) {
     }
 
     if (allVals.length === 0) {
-      // Linha de continuação de descrição
-      if (lastRow && rest.length >= 2 && !/^\d+$/.test(rest)) {
-        lastRow.descricao += ' ' + rest;
+      // Linha de continuação — ainda não dá pra saber se é o começo da
+      // descrição de uma transação nova ou o complemento da anterior.
+      // Só decide quando a próxima linha com valor aparecer.
+      // Descrição real de lançamento nunca passa de 2-3 linhas; um buffer
+      // maior que isso é sinal de texto solto (rodapé, disclaimer) — nesse
+      // caso é mais seguro descartar do que inventar uma linha com ele.
+      if (rest.length >= 2 && !/^\d+$/.test(rest) && pendingDesc.length < 4) {
+        pendingDesc.push(rest);
       }
       continue;
     }
@@ -142,6 +160,21 @@ export function parseExtrato(text) {
     let descricao = rest.substring(0, transVal.index).trim();
     descricao = descricao.replace(/\s+\d{4,6}\s*$/, '').replace(/\s+-\s*$/, '').trim();
     descricao = descricao.replace(/\s+/g, ' ').trim();
+
+    // Linha "vazia" além do valor (só um "-" ou um nº de documento solto):
+    // a descrição real estava nas linhas anteriores sem valor. Se, ao
+    // contrário, esta linha já trouxe descrição própria, o que ficou
+    // pendente era complemento da transação anterior.
+    const inlineDescTrivial = !descricao || descricao.length < 2 || /^-+$/.test(descricao) || /^\d+$/.test(descricao);
+    if (pendingDesc.length > 0) {
+      if (inlineDescTrivial && pendingDesc.length < 4) {
+        descricao = pendingDesc.join(' ').trim();
+      } else if (lastRow) {
+        lastRow.descricao += ' ' + pendingDesc.join(' ');
+      }
+      pendingDesc = [];
+    }
+
     if (!descricao || descricao.length < 2) { lastRow = null; continue; }
 
     const lower = descricao.toLowerCase();
@@ -163,7 +196,8 @@ export function parseExtrato(text) {
         lower.includes('credito') || lower.includes('depósito') ||
         lower.includes('deposito') || lower.includes('transferência recebida') ||
         lower.includes('transf recebida') || lower.includes('recebimento') ||
-        lower.includes('estorno') || lower.includes('resgate contamax')
+        lower.includes('estorno') || lower.includes('resgate contamax') ||
+        lower.includes('cancelamento')
       ) {
         receber = transVal.value;
       } else if (
