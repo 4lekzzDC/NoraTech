@@ -8,6 +8,7 @@ import { useAuth }    from '../../../contexts/AuthContext';
 import { useTheme }   from '../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER, FONT_MONO } from '../theme';
 import SolucoesHeader from '../components/SolucoesHeader';
+import UserAvatar from '../components/UserAvatar';
 import { moduleRoute, HUB_MODULES_BY_SLUG } from '../constants';
 import { getStats, logAccess, seedDemoIfEmpty } from '../hubAnalytics';
 import { GestaoClientesContent } from '../sistemas/gestao-clientes/GestaoClientesPage';
@@ -131,32 +132,6 @@ function fmtRelative(ts) {
   if (diff < 3_600_000)  return `há ${Math.floor(diff / 60_000)} min`;
   if (diff < 86_400_000) return `há ${Math.floor(diff / 3_600_000)}h`;
   return fmtTs(ts);
-}
-
-function initials(name) {
-  if (!name) return '?';
-  return name.split(' ').filter(Boolean).map((n) => n[0]).slice(0, 2).join('').toUpperCase();
-}
-
-// ── Avatar ─────────────────────────────────────────────────────────────────────
-function Avatar({ user, size = 54 }) {
-  if (user?.photoUrl) {
-    return (
-      <img
-        src={user.photoUrl} alt={user.name}
-        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid rgba(124,58,237,0.25)' }}
-      />
-    );
-  }
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: 'linear-gradient(135deg,rgba(124,58,237,0.22) 0%,rgba(124,58,237,0.08) 100%)',
-      border: '2px solid rgba(124,58,237,0.28)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: Math.round(size * 0.32), fontWeight: 700, color: '#7C3AED',
-    }}>{initials(user?.name)}</div>
-  );
 }
 
 // ── Line chart ─────────────────────────────────────────────────────────────────
@@ -537,7 +512,7 @@ function LeftCard({ user, stats, isDark, onNavigate, onOpenClientes }) {
     }}>
       {/* Identity */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-        <Avatar user={user} size={58} />
+        <UserAvatar user={user} size={58} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 20, fontWeight: 800, color: p.text, letterSpacing: -0.4, lineHeight: 1.1 }}>
             {user?.name || 'Usuário'}

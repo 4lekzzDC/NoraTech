@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import SolucoesHeader from '../../components/SolucoesHeader';
+import UserAvatar from '../../components/UserAvatar';
+import { useAuth } from '../../../../contexts/AuthContext';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
 import { parsePdf, exportToXlsx, fmtBRL, loadHistory, pushHistory, clearHistory } from './transEngine';
@@ -119,14 +121,6 @@ function ITransIcon({ size = 26 }) {
     </svg>
   );
 }
-function IHome({ size = 14 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-      <polyline points="9 22 9 12 15 12 15 22"/>
-    </svg>
-  );
-}
 function IConvert({ size = 14 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -144,55 +138,113 @@ function IHistoryIcon({ size = 14 }) {
   );
 }
 
-// ── Stat card ──────────────────────────────────────────────────────────────────
-function StatCard({ Icon, label, value, sub, accent }) {
+// ── Métrica empilhada da sidebar — mesmo formato da tela Contábil ────────────
+function SidebarMetric({ Icon, value, label, accent = '#7C3AED', isDark }) {
   const P = useP();
   return (
     <div style={{
-      background: P.surface, border: `1px solid ${P.border}`,
-      borderRadius: 14, padding: '18px 20px',
-      boxShadow: P.shadow,
-      display: 'flex', alignItems: 'center', gap: 16,
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '10px 12px', borderRadius: 10,
+      background: isDark ? 'rgba(255,255,255,0.025)' : '#f8f8fc',
+      border: `1px solid ${P.border}`,
     }}>
       <div style={{
-        width: 46, height: 46, borderRadius: 12, flexShrink: 0,
-        background: accent + '18',
+        width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+        background: accent + '1c', color: accent,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: accent,
-      }}>
-        <Icon size={20} />
-      </div>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: P.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>
-          {label}
-        </div>
-        <div style={{ fontSize: 22, fontWeight: 800, color: P.text, lineHeight: 1, letterSpacing: -0.5 }}>
-          {value}
-        </div>
-        <div style={{ fontSize: 11, color: P.muted, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</div>
+      }}><Icon size={13} /></div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: P.text, lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
+        <div style={{ fontSize: 10, color: P.muted, marginTop: 2 }}>{label}</div>
       </div>
     </div>
   );
 }
 
-// ── Nav button ─────────────────────────────────────────────────────────────────
-function NavBtn({ active, onClick, Icon, children }) {
-  const P = useP();
+// ── Sidebar esquerda — perfil, métricas e conversões recentes ────────────────
+function LeftSidebar({ user, history, isDark, onClear }) {
+  const P    = useP();
+  const card = { background: P.surface, border: `1px solid ${P.border}`, borderRadius: 16, boxShadow: P.shadow };
+
+  const totalLinhas = history.reduce((a, h) => a + h.rows, 0);
+  const last        = history[0] || null;
+
+  const METRICS = [
+    { Icon: ITrendUp,     value: history.length,                                label: 'Conversões realizadas' },
+    { Icon: IList,        value: totalLinhas.toLocaleString('pt-BR'),           label: 'Linhas processadas' },
+    { Icon: IDollarMinus, value: last ? `R$ ${fmtBRL(last.totalPagar)}`   : '—', label: 'Último total a pagar',
+      accent: last ? '#ef4444' : '#7C3AED' },
+    { Icon: IDollarPlus,  value: last ? `R$ ${fmtBRL(last.totalReceber)}` : '—', label: 'Último total a receber',
+      accent: last ? '#10b981' : '#7C3AED' },
+  ];
+
   return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 7,
-        padding: '8px 14px', borderRadius: 9,
-        border: `1px solid ${active ? P.primaryBorder : 'transparent'}`,
-        background: active ? P.primarySoft : 'transparent',
-        color: active ? P.primaryText : P.muted,
-        fontFamily: FONT_INTER, fontSize: 13, fontWeight: 600,
-        cursor: 'pointer', transition: 'all 0.15s',
-      }}
-    >
-      <Icon size={14} /> {children}
-    </button>
+    <div className="te-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+      {/* Perfil + métricas */}
+      <div style={{ ...card, padding: '22px 18px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 18 }}>
+          <UserAvatar user={user} size={52} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: P.text, letterSpacing: -0.3, lineHeight: 1.2 }}>
+              {user?.name || 'Usuário'}
+            </div>
+            <div style={{ fontSize: 12, color: '#7C3AED', fontWeight: 600, marginTop: 2 }}>
+              {user?.company || 'Hub Contábil'}
+            </div>
+            <div style={{ fontSize: 11, color: P.muted, marginTop: 3, lineHeight: 1.45 }}>
+              Converta extratos bancários em planilha Excel.
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          {METRICS.map((m) => <SidebarMetric key={m.label} {...m} isDark={isDark} />)}
+        </div>
+      </div>
+
+      {/* Conversões recentes */}
+      {history.length > 0 && (
+        <div style={{ ...card, padding: '16px 18px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: P.text }}>Últimas conversões</span>
+            <button
+              onClick={onClear}
+              style={{
+                background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                fontFamily: FONT_INTER, fontSize: 11, fontWeight: 600, color: '#7C3AED',
+              }}
+            >
+              Limpar
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+            {history.slice(0, 5).map((h, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
+                <div style={{
+                  width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                  background: 'rgba(16,185,129,0.12)', color: '#10b981',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}><IExcelIcon size={14} /></div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div title={h.fileName} style={{
+                    fontSize: 12, fontWeight: 600, color: P.text,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>{h.fileName}</div>
+                  <div style={{ fontSize: 10, color: P.muted, marginTop: 2 }}>
+                    {h.date} · {h.rows.toLocaleString('pt-BR')} linhas
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 3, fontFamily: FONT_MONO, fontSize: 10 }}>
+                    <span style={{ color: P.red }}>↓ {fmtBRL(h.totalPagar)}</span>
+                    <span style={{ color: P.green }}>↑ {fmtBRL(h.totalReceber)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -225,7 +277,7 @@ function DropZone({ onFile, disabled }) {
       onDrop={!disabled ? onDrop : undefined}
       style={{
         border: `2px dashed ${dragging ? '#7C3AED' : P.border2}`,
-        borderRadius: 14, padding: '36px 24px',
+        borderRadius: 14, padding: '34px 24px',
         textAlign: 'center',
         cursor: disabled ? 'not-allowed' : 'pointer',
         background: dragging ? P.primarySoft : (P.surface2 || P.bg),
@@ -240,141 +292,33 @@ function DropZone({ onFile, disabled }) {
         onChange={(e) => handleFile(e.target.files[0])}
         disabled={disabled}
       />
-      <div style={{ color: '#7C3AED', marginBottom: 14, display: 'flex', justifyContent: 'center' }}>
-        <IUploadCloud size={38} />
+      <div style={{ color: '#7C3AED', marginBottom: 12, display: 'flex', justifyContent: 'center' }}>
+        <IUploadCloud size={36} />
       </div>
-      <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 6 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 5 }}>
         {disabled ? 'Processando…' : 'Arraste e solte seu arquivo aqui'}
       </div>
       {!disabled && (
-        <>
-          <div style={{ fontSize: 12, color: P.muted, marginBottom: 18 }}>
-            ou clique no botão abaixo para selecionar
-          </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              padding: '9px 22px', borderRadius: 9,
-              background: '#7C3AED', color: '#fff', border: 'none',
-              fontFamily: FONT_INTER, fontSize: 13, fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            <IFileDoc size={14} /> Selecionar arquivo
-          </button>
-        </>
+        <div style={{ fontSize: 12, color: P.muted }}>ou clique para selecionar</div>
       )}
     </div>
   );
 }
 
-// ── HomePanel ──────────────────────────────────────────────────────────────────
-function HomePanel({ history, onNavigate }) {
-  const P = useP();
-  const totalConversoes = history.length;
-  const totalLinhas     = history.reduce((a, h) => a + h.rows, 0);
-  const last            = history[0] || null;
-
-  const steps = [
-    { Icon: IUploadCloud, title: 'Envie o PDF',         desc: 'Faça upload do extrato bancário em formato PDF.' },
-    { Icon: IConvert,     title: 'Extração automática', desc: 'O sistema lê e classifica cada lançamento em Pagar ou Receber.' },
-    { Icon: IExcelIcon,   title: 'Exporte para Excel',  desc: 'Baixe a planilha organizada, pronta para o sistema contábil.' },
-  ];
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-        <StatCard Icon={ITrendUp}    accent="#7C3AED" label="Conversões realizadas" value={totalConversoes}                       sub="Total de conversões" />
-        <StatCard Icon={IList}       accent="#7C3AED" label="Linhas processadas"    value={totalLinhas.toLocaleString('pt-BR')} sub="Total de linhas" />
-        <StatCard Icon={IDollarMinus} accent={last ? '#ef4444' : '#7C3AED'} label="Último Total a Pagar"
-          value={last ? `R$ ${fmtBRL(last.totalPagar)}` : '—'} sub={last ? 'Último registro' : 'Nenhum registro'} />
-        <StatCard Icon={IDollarPlus}  accent={last ? '#10b981' : '#7C3AED'} label="Último Total a Receber"
-          value={last ? `R$ ${fmtBRL(last.totalReceber)}` : '—'} sub={last ? 'Último registro' : 'Nenhum registro'} />
-      </div>
-
-      {/* Como funciona */}
-      <div style={{
-        background: P.surface, border: `1px solid ${P.border}`,
-        borderRadius: 14, padding: '22px 24px', boxShadow: P.shadow,
-      }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: P.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 16 }}>
-          Como funciona
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-          {steps.map((s, i) => (
-            <div key={i} style={{
-              background: P.surface2 || P.bg, borderRadius: 12, padding: '18px 16px',
-              border: `1px solid ${P.border}`,
-            }}>
-              <div style={{
-                width: 38, height: 38, borderRadius: 10, marginBottom: 14,
-                background: 'rgba(124,58,237,0.1)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7C3AED',
-              }}>
-                <s.Icon size={18} />
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: P.text, marginBottom: 6 }}>{s.title}</div>
-              <div style={{ fontSize: 12, color: P.muted, lineHeight: 1.55 }}>{s.desc}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* CTA */}
-      <button
-        onClick={() => onNavigate('converter')}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '18px 24px', borderRadius: 14, width: '100%',
-          background: P.primarySoft, border: `1px solid ${P.primaryBorder}`,
-          cursor: 'pointer', fontFamily: FONT_INTER, color: P.primaryText,
-          boxShadow: P.shadow, textAlign: 'left', transition: 'filter 0.15s',
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(0.97)')}
-        onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
-      >
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 3 }}>Iniciar conversão</div>
-          <div style={{ fontSize: 12, opacity: 0.8 }}>Acesse o conversor para transformar seu PDF em Excel.</div>
-        </div>
-        <div style={{
-          width: 32, height: 32, borderRadius: 9, flexShrink: 0,
-          background: '#7C3AED', color: '#fff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <IConvert size={14} />
-        </div>
-      </button>
-
-      {/* Format info */}
-      <InfoBanner />
-    </div>
-  );
-}
-
-// ── ConverterPanel ─────────────────────────────────────────────────────────────
-function ConverterPanel({ onHistoryUpdate, isLight, history }) {
+// ── Card de conversão ─────────────────────────────────────────────────────────
+function ConverterCard({ onHistoryUpdate, isLight, rows, setRows }) {
   const P         = useP();
   const companyId = useCompanyId();
-  const [processing,   setProcessing]   = useState(false);
-  const [rows,         setRows]         = useState(null);
-  const [fileName,     setFileName]     = useState('');
-  const [fileSize,     setFileSize]     = useState('');
-  const [error,        setError]        = useState('');
-  const [processedAt,  setProcessedAt]  = useState('');
-
-  const totalConversoes = history.length;
-  const totalLinhas     = history.reduce((a, h) => a + h.rows, 0);
-  const last            = history[0] || null;
+  const [processing,  setProcessing]  = useState(false);
+  const [fileName,    setFileName]    = useState('');
+  const [fileSize,    setFileSize]    = useState('');
+  const [error,       setError]       = useState('');
+  const [processedAt, setProcessedAt] = useState('');
 
   const totalPagar   = rows ? rows.reduce((a, r) => a + r.pagar,   0) : 0;
   const totalReceber = rows ? rows.reduce((a, r) => a + r.receber, 0) : 0;
   const saldo        = totalReceber - totalPagar;
-
-  const redRgb = isLight ? '220,38,38' : '255,92,92';
+  const redRgb       = isLight ? '220,38,38' : '255,92,92';
 
   const handleFile = async (file) => {
     setProcessing(true);
@@ -411,342 +355,207 @@ function ConverterPanel({ onHistoryUpdate, isLight, history }) {
     }
   };
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-
-      {/* Stats row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-        <StatCard Icon={ITrendUp}    accent="#7C3AED" label="Conversões realizadas" value={totalConversoes}                       sub="Total de conversões" />
-        <StatCard Icon={IList}       accent="#7C3AED" label="Linhas processadas"    value={totalLinhas.toLocaleString('pt-BR')} sub="Total de linhas" />
-        <StatCard Icon={IDollarMinus} accent={last ? '#ef4444' : '#7C3AED'} label="Último Total a Pagar"
-          value={last ? `R$ ${fmtBRL(last.totalPagar)}` : '—'} sub={last ? 'Último registro' : 'Nenhum registro'} />
-        <StatCard Icon={IDollarPlus}  accent={last ? '#10b981' : '#7C3AED'} label="Último Total a Receber"
-          value={last ? `R$ ${fmtBRL(last.totalReceber)}` : '—'} sub={last ? 'Último registro' : 'Nenhum registro'} />
-      </div>
-
-      {/* Two-column: upload | result */}
-      <div className="te-two-col" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 16 }}>
-
-        {/* Left: Upload card */}
-        <div style={{
-          background: P.surface, border: `1px solid ${P.border}`,
-          borderRadius: 16, boxShadow: P.shadow, overflow: 'hidden',
-        }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 14,
-            padding: '17px 22px', borderBottom: `1px solid ${P.border}`,
-          }}>
-            <div style={{
-              width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-              background: 'rgba(124,58,237,0.1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7C3AED',
-            }}>
-              <IUploadCloud size={18} />
-            </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Enviar extrato em PDF</div>
-              <div style={{ fontSize: 12, color: P.muted, marginTop: 1 }}>Faça upload do extrato bancário para iniciar a conversão.</div>
-            </div>
-          </div>
-
-          <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <DropZone onFile={handleFile} disabled={processing} />
-
-            {processing && (
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '11px 14px', background: P.primarySoft,
-                borderRadius: 10, border: `1px solid ${P.primaryBorder}`,
-              }}>
-                <div style={{
-                  width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
-                  border: `2px solid ${P.primaryBorder}`, borderTopColor: '#7C3AED',
-                  animation: 'te-spin 0.8s linear infinite',
-                }} />
-                <span style={{ fontSize: 13, color: P.primaryText, fontWeight: 500 }}>Extraindo texto do PDF…</span>
-              </div>
-            )}
-
-            {error && (
-              <div style={{
-                background: `rgba(${redRgb},.08)`, border: `1px solid rgba(${redRgb},.20)`,
-                borderRadius: 10, padding: '11px 14px',
-                color: P.red, fontSize: 13, lineHeight: 1.5,
-              }}>
-                ⚠️ {error}
-              </div>
-            )}
-
-            {fileName && !processing && (
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '11px 14px', borderRadius: 10,
-                background: P.surface2 || P.bg, border: `1px solid ${P.border}`,
-              }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: 9, flexShrink: 0,
-                  background: 'rgba(239,68,68,0.1)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444',
-                }}>
-                  <IFileDoc size={16} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: P.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileName}</div>
-                  <div style={{ fontSize: 11, color: P.muted, marginTop: 1 }}>{fileSize} · PDF</div>
-                </div>
-                {rows && (
-                  <div style={{
-                    width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-                    background: 'rgba(16,185,129,0.14)', color: '#10b981',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <ICheck size={11} />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right: Result / download card */}
-        <div style={{
-          background: P.surface, border: `1px solid ${P.border}`,
-          borderRadius: 16, boxShadow: P.shadow, overflow: 'hidden',
-          display: 'flex', flexDirection: 'column',
-        }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 14,
-            padding: '17px 22px', borderBottom: `1px solid ${P.border}`,
-          }}>
-            <div style={{
-              width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-              background: rows ? 'rgba(16,185,129,0.12)' : 'rgba(124,58,237,0.1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: rows ? '#10b981' : '#7C3AED',
-              transition: 'all 0.2s',
-            }}>
-              <IExcelIcon size={18} />
-            </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: P.text }}>
-                {rows ? 'Planilha pronta para download' : 'Aguardando conversão'}
-              </div>
-              <div style={{ fontSize: 12, color: P.muted, marginTop: 1 }}>
-                {rows ? 'Seu Excel foi gerado com sucesso.' : 'Envie um PDF para gerar o arquivo.'}
-              </div>
-            </div>
-          </div>
-
-          <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 16, flex: 1 }}>
-            {!rows ? (
-              <div style={{
-                flex: 1, display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center',
-                padding: '40px 24px', textAlign: 'center',
-                border: `2px dashed ${P.border}`, borderRadius: 12,
-              }}>
-                <div style={{
-                  width: 52, height: 52, borderRadius: 14, marginBottom: 14,
-                  background: P.surface2 || P.bg,
-                  border: `1px solid ${P.border}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: P.muted,
-                }}>
-                  <IExcelIcon size={22} />
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: P.muted, marginBottom: 4 }}>Nenhum arquivo gerado</div>
-                <div style={{ fontSize: 11, color: P.muted }}>Envie um PDF para iniciar a conversão.</div>
-              </div>
-            ) : (
-              <>
-                {/* File info card */}
-                <div style={{
-                  padding: '16px', borderRadius: 12,
-                  border: `1px solid ${P.border}`,
-                  background: P.surface2 || P.bg,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                    <div style={{
-                      width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-                      background: 'rgba(16,185,129,0.12)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981',
-                    }}>
-                      <IExcelIcon size={18} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: P.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {fileName.replace(/\.pdf$/i, '.xlsx')}
-                      </div>
-                    </div>
-                    <div style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 4,
-                      padding: '3px 9px', borderRadius: 20, flexShrink: 0,
-                      background: 'rgba(16,185,129,0.12)', color: '#10b981',
-                      fontSize: 11, fontWeight: 700, border: '1px solid rgba(16,185,129,0.25)',
-                    }}>
-                      <ICheck size={10} /> Pronto
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: P.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Linhas detectadas</div>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: P.text }}>{rows.length.toLocaleString('pt-BR')}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: P.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Saldo</div>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: saldo >= 0 ? '#10b981' : P.red }}>
-                        R$ {fmtBRL(Math.abs(saldo))}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: P.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Gerado em</div>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: P.text, fontFamily: FONT_MONO, lineHeight: 1.4 }}>{processedAt}</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Download button */}
-                <button
-                  onClick={() => exportToXlsx(rows)}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                    width: '100%', padding: '14px 24px', borderRadius: 12,
-                    background: '#7C3AED', color: '#fff', border: 'none',
-                    fontFamily: FONT_INTER, fontSize: 15, fontWeight: 700,
-                    cursor: 'pointer', transition: 'filter 0.15s',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.1)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
-                >
-                  <IDownload size={18} /> Baixar Excel
-                </button>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: P.muted, fontSize: 11 }}>
-                  <IShield size={12} />
-                  Seus dados são processados com segurança e não são armazenados.
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Preview table */}
-      {rows && rows.length > 0 && (
-        <div style={{
-          background: P.surface, border: `1px solid ${P.border}`,
-          borderRadius: 14, overflow: 'hidden', boxShadow: P.shadow,
-        }}>
-          <div style={{ padding: '13px 20px', borderBottom: `1px solid ${P.border}` }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: P.muted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-              Preview — {rows.length} lançamentos
-            </span>
-          </div>
-          <div style={{ overflowX: 'auto', maxHeight: 360, overflowY: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', fontFamily: FONT_INTER }}>
-              <thead>
-                <tr style={{ background: P.surface2 }}>
-                  {['#', 'Data', 'Descrição', 'A Pagar', 'A Receber'].map((h, i) => (
-                    <th key={i} style={{
-                      padding: '9px 14px', textAlign: i >= 3 ? 'right' : 'left',
-                      fontSize: '0.73rem', fontWeight: 700, color: P.muted,
-                      textTransform: 'uppercase', letterSpacing: 0.6,
-                      borderBottom: `1px solid ${P.border}`, whiteSpace: 'nowrap',
-                      position: 'sticky', top: 0, background: P.surface2,
-                    }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => (
-                  <tr
-                    key={i}
-                    style={{ borderBottom: `1px solid ${P.border}` }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = P.rowHover)}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <td style={{ padding: '8px 14px', color: P.muted2, fontFamily: FONT_MONO, fontSize: '0.74rem' }}>{i + 1}</td>
-                    <td style={{ padding: '8px 14px', color: P.muted, fontFamily: FONT_MONO, whiteSpace: 'nowrap' }}>{r.data}</td>
-                    <td style={{ padding: '8px 14px', color: P.text, maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.descricao}>{r.descricao}</td>
-                    <td style={{ padding: '8px 14px', textAlign: 'right', color: r.pagar   > 0 ? P.red   : P.muted2, fontFamily: FONT_MONO }}>
-                      {r.pagar   > 0 ? `R$ ${fmtBRL(r.pagar)}`   : '—'}
-                    </td>
-                    <td style={{ padding: '8px 14px', textAlign: 'right', color: r.receber > 0 ? P.green : P.muted2, fontFamily: FONT_MONO }}>
-                      {r.receber > 0 ? `R$ ${fmtBRL(r.receber)}` : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      <InfoBanner />
-    </div>
-  );
-}
-
-// ── HistoryPanel ───────────────────────────────────────────────────────────────
-function HistoryPanel({ history, onClear }) {
-  const P = useP();
-
-  if (history.length === 0) {
-    return (
-      <div style={{
-        background: P.surface, border: `1px solid ${P.border}`,
-        borderRadius: 14, padding: '56px 24px',
-        textAlign: 'center', boxShadow: P.shadow,
-      }}>
-        <div style={{
-          width: 52, height: 52, borderRadius: 14, margin: '0 auto 14px',
-          background: P.surface2 || P.bg, border: `1px solid ${P.border}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', color: P.muted,
-        }}>
-          <IHistoryIcon size={22} />
-        </div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: P.muted, marginBottom: 4 }}>Nenhuma conversão ainda</div>
-        <div style={{ fontSize: 12, color: P.muted }}>Converta um arquivo PDF para visualizar o histórico aqui.</div>
-      </div>
-    );
+  function reset() {
+    setRows(null);
+    setFileName('');
+    setFileSize('');
+    setError('');
+    setProcessedAt('');
   }
 
   return (
     <div style={{
       background: P.surface, border: `1px solid ${P.border}`,
-      borderRadius: 14, overflow: 'hidden', boxShadow: P.shadow,
+      borderRadius: 16, boxShadow: P.shadow, overflow: 'hidden',
     }}>
       <div style={{
-        padding: '14px 20px', borderBottom: `1px solid ${P.border}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        display: 'flex', alignItems: 'center', gap: 14,
+        padding: '17px 22px', borderBottom: `1px solid ${P.border}`,
       }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: P.muted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-          {history.length} conversão{history.length !== 1 ? 'ões' : ''}
-        </span>
-        <button
-          onClick={onClear}
-          style={{
-            padding: '5px 14px', borderRadius: 7,
-            border: `1px solid ${P.border}`, background: 'transparent',
-            color: P.muted, fontFamily: FONT_INTER, fontSize: 12,
-            fontWeight: 600, cursor: 'pointer',
-          }}
-        >
-          Limpar histórico
-        </button>
+        <div style={{
+          width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+          background: 'rgba(124,58,237,0.1)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7C3AED',
+        }}>
+          <IConvert size={18} />
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Converter extrato</div>
+          <div style={{ fontSize: 12, color: P.muted, marginTop: 1 }}>
+            Envie o extrato bancário em PDF e receba a planilha pronta para importar.
+          </div>
+        </div>
       </div>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
+
+      <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {!rows && <DropZone onFile={handleFile} disabled={processing} />}
+
+        {!rows && !processing && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, color: P.muted, fontSize: 11 }}>
+            <IInfo size={12} /> Formato aceito: PDF · Extratos Santander (PF e PJ)
+          </div>
+        )}
+
+        {processing && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '11px 14px', background: P.primarySoft,
+            borderRadius: 10, border: `1px solid ${P.primaryBorder}`,
+          }}>
+            <div style={{
+              width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+              border: `2px solid ${P.primaryBorder}`, borderTopColor: '#7C3AED',
+              animation: 'te-spin 0.8s linear infinite',
+            }} />
+            <span style={{ fontSize: 13, color: P.primaryText, fontWeight: 500 }}>Extraindo texto do PDF…</span>
+          </div>
+        )}
+
+        {error && (
+          <div style={{
+            background: `rgba(${redRgb},.08)`, border: `1px solid rgba(${redRgb},.20)`,
+            borderRadius: 10, padding: '11px 14px',
+            color: P.red, fontSize: 13, lineHeight: 1.5,
+          }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        {fileName && !processing && !rows && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '11px 14px', borderRadius: 10,
+            background: P.surface2 || P.bg, border: `1px solid ${P.border}`,
+          }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+              background: 'rgba(239,68,68,0.1)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444',
+            }}>
+              <IFileDoc size={16} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: P.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileName}</div>
+              <div style={{ fontSize: 11, color: P.muted, marginTop: 1 }}>{fileSize} · PDF</div>
+            </div>
+          </div>
+        )}
+
+        {/* Resultado */}
+        {rows && (
+          <>
+            <div style={{
+              padding: 16, borderRadius: 12,
+              border: `1px solid ${P.border}`, background: P.surface2 || P.bg,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                  background: 'rgba(16,185,129,0.12)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981',
+                }}>
+                  <IExcelIcon size={18} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: P.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {fileName.replace(/\.pdf$/i, '.xlsx')}
+                  </div>
+                  <div style={{ fontSize: 11, color: P.muted, marginTop: 1 }}>{fileSize} · origem PDF</div>
+                </div>
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '3px 9px', borderRadius: 20, flexShrink: 0,
+                  background: 'rgba(16,185,129,0.12)', color: '#10b981',
+                  fontSize: 11, fontWeight: 700, border: '1px solid rgba(16,185,129,0.25)',
+                }}>
+                  <ICheck size={10} /> Pronto
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: P.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Linhas detectadas</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: P.text }}>{rows.length.toLocaleString('pt-BR')}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: P.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Saldo</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: saldo >= 0 ? '#10b981' : P.red }}>
+                    R$ {fmtBRL(Math.abs(saldo))}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: P.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Gerado em</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: P.text, fontFamily: FONT_MONO, lineHeight: 1.4 }}>{processedAt}</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                onClick={() => exportToXlsx(rows)}
+                style={{
+                  flex: '1 1 220px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  padding: '13px 24px', borderRadius: 12,
+                  background: '#7C3AED', color: '#fff', border: 'none',
+                  fontFamily: FONT_INTER, fontSize: 15, fontWeight: 700,
+                  cursor: 'pointer', transition: 'filter 0.15s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.1)')}
+                onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
+              >
+                <IDownload size={18} /> Baixar Excel
+              </button>
+              <button
+                onClick={reset}
+                style={{
+                  flex: '0 1 auto',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  padding: '13px 20px', borderRadius: 12,
+                  background: 'transparent', color: P.muted,
+                  border: `1px solid ${P.border2 || P.border}`,
+                  fontFamily: FONT_INTER, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                <IConvert size={14} /> Converter outro
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: P.muted, fontSize: 11 }}>
+              <IShield size={12} />
+              Seus dados são processados com segurança e não são armazenados.
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Preview dos lançamentos ───────────────────────────────────────────────────
+function PreviewCard({ rows }) {
+  const P = useP();
+  return (
+    <div style={{
+      background: P.surface, border: `1px solid ${P.border}`,
+      borderRadius: 14, overflow: 'hidden', boxShadow: P.shadow,
+    }}>
+      <div style={{ padding: '13px 20px', borderBottom: `1px solid ${P.border}` }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: P.muted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+          Preview — {rows.length.toLocaleString('pt-BR')} lançamentos
+        </span>
+      </div>
+      <div style={{ overflowX: 'auto', maxHeight: 360, overflowY: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', fontFamily: FONT_INTER }}>
           <thead>
             <tr style={{ background: P.surface2 }}>
-              {['Data', 'Arquivo', 'Linhas', 'Total a Pagar', 'Total a Receber'].map((h, i) => (
+              {['#', 'Data', 'Descrição', 'A Pagar', 'A Receber'].map((h, i) => (
                 <th key={i} style={{
-                  padding: '9px 16px', textAlign: i >= 3 ? 'right' : 'left',
+                  padding: '9px 14px', textAlign: i >= 3 ? 'right' : 'left',
                   fontSize: '0.73rem', fontWeight: 700, color: P.muted,
                   textTransform: 'uppercase', letterSpacing: 0.6,
                   borderBottom: `1px solid ${P.border}`, whiteSpace: 'nowrap',
+                  position: 'sticky', top: 0, background: P.surface2,
                 }}>
                   {h}
                 </th>
@@ -754,18 +563,22 @@ function HistoryPanel({ history, onClear }) {
             </tr>
           </thead>
           <tbody>
-            {history.map((h, i) => (
+            {rows.map((r, i) => (
               <tr
                 key={i}
                 style={{ borderBottom: `1px solid ${P.border}` }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = P.rowHover)}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
-                <td style={{ padding: '9px 16px', color: P.muted, whiteSpace: 'nowrap' }}>{h.date}</td>
-                <td style={{ padding: '9px 16px', color: P.text, fontWeight: 600 }}>{h.fileName}</td>
-                <td style={{ padding: '9px 16px', color: P.muted }}>{h.rows}</td>
-                <td style={{ padding: '9px 16px', textAlign: 'right', color: P.red,   fontFamily: FONT_MONO }}>R$ {fmtBRL(h.totalPagar)}</td>
-                <td style={{ padding: '9px 16px', textAlign: 'right', color: P.green, fontFamily: FONT_MONO }}>R$ {fmtBRL(h.totalReceber)}</td>
+                <td style={{ padding: '8px 14px', color: P.muted2, fontFamily: FONT_MONO, fontSize: '0.74rem' }}>{i + 1}</td>
+                <td style={{ padding: '8px 14px', color: P.muted, fontFamily: FONT_MONO, whiteSpace: 'nowrap' }}>{r.data}</td>
+                <td style={{ padding: '8px 14px', color: P.text, maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.descricao}>{r.descricao}</td>
+                <td style={{ padding: '8px 14px', textAlign: 'right', color: r.pagar   > 0 ? P.red   : P.muted2, fontFamily: FONT_MONO }}>
+                  {r.pagar   > 0 ? `R$ ${fmtBRL(r.pagar)}`   : '—'}
+                </td>
+                <td style={{ padding: '8px 14px', textAlign: 'right', color: r.receber > 0 ? P.green : P.muted2, fontFamily: FONT_MONO }}>
+                  {r.receber > 0 ? `R$ ${fmtBRL(r.receber)}` : '—'}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -775,7 +588,156 @@ function HistoryPanel({ history, onClear }) {
   );
 }
 
-// ── Shared info banner ─────────────────────────────────────────────────────────
+// ── Como funciona — onboarding, só enquanto não há nada convertido ────────────
+function ComoFunciona() {
+  const P = useP();
+  const steps = [
+    { Icon: IUploadCloud, title: 'Envie o PDF',         desc: 'Faça upload do extrato bancário em formato PDF.' },
+    { Icon: IConvert,     title: 'Extração automática', desc: 'O sistema lê e classifica cada lançamento em Pagar ou Receber.' },
+    { Icon: IExcelIcon,   title: 'Exporte para Excel',  desc: 'Baixe a planilha organizada, pronta para o sistema contábil.' },
+  ];
+  return (
+    <div style={{
+      background: P.surface, border: `1px solid ${P.border}`,
+      borderRadius: 14, padding: '22px 24px', boxShadow: P.shadow,
+    }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: P.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 16 }}>
+        Como funciona
+      </div>
+      <div className="te-steps">
+        {steps.map((s, i) => (
+          <div key={i} style={{
+            background: P.surface2 || P.bg, borderRadius: 12, padding: '16px 15px',
+            border: `1px solid ${P.border}`,
+          }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 10, marginBottom: 12,
+              background: 'rgba(124,58,237,0.1)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7C3AED',
+            }}>
+              <s.Icon size={17} />
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: P.text, marginBottom: 5 }}>{s.title}</div>
+            <div style={{ fontSize: 12, color: P.muted, lineHeight: 1.55 }}>{s.desc}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Page ───────────────────────────────────────────────────────────────────────
+export default function TransformadorExtratoPage() {
+  const { theme } = useTheme();
+  const P         = getPalette(theme);
+  const isLight   = theme === 'light';
+  const { user }  = useAuth();
+
+  const [companyId, setCompanyId] = useState(undefined); // undefined = loading; null = loaded, no org
+  useEffect(() => {
+    getCurrentTenantCompanyId().then(id => setCompanyId(id || null)).catch(() => setCompanyId(null));
+  }, []);
+
+  const [history, setHistory] = useState([]);
+  const [rows,    setRows]    = useState(null);
+
+  useEffect(() => {
+    if (companyId === undefined) return;
+    setHistory(loadHistory(companyId));
+  }, [companyId]);
+
+  const handleClear = () => setHistory(clearHistory(companyId));
+
+  return (
+    <CompanyCtx.Provider value={companyId}>
+    <PaletteCtx.Provider value={P}>
+      <div style={{ minHeight: '100vh', background: P.bg, color: P.text, fontFamily: FONT_INTER }}>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+          *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+          a { text-decoration: none; color: inherit; }
+          @keyframes te-spin { to { transform: rotate(360deg); } }
+          .te-main { max-width: 1300px; margin: 0 auto; padding: 28px 28px 64px; position: relative; z-index: 1; }
+          .te-layout { display: grid; grid-template-columns: 282px 1fr; gap: 20px; align-items: start; }
+          .te-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+          .te-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+          /* A tela Contábil esconde a sidebar abaixo de 900px, mas aqui ela
+             guarda o histórico de conversões — em vez de sumir, ela empilha
+             embaixo do conteúdo pra não esconder dado que só existe ali. */
+          @media (max-width: 900px) {
+            .te-layout { grid-template-columns: 1fr; }
+            .te-sidebar { order: 2; }
+          }
+          @media (max-width: 720px) { .te-steps { grid-template-columns: 1fr !important; } }
+          @media (max-width: 560px) { .te-main { padding: 16px 16px 64px !important; } }
+        `}</style>
+
+        {theme === 'dark' && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', width: 720, height: 720, top: '-20%', right: '-10%', background: 'radial-gradient(circle, rgba(124,58,237,0.035) 0%, transparent 60%)', filter: 'blur(50px)' }} />
+          </div>
+        )}
+
+        <SolucoesHeader />
+
+        <main className="te-main">
+          {companyId === undefined ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0', color: P.muted, fontSize: 14 }}>
+              Carregando dados da organização...
+            </div>
+          ) : (
+            <div className="te-layout">
+              {/* Esquerda — perfil, métricas e conversões recentes */}
+              <LeftSidebar
+                user={user}
+                history={history}
+                isDark={theme === 'dark'}
+                onClear={handleClear}
+              />
+
+              {/* Direita — cabeçalho do módulo e conversor */}
+              <div className="te-col">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <div style={{
+                    width: 52, height: 52, borderRadius: 14, flexShrink: 0,
+                    background: P.primarySoft, border: `1px solid ${P.primaryBorder}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: P.primaryText,
+                  }}>
+                    <ITransIcon size={24} />
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <h1 style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: -0.5, marginBottom: 2, color: P.text, lineHeight: 1.15 }}>
+                      Transformador de Extrato
+                    </h1>
+                    <p style={{ fontSize: '0.84rem', color: P.muted }}>
+                      Transforme extratos bancários em lançamentos contábeis de forma rápida e precisa.
+                    </p>
+                  </div>
+                </div>
+
+                <ConverterCard
+                  onHistoryUpdate={setHistory}
+                  isLight={isLight}
+                  rows={rows}
+                  setRows={setRows}
+                />
+
+                {rows && rows.length > 0 && <PreviewCard rows={rows} />}
+
+                {!rows && history.length === 0 && <ComoFunciona />}
+
+                <InfoBanner />
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+    </PaletteCtx.Provider>
+    </CompanyCtx.Provider>
+  );
+}
+
+// ── Banner de formato suportado ───────────────────────────────────────────────
 function InfoBanner() {
   const P = useP();
   return (
@@ -795,102 +757,5 @@ function InfoBanner() {
         <strong>Formato suportado:</strong> Extratos Santander (PF e PJ). Outros bancos podem ser reconhecidos parcialmente dependendo da estrutura do PDF.
       </p>
     </div>
-  );
-}
-
-// ── Page ───────────────────────────────────────────────────────────────────────
-export default function TransformadorExtratoPage() {
-  const { theme } = useTheme();
-  const P         = getPalette(theme);
-  const isLight   = theme === 'light';
-
-  const [companyId, setCompanyId] = useState(undefined); // undefined = loading; null = loaded, no org
-  useEffect(() => {
-    getCurrentTenantCompanyId().then(id => setCompanyId(id || null)).catch(() => setCompanyId(null));
-  }, []);
-
-  const [panel,   setPanel]   = useState('home');
-  const [history, setHistory] = useState([]);
-
-  useEffect(() => {
-    if (companyId === undefined) return;
-    setHistory(loadHistory(companyId));
-  }, [companyId]);
-
-  const handleClear = () => setHistory(clearHistory(companyId));
-
-  const navItems = [
-    { key: 'home',      label: 'Início',       Icon: IHome },
-    { key: 'converter', label: 'Converter PDF', Icon: IConvert },
-    { key: 'historico', label: 'Histórico',     Icon: IHistoryIcon },
-  ];
-
-  return (
-    <CompanyCtx.Provider value={companyId}>
-    <PaletteCtx.Provider value={P}>
-      <div style={{ minHeight: '100vh', background: P.bg, color: P.text, fontFamily: FONT_INTER }}>
-        <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
-          *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-          a { text-decoration: none; color: inherit; }
-          @keyframes te-spin { to { transform: rotate(360deg); } }
-          @media (max-width: 720px) { .te-two-col { grid-template-columns: 1fr !important; } }
-          @media (max-width: 640px) { .te-main { padding: 20px 16px 64px !important; } }
-        `}</style>
-
-        {theme === 'dark' && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
-            <div style={{ position: 'absolute', width: 720, height: 720, top: '-20%', right: '-10%', background: 'radial-gradient(circle, rgba(124,58,237,0.035) 0%, transparent 60%)', filter: 'blur(50px)' }} />
-          </div>
-        )}
-
-        <SolucoesHeader />
-
-        <main className="te-main" style={{ maxWidth: 1240, margin: '0 auto', padding: '36px 32px 80px', position: 'relative', zIndex: 1 }}>
-
-          {/* Module header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 24, flexWrap: 'wrap', marginBottom: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{
-                width: 56, height: 56, borderRadius: 14, flexShrink: 0,
-                background: P.primarySoft, border: `1px solid ${P.primaryBorder}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', color: P.primaryText,
-              }}>
-                <ITransIcon size={26} />
-              </div>
-              <div>
-                <h1 style={{ fontSize: '1.45rem', fontWeight: 800, letterSpacing: -0.5, marginBottom: 3, color: P.text, lineHeight: 1.15 }}>
-                  Transformador de Extrato
-                </h1>
-                <p style={{ fontSize: '0.84rem', color: P.muted }}>
-                  Converta extratos bancários em PDF para planilha Excel organizada.
-                </p>
-              </div>
-            </div>
-
-            <nav style={{ display: 'flex', gap: 4, padding: 5, background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, boxShadow: P.shadow, flexShrink: 0 }}>
-              {navItems.map((n) => (
-                <NavBtn key={n.key} active={panel === n.key} onClick={() => setPanel(n.key)} Icon={n.Icon}>
-                  {n.label}
-                </NavBtn>
-              ))}
-            </nav>
-          </div>
-
-          {companyId === undefined ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0', color: P.muted, fontSize: 14 }}>
-              Carregando dados da organização...
-            </div>
-          ) : (
-            <>
-              {panel === 'home'      && <HomePanel      history={history} isLight={isLight} onNavigate={setPanel} />}
-              {panel === 'converter' && <ConverterPanel onHistoryUpdate={setHistory} isLight={isLight} history={history} />}
-              {panel === 'historico' && <HistoryPanel   history={history} onClear={handleClear} />}
-            </>
-          )}
-        </main>
-      </div>
-    </PaletteCtx.Provider>
-    </CompanyCtx.Provider>
   );
 }
