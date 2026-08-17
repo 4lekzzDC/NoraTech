@@ -6,7 +6,7 @@ import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
 import SolucoesHeader from '../../components/SolucoesHeader';
 import {
-  TRIBUT_COLORS, TRIBUT_OPTIONS,
+  TRIBUT_COLORS, TRIBUT_OPTIONS, RAMO_ATIVIDADE_OPTIONS, RAMO_LABEL_BY_ID,
   getClientes, saveCliente, deleteCliente,
   getBancos, buscarCNPJ, buscarCEP, geocode,
 } from './gcService';
@@ -512,9 +512,9 @@ function ClientesPanel({ clientes, onEdit, onDelete, onPerfil }) {
                   <td style={tdStyle(p)}><StatusPill status={c.status} /></td>
                   <td style={{ ...tdStyle(p), whiteSpace: 'nowrap' }}>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      <IconBtn title="Ver perfil" onClick={() => onPerfil(c.id)}>👁</IconBtn>
-                      <IconBtn title="Editar" onClick={() => onEdit(c.id)}>✏️</IconBtn>
-                      <IconBtn title="Excluir" onClick={() => onDelete(c.id)} danger>🗑</IconBtn>
+                      <IconBtn title="Ver perfil" onClick={() => onPerfil(c.id)}><IEye /></IconBtn>
+                      <IconBtn title="Editar" onClick={() => onEdit(c.id)}><IPencil /></IconBtn>
+                      <IconBtn title="Excluir" onClick={() => onDelete(c.id)} danger><ITrash /></IconBtn>
                     </div>
                   </td>
                 </tr>
@@ -527,35 +527,68 @@ function ClientesPanel({ clientes, onEdit, onDelete, onPerfil }) {
   );
 }
 
+// SVG, não emoji: "👁" e "🗑" não têm o seletor de variação de cor (U+FE0F)
+// e em várias plataformas renderizam como glifo monocromático herdando a
+// cor do texto — sem `color` definido no botão, ficavam invisíveis sobre o
+// fundo escuro. "✏️" tem o seletor e por isso era a única visível. SVG com
+// stroke="currentColor" evita essa loteria: a cor sempre vem do botão.
+function IEye({ size = 15 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+function IPencil({ size = 15 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+function ITrash({ size = 15 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z" />
+    </svg>
+  );
+}
+
 function IconBtn({ children, onClick, title, danger }) {
   const p = useP();
   return (
-    <button onClick={onClick} title={title} style={{
+    <button onClick={onClick} title={title} aria-label={title} style={{
       width: 30, height: 30, borderRadius: 6, border: `1px solid ${danger ? 'rgba(248,113,113,0.3)' : p.border}`,
       background: danger ? 'rgba(248,113,113,0.08)' : p.surface2,
+      color: danger ? '#f87171' : p.text,
       cursor: 'pointer', fontSize: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     }}>{children}</button>
   );
 }
 
 // ── Perfil panel ───────────────────────────────────────────────────────────────
+// Row fica fora do PerfilPanel de propósito: declarado dentro, virava um tipo
+// de componente novo a cada render, o que faz o React desmontar e remontar
+// todas as linhas em vez de atualizá-las.
+function Row({ label, value }) {
+  const p = useP();
+  if (!value) return null;
+  return (
+    <div style={{
+      display: 'flex', gap: 8, alignItems: 'flex-start',
+      padding: '7px 0', borderBottom: `1px solid ${p.border}`,
+    }}>
+      <span style={{ fontSize: 11, color: p.muted, width: 140, flexShrink: 0, paddingTop: 1 }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 500, color: p.text, wordBreak: 'break-word' }}>{value}</span>
+    </div>
+  );
+}
+
 function PerfilPanel({ cliente, onEdit, onBack }) {
   const p         = useP();
   const companyId = useCompanyId();
   const bancos    = useMemo(() => getBancos(cliente.id, companyId), [cliente.id, companyId]);
-
-  function Row({ label, value }) {
-    if (!value) return null;
-    return (
-      <div style={{
-        display: 'flex', gap: 8, alignItems: 'flex-start',
-        padding: '7px 0', borderBottom: `1px solid ${p.border}`,
-      }}>
-        <span style={{ fontSize: 11, color: p.muted, width: 140, flexShrink: 0, paddingTop: 1 }}>{label}</span>
-        <span style={{ fontSize: 13, fontWeight: 500, color: p.text, wordBreak: 'break-word' }}>{value}</span>
-      </div>
-    );
-  }
 
   return (
     <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -588,6 +621,7 @@ function PerfilPanel({ cliente, onEdit, onBack }) {
               <Row label="CNPJ"            value={cliente.cnpj} />
               <Row label="Tributação"      value={cliente.tributacao} />
               <Row label="Atividade/CNAE"  value={cliente.atividade} />
+              <Row label="Ramo"            value={RAMO_LABEL_BY_ID[cliente.ramo_atividade]} />
               <Row label="Capital Social"  value={cliente.capital_social} />
               <Row label="E-mail"          value={cliente.email} />
               <Row label="Telefone"        value={cliente.phone} />
@@ -664,6 +698,7 @@ function PerfilPanel({ cliente, onEdit, onBack }) {
 // ── Client modal (new / edit) ──────────────────────────────────────────────────
 const EMPTY_FORM = {
   name: '', trade_name: '', cnpj: '', email: '', phone: '', tributacao: '', atividade: '',
+  cnae: '', ramo_atividade: '',
   capital_social: '', status: 'ativo', cep: '', logradouro: '', numero: '', complemento: '',
   bairro: '', cidade: '', estado: '', socios: [],
 };
@@ -710,6 +745,11 @@ function ClienteModal({ clienteId, clientes, onClose, onSaved, onToast }) {
 
   async function handleSave() {
     if (!form.name.trim()) { onToast('Informe a Razão Social'); return; }
+    // Regime e ramo são obrigatórios porque sistemas a jusante (Calculadora de
+    // IRPJ/CSLL) escolhem alíquota a partir deles. Cadastro sem esses campos
+    // vira erro de apuração, não só ficha incompleta.
+    if (!form.tributacao) { onToast('Informe o Regime Tributário'); return; }
+    if (!form.ramo_atividade) { onToast('Informe o Ramo de Atividade'); return; }
     const data = { ...form, socios: form.socios.filter((s) => s.nome) };
     const saved = saveCliente(data, clienteId || null, companyId);
     onSaved();
@@ -728,7 +768,12 @@ function ClienteModal({ clienteId, clientes, onClose, onSaved, onToast }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div style={{
-        background: p.surface, border: `1px solid ${p.border}`, borderRadius: 14,
+        // surfaceSolid (opaco), não surface (translúcido) — surface é pensado
+        // pra cards dentro da página, com o fundo por trás ajudando a compor;
+        // um modal sobre overlay escuro deixa esse fundo (e o conteúdo atrás)
+        // vazando através dele.
+        background: p.surfaceSolid, border: `1px solid ${p.border}`, borderRadius: 14,
+        boxShadow: '0 24px 60px -12px rgba(0,0,0,0.5)',
         padding: 28, width: 620, maxWidth: '96vw', maxHeight: '90vh', overflowY: 'auto',
         display: 'flex', flexDirection: 'column', gap: 0,
       }}>
@@ -758,14 +803,27 @@ function ClienteModal({ clienteId, clientes, onClose, onSaved, onToast }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
           <input value={form.trade_name} onChange={(e) => set('trade_name', e.target.value)}
             placeholder="Nome Fantasia" style={inputStyle(p)} />
-          <select value={form.tributacao} onChange={(e) => set('tributacao', e.target.value)} style={inputStyle(p)}>
-            <option value="">Regime Tributário…</option>
+          <select value={form.tributacao} onChange={(e) => set('tributacao', e.target.value)}
+            style={{ ...inputStyle(p), borderColor: form.tributacao ? p.border : p.red }}>
+            <option value="">Regime Tributário *</option>
             {TRIBUT_OPTIONS.map((t) => <option key={t}>{t}</option>)}
           </select>
         </div>
         <div style={{ marginBottom: 10 }}>
           <input value={form.atividade} onChange={(e) => set('atividade', e.target.value)}
             placeholder="Atividade principal (CNAE)" style={inputStyle(p)} />
+        </div>
+        {/* Classificação fechada, separada da descrição livre do CNAE acima:
+            é ela que define o percentual de presunção no Lucro Presumido. */}
+        <div style={{ marginBottom: 4 }}>
+          <select value={form.ramo_atividade} onChange={(e) => set('ramo_atividade', e.target.value)}
+            style={{ ...inputStyle(p), borderColor: form.ramo_atividade ? p.border : p.red }}>
+            <option value="">Ramo de Atividade *</option>
+            {RAMO_ATIVIDADE_OPTIONS.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+          </select>
+        </div>
+        <div style={{ fontSize: 11, color: p.muted2, marginBottom: 10, lineHeight: 1.45 }}>
+          Define a presunção de IRPJ/CSLL no Lucro Presumido. Preenchido pelo CNAE quando o código é conclusivo.
         </div>
 
         {section('Contato')}

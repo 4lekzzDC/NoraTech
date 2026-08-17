@@ -80,6 +80,9 @@ export const HUB_MODULES = [
   { slug: 'transformador-extrato', name: 'Transformador de Extrato', icon: '🔄',
     section: 'ferramentas', status: 'available',
     description: 'Conversão de extratos entre formatos.' },
+  { slug: 'calculadora-irpj-csll', name: 'Calculadora de IRPJ e CSLL', icon: '🧮',
+    section: 'ferramentas', status: 'available',
+    description: 'Apuração trimestral no Lucro Presumido e no Lucro Real.' },
 
   // Permissões
   { slug: 'permissoes-equipe', name: 'Permissões da Equipe', icon: '🔐',

@@ -9,6 +9,15 @@ import { fetchPaymentMethod, chargeInvoice } from '../lib/payments';
 import { formatBRL, formatDate } from '../lib/admin';
 import { useTheme } from '../contexts/ThemeContext';
 import { fetchSystems, indexSystems } from '../lib/systems';
+import {
+  HUB_MODULES, SOLUCOES_CONTABEIS_SLUG, SOLUCOES_CONTABEIS_LEGACY_SLUGS,
+} from '../modules/solucoes-contabeis/constants';
+
+// Sistemas com módulos internos que o admin pode liberar seletivamente. Hoje
+// só Soluções Contábeis tem essa granularidade — os "sistemas" da tabela
+// `systems` normalmente são vendidos como um bloco só.
+const CONTABIL_SUB_SLUGS = new Set([SOLUCOES_CONTABEIS_SLUG, ...SOLUCOES_CONTABEIS_LEGACY_SLUGS]);
+const CONTABIL_MODULES = HUB_MODULES.filter((m) => m.section === 'ferramentas' && m.status === 'available');
 
 const LOGO_BUCKET = 'company-logos';
 
@@ -116,6 +125,8 @@ const EMPTY_SUB = {
   billing_cycle: 'monthly',
   current_period_end: '',
   notes: '',
+  // null = todos os módulos liberados (padrão). Array = restrito a esses slugs.
+  enabled_modules: null,
 };
 
 function SectionCard({ title, children, style }) {
@@ -425,19 +436,39 @@ function TabMembros({ members, availableUsers, onAdd, onRoleChange, onApprove, o
 // ─────────────────────────────────────────────────────────────────────────────
 
 function TabAssinaturas({ subs, systems, systemBySlug, onSave, onDelete }) {
+  const mp = useMP();
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [moduleError, setModuleError] = useState('');
 
   const picked = editing?.system_slug ? systemBySlug[editing.system_slug] : null;
   const defaultAmount = Number(picked?.default_amount ?? 0);
+  const isContabil = editing ? CONTABIL_SUB_SLUGS.has(editing.system_slug) : false;
 
-  const startNew = () => setEditing({ ...EMPTY_SUB, custom_amount: false });
+  const toggleAllModules = (liberarTodos) => {
+    setModuleError('');
+    setEditing((prev) => ({
+      ...prev,
+      enabled_modules: liberarTodos ? null : CONTABIL_MODULES.map((m) => m.slug),
+    }));
+  };
+  const toggleModule = (slug, on) => {
+    setModuleError('');
+    setEditing((prev) => {
+      const atual = new Set(prev.enabled_modules || CONTABIL_MODULES.map((m) => m.slug));
+      if (on) atual.add(slug); else atual.delete(slug);
+      return { ...prev, enabled_modules: Array.from(atual) };
+    });
+  };
+
+  const startNew = () => { setModuleError(''); setEditing({ ...EMPTY_SUB, custom_amount: false }); };
 
   const startEdit = (s) => {
     const sys = systemBySlug[s.system_slug];
     const std = Number(sys?.default_amount ?? 0);
+    setModuleError('');
     setEditing({
       ...s,
       system_slug: s.system_slug || '',
@@ -459,6 +490,16 @@ function TabAssinaturas({ subs, systems, systemBySlug, onSave, onDelete }) {
   const handleSave = async (e) => {
     e.preventDefault();
     if (!editing.system_slug) return;
+    // Array vazio de módulos e "liberar todos" (null) resultam no MESMO
+    // acesso irrestrito lá no gate — array vazio não existe como "bloquear
+    // tudo". Se deixasse salvar, o admin veria a tela com nada marcado e a
+    // empresa continuaria com acesso total, silenciosamente ao contrário do
+    // que a tela mostra.
+    if (isContabil && Array.isArray(editing.enabled_modules) && editing.enabled_modules.length === 0) {
+      setModuleError('Selecione ao menos um módulo, ou marque "liberar todos".');
+      return;
+    }
+    setModuleError('');
     setSaving(true);
     const ok = await onSave({
       ...editing,
@@ -588,6 +629,51 @@ function TabAssinaturas({ subs, systems, systemBySlug, onSave, onDelete }) {
                     onChange={(e) => setEditing({ ...editing, amount: e.target.value })}
                     placeholder="Valor personalizado"
                   />
+                )}
+              </div>
+            )}
+
+            {isContabil && CONTABIL_MODULES.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 16px', borderRadius: 12, background: mp.surface, border: `1px solid ${mp.border}` }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: mp.text }}>Módulos liberados</div>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', fontSize: '0.82rem', color: mp.text }}>
+                  <input
+                    type="checkbox"
+                    checked={!editing.enabled_modules}
+                    onChange={(e) => toggleAllModules(e.target.checked)}
+                    style={{ width: 15, height: 15, accentColor: '#7C3AED', cursor: 'pointer' }}
+                  />
+                  Liberar todos os módulos do sistema
+                </label>
+
+                {/* Sem esse fallback pra "todos", desmarcar um módulo com
+                    enabled_modules ainda null quebraria — não haveria lista
+                    prévia de onde remover o slug. */}
+                {editing.enabled_modules && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px', marginTop: 2 }}>
+                    {CONTABIL_MODULES.map((m) => (
+                      <label key={m.slug} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: mp.text, cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={editing.enabled_modules.includes(m.slug)}
+                          onChange={(e) => toggleModule(m.slug, e.target.checked)}
+                          style={{ width: 14, height: 14, accentColor: '#7C3AED', cursor: 'pointer', flexShrink: 0 }}
+                        />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.icon} {m.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                <p style={{ fontSize: '0.72rem', color: mp.muted2, lineHeight: 1.5, margin: 0 }}>
+                  Módulos fora da lista ficam marcados como "fora do plano" para o cliente e o acesso direto por link também é bloqueado.
+                </p>
+
+                {moduleError && (
+                  <p style={{ fontSize: '0.76rem', color: mp.danger, lineHeight: 1.5, margin: 0, fontWeight: 600 }}>
+                    {moduleError}
+                  </p>
                 )}
               </div>
             )}
@@ -996,6 +1082,15 @@ export default function ManageCompanyModal({ companyId, onClose, onChanged }) {
       // garantimos um default para assinaturas novas.
       billing_cycle: subEditing.billing_cycle || 'monthly',
       notes: subEditing.notes?.trim() || null,
+      // null = todos os módulos liberados. O formulário já bloqueia salvar
+      // com array vazio (ver handleSave em TabAssinaturas — nesse schema
+      // vazio e null dão o mesmo acesso irrestrito no gate, então deixar
+      // vazio passar mostraria a tela "nada marcado" enquanto a empresa
+      // continuaria com acesso total). Normaliza aqui também por segurança,
+      // caso `onSave` seja chamado por outro caminho no futuro.
+      enabled_modules: (subEditing.enabled_modules && subEditing.enabled_modules.length > 0)
+        ? subEditing.enabled_modules
+        : null,
     };
     const res = subEditing.id
       ? await supabase.from('subscriptions').update(payload).eq('id', subEditing.id)

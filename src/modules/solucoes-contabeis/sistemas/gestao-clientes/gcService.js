@@ -19,6 +19,54 @@ export const TRIBUT_COLORS = {
 
 export const TRIBUT_OPTIONS = ['MEI', 'Simples Nacional', 'Lucro Presumido', 'Lucro Real'];
 
+// Ramo de atividade CLASSIFICADO — diferente do campo `atividade`, que é a
+// descrição livre do CNAE.
+//
+// Existe porque no Lucro Presumido o percentual de presunção depende do ramo:
+// comércio e serviços presumem bases muito diferentes sobre a mesma receita.
+// Texto livre ("Atividades de contabilidade") não permite essa decisão por
+// código — daí a lista fechada.
+export const RAMO_ATIVIDADE_OPTIONS = [
+  { id: 'comercio_industria',    label: 'Comércio / Indústria' },
+  { id: 'servicos_gerais',       label: 'Serviços em geral' },
+  { id: 'servicos_hospitalares', label: 'Serviços hospitalares e de diagnóstico' },
+  { id: 'transporte_cargas',     label: 'Transporte de cargas' },
+  { id: 'transporte_passageiros',label: 'Transporte de passageiros' },
+  { id: 'revenda_combustiveis',  label: 'Revenda de combustíveis' },
+  { id: 'intermediacao_imoveis', label: 'Intermediação de negócios / locação de imóveis' },
+];
+
+export const RAMO_LABEL_BY_ID = RAMO_ATIVIDADE_OPTIONS.reduce((acc, r) => {
+  acc[r.id] = r.label;
+  return acc;
+}, {});
+
+// Deduz o ramo a partir do código CNAE. Só devolve valor quando a faixa é
+// inequívoca — na dúvida devolve null para o usuário classificar à mão, já
+// que um chute aqui vira alíquota errada lá na frente.
+export function inferRamoFromCnae(cnae) {
+  const d = String(cnae || '').replace(/\D/g, '');
+  if (d.length < 4) return null;
+  const div = d.slice(0, 2);          // divisão CNAE (2 dígitos)
+  const grupo = d.slice(0, 3);        // grupo (3 dígitos)
+  const classe = d.slice(0, 5);       // classe (5 dígitos)
+
+  if (classe === '47301') return 'revenda_combustiveis';       // comércio varejista de combustíveis
+  // Divisão 49: 49.2 é rodoviário de passageiros e 49.3 é rodoviário de carga.
+  // 49.1 (ferroviário/metroferroviário) e 49.5 (trens turísticos) ficam de
+  // fora porque misturam carga e passageiro — presunção diferente, então
+  // melhor exigir a classificação manual do que arriscar.
+  if (grupo === '492') return 'transporte_passageiros';
+  if (grupo === '493' || grupo === '494') return 'transporte_cargas'; // 49.4 = dutoviário
+  if (div === '86') return 'servicos_hospitalares';
+  if (div === '68') return 'intermediacao_imoveis';
+
+  const n = Number(div);
+  if (n >= 10 && n <= 33) return 'comercio_industria';         // indústrias de transformação
+  if (n >= 45 && n <= 47) return 'comercio_industria';          // comércio
+  return null;
+}
+
 // ──────────────────────────────────────────────────────────────────────
 // Chave com escopo por organização
 // ──────────────────────────────────────────────────────────────────────
@@ -154,7 +202,11 @@ export async function buscarCNPJ(cnpj) {
     cidade:      d.municipio || '',
     estado:      d.uf || '',
     atividade:   d.cnae_fiscal_descricao || '',
+    cnae:        d.cnae_fiscal ? String(d.cnae_fiscal) : '',
     tributacao:  d.opcao_pelo_mei ? 'MEI' : d.opcao_pelo_simples ? 'Simples Nacional' : '',
+    // null quando o CNAE não é conclusivo — o formulário then exige a
+    // classificação manual em vez de gravar um palpite.
+    ramo_atividade: inferRamoFromCnae(d.cnae_fiscal) || '',
   };
 }
 

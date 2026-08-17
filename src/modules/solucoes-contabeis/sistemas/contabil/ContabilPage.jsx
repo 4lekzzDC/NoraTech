@@ -4,8 +4,13 @@ import { Chart, registerables } from 'chart.js';
 import SolucoesHeader from '../../components/SolucoesHeader';
 import { useTheme }   from '../../../../contexts/ThemeContext';
 import { useAuth }    from '../../../../contexts/AuthContext';
+import { useIsAdmin } from '../../../../lib/admin';
+import { hasActiveSubscription, isModuleEnabled } from '../../../../lib/subscriptions';
 import { getPalette, FONT_INTER } from '../../theme';
-import { moduleRoute, HUB_MODULES_BY_SLUG } from '../../constants';
+import {
+  moduleRoute, HUB_MODULES_BY_SLUG,
+  SOLUCOES_CONTABEIS_SLUG, SOLUCOES_CONTABEIS_LEGACY_SLUGS,
+} from '../../constants';
 import { getStats, logAccess, seedDemoIfEmpty } from '../../hubAnalytics';
 
 Chart.register(...registerables);
@@ -149,6 +154,17 @@ function ICalendarCheck({ size = 18 }) {
     </svg>
   );
 }
+function ICalculator({ size = 26 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="2" width="16" height="20" rx="2"/>
+      <line x1="8" y1="6" x2="16" y2="6"/>
+      <line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/>
+      <line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="18"/>
+      <line x1="8" y1="18" x2="12" y2="18"/>
+    </svg>
+  );
+}
 function IBarChart2({ size = 26 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -164,10 +180,17 @@ const SUBCATS = [
   {
     id: 'extrato', label: 'Extrato', TabIcon: IBank,
     desc: 'Codificação, conciliação e transformação de extratos bancários.',
+    // Cabeçalho próprio deste hub (ver "Category banner" mais abaixo, que usa
+    // bannerTitle/bannerDesc no lugar de label/desc quando existem) e cards
+    // compactos/centralizados (CompactSystemCard) — pedido só pra esta aba,
+    // as demais continuam com o SystemCard padrão.
+    bannerTitle: 'Ferramentas para seus extratos',
+    bannerDesc: 'Escolha a ferramenta que você precisa',
+    compact: true,
     items: [
-      { name: 'Codificador de Arquivos',  CardIcon: IFileCode,  accent: '#3b82f6', slug: 'codificador',          desc: 'Codifique extratos bancários para importação no Domínio Contábil.' },
-      { name: 'Conciliador de Extratos',  CardIcon: IArrows,    accent: '#f97316', slug: 'conciliador-extratos', desc: 'Concilie automaticamente o razão contábil com o extrato bancário.' },
       { name: 'Transformador de Extrato', CardIcon: IRefreshCw, accent: '#6366f1', slug: 'transformador-extrato', desc: 'Converta extratos em PDF para Excel com extração estruturada.' },
+      { name: 'Codificador de Arquivos',  CardIcon: IFileCode,  accent: '#3b82f6', slug: 'codificador',          desc: 'Codifique extratos bancários e relatórios de pagamentos de forma automática para importação em seu sistema.' },
+      { name: 'Conciliador de Extratos',  CardIcon: IArrows,    accent: '#f97316', slug: 'conciliador-extratos', desc: 'Concilie de forma automática seu extrato utilizando o Razão e Extrato bancário, identificando inconsistências e gerando lançamentos.' },
     ],
   },
   {
@@ -189,6 +212,7 @@ const SUBCATS = [
     desc: 'Controle mensal do fechamento contábil por empresa.',
     items: [
       { name: 'Acompanhamento Contábil', CardIcon: IBarChart2, accent: '#7C3AED', slug: 'acompanhamento-contabil', desc: 'Status mensal por empresa: arquivos, conciliação e prazos.' },
+      { name: 'Calculadora de IRPJ e CSLL', CardIcon: ICalculator, accent: '#14b8a6', slug: 'calculadora-irpj-csll', desc: 'Apuração trimestral de IRPJ e CSLL no Lucro Presumido e no Lucro Real.' },
     ],
   },
 ];
@@ -377,28 +401,30 @@ function LeftSidebar({ P, isDark, stats, user }) {
 }
 
 // ── System card ────────────────────────────────────────────────────────────────
-function SystemCard({ item, P, isDark, onNavigate }) {
+function SystemCard({ item, P, isDark, onNavigate, blocked }) {
   const [hov, setHov] = useState(false);
   const soon = !!item.soon;
-  const canHov = hov && !soon;
+  const locked = soon || blocked;
+  const canHov = hov && !locked;
   return (
     <button
-      onClick={soon ? undefined : onNavigate}
+      onClick={locked ? undefined : onNavigate}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
+      title={blocked && !soon ? 'Não incluído no plano contratado — fale com o suporte para liberar.' : undefined}
       style={{
         display: 'flex', flexDirection: 'column', position: 'relative',
         background: canHov ? (isDark ? 'rgba(255,255,255,0.03)' : '#fafafd') : P.surface,
         border: `1px solid ${canHov ? item.accent + '55' : P.border}`,
         borderRadius: 14, padding: '22px 20px 18px',
-        cursor: soon ? 'default' : 'pointer', textAlign: 'left', fontFamily: FONT_INTER,
+        cursor: locked ? 'default' : 'pointer', textAlign: 'left', fontFamily: FONT_INTER,
         color: P.text, boxShadow: canHov ? `0 4px 20px ${item.accent}18` : P.shadow,
         transition: 'all 0.18s ease',
         transform: canHov ? 'translateY(-2px)' : 'translateY(0)',
-        opacity: soon ? 0.72 : 1,
+        opacity: locked ? 0.72 : 1,
       }}
     >
-      {/* Em breve badge */}
+      {/* Em breve / fora do plano badge */}
       {soon && (
         <div style={{
           position: 'absolute', top: 12, right: 12,
@@ -408,6 +434,17 @@ function SystemCard({ item, P, isDark, onNavigate }) {
           color: '#7C3AED',
           border: '1px solid rgba(124,58,237,0.25)',
         }}>Em breve</div>
+      )}
+      {blocked && !soon && (
+        <div style={{
+          position: 'absolute', top: 12, right: 12,
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
+          padding: '3px 8px', borderRadius: 20,
+          background: isDark ? 'rgba(245,158,11,0.16)' : 'rgba(245,158,11,0.12)',
+          color: '#d97706',
+          border: '1px solid rgba(245,158,11,0.3)',
+        }}>🔒 Fora do plano</div>
       )}
 
       {/* Icon box */}
@@ -430,7 +467,7 @@ function SystemCard({ item, P, isDark, onNavigate }) {
       </div>
 
       {/* Arrow button */}
-      {!soon && (
+      {!locked && (
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <div style={{
             width: 32, height: 32, borderRadius: 9,
@@ -448,8 +485,93 @@ function SystemCard({ item, P, isDark, onNavigate }) {
   );
 }
 
+// Versão compacta e centralizada do SystemCard — usada só no hub "Extrato"
+// (ver `compact: true` em SUBCATS). Mesma linguagem visual (cor de destaque
+// no ícone, borda/hover, badges de "Em breve"/"Fora do plano"), mas ícone,
+// título, descrição e o botão de acesso ficam centralizados, com menos
+// padding — pedido explícito de deixar os cards "mais compactos e elegantes".
+function CompactSystemCard({ item, P, isDark, onNavigate, blocked }) {
+  const [hov, setHov] = useState(false);
+  const soon = !!item.soon;
+  const locked = soon || blocked;
+  const canHov = hov && !locked;
+  return (
+    <button
+      onClick={locked ? undefined : onNavigate}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      title={blocked && !soon ? 'Não incluído no plano contratado — fale com o suporte para liberar.' : undefined}
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative',
+        background: canHov ? (isDark ? 'rgba(255,255,255,0.03)' : '#fafafd') : P.surface,
+        border: `1px solid ${canHov ? item.accent + '55' : P.border}`,
+        borderRadius: 14, padding: '20px 18px 16px',
+        cursor: locked ? 'default' : 'pointer', textAlign: 'center', fontFamily: FONT_INTER,
+        color: P.text, boxShadow: canHov ? `0 4px 20px ${item.accent}18` : P.shadow,
+        transition: 'all 0.18s ease',
+        transform: canHov ? 'translateY(-2px)' : 'translateY(0)',
+        opacity: locked ? 0.72 : 1,
+      }}
+    >
+      {soon && (
+        <div style={{
+          position: 'absolute', top: 10, right: 10,
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
+          padding: '3px 8px', borderRadius: 20,
+          background: isDark ? 'rgba(124,58,237,0.18)' : 'rgba(124,58,237,0.1)',
+          color: '#7C3AED',
+          border: '1px solid rgba(124,58,237,0.25)',
+        }}>Em breve</div>
+      )}
+      {blocked && !soon && (
+        <div style={{
+          position: 'absolute', top: 10, right: 10,
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
+          padding: '3px 8px', borderRadius: 20,
+          background: isDark ? 'rgba(245,158,11,0.16)' : 'rgba(245,158,11,0.12)',
+          color: '#d97706',
+          border: '1px solid rgba(245,158,11,0.3)',
+        }}>🔒 Fora do plano</div>
+      )}
+
+      {/* Icon box */}
+      <div style={{
+        width: 46, height: 46, borderRadius: 12, marginBottom: 14,
+        background: item.accent,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: '#fff',
+        boxShadow: `0 4px 14px ${item.accent}42`,
+        transition: 'box-shadow 0.18s',
+      }}>
+        <item.CardIcon size={21} />
+      </div>
+
+      <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 7, letterSpacing: -0.2, lineHeight: 1.3 }}>
+        {item.name}
+      </div>
+      <div style={{ fontSize: 12, color: P.muted, lineHeight: 1.55, marginBottom: 16 }}>
+        {item.desc}
+      </div>
+
+      {/* Access button */}
+      {!locked && (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 20,
+          background: canHov ? item.accent : (isDark ? P.surface2 : '#f5f4fb'),
+          border: `1px solid ${canHov ? item.accent : P.border}`,
+          color: canHov ? '#fff' : item.accent,
+          fontSize: 12, fontWeight: 700, transition: 'all 0.18s',
+        }}>
+          Acessar <IChevronRight size={12} />
+        </span>
+      )}
+    </button>
+  );
+}
+
 // ── Right panel ────────────────────────────────────────────────────────────────
-function RightPanel({ P, isDark, active, activeId, onSelect, onNavigate }) {
+function RightPanel({ P, isDark, active, activeId, onSelect, onNavigate, isBlocked }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
 
@@ -512,10 +634,10 @@ function RightPanel({ P, isDark, active, activeId, onSelect, onNavigate }) {
           </div>
           <div>
             <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5, color: P.text, marginBottom: 6, lineHeight: 1.1 }}>
-              {active.label}
+              {active.bannerTitle || active.label}
             </div>
             <div style={{ fontSize: 13, color: P.muted, lineHeight: 1.55, maxWidth: 460 }}>
-              {active.desc}
+              {active.bannerDesc || active.desc}
             </div>
           </div>
         </div>
@@ -539,7 +661,7 @@ function RightPanel({ P, isDark, active, activeId, onSelect, onNavigate }) {
           </div>
           <div style={{ fontSize: 11, color: P.muted, marginTop: 1 }}>
             {(() => {
-              const avail = active.items.filter((it) => !it.soon).length;
+              const avail = active.items.filter((it) => !it.soon && !isBlocked(it.slug)).length;
               const total = active.items.length;
               if (avail === total) return `${total} ${total === 1 ? 'sistema disponível' : 'sistemas disponíveis'}`;
               return `${avail} de ${total} ${total === 1 ? 'sistema disponível' : 'sistemas disponíveis'}`;
@@ -550,15 +672,20 @@ function RightPanel({ P, isDark, active, activeId, onSelect, onNavigate }) {
 
       {/* System cards grid */}
       <div className="contabil-sys-grid">
-        {active.items.map((item, i) => (
-          <SystemCard
-            key={item.slug ?? `soon-${i}`}
-            item={item}
-            P={P}
-            isDark={isDark}
-            onNavigate={item.soon ? undefined : () => { logAccess(item.slug); onNavigate(item.slug); }}
-          />
-        ))}
+        {active.items.map((item, i) => {
+          const blocked = isBlocked(item.slug);
+          const Card = active.compact ? CompactSystemCard : SystemCard;
+          return (
+            <Card
+              key={item.slug ?? `soon-${i}`}
+              item={item}
+              P={P}
+              isDark={isDark}
+              blocked={blocked}
+              onNavigate={(item.soon || blocked) ? undefined : () => { logAccess(item.slug); onNavigate(item.slug); }}
+            />
+          );
+        })}
       </div>
 
       {/* Tip strip */}
@@ -597,11 +724,29 @@ export default function ContabilPage() {
   const [params, setParams] = useSearchParams();
   const { theme }    = useTheme();
   const { user }     = useAuth();
+  const { isAdmin }  = useIsAdmin();
   const P            = useMemo(() => getPalette(theme), [theme]);
   const isDark       = theme === 'dark';
 
   const [stats, setStats] = useState(() => { seedDemoIfEmpty(); return getStats(); });
   useEffect(() => { setStats(getStats()); }, []);
+
+  // Módulos liberados na assinatura — carregado uma vez; enquanto não
+  // resolve, isBlocked() devolve false (nada some antes de saber de fato
+  // que está fora do plano). Admin não sofre a restrição: quem configura o
+  // acesso não pode ficar bloqueado da própria tela de configuração.
+  const [modAccess, setModAccess] = useState({ loaded: false, enabledModules: null });
+  useEffect(() => {
+    let alive = true;
+    hasActiveSubscription(SOLUCOES_CONTABEIS_SLUG, { legacySlugs: SOLUCOES_CONTABEIS_LEGACY_SLUGS })
+      .then(({ enabledModules }) => { if (alive) setModAccess({ loaded: true, enabledModules }); })
+      .catch(() => { if (alive) setModAccess({ loaded: true, enabledModules: null }); });
+    return () => { alive = false; };
+  }, []);
+  const isBlocked = (slug) => {
+    if (!slug || isAdmin || !modAccess.loaded) return false;
+    return !isModuleEnabled(modAccess.enabledModules, slug);
+  };
 
   const initial  = params.get('sub') || SUBCATS[0].id;
   const [activeId, setActiveId] = useState(SUBCATS.some((s) => s.id === initial) ? initial : SUBCATS[0].id);
@@ -649,6 +794,7 @@ export default function ContabilPage() {
             active={active} activeId={activeId}
             onSelect={handleSelect}
             onNavigate={handleNavigate}
+            isBlocked={isBlocked}
           />
         </div>
       </main>
