@@ -512,9 +512,9 @@ function ClientesPanel({ clientes, onEdit, onDelete, onPerfil }) {
                   <td style={tdStyle(p)}><StatusPill status={c.status} /></td>
                   <td style={{ ...tdStyle(p), whiteSpace: 'nowrap' }}>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      <IconBtn title="Ver perfil" onClick={() => onPerfil(c.id)}>👁</IconBtn>
-                      <IconBtn title="Editar" onClick={() => onEdit(c.id)}>✏️</IconBtn>
-                      <IconBtn title="Excluir" onClick={() => onDelete(c.id)} danger>🗑</IconBtn>
+                      <IconBtn title="Ver perfil" onClick={() => onPerfil(c.id)}><IEye /></IconBtn>
+                      <IconBtn title="Editar" onClick={() => onEdit(c.id)}><IPencil /></IconBtn>
+                      <IconBtn title="Excluir" onClick={() => onDelete(c.id)} danger><ITrash /></IconBtn>
                     </div>
                   </td>
                 </tr>
@@ -527,12 +527,41 @@ function ClientesPanel({ clientes, onEdit, onDelete, onPerfil }) {
   );
 }
 
+// SVG, não emoji: "👁" e "🗑" não têm o seletor de variação de cor (U+FE0F)
+// e em várias plataformas renderizam como glifo monocromático herdando a
+// cor do texto — sem `color` definido no botão, ficavam invisíveis sobre o
+// fundo escuro. "✏️" tem o seletor e por isso era a única visível. SVG com
+// stroke="currentColor" evita essa loteria: a cor sempre vem do botão.
+function IEye({ size = 15 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+function IPencil({ size = 15 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+function ITrash({ size = 15 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z" />
+    </svg>
+  );
+}
+
 function IconBtn({ children, onClick, title, danger }) {
   const p = useP();
   return (
-    <button onClick={onClick} title={title} style={{
+    <button onClick={onClick} title={title} aria-label={title} style={{
       width: 30, height: 30, borderRadius: 6, border: `1px solid ${danger ? 'rgba(248,113,113,0.3)' : p.border}`,
       background: danger ? 'rgba(248,113,113,0.08)' : p.surface2,
+      color: danger ? '#f87171' : p.text,
       cursor: 'pointer', fontSize: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     }}>{children}</button>
   );
