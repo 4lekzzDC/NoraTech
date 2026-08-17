@@ -78,7 +78,7 @@ function ObsModal({ empresa, mes, onClose }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={(e) => e.target === e.currentTarget && onClose(null)}>
       <div style={{
-        background: p.surface, border: `1px solid ${p.border}`, borderRadius: 14,
+        background: p.surfaceSolid, border: `1px solid ${p.border}`, borderRadius: 14, boxShadow: '0 24px 60px -12px rgba(0,0,0,0.5)',
         padding: 28, width: 420, maxWidth: '92vw', display: 'flex', flexDirection: 'column', gap: 16,
       }}>
         <h3 style={{ margin: 0, fontSize: 15, color: p.text }}>Observações — {empresa.name}</h3>
@@ -121,7 +121,7 @@ function AddTipoModal({ cat, onClose }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={(e) => e.target === e.currentTarget && onClose(null)}>
       <div style={{
-        background: p.surface, border: `1px solid ${p.border}`, borderRadius: 14,
+        background: p.surfaceSolid, border: `1px solid ${p.border}`, borderRadius: 14, boxShadow: '0 24px 60px -12px rgba(0,0,0,0.5)',
         padding: 28, width: 380, maxWidth: '92vw', display: 'flex', flexDirection: 'column', gap: 16,
       }}>
         <h3 style={{ margin: 0, fontSize: 15, color: p.text }}>
@@ -170,7 +170,7 @@ function AddEventoModal({ mes, onClose }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={(e) => e.target === e.currentTarget && onClose(null)}>
       <div style={{
-        background: p.surface, border: `1px solid ${p.border}`, borderRadius: 14,
+        background: p.surfaceSolid, border: `1px solid ${p.border}`, borderRadius: 14, boxShadow: '0 24px 60px -12px rgba(0,0,0,0.5)',
         padding: 28, width: 380, maxWidth: '92vw', display: 'flex', flexDirection: 'column', gap: 14,
       }}>
         <h3 style={{ margin: 0, fontSize: 15, color: p.text }}>Novo Evento — {mesLabel(mes)}</h3>

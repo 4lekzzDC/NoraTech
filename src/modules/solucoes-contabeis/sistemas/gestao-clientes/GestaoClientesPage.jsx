@@ -739,7 +739,12 @@ function ClienteModal({ clienteId, clientes, onClose, onSaved, onToast }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div style={{
-        background: p.surface, border: `1px solid ${p.border}`, borderRadius: 14,
+        // surfaceSolid (opaco), não surface (translúcido) — surface é pensado
+        // pra cards dentro da página, com o fundo por trás ajudando a compor;
+        // um modal sobre overlay escuro deixa esse fundo (e o conteúdo atrás)
+        // vazando através dele.
+        background: p.surfaceSolid, border: `1px solid ${p.border}`, borderRadius: 14,
+        boxShadow: '0 24px 60px -12px rgba(0,0,0,0.5)',
         padding: 28, width: 620, maxWidth: '96vw', maxHeight: '90vh', overflowY: 'auto',
         display: 'flex', flexDirection: 'column', gap: 0,
       }}>
