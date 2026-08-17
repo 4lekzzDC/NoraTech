@@ -39,6 +39,7 @@ import GestaoClientesPage from './modules/solucoes-contabeis/sistemas/gestao-cli
 import PrazosPage from './modules/solucoes-contabeis/sistemas/prazos/PrazosPage.jsx'
 import AnaliseDemonstracoesPage from './modules/solucoes-contabeis/sistemas/analise-demonstracoes/AnaliseDemonstracoesPage.jsx'
 import TransformadorExtratoPage from './modules/solucoes-contabeis/sistemas/transformador-extrato/TransformadorExtratoPage.jsx'
+import CalculadoraIrpjCsllPage from './modules/solucoes-contabeis/sistemas/calculadora-irpj-csll/CalculadoraIrpjCsllPage.jsx'
 import AdminRoute from './components/AdminRoute.jsx'
 import SubscriptionRoute from './components/SubscriptionRoute.jsx'
 import OrgManagerRoute from './components/OrgManagerRoute.jsx'
@@ -148,6 +149,10 @@ createRoot(document.getElementById('root')).render(
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/transformador-extrato`}
             element={<SolucoesContabeisRoute><TransformadorExtratoPage /></SolucoesContabeisRoute>}
+          />
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/calculadora-irpj-csll`}
+            element={<SolucoesContabeisRoute><CalculadoraIrpjCsllPage /></SolucoesContabeisRoute>}
           />
           {/* Catch-all: itens do catálogo sem rota dedicada caem aqui */}
           <Route

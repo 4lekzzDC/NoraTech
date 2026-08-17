@@ -15,6 +15,7 @@ const TOOL_PARENTS = {
   'conciliador-fornecedores': { slug: 'contabil', name: 'Contábil' },
   'analise-demonstracoes':    { slug: 'contabil', name: 'Contábil' },
   'acompanhamento-contabil':  { slug: 'contabil', name: 'Contábil' },
+  'calculadora-irpj-csll':    { slug: 'contabil', name: 'Contábil' },
   'prazos':                   { slug: 'contabil', name: 'Contábil' },
   'gestao-clientes':          { slug: 'gestao',   name: 'Gestão' },
 };

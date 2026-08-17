@@ -149,6 +149,17 @@ function ICalendarCheck({ size = 18 }) {
     </svg>
   );
 }
+function ICalculator({ size = 26 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="2" width="16" height="20" rx="2"/>
+      <line x1="8" y1="6" x2="16" y2="6"/>
+      <line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/>
+      <line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="18"/>
+      <line x1="8" y1="18" x2="12" y2="18"/>
+    </svg>
+  );
+}
 function IBarChart2({ size = 26 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -189,6 +200,7 @@ const SUBCATS = [
     desc: 'Controle mensal do fechamento contábil por empresa.',
     items: [
       { name: 'Acompanhamento Contábil', CardIcon: IBarChart2, accent: '#7C3AED', slug: 'acompanhamento-contabil', desc: 'Status mensal por empresa: arquivos, conciliação e prazos.' },
+      { name: 'Calculadora de IRPJ e CSLL', CardIcon: ICalculator, accent: '#14b8a6', slug: 'calculadora-irpj-csll', desc: 'Apuração trimestral de IRPJ e CSLL no Lucro Presumido e no Lucro Real.' },
     ],
   },
 ];
