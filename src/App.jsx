@@ -298,8 +298,8 @@ function ProcessSection() {
     <section id="processo" ref={ref} className="section-padding" style={{ padding: "120px 60px 140px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
       <Reveal>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 14 }}>
-          <Star size={12} color="#2563EB" />
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#2563EB", textTransform: "uppercase", letterSpacing: 3 }}>Processo</span>
+          <Star size={12} color="#b684ff" />
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#b684ff", textTransform: "uppercase", letterSpacing: 3 }}>Processo</span>
         </div>
       </Reveal>
       <Reveal delay={0.1}>
@@ -319,7 +319,7 @@ function ProcessSection() {
             esquerda para a direita quando a seção aparece. */}
         <div className="process-line" style={{
           position: "absolute", top: 27, left: "10%", right: "10%", height: 1,
-          backgroundImage: "linear-gradient(90deg, rgba(37,99,235,0.5) 0 6px, transparent 6px 12px)",
+          backgroundImage: "linear-gradient(90deg, rgba(124,58,237,0.5) 0 6px, transparent 6px 12px)",
           backgroundSize: "12px 1px",
           transformOrigin: "left center",
           transform: inView ? "scaleX(1)" : "scaleX(0)",
@@ -343,7 +343,7 @@ function ProcessSection() {
                   pontilhado que passa atrás do círculo. */}
               <div className="process-dot" style={{
                 width: 54, height: 54, borderRadius: "50%", margin: "0 auto 18px",
-                border: "1px solid rgba(37, 99, 235,0.34)",
+                border: "1px solid rgba(124,58,237,0.34)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 position: "relative",
                 transition: "all 0.3s cubic-bezier(0.16,1,0.3,1)",
@@ -352,7 +352,7 @@ function ProcessSection() {
               </div>
 
               <div style={{ fontSize: "0.9rem", fontWeight: 700, marginBottom: 7, letterSpacing: -0.2 }}>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: "#2563EB", marginRight: 6 }}>{s.num}.</span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: "#b684ff", marginRight: 6 }}>{s.num}.</span>
                 {s.label}
               </div>
               <p style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.4)", lineHeight: 1.6, maxWidth: 190, margin: "0 auto" }}>
@@ -608,27 +608,27 @@ export default function App() {
         }
 
         /* ═══ SERVIÇOS / PROCESSO ═══ */
-        /* Cor em classe, não inline: no tema claro o azul-claro do escuro
+        /* Cor em classe, não inline: no tema claro o roxo-claro do escuro
            some sobre o card branco, e o override precisa de um seletor. */
-        .svc-icon, .svc-more, .process-dot { color: #5b8dff; }
+        .svc-icon, .svc-more, .process-dot { color: #b18aff; }
         .svc-tag {
           padding: 4px 10px; border-radius: 100px;
-          background: rgba(37,99,235,0.06); border: 1px solid rgba(37,99,235,0.14);
+          background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.18);
           font-size: 0.66rem; font-weight: 600; font-family: 'JetBrains Mono', monospace;
-          color: rgba(200,220,255,0.7);
+          color: rgba(216,200,255,0.75);
         }
         html[data-theme="light"] .svc-icon,
         html[data-theme="light"] .svc-more,
-        html[data-theme="light"] .process-dot { color: #1d4ed8; }
+        html[data-theme="light"] .process-dot { color: #7c3aed; }
         html[data-theme="light"] .svc-tag {
-          background: rgba(37,99,235,0.08); border-color: rgba(37,99,235,0.22); color: #1e40af;
+          background: rgba(124,58,237,0.08); border-color: rgba(124,58,237,0.24); color: #6d28d9;
         }
         .process-dot { background: #0e0e12; box-shadow: 0 0 0 6px #08080a; }
         html[data-theme="light"] .process-dot {
           background: #ffffff; box-shadow: 0 0 0 6px #f6f5f1; animation: none;
         }
 
-        .svc-card:hover .svc-icon { background: rgba(37,99,235,0.2); border-color: rgba(37,99,235,0.45); transform: translateY(-2px); }
+        .svc-card:hover .svc-icon { background: rgba(124,58,237,0.2); border-color: rgba(124,58,237,0.45); transform: translateY(-2px); }
         .svc-card:hover .svc-more { gap: 11px; }
         .process-dot { animation: process-pulse 4.5s ease-in-out infinite; }
         .process-grid > div:nth-child(2) .process-dot { animation-delay: .5s; }
@@ -636,8 +636,8 @@ export default function App() {
         .process-grid > div:nth-child(4) .process-dot { animation-delay: 1.5s; }
         .process-grid > div:nth-child(5) .process-dot { animation-delay: 2s; }
         @keyframes process-pulse {
-          0%, 100% { box-shadow: 0 0 0 6px #08080a, 0 0 0 0 rgba(37,99,235,0.28); }
-          50%      { box-shadow: 0 0 0 6px #08080a, 0 0 22px 3px rgba(37,99,235,0.22); }
+          0%, 100% { box-shadow: 0 0 0 6px #08080a, 0 0 0 0 rgba(124,58,237,0.28); }
+          50%      { box-shadow: 0 0 0 6px #08080a, 0 0 22px 3px rgba(124,58,237,0.22); }
         }
         @media (prefers-reduced-motion: reduce) {
           .process-dot { animation: none; }
@@ -1031,8 +1031,8 @@ export default function App() {
       <section id="servicos" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <Reveal>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 14 }}>
-            <Star size={12} color="#2563EB" />
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#2563EB", textTransform: "uppercase", letterSpacing: 3 }}>Serviços</span>
+            <Star size={12} color="#b684ff" />
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#b684ff", textTransform: "uppercase", letterSpacing: 3 }}>Serviços</span>
           </div>
         </Reveal>
         <Reveal delay={0.1}>
@@ -1054,13 +1054,13 @@ export default function App() {
                 {/* brilho decorativo */}
                 <div style={{
                   position: "absolute", width: 180, height: 180, borderRadius: "50%",
-                  background: "radial-gradient(circle, rgba(37, 99, 235,0.12) 0%, transparent 60%)",
+                  background: "radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 60%)",
                   top: -70, right: -50, filter: "blur(40px)", pointerEvents: "none"
                 }} />
 
                 <div className="svc-icon" style={{
                   width: 52, height: 52, borderRadius: 14, marginBottom: 20,
-                  background: "rgba(37, 99, 235,0.12)", border: "1px solid rgba(37, 99, 235,0.22)",
+                  background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.22)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   position: "relative", transition: "all 0.35s cubic-bezier(0.16,1,0.3,1)"
                 }}>
@@ -1099,7 +1099,7 @@ export default function App() {
               padding: 26, overflow: "hidden", display: "flex", flexDirection: "column",
               transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)", color: "inherit",
             };
-            const onEnter = (e) => { e.currentTarget.style.borderColor = "rgba(37, 99, 235,0.3)"; e.currentTarget.style.transform = "translateY(-6px)"; e.currentTarget.style.boxShadow = "0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(37, 99, 235,0.12)"; };
+            const onEnter = (e) => { e.currentTarget.style.borderColor = "rgba(124,58,237,0.3)"; e.currentTarget.style.transform = "translateY(-6px)"; e.currentTarget.style.boxShadow = "0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(124,58,237,0.12)"; };
             const onLeave = (e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; };
 
             return (
@@ -1122,12 +1122,12 @@ export default function App() {
         <Reveal delay={0.3}>
           <div style={{
             marginTop: 28, padding: "22px 28px",
-            background: "linear-gradient(135deg, rgba(37, 99, 235,0.06), rgba(37, 99, 235,0.02))",
-            border: "1px solid rgba(37, 99, 235,0.14)", borderRadius: 18,
+            background: "linear-gradient(135deg, rgba(124,58,237,0.06), rgba(124,58,237,0.02))",
+            border: "1px solid rgba(124,58,237,0.14)", borderRadius: 18,
             display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(37, 99, 235,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>✦</div>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(124,58,237,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>✦</div>
               <div>
                 <div style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: 2 }}>Precisa de um escopo específico?</div>
                 <div style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.4)" }}>Conte o desafio e montamos uma proposta técnica sob medida.</div>
@@ -1135,7 +1135,7 @@ export default function App() {
             </div>
             <a href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20conversar%20sobre%20um%20projeto%20com%20a%20Noratech." target="_blank" rel="noopener noreferrer" style={{
               display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 22px",
-              background: "#2563EB", color: "#ffffff", borderRadius: 100,
+              background: "#7C3AED", color: "#ffffff", borderRadius: 100,
               fontWeight: 700, fontSize: "0.86rem", whiteSpace: "nowrap"
             }}>
               Falar com especialista <span style={{ fontSize: "1rem" }}>↗</span>
