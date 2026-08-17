@@ -60,11 +60,18 @@ function ProtectedRoute({ children }) {
 
 // Wrapper que aplica o gate de assinatura `solucoes-contabeis` (aceita
 // também o slug legado `acompanhamento-contabil`) a qualquer rota da suite.
-function SolucoesContabeisRoute({ children }) {
+// `moduleSlug` é opcional — só as rotas de ferramenta o passam, pra também
+// checar se aquele módulo específico está liberado na assinatura (o admin
+// pode restringir quais módulos do hub uma empresa paga). Hub, categorias
+// (Contábil/Pessoal) e o catch-all "em construção" não levam moduleSlug:
+// são navegação, não ferramenta — o gate neles é só o do sistema inteiro.
+function SolucoesContabeisRoute({ moduleSlug, children }) {
   return (
     <SubscriptionRoute
       systemSlug={SOLUCOES_CONTABEIS_SLUG}
       legacySlugs={SOLUCOES_CONTABEIS_LEGACY_SLUGS}
+      moduleSlug={moduleSlug}
+      moduleFallback={`${SOLUCOES_CONTABEIS_ROUTE}/contabil`}
     >
       {children}
     </SubscriptionRoute>
@@ -109,7 +116,7 @@ createRoot(document.getElementById('root')).render(
           {/* Módulo real já migrado */}
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/acompanhamento-contabil`}
-            element={<SolucoesContabeisRoute><AcompanhamentoContabilPage /></SolucoesContabeisRoute>}
+            element={<SolucoesContabeisRoute moduleSlug="acompanhamento-contabil"><AcompanhamentoContabilPage /></SolucoesContabeisRoute>}
           />
           {/* Categoria "Contábil" — grid de subcategorias migrado do Autonomy */}
           <Route
@@ -124,35 +131,35 @@ createRoot(document.getElementById('root')).render(
           {/* Placeholders dos módulos do Autonomy em migração */}
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/codificador`}
-            element={<SolucoesContabeisRoute><CodificadorPage /></SolucoesContabeisRoute>}
+            element={<SolucoesContabeisRoute moduleSlug="codificador"><CodificadorPage /></SolucoesContabeisRoute>}
           />
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/conciliador-extratos`}
-            element={<SolucoesContabeisRoute><ConciliadorExtratosPage /></SolucoesContabeisRoute>}
+            element={<SolucoesContabeisRoute moduleSlug="conciliador-extratos"><ConciliadorExtratosPage /></SolucoesContabeisRoute>}
           />
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/conciliador-fornecedores`}
-            element={<SolucoesContabeisRoute><ConciliadorFornecedoresPage /></SolucoesContabeisRoute>}
+            element={<SolucoesContabeisRoute moduleSlug="conciliador-fornecedores"><ConciliadorFornecedoresPage /></SolucoesContabeisRoute>}
           />
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/gestao-clientes`}
-            element={<SolucoesContabeisRoute><GestaoClientesPage /></SolucoesContabeisRoute>}
+            element={<SolucoesContabeisRoute moduleSlug="gestao-clientes"><GestaoClientesPage /></SolucoesContabeisRoute>}
           />
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/prazos`}
-            element={<SolucoesContabeisRoute><PrazosPage /></SolucoesContabeisRoute>}
+            element={<SolucoesContabeisRoute moduleSlug="prazos"><PrazosPage /></SolucoesContabeisRoute>}
           />
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/analise-demonstracoes`}
-            element={<SolucoesContabeisRoute><AnaliseDemonstracoesPage /></SolucoesContabeisRoute>}
+            element={<SolucoesContabeisRoute moduleSlug="analise-demonstracoes"><AnaliseDemonstracoesPage /></SolucoesContabeisRoute>}
           />
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/transformador-extrato`}
-            element={<SolucoesContabeisRoute><TransformadorExtratoPage /></SolucoesContabeisRoute>}
+            element={<SolucoesContabeisRoute moduleSlug="transformador-extrato"><TransformadorExtratoPage /></SolucoesContabeisRoute>}
           />
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/calculadora-irpj-csll`}
-            element={<SolucoesContabeisRoute><CalculadoraIrpjCsllPage /></SolucoesContabeisRoute>}
+            element={<SolucoesContabeisRoute moduleSlug="calculadora-irpj-csll"><CalculadoraIrpjCsllPage /></SolucoesContabeisRoute>}
           />
           {/* Catch-all: itens do catálogo sem rota dedicada caem aqui */}
           <Route

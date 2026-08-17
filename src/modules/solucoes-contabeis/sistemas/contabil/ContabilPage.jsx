@@ -4,8 +4,13 @@ import { Chart, registerables } from 'chart.js';
 import SolucoesHeader from '../../components/SolucoesHeader';
 import { useTheme }   from '../../../../contexts/ThemeContext';
 import { useAuth }    from '../../../../contexts/AuthContext';
+import { useIsAdmin } from '../../../../lib/admin';
+import { hasActiveSubscription, isModuleEnabled } from '../../../../lib/subscriptions';
 import { getPalette, FONT_INTER } from '../../theme';
-import { moduleRoute, HUB_MODULES_BY_SLUG } from '../../constants';
+import {
+  moduleRoute, HUB_MODULES_BY_SLUG,
+  SOLUCOES_CONTABEIS_SLUG, SOLUCOES_CONTABEIS_LEGACY_SLUGS,
+} from '../../constants';
 import { getStats, logAccess, seedDemoIfEmpty } from '../../hubAnalytics';
 
 Chart.register(...registerables);
@@ -389,28 +394,30 @@ function LeftSidebar({ P, isDark, stats, user }) {
 }
 
 // ── System card ────────────────────────────────────────────────────────────────
-function SystemCard({ item, P, isDark, onNavigate }) {
+function SystemCard({ item, P, isDark, onNavigate, blocked }) {
   const [hov, setHov] = useState(false);
   const soon = !!item.soon;
-  const canHov = hov && !soon;
+  const locked = soon || blocked;
+  const canHov = hov && !locked;
   return (
     <button
-      onClick={soon ? undefined : onNavigate}
+      onClick={locked ? undefined : onNavigate}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
+      title={blocked && !soon ? 'Não incluído no plano contratado — fale com o suporte para liberar.' : undefined}
       style={{
         display: 'flex', flexDirection: 'column', position: 'relative',
         background: canHov ? (isDark ? 'rgba(255,255,255,0.03)' : '#fafafd') : P.surface,
         border: `1px solid ${canHov ? item.accent + '55' : P.border}`,
         borderRadius: 14, padding: '22px 20px 18px',
-        cursor: soon ? 'default' : 'pointer', textAlign: 'left', fontFamily: FONT_INTER,
+        cursor: locked ? 'default' : 'pointer', textAlign: 'left', fontFamily: FONT_INTER,
         color: P.text, boxShadow: canHov ? `0 4px 20px ${item.accent}18` : P.shadow,
         transition: 'all 0.18s ease',
         transform: canHov ? 'translateY(-2px)' : 'translateY(0)',
-        opacity: soon ? 0.72 : 1,
+        opacity: locked ? 0.72 : 1,
       }}
     >
-      {/* Em breve badge */}
+      {/* Em breve / fora do plano badge */}
       {soon && (
         <div style={{
           position: 'absolute', top: 12, right: 12,
@@ -420,6 +427,17 @@ function SystemCard({ item, P, isDark, onNavigate }) {
           color: '#7C3AED',
           border: '1px solid rgba(124,58,237,0.25)',
         }}>Em breve</div>
+      )}
+      {blocked && !soon && (
+        <div style={{
+          position: 'absolute', top: 12, right: 12,
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
+          padding: '3px 8px', borderRadius: 20,
+          background: isDark ? 'rgba(245,158,11,0.16)' : 'rgba(245,158,11,0.12)',
+          color: '#d97706',
+          border: '1px solid rgba(245,158,11,0.3)',
+        }}>🔒 Fora do plano</div>
       )}
 
       {/* Icon box */}
@@ -442,7 +460,7 @@ function SystemCard({ item, P, isDark, onNavigate }) {
       </div>
 
       {/* Arrow button */}
-      {!soon && (
+      {!locked && (
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <div style={{
             width: 32, height: 32, borderRadius: 9,
@@ -461,7 +479,7 @@ function SystemCard({ item, P, isDark, onNavigate }) {
 }
 
 // ── Right panel ────────────────────────────────────────────────────────────────
-function RightPanel({ P, isDark, active, activeId, onSelect, onNavigate }) {
+function RightPanel({ P, isDark, active, activeId, onSelect, onNavigate, isBlocked }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
 
@@ -551,7 +569,7 @@ function RightPanel({ P, isDark, active, activeId, onSelect, onNavigate }) {
           </div>
           <div style={{ fontSize: 11, color: P.muted, marginTop: 1 }}>
             {(() => {
-              const avail = active.items.filter((it) => !it.soon).length;
+              const avail = active.items.filter((it) => !it.soon && !isBlocked(it.slug)).length;
               const total = active.items.length;
               if (avail === total) return `${total} ${total === 1 ? 'sistema disponível' : 'sistemas disponíveis'}`;
               return `${avail} de ${total} ${total === 1 ? 'sistema disponível' : 'sistemas disponíveis'}`;
@@ -562,15 +580,19 @@ function RightPanel({ P, isDark, active, activeId, onSelect, onNavigate }) {
 
       {/* System cards grid */}
       <div className="contabil-sys-grid">
-        {active.items.map((item, i) => (
-          <SystemCard
-            key={item.slug ?? `soon-${i}`}
-            item={item}
-            P={P}
-            isDark={isDark}
-            onNavigate={item.soon ? undefined : () => { logAccess(item.slug); onNavigate(item.slug); }}
-          />
-        ))}
+        {active.items.map((item, i) => {
+          const blocked = isBlocked(item.slug);
+          return (
+            <SystemCard
+              key={item.slug ?? `soon-${i}`}
+              item={item}
+              P={P}
+              isDark={isDark}
+              blocked={blocked}
+              onNavigate={(item.soon || blocked) ? undefined : () => { logAccess(item.slug); onNavigate(item.slug); }}
+            />
+          );
+        })}
       </div>
 
       {/* Tip strip */}
@@ -609,11 +631,29 @@ export default function ContabilPage() {
   const [params, setParams] = useSearchParams();
   const { theme }    = useTheme();
   const { user }     = useAuth();
+  const { isAdmin }  = useIsAdmin();
   const P            = useMemo(() => getPalette(theme), [theme]);
   const isDark       = theme === 'dark';
 
   const [stats, setStats] = useState(() => { seedDemoIfEmpty(); return getStats(); });
   useEffect(() => { setStats(getStats()); }, []);
+
+  // Módulos liberados na assinatura — carregado uma vez; enquanto não
+  // resolve, isBlocked() devolve false (nada some antes de saber de fato
+  // que está fora do plano). Admin não sofre a restrição: quem configura o
+  // acesso não pode ficar bloqueado da própria tela de configuração.
+  const [modAccess, setModAccess] = useState({ loaded: false, enabledModules: null });
+  useEffect(() => {
+    let alive = true;
+    hasActiveSubscription(SOLUCOES_CONTABEIS_SLUG, { legacySlugs: SOLUCOES_CONTABEIS_LEGACY_SLUGS })
+      .then(({ enabledModules }) => { if (alive) setModAccess({ loaded: true, enabledModules }); })
+      .catch(() => { if (alive) setModAccess({ loaded: true, enabledModules: null }); });
+    return () => { alive = false; };
+  }, []);
+  const isBlocked = (slug) => {
+    if (!slug || isAdmin || !modAccess.loaded) return false;
+    return !isModuleEnabled(modAccess.enabledModules, slug);
+  };
 
   const initial  = params.get('sub') || SUBCATS[0].id;
   const [activeId, setActiveId] = useState(SUBCATS.some((s) => s.id === initial) ? initial : SUBCATS[0].id);
@@ -661,6 +701,7 @@ export default function ContabilPage() {
             active={active} activeId={activeId}
             onSelect={handleSelect}
             onNavigate={handleNavigate}
+            isBlocked={isBlocked}
           />
         </div>
       </main>
