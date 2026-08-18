@@ -35,6 +35,10 @@ export const DOCUMENT_STATUS = {
   descartado:  { label: 'Descartado',  tone: 'muted'   },
 };
 
+// Regimes tributários usados no cadastro de clientes. Lista fechada porque o
+// campo é de classificação, não de texto livre.
+export const REGIME_OPTIONS = ['MEI', 'Simples Nacional', 'Lucro Presumido', 'Lucro Real'];
+
 // Categorias-semente de cada escritório. Viram linhas em `noradocs_categories`
 // na Etapa 1, onde passam a ser editáveis (nome, ordem, palavras-chave).
 export const SEED_CATEGORIES = [
