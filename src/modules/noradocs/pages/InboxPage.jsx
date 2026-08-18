@@ -5,11 +5,14 @@ import { useToasts } from '../../../lib/useToasts';
 import { useTheme } from '../../../contexts/ThemeContext';
 import DocumentTable from '../components/DocumentTable';
 import NoraDocsLayout from '../components/NoraDocsLayout';
+import ReviewDrawer from '../components/ReviewDrawer';
 import UploadDropzone from '../components/UploadDropzone';
 import { noradocsRoute } from '../constants';
+import { podeConfirmarEmLote } from '../domain/status';
 import {
   countByStatus, fetchContextoDeClassificacao, fetchSettingsCompletas, listDocuments,
 } from '../services/documents.service';
+import { confirmarDocumento, criarRegra, descartarDocumento } from '../services/review.service';
 import { resolveTenant } from '../services/tenant';
 import { processarArquivo } from '../services/upload.service';
 import { getPalette } from '../theme';
@@ -36,6 +39,13 @@ export default function InboxPage() {
   const [aba, setAba] = useState(null);
   const [progresso, setProgresso] = useState({});
   const [enviando, setEnviando] = useState(false);
+  const [emRevisao, setEmRevisao] = useState(null);
+  const [selecionados, setSelecionados] = useState(() => new Set());
+  const [confirmando, setConfirmando] = useState(false);
+  // Cadastro do escritório, usado pelo painel de revisão. Carregado junto com
+  // a tela para o drawer abrir instantâneo — a fila de revisão é percorrida
+  // documento a documento, e esperar rede a cada abertura seria sensível.
+  const [cadastro, setCadastro] = useState({ clients: [], categories: [] });
 
   const recarregar = useCallback(async (statusAtual) => {
     const [docs, counts] = await Promise.all([
@@ -53,7 +63,13 @@ export default function InboxPage() {
       if (!ativo) return;
       if (!id) { setCarregando(false); return; }
       setTenantId(id);
-      setSettings(await fetchSettingsCompletas(id));
+      const [cfg, ctx] = await Promise.all([
+        fetchSettingsCompletas(id),
+        fetchContextoDeClassificacao(),
+      ]);
+      if (!ativo) return;
+      setSettings(cfg);
+      setCadastro({ clients: ctx.clients, categories: ctx.categories });
       await recarregar(null);
       if (ativo) setCarregando(false);
     })();
@@ -108,6 +124,91 @@ export default function InboxPage() {
 
     await recarregar(aba);
     setEnviando(false);
+  }
+
+  async function confirmar(escolha, regra) {
+    setConfirmando(true);
+    try {
+      await confirmarDocumento(emRevisao, escolha, {
+        tenantId, settings, clients: cadastro.clients, categories: cadastro.categories,
+      });
+      if (regra) {
+        // Falhar ao criar a regra não pode desfazer um arquivamento que já
+        // aconteceu: o documento está na pasta certa. Vira aviso, não erro.
+        await criarRegra({ tenantId, ...regra }).catch((err) =>
+          showToast(`Documento arquivado, mas a regra não foi criada: ${err.message}`, 'error'));
+      }
+      showToast('Documento arquivado.');
+      setEmRevisao(null);
+      await recarregar(aba);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setConfirmando(false);
+    }
+  }
+
+  function alternarSelecao(id) {
+    setSelecionados((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(id)) novo.delete(id); else novo.add(id);
+      return novo;
+    });
+  }
+
+  // Confirma de uma vez o que só precisava de um aval. Sequencial pelo mesmo
+  // motivo do upload: confirmações simultâneas do mesmo cliente disputariam a
+  // criação da mesma pasta no Drive.
+  async function confirmarSelecionados() {
+    const alvos = documentos.filter((d) => selecionados.has(d.id) && podeConfirmarEmLote(d));
+    if (!alvos.length) return;
+
+    setConfirmando(true);
+    let feitos = 0;
+    const falhas = [];
+
+    for (const doc of alvos) {
+      try {
+        await confirmarDocumento(
+          doc,
+          { clientId: doc.client.id, competencia: doc.competencia, categoryId: doc.category.id },
+          { tenantId, settings, clients: cadastro.clients, categories: cadastro.categories },
+        );
+        feitos += 1;
+      } catch (err) {
+        falhas.push(`${doc.file_name}: ${err.message}`);
+      }
+    }
+
+    // Nomeia o que falhou: num lote, "3 com problema" sem dizer quais obriga o
+    // contador a conferir os 30 na mão.
+    showToast(
+      falhas.length
+        ? `${feitos} arquivado(s). Falhou: ${falhas.join(' · ')}`
+        : `${feitos} documento(s) arquivado(s).`,
+      falhas.length ? 'error' : 'success',
+    );
+    setSelecionados(new Set());
+    await recarregar(aba);
+    setConfirmando(false);
+  }
+
+  async function descartar(doc) {
+    const ok = window.confirm(
+      `Descartar "${doc.file_name}"?\n\nEle sai da fila e o arquivo continua no Drive, na pasta de triagem.`
+    );
+    if (!ok) return;
+    setConfirmando(true);
+    try {
+      await descartarDocumento(doc, tenantId);
+      showToast('Documento descartado.');
+      setEmRevisao(null);
+      await recarregar(aba);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setConfirmando(false);
+    }
   }
 
   const semDrive = settings && !settings.drive_root_folder_id;
@@ -174,6 +275,20 @@ export default function InboxPage() {
                 </button>
               );
             })}
+
+            {selecionados.size > 0 && (
+              <button
+                onClick={confirmarSelecionados}
+                disabled={confirmando}
+                style={{
+                  marginLeft: 'auto', padding: '6px 15px', borderRadius: 999, border: 'none',
+                  background: P.primary, color: '#fff', fontSize: '0.82rem', fontWeight: 700,
+                  cursor: confirmando ? 'progress' : 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                {confirmando ? 'Arquivando…' : `Confirmar ${selecionados.size} selecionado(s)`}
+              </button>
+            )}
           </div>
 
           <div style={{
@@ -189,10 +304,28 @@ export default function InboxPage() {
                 </p>
               </div>
             ) : (
-              <DocumentTable documentos={documentos} />
+              <DocumentTable
+                documentos={documentos}
+                onAbrir={setEmRevisao}
+                selecionados={selecionados}
+                onAlternar={alternarSelecao}
+              />
             )}
           </div>
         </>
+      )}
+
+      {emRevisao && (
+        <ReviewDrawer
+          key={emRevisao.id}
+          documento={emRevisao}
+          clients={cadastro.clients}
+          categories={cadastro.categories}
+          salvando={confirmando}
+          onConfirmar={confirmar}
+          onDescartar={descartar}
+          onFechar={() => setEmRevisao(null)}
+        />
       )}
 
       <ToastHost toasts={toasts} onDismiss={dismissToast} />

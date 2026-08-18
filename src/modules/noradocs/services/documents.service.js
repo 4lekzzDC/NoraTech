@@ -59,6 +59,31 @@ export async function fetchContextoDeClassificacao() {
   };
 }
 
+// Histórico: o que já saiu da fila. Filtros combinam por AND — é assim que o
+// contador procura ("o que arquivei para o cliente X em agosto?").
+export async function listHistorico({ clientId = '', competencia = '', status = '', busca = '' } = {}) {
+  let query = supabase
+    .from('noradocs_documents')
+    .select(SELECT)
+    .in('status', ['organizado', 'descartado'])
+    .order('organized_at', { ascending: false, nullsFirst: false })
+    .order('received_at', { ascending: false })
+    .limit(300);
+
+  if (clientId) query = query.eq('client_id', clientId);
+  if (competencia) query = query.eq('competencia', competencia);
+  if (status) query = query.eq('status', status);
+
+  // Mesma precaução do cadastro de clientes: vírgula e parênteses são
+  // separadores na sintaxe do PostgREST e quebrariam o filtro.
+  const termo = busca.trim().replace(/[,()]/g, ' ').trim();
+  if (termo) query = query.ilike('file_name', `%${termo}%`);
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
 export async function fetchSettingsCompletas(tenantId) {
   const { data } = await supabase
     .from('noradocs_settings')

@@ -7,6 +7,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 //   set-root-folder    confirma a pasta raiz escolhida e cria a _triagem
 //   ensure-folder-path caminha/cria a árvore de pastas do destino, com cache
 //   upload-token       empresta um access_token curto para o envio direto
+//   move-file          troca o pai do arquivo — de _triagem para o destino
 //
 // Nunca há um segundo login do Google: todo access_token daqui vem de
 // REFRESCAR o mesmo refresh_token guardado na conexão inicial. Existe um
@@ -299,6 +300,48 @@ Deno.serve(async (req) => {
       // limitado a drive.file, fica na memória do navegador de um funcionário
       // já autenticado. O refresh token continua exclusivamente no servidor.
       return json({ accessToken, expiresIn: refreshed.data.expires_in ?? 3600 });
+    }
+
+    if (action === 'move-file') {
+      const fileId = String(body?.fileId || '');
+      const destinoId = String(body?.folderId || '');
+      if (!fileId || !destinoId) return json({ error: 'fileId e folderId são obrigatórios' }, 400);
+
+      // Mover no Drive é trocar o pai, não copiar: o arquivo mantém o mesmo
+      // id, o mesmo link e o mesmo histórico. Por isso é preciso saber de
+      // qual pasta ele sai — addParents sozinho deixaria o arquivo nas duas.
+      const atualRes = await fetch(
+        `${DRIVE_FILES_URL}/${fileId}?fields=id,parents&supportsAllDrives=true`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      if (!atualRes.ok) {
+        const errBody = await atualRes.text().catch(() => '');
+        console.error('[noradocs-drive] move: file lookup failed', atualRes.status, errBody);
+        return json({ error: 'O arquivo não foi encontrado no Drive. Ele pode ter sido movido ou excluído por fora do NoraDocs.' }, 404);
+      }
+      const atual = await atualRes.json();
+      const paisAtuais = (atual.parents || []).join(',');
+
+      // Já está no destino: nada a fazer. Acontece quando alguém confirma
+      // duas vezes, ou reconfirma sem mudar os campos.
+      if ((atual.parents || []).includes(destinoId)) {
+        return json({ fileId, folderId: destinoId, semMudanca: true });
+      }
+
+      const moveRes = await fetch(
+        `${DRIVE_FILES_URL}/${fileId}?addParents=${destinoId}`
+        + `${paisAtuais ? `&removeParents=${paisAtuais}` : ''}`
+        + '&fields=id,name,webViewLink&supportsAllDrives=true',
+        { method: 'PATCH', headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      if (!moveRes.ok) {
+        const errBody = await moveRes.text().catch(() => '');
+        console.error('[noradocs-drive] move failed', moveRes.status, errBody);
+        return json({ error: 'Não foi possível mover o arquivo para a pasta de destino.' }, 502);
+      }
+
+      const movido = await moveRes.json();
+      return json({ fileId: movido.id, folderId: destinoId, webViewLink: movido.webViewLink ?? null });
     }
 
     return json({ error: 'Ação desconhecida' }, 400);

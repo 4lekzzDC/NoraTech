@@ -1,6 +1,7 @@
 import { useTheme } from '../../../contexts/ThemeContext';
 import { competenciaLegivel } from '../domain/competencia';
 import { DOCUMENT_STATUS } from '../constants';
+import { podeConfirmarEmLote } from '../domain/status';
 import { getPalette, FONT_MONO } from '../theme';
 
 // Tabela da caixa de entrada. Densa e tabular por decisão de projeto: a tela
@@ -30,7 +31,9 @@ function Campo({ valor, pendente, P }) {
   );
 }
 
-export default function DocumentTable({ documentos, onAbrir }) {
+// `selecionados`/`onAlternar` são opcionais: o Histórico usa a mesma tabela
+// sem seleção.
+export default function DocumentTable({ documentos, onAbrir, selecionados, onAlternar }) {
   const { theme } = useTheme();
   const P = getPalette(theme);
 
@@ -46,6 +49,7 @@ export default function DocumentTable({ documentos, onAbrir }) {
       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 780 }}>
         <thead>
           <tr>
+            {onAlternar && <th style={{ ...th, width: 34 }} />}
             <th style={th}>Arquivo</th>
             <th style={th}>Cliente</th>
             <th style={th}>Competência</th>
@@ -63,6 +67,23 @@ export default function DocumentTable({ documentos, onAbrir }) {
                 onClick={() => onAbrir?.(doc)}
                 style={{ cursor: onAbrir ? 'pointer' : 'default' }}
               >
+                {onAlternar && (
+                  <td style={td} onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      disabled={!podeConfirmarEmLote(doc)}
+                      checked={selecionados?.has(doc.id) || false}
+                      onChange={() => onAlternar(doc.id)}
+                      title={podeConfirmarEmLote(doc)
+                        ? 'Selecionar para confirmar em lote'
+                        : 'Faltam campos — precisa de revisão individual'}
+                      style={{
+                        width: 15, height: 15, accentColor: P.primary,
+                        cursor: podeConfirmarEmLote(doc) ? 'pointer' : 'not-allowed',
+                      }}
+                    />
+                  </td>
+                )}
                 <td style={td}>
                   <div style={{ fontWeight: 600 }}>{doc.file_name}</div>
                   {doc.review_reason && (

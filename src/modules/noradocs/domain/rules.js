@@ -218,6 +218,22 @@ function identificarCompetencia(sinais) {
   };
 }
 
+// Sugere o trecho do nome de arquivo que serviria de regra para os próximos.
+//
+// Vive aqui, e não no serviço de revisão, porque é função pura de string: o
+// painel de revisão precisa dela para pré-preencher o campo, e um componente
+// de tela não deveria arrastar uma dependência de rede para isso.
+//
+// Descarta partes curtas e puramente numéricas — data e número de documento
+// mudam a cada arquivo. O que sobra costuma ser o trecho estável que
+// identifica a origem: "extrato_itau_SILVACOM_08-2026" → "silvacom".
+export function sugerirPadrao(fileName) {
+  const partes = normalizarNomeArquivo(fileName)
+    .split(' ')
+    .filter((parte) => parte.length >= 4 && !/^\d+$/.test(parte));
+  return partes[0] || '';
+}
+
 /**
  * Classifica um arquivo.
  *

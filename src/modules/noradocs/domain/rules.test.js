@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { classificar } from './rules.js';
+import { classificar, sugerirPadrao } from './rules.js';
 
 // Cadastro de um escritório fictício, próximo do que se vê na prática:
 // um cliente com CNPJ, um sem CNPJ e um inativo.
@@ -208,4 +208,16 @@ test('nunca lança com entrada vazia', () => {
   assert.equal(r.decisao, 'revisar');
   assert.equal(r.clientId, null);
   assert.equal(typeof r.motivoRevisao, 'string');
+});
+
+// ── sugerirPadrao ────────────────────────────────────────────────────────
+
+test('sugere o trecho estável do nome, descartando datas e números', () => {
+  assert.equal(sugerirPadrao('extrato_itau_SILVACOM_08-2026.pdf'), 'extrato');
+  assert.equal(sugerirPadrao('202608_SILVACOM_nf.pdf'), 'silvacom');
+});
+
+test('sugere vazio quando não sobra nada aproveitável', () => {
+  assert.equal(sugerirPadrao('2026-08-01.pdf'), '');
+  assert.equal(sugerirPadrao(''), '');
 });
