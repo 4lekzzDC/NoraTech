@@ -12,11 +12,27 @@ import { GOOGLE_CALLBACK_ROUTE } from '../constants';
 // porque só existe uma.
 
 export const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+
+// `openid email` acompanham o drive.file só para sabermos QUAL conta Google
+// ficou conectada — a tela precisa dizer "conectado como fulano@..." para o
+// escritório conferir onde os documentos estão sendo arquivados. Ambos são
+// escopos não sensíveis e não dão acesso a dado nenhum além da identidade.
+export const OAUTH_SCOPES = `openid email ${DRIVE_FILE_SCOPE}`;
+
 const OAUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 const STATE_KEY = 'noradocs_oauth_state';
 
 function callbackUrl() {
   return `${window.location.origin}${GOOGLE_CALLBACK_ROUTE}`;
+}
+
+// O Picker exige o NÚMERO do projeto no Google Cloud, não o client ID — e ele
+// é justamente o prefixo numérico do client ID
+// ("223036358695-mojkdu....apps.googleusercontent.com" → "223036358695").
+// Derivar daqui evita uma segunda variável de ambiente que teria que ser
+// mantida em sincronia à mão.
+function projectNumberFromClientId(clientId) {
+  return String(clientId || '').split('-')[0];
 }
 
 // Quando a Edge Function responde com status não-2xx, o supabase-js devolve
@@ -47,7 +63,7 @@ export function startGoogleConnect() {
     client_id: clientId,
     redirect_uri: callbackUrl(),
     response_type: 'code',
-    scope: DRIVE_FILE_SCOPE,
+    scope: OAUTH_SCOPES,
     access_type: 'offline',
     prompt: 'consent',              // garante que o refresh_token sempre venha
     include_granted_scopes: 'false',
@@ -120,6 +136,9 @@ export async function pickRootFolder() {
   const apiKey = import.meta.env.VITE_GOOGLE_PICKER_API_KEY;
   if (!apiKey) throw new Error('O seletor de pastas do Google ainda não foi configurado neste ambiente.');
 
+  const appId = projectNumberFromClientId(import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID);
+  if (!appId) throw new Error('A integração com o Google ainda não foi configurada neste ambiente.');
+
   const { data, error } = await supabase.functions.invoke('noradocs-drive', {
     body: { action: 'picker-token' },
   });
@@ -137,11 +156,13 @@ export async function pickRootFolder() {
       const picker = new window.google.picker.PickerBuilder()
         .setOAuthToken(data.accessToken)
         .setDeveloperKey(apiKey)
-        // Sem isto, o Google não valida a origem da página, e a concessão de
-        // acesso à pasta escolhida (o grant do drive.file) não é registrada
-        // direito — o Picker deixa escolher normalmente, mas o servidor
-        // depois não alcança o arquivo (404 em files.get, não 403: o Google
-        // não distingue "não existe" de "você não pode ver").
+        // OBRIGATÓRIO com o escopo drive.file: é o setAppId que faz o Google
+        // vincular o item escolhido a ESTE app. Sem ele o seletor abre e
+        // deixa escolher normalmente, mas nenhuma concessão é criada — e o
+        // servidor recebe 404 ao tentar ler a pasta (o Google responde
+        // "não encontrado" em vez de "sem permissão", para não revelar se o
+        // arquivo existe).
+        .setAppId(appId)
         .setOrigin(window.location.origin)
         .addView(view)
         .setTitle('Escolha a pasta raiz do NoraDocs')

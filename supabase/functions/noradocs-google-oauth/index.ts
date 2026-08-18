@@ -30,6 +30,10 @@ const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 const USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo';
 const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+// `openid email` acompanham o drive.file só para identificar QUAL conta ficou
+// conectada — a tela precisa dizer "conectado como fulano@...". Ambos são
+// escopos não sensíveis; nenhum dá acesso a dado além da identidade.
+const GRANTED_SCOPES = ['openid', 'email', DRIVE_FILE_SCOPE];
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -105,7 +109,7 @@ Deno.serve(async (req) => {
         tenant_company_id: tenantId,
         google_email: userinfo.email || '(e-mail não informado)',
         google_sub: userinfo.sub || null,
-        scopes: [DRIVE_FILE_SCOPE],
+        scopes: GRANTED_SCOPES,
         status: 'connected',
         last_error: null,
         connected_by: user.id,
