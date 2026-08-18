@@ -683,7 +683,7 @@ conteúdo para fora. Não foram mitigados — foram **removidos por construção
 | **E5 · Motor de regras** | `domain/rules.js` puro — CNPJ, apelidos, competência, categorias — com suíte de testes em `node --test` (sem dependência nova) | Dado um nome e um texto, a função devolve cliente, competência e categoria ou `null` justificado. `npm test` verde |
 | **E6 · Upload + caixa de entrada** ✅ | Dropzone, hash, extração de texto, classificação local, `ensureFolderPath` + cache, sessão resumable, gravação de metadados, tabela da inbox | Arquivo identificado nasce na pasta final; duvidoso vai para `_triagem` e aparece como "Revisar" |
 | **E7 · Revisão e histórico** ✅ | Drawer de revisão, confirmação individual e em lote, move no Drive, eventos, tela de histórico com filtros, "criar regra para os próximos" | Documento confirmado aparece na pasta final; o histórico conta a trilha completa |
-| **E8 · Resiliência** | Erros com causa legível, retry, reconexão do Drive, deduplicação por hash, divergência de `drive_file_id` | Erro é visível, explicado e reprocessável |
+| **E8 · Resiliência** ✅ | Erros com causa legível, retry, reconexão do Drive, deduplicação por hash, divergência de `drive_file_id` | Erro é visível, explicado e reprocessável |
 | **E9 · Acabamento** | Atalhos de teclado, estados vazios, responsividade, `DOCS.md`, revisão de segurança | Fluxo completo executado ponta a ponta por um contador real |
 
 > **Decisão tomada na E5:** o projeto passou a ter testes automatizados, e a

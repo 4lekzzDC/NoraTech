@@ -3,7 +3,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import NoraDocsLayout from '../components/NoraDocsLayout';
 import { competenciaLegivel } from '../domain/competencia';
 import { fetchContextoDeClassificacao, listHistorico } from '../services/documents.service';
-import { listarEventos } from '../services/review.service';
+import { listarEventos, verificarNoDrive } from '../services/review.service';
 import { resolveTenant } from '../services/tenant';
 import { getPalette, FONT_MONO } from '../theme';
 
@@ -33,8 +33,17 @@ function dataHora(iso) {
   });
 }
 
-function Trilha({ documentId, P }) {
+function Trilha({ doc, tenantId, P }) {
+  const documentId = doc.id;
   const [eventos, setEventos] = useState(null);
+  const [verificacao, setVerificacao] = useState(null);
+
+  async function verificar() {
+    setVerificacao({ carregando: true });
+    const r = await verificarNoDrive(doc, tenantId);
+    setVerificacao(r);
+    if (!r.ok) setEventos(await listarEventos(documentId));
+  }
 
   useEffect(() => {
     let ativo = true;
@@ -50,6 +59,28 @@ function Trilha({ documentId, P }) {
   }
 
   return (
+    <>
+      {doc.drive_file_id && (
+        <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); verificar(); }}
+            disabled={verificacao?.carregando}
+            style={{
+              padding: '5px 12px', borderRadius: 8, border: `1px solid ${P.border2}`,
+              background: 'transparent', color: P.muted, fontSize: '0.78rem',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            {verificacao?.carregando ? 'Verificando…' : 'Conferir no Drive'}
+          </button>
+          {verificacao && !verificacao.carregando && (
+            <span style={{ fontSize: '0.78rem', color: verificacao.ok ? P.green : P.red }}>
+              {verificacao.ok ? 'O arquivo está onde deveria.' : verificacao.motivo}
+            </span>
+          )}
+        </div>
+      )}
+
     <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 8 }}>
       {eventos.map((ev) => {
         const evidencias = ev.payload?.evidence || [];
@@ -85,6 +116,7 @@ function Trilha({ documentId, P }) {
         );
       })}
     </ol>
+    </>
   );
 }
 
@@ -245,7 +277,7 @@ export default function HistoricoPage() {
                                   </a>
                                 )}
                               </div>
-                              <Trilha documentId={doc.id} P={P} />
+                              <Trilha doc={doc} tenantId={tenantId} P={P} />
                             </td>
                           </tr>
                         )}

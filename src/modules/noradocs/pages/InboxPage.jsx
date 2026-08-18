@@ -12,7 +12,8 @@ import { podeConfirmarEmLote } from '../domain/status';
 import {
   countByStatus, fetchContextoDeClassificacao, fetchSettingsCompletas, listDocuments,
 } from '../services/documents.service';
-import { confirmarDocumento, criarRegra, descartarDocumento } from '../services/review.service';
+import { confirmarDocumento, criarRegra, descartarDocumento, reprocessarDocumento } from '../services/review.service';
+import { fetchConnectionStatus } from '../services/googleDrive.service';
 import { resolveTenant } from '../services/tenant';
 import { processarArquivo } from '../services/upload.service';
 import { getPalette } from '../theme';
@@ -46,6 +47,7 @@ export default function InboxPage() {
   // a tela para o drawer abrir instantâneo — a fila de revisão é percorrida
   // documento a documento, e esperar rede a cada abertura seria sensível.
   const [cadastro, setCadastro] = useState({ clients: [], categories: [] });
+  const [conexao, setConexao] = useState(null);
 
   const recarregar = useCallback(async (statusAtual) => {
     const [docs, counts] = await Promise.all([
@@ -63,12 +65,14 @@ export default function InboxPage() {
       if (!ativo) return;
       if (!id) { setCarregando(false); return; }
       setTenantId(id);
-      const [cfg, ctx] = await Promise.all([
+      const [cfg, ctx, conn] = await Promise.all([
         fetchSettingsCompletas(id),
         fetchContextoDeClassificacao(),
+        fetchConnectionStatus(id),
       ]);
       if (!ativo) return;
       setSettings(cfg);
+      setConexao(conn.account);
       setCadastro({ clients: ctx.clients, categories: ctx.categories });
       await recarregar(null);
       if (ativo) setCarregando(false);
@@ -139,6 +143,22 @@ export default function InboxPage() {
           showToast(`Documento arquivado, mas a regra não foi criada: ${err.message}`, 'error'));
       }
       showToast('Documento arquivado.');
+      setEmRevisao(null);
+      await recarregar(aba);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setConfirmando(false);
+    }
+  }
+
+  async function reprocessar(doc) {
+    setConfirmando(true);
+    try {
+      const resultado = await reprocessarDocumento(doc, {
+        tenantId, settings, clients: cadastro.clients, categories: cadastro.categories,
+      });
+      showToast(resultado ? 'Documento arquivado.' : 'Documento voltou para revisão — confirme os campos.');
       setEmRevisao(null);
       await recarregar(aba);
     } catch (err) {
@@ -251,6 +271,24 @@ export default function InboxPage() {
 
       {!carregando && tenantId && !semDrive && (
         <>
+          {conexao && conexao.status !== 'connected' && (
+            <div style={{
+              marginBottom: 16, padding: '13px 16px', borderRadius: 12,
+              border: `1px solid ${P.gold}44`,
+              background: theme === 'light' ? 'rgba(180,83,9,0.07)' : 'rgba(240,180,41,0.09)',
+            }}>
+              <p style={{ margin: 0, fontWeight: 600, fontSize: '0.87rem' }}>
+                A conexão com o Google Drive caiu.
+              </p>
+              <p style={{ margin: '6px 0 0', color: P.muted, fontSize: '0.83rem' }}>
+                Nada será arquivado até reconectar.{' '}
+                <Link to={noradocsRoute('configuracoes')} style={{ color: P.primaryText, fontWeight: 600 }}>
+                  Reconectar em Configurações →
+                </Link>
+              </p>
+            </div>
+          )}
+
           <UploadDropzone onArquivos={enviarArquivos} progresso={progresso} ocupado={enviando} />
 
           <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -324,6 +362,7 @@ export default function InboxPage() {
           salvando={confirmando}
           onConfirmar={confirmar}
           onDescartar={descartar}
+          onReprocessar={reprocessar}
           onFechar={() => setEmRevisao(null)}
         />
       )}

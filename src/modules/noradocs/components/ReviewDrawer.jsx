@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { competenciaAnterior, isCompetencia } from '../domain/competencia';
 import { sugerirPadrao } from '../domain/rules';
+import { podeReprocessar } from '../domain/status';
 import { getPalette, FONT_MONO } from '../theme';
 
 // Painel de revisão — abre à direita, sobre a lista.
@@ -15,7 +16,7 @@ function competenciaParaInput(competencia) {
 }
 
 export default function ReviewDrawer({
-  documento, clients, categories, salvando, onConfirmar, onDescartar, onFechar,
+  documento, clients, categories, salvando, onConfirmar, onDescartar, onReprocessar, onFechar,
 }) {
   const { theme } = useTheme();
   const P = getPalette(theme);
@@ -94,6 +95,40 @@ export default function ReviewDrawer({
         </header>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px' }}>
+          {documento.status === 'erro' && (
+            <div style={{
+              marginBottom: 18, padding: '13px 15px', borderRadius: 10,
+              border: `1px solid ${P.red}44`, background: `${P.red}12`,
+            }}>
+              <p style={{ margin: 0, fontWeight: 600, fontSize: '0.86rem', color: P.red }}>
+                O arquivamento falhou.
+              </p>
+              {documento.error_message && (
+                <p style={{ margin: '6px 0 0', fontSize: '0.8rem', color: P.muted }}>
+                  {documento.error_message}
+                </p>
+              )}
+              <p style={{ margin: '10px 0 0', fontSize: '0.79rem', color: P.muted }}>
+                {podeReprocessar(documento)
+                  ? 'O arquivo chegou ao Drive — dá para tentar arquivar de novo.'
+                  : 'O arquivo não chegou ao Drive. Descarte este registro e reenvie o arquivo pela caixa de entrada.'}
+              </p>
+              {podeReprocessar(documento) && onReprocessar && (
+                <button
+                  onClick={() => onReprocessar(documento)}
+                  disabled={salvando}
+                  style={{
+                    marginTop: 11, padding: '7px 14px', borderRadius: 8, border: `1px solid ${P.border2}`,
+                    background: P.surface, color: P.text, fontSize: '0.81rem', fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  Tentar novamente
+                </button>
+              )}
+            </div>
+          )}
+
           {previewUrl && (
             <div style={{ marginBottom: 18 }}>
               {/* O preview vem do próprio Drive. Se o funcionário não tiver

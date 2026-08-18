@@ -1,6 +1,7 @@
 import { supabase } from '../../../lib/supabase';
 import { formatCNPJ } from '../domain/cnpj';
 import { resolveFolderPath } from '../domain/folderTemplate';
+import { podeReprocessar } from '../domain/status';
 
 // Confirmação de um documento que caiu em revisão: o contador diz de quem é,
 // de quando é e do que é, e o arquivo sai de _triagem para a pasta definitiva.
@@ -135,6 +136,55 @@ export async function criarRegra({ tenantId, clientId, categoryId, pattern }) {
     .single();
   if (error) throw new Error(error.message);
   return data;
+}
+
+// Tenta de novo a organização de um documento cujo arquivo já está no Drive.
+export async function reprocessarDocumento(doc, contexto) {
+  if (!podeReprocessar(doc)) {
+    throw new Error('O arquivo não chegou ao Drive. Descarte este registro e reenvie o arquivo.');
+  }
+
+  const escolha = {
+    clientId: doc.client?.id || null,
+    competencia: doc.competencia,
+    categoryId: doc.category?.id || null,
+  };
+
+  // Sem os três campos não há destino a calcular; vira revisão, não erro.
+  if (!escolha.clientId || !escolha.categoryId || !escolha.competencia) {
+    const { error } = await supabase
+      .from('noradocs_documents')
+      .update({
+        status: 'revisar',
+        error_message: null,
+        review_reason: 'A tentativa anterior falhou. Confirme os campos para arquivar.',
+      })
+      .eq('id', doc.id);
+    if (error) throw new Error(error.message);
+    await registrarEvento(contexto.tenantId, doc.id, 'reprocessado', { resultado: 'enviado para revisão' });
+    return null;
+  }
+
+  const atualizado = await confirmarDocumento(doc, escolha, contexto);
+  await registrarEvento(contexto.tenantId, doc.id, 'reprocessado', { resultado: 'arquivado' });
+  return atualizado;
+}
+
+// Confere se o arquivo ainda está onde o NoraDocs acha que está.
+//
+// O contador pode mover ou apagar coisas no Drive por fora — é o Drive dele.
+// Quando isso acontece, o caminho gravado aqui passa a mentir, e a única
+// forma honesta de lidar é verificar sob demanda e registrar a divergência.
+export async function verificarNoDrive(doc, tenantId) {
+  if (!doc.drive_file_id) return { ok: false, motivo: 'Este documento não tem arquivo no Drive.' };
+
+  try {
+    await invocarDrive({ action: 'move-file', fileId: doc.drive_file_id, folderId: doc.drive_folder_id });
+    return { ok: true };
+  } catch (err) {
+    await registrarEvento(tenantId, doc.id, 'divergencia_drive', { mensagem: err.message });
+    return { ok: false, motivo: err.message };
+  }
 }
 
 export async function listarEventos(documentId) {

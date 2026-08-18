@@ -11,3 +11,16 @@
 export function podeConfirmarEmLote(doc) {
   return Boolean(doc.client?.id && doc.category?.id && doc.competencia);
 }
+
+// Um documento em erro se divide em dois casos, e a diferença decide o que dá
+// para fazer:
+//
+//   com drive_file_id  → os bytes chegaram ao Drive; a falha foi depois
+//                        (organizar, gravar). Dá para tentar de novo.
+//   sem drive_file_id  → o arquivo não chegou a lugar nenhum. Nenhum retry do
+//                        servidor resolve: é preciso reenviar o arquivo, e
+//                        para isso a linha precisa sair do caminho da
+//                        deduplicação — o que descartar faz.
+export function podeReprocessar(doc) {
+  return Boolean(doc.drive_file_id);
+}

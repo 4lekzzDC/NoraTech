@@ -138,25 +138,17 @@ export async function processarArquivo(file, { tenantId, settings, contexto, onE
   );
 
   const organizar = resultado.decisao === 'organizar' && settings.auto_organize !== false;
-
-  etapa('enviando');
-  const segmentos = organizar
-    ? resolveFolderPath(settings.folder_template, contextoDoTemplate(resultado, contexto))
-    : [];
-
-  const { folderId, path } = await invocarDrive({
-    action: 'ensure-folder-path',
-    segments: segmentos,
-    staging: !organizar,
-  });
-
-  const { accessToken } = await invocarDrive({ action: 'upload-token' });
-  const arquivoNoDrive = await enviarArquivoAoDrive(accessToken, folderId, file);
-
-  etapa('gravando');
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: documento, error } = await supabase
+  // O documento é gravado ANTES de tocar o Drive, em 'processando'.
+  //
+  // A ordem inversa parecia mais limpa — gravar só o que deu certo — mas
+  // apagava a falha: se o envio quebrasse, a exceção subia sem deixar
+  // registro, o erro vivia num toast e sumia no primeiro F5. A aba "Erro"
+  // nunca teria nada, e o contador não teria como saber o que faltou
+  // arquivar. Gravar antes torna a falha um fato do sistema, não um aviso
+  // passageiro.
+  const { data: documento, error: erroInsert } = await supabase
     .from('noradocs_documents')
     .insert({
       tenant_company_id: tenantId,
@@ -166,7 +158,7 @@ export async function processarArquivo(file, { tenantId, settings, contexto, onE
       size_bytes: file.size,
       content_hash: contentHash,
       uploaded_by: user?.id ?? null,
-      status: organizar ? 'organizado' : 'revisar',
+      status: 'processando',
       client_id: resultado.clientId,
       competencia: resultado.competencia,
       category_id: resultado.categoryId,
@@ -176,42 +168,85 @@ export async function processarArquivo(file, { tenantId, settings, contexto, onE
         pendencias: resultado.pendencias,
       },
       review_reason: resultado.motivoRevisao,
-      drive_file_id: arquivoNoDrive.id ?? null,
-      drive_folder_id: folderId,
-      drive_path: path,
-      drive_web_link: arquivoNoDrive.webViewLink ?? null,
-      organized_at: organizar ? new Date().toISOString() : null,
     })
     .select()
     .single();
-  if (error) throw new Error(error.message);
+  if (erroInsert) throw new Error(erroInsert.message);
 
-  // Histórico e auditoria são append-only e não podem derrubar um upload que
-  // já concluiu: o arquivo está no Drive e o documento está no banco. Falhar
-  // aqui vira aviso no console, não erro para o usuário.
-  await Promise.all([
-    supabase.from('noradocs_events').insert([
-      { tenant_company_id: tenantId, document_id: documento.id, type: 'recebido',
-        actor_type: 'user', actor_id: user?.id ?? null,
-        payload: { file_name: file.name, size_bytes: file.size } },
-      { tenant_company_id: tenantId, document_id: documento.id,
+  await supabase.from('noradocs_events').insert({
+    tenant_company_id: tenantId, document_id: documento.id, type: 'recebido',
+    actor_type: 'user', actor_id: user?.id ?? null,
+    payload: { file_name: file.name, size_bytes: file.size },
+  });
+
+  try {
+    etapa('enviando');
+    const segmentos = organizar
+      ? resolveFolderPath(settings.folder_template, contextoDoTemplate(resultado, contexto))
+      : [];
+
+    const { folderId, path } = await invocarDrive({
+      action: 'ensure-folder-path',
+      segments: segmentos,
+      staging: !organizar,
+    });
+
+    const { accessToken } = await invocarDrive({ action: 'upload-token' });
+    const arquivoNoDrive = await enviarArquivoAoDrive(accessToken, folderId, file);
+
+    etapa('gravando');
+    const { data: finalizado, error } = await supabase
+      .from('noradocs_documents')
+      .update({
+        status: organizar ? 'organizado' : 'revisar',
+        drive_file_id: arquivoNoDrive.id ?? null,
+        drive_folder_id: folderId,
+        drive_path: path,
+        drive_web_link: arquivoNoDrive.webViewLink ?? null,
+        organized_at: organizar ? new Date().toISOString() : null,
+      })
+      .eq('id', documento.id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+
+    // Histórico e auditoria não podem derrubar um envio que já concluiu: o
+    // arquivo está no Drive e o documento está no banco. Vira aviso.
+    await Promise.all([
+      supabase.from('noradocs_events').insert({
+        tenant_company_id: tenantId, document_id: documento.id,
         type: organizar ? 'organizado' : 'revisao_solicitada',
         actor_type: 'system',
-        payload: { evidence: resultado.evidence, drive_path: path, motivo: resultado.motivoRevisao } },
-    ]),
-    supabase.from('noradocs_classification_runs').insert({
-      tenant_company_id: tenantId,
-      document_id: documento.id,
-      method: 'rules',
-      rules_version: RULES_VERSION,
-      input_summary: { file_name: file.name, mime_type: file.type, size_bytes: file.size, tinha_texto: Boolean(texto) },
-      output: {
-        client_id: resultado.clientId, competencia: resultado.competencia,
-        category_id: resultado.categoryId, decisao: resultado.decisao,
-        evidence: resultado.evidence, pendencias: resultado.pendencias,
-      },
-    }),
-  ]).catch((err) => console.warn('[noradocs] falha ao gravar histórico:', err?.message));
+        payload: { evidence: resultado.evidence, drive_path: path, motivo: resultado.motivoRevisao },
+      }),
+      supabase.from('noradocs_classification_runs').insert({
+        tenant_company_id: tenantId,
+        document_id: documento.id,
+        method: 'rules',
+        rules_version: RULES_VERSION,
+        input_summary: { file_name: file.name, mime_type: file.type, size_bytes: file.size, tinha_texto: Boolean(texto) },
+        output: {
+          client_id: resultado.clientId, competencia: resultado.competencia,
+          category_id: resultado.categoryId, decisao: resultado.decisao,
+          evidence: resultado.evidence, pendencias: resultado.pendencias,
+        },
+      }),
+    ]).catch((err) => console.warn('[noradocs] falha ao gravar histórico:', err?.message));
 
-  return documento;
+    return finalizado;
+  } catch (err) {
+    // A falha vira estado do documento, com a causa em texto. O contador vê
+    // na aba "Erro" o que não foi arquivado e por quê — e pode agir.
+    await supabase
+      .from('noradocs_documents')
+      .update({ status: 'erro', error_message: err.message, retry_count: (documento.retry_count || 0) + 1 })
+      .eq('id', documento.id);
+
+    await supabase.from('noradocs_events').insert({
+      tenant_company_id: tenantId, document_id: documento.id, type: 'erro',
+      actor_type: 'system', payload: { mensagem: err.message },
+    });
+
+    throw err;
+  }
 }
