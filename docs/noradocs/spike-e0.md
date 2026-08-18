@@ -9,11 +9,44 @@
 
 ## Pergunta 1 — o navegador consegue fazer `PUT` na sessão resumable do Drive?
 
-**Resposta: SIM.** ✅
+**Resposta original: SIM.** ❌ **Errada — corrigida na Etapa 6.**
 
-### O teste
+> ### Correção (Etapa 6)
+>
+> O teste abaixo mediu o host errado, e a conclusão não vale.
+>
+> O endpoint de **iniciação** (`?uploadType=resumable`, sem `upload_id`) é
+> servido pelo front-end genérico das APIs do Google (`server: ESF`), que
+> responde CORS. Mas a **URL de sessão** que o Google devolve depois — a que o
+> navegador de fato chama, com `&upload_id=...` — é servida por outro host
+> (`server: UploadServer`), e esse **não devolve cabeçalho CORS nenhum**. O
+> `PUT` do navegador morre em `Failed to fetch`, sem detalhe algum.
+>
+> ```
+> OPTIONS .../files?uploadType=resumable                  → 200, ESF           CORS presente
+> OPTIONS .../files?uploadType=resumable&upload_id=...    → 404, UploadServer  CORS AUSENTE
+> OPTIONS .../files?uploadType=multipart  (authorization) → 200, ESF           CORS presente
+> ```
+>
+> **A lição de método:** testar o endpoint que *inicia* o fluxo não é testar o
+> endpoint que o fluxo *usa*. Um spike que não percorre o caminho real até o
+> fim mede outra coisa — e dá uma confiança que não foi conquistada. O erro só
+> apareceu quando um arquivo de verdade foi enviado, três etapas depois.
+>
+> **O que foi feito:** o upload passou a usar `uploadType=multipart`, que a
+> terceira linha da tabela mostra ser servido pelo ESF e aceitar
+> `authorization`. Isso é o **Plano B nº 1** já previsto abaixo — token
+> efêmero no navegador. Os bytes continuam indo direto ao Google, sem passar
+> por servidor da NoraTech; o que se cede é um token de 1h, limitado a
+> `drive.file`, na memória do navegador de um funcionário já autenticado. O
+> refresh token continua exclusivamente no servidor.
+>
+> **Custo colateral:** multipart é envio de uma tacada só, sem retomada — daí
+> o teto de 25 MB por arquivo, com recusa explícita acima disso.
 
-Preflight CORS contra o endpoint de upload do Drive, simulando exatamente o que
+### O teste que foi feito (e o que ele realmente mediu)
+
+Preflight CORS contra o endpoint de **iniciação** do upload do Drive, simulando exatamente o que
 o navegador enviaria antes de um `PUT` com corpo:
 
 ```bash

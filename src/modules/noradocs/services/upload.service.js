@@ -33,20 +33,50 @@ async function invocarDrive(body) {
   return data;
 }
 
-// Envia os bytes direto ao Google. Sem cabeçalho Authorization: a URL de
-// sessão já é a credencial, e o preflight CORS do Drive só libera
-// content-type e content-range (ver docs/noradocs/spike-e0.md).
-async function enviarBytes(uploadUrl, file) {
-  const res = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': file.type || 'application/octet-stream' },
-    body: file,
-  });
+const DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files';
+
+// Acima disso o upload multipart deixa de ser confiável (é envio de uma
+// tacada só, sem retomada) e o navegador precisa segurar tudo em memória.
+// Documento contábil raramente chega perto: extrato costuma ter centenas de
+// KB. Recusar com mensagem clara é melhor que travar no meio.
+const TAMANHO_MAXIMO = 25 * 1024 * 1024;
+
+// Envia metadados e bytes numa requisição só, direto ao Google.
+//
+// É `uploadType=multipart`, não resumable, por um motivo concreto: a URL de
+// sessão do upload resumable é servida por um host do Google (UploadServer)
+// que NÃO devolve cabeçalhos CORS — o PUT do navegador morre em "Failed to
+// fetch". O endpoint multipart responde CORS e aceita `authorization`.
+// Medição e detalhe em docs/noradocs/spike-e0.md.
+async function enviarArquivoAoDrive(accessToken, folderId, file) {
+  const boundary = `noradocs-${crypto.randomUUID()}`;
+  const metadados = JSON.stringify({ name: file.name, parents: [folderId] });
+  const mime = file.type || 'application/octet-stream';
+
+  const corpo = new Blob([
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadados}\r\n`,
+    `--${boundary}\r\nContent-Type: ${mime}\r\n\r\n`,
+    file,
+    `\r\n--${boundary}--`,
+  ]);
+
+  const res = await fetch(
+    `${DRIVE_UPLOAD_URL}?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`,
+      },
+      body: corpo,
+    },
+  );
+
   if (!res.ok) {
-    const corpo = await res.text().catch(() => '');
-    throw new Error(`O Google recusou o envio do arquivo (${res.status}). ${corpo.slice(0, 200)}`);
+    const detalhe = await res.text().catch(() => '');
+    throw new Error(`O Google recusou o envio do arquivo (${res.status}). ${detalhe.slice(0, 200)}`);
   }
-  return res.json().catch(() => ({}));
+  return res.json();
 }
 
 // Monta o contexto que o template de pastas espera a partir do que as regras
@@ -73,6 +103,10 @@ function contextoDoTemplate(resultado, contexto) {
  */
 export async function processarArquivo(file, { tenantId, settings, contexto, onEtapa }) {
   const etapa = (nome) => onEtapa?.(nome);
+
+  if (file.size > TAMANHO_MAXIMO) {
+    throw new Error(`Arquivo maior que ${Math.round(TAMANHO_MAXIMO / 1024 / 1024)} MB — ainda não suportado.`);
+  }
 
   etapa('lendo');
   const buffer = await file.arrayBuffer();
@@ -116,14 +150,8 @@ export async function processarArquivo(file, { tenantId, settings, contexto, onE
     staging: !organizar,
   });
 
-  const { uploadUrl } = await invocarDrive({
-    action: 'upload-session',
-    folderId,
-    fileName: file.name,
-    mimeType: file.type,
-  });
-
-  const arquivoNoDrive = await enviarBytes(uploadUrl, file);
+  const { accessToken } = await invocarDrive({ action: 'upload-token' });
+  const arquivoNoDrive = await enviarArquivoAoDrive(accessToken, folderId, file);
 
   etapa('gravando');
   const { data: { user } } = await supabase.auth.getUser();

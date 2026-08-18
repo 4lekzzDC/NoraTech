@@ -6,15 +6,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 //   picker-token       empresta um access_token curto para o Picker abrir
 //   set-root-folder    confirma a pasta raiz escolhida e cria a _triagem
 //   ensure-folder-path caminha/cria a árvore de pastas do destino, com cache
-//   upload-session     abre a sessão resumable e devolve só a URL
+//   upload-token       empresta um access_token curto para o envio direto
 //
 // Nunca há um segundo login do Google: todo access_token daqui vem de
 // REFRESCAR o mesmo refresh_token guardado na conexão inicial. Existe um
 // único grant, do início ao fim.
 //
-// Os BYTES do documento nunca passam por aqui. 'upload-session' devolve ao
-// navegador uma URL que carrega o próprio upload_id como credencial, e é o
-// navegador que envia o arquivo direto ao Google.
+// Os BYTES do documento nunca passam por aqui: o navegador envia o arquivo
+// direto ao Google, com o token que 'upload-token' empresta.
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,7 +30,6 @@ function json(data: unknown, status = 200) {
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const DRIVE_FILES_URL = 'https://www.googleapis.com/drive/v3/files';
-const DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 const STAGING_FOLDER_NAME = '_triagem';
 
@@ -285,43 +283,22 @@ Deno.serve(async (req) => {
       return json({ folderId: parentId, path });
     }
 
-    if (action === 'upload-session') {
-      const folderId = String(body?.folderId || '');
-      const fileName = String(body?.fileName || '');
-      const mimeType = String(body?.mimeType || 'application/octet-stream');
-      if (!folderId || !fileName) return json({ error: 'folderId e fileName são obrigatórios' }, 400);
-
-      // Abre a sessão resumable e devolve SÓ a URL. Ela carrega um upload_id
-      // que funciona como credencial própria — por isso o navegador pode
-      // mandar os bytes direto ao Google sem nunca ver o token do escritório,
-      // e por isso o PUT do navegador não deve levar Authorization (o
-      // preflight CORS do Drive só libera content-type e content-range).
-      const sessionRes = await fetch(
-        `${DRIVE_UPLOAD_URL}?uploadType=resumable&supportsAllDrives=true&fields=id,name,webViewLink`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json; charset=UTF-8',
-            'X-Upload-Content-Type': mimeType,
-          },
-          body: JSON.stringify({ name: fileName, parents: [folderId] }),
-        },
-      );
-
-      if (!sessionRes.ok) {
-        const errBody = await sessionRes.text().catch(() => '');
-        console.error('[noradocs-drive] upload session failed', sessionRes.status, errBody);
-        return json({ error: 'Não foi possível iniciar o envio do arquivo para o Drive.' }, 502);
-      }
-
-      const uploadUrl = sessionRes.headers.get('location');
-      if (!uploadUrl) {
-        console.error('[noradocs-drive] upload session without Location header');
-        return json({ error: 'O Google não devolveu a sessão de envio.' }, 502);
-      }
-
-      return json({ uploadUrl });
+    if (action === 'upload-token') {
+      // Empresta ao navegador um access_token de curta duração (1h) para ele
+      // enviar os bytes direto ao Google.
+      //
+      // O desenho original era outro: o servidor abria uma sessão resumable e
+      // passava só a URL, sem token nenhum no navegador. Não funciona — a URL
+      // de sessão é servida por um host do Google (UploadServer) que NÃO
+      // responde cabeçalhos CORS, então o PUT do navegador morre em "Failed
+      // to fetch". Já o endpoint de upload multipart responde CORS e aceita
+      // `authorization`. Detalhe em docs/noradocs/spike-e0.md.
+      //
+      // O que se preserva: os bytes continuam indo direto ao Google, sem
+      // passar por servidor da NoraTech. O que se cede: um token de 1h,
+      // limitado a drive.file, fica na memória do navegador de um funcionário
+      // já autenticado. O refresh token continua exclusivamente no servidor.
+      return json({ accessToken, expiresIn: refreshed.data.expires_in ?? 3600 });
     }
 
     return json({ error: 'Ação desconhecida' }, 400);

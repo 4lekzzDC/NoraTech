@@ -522,24 +522,31 @@ quebrada. Detalhe completo em `spike-e0.md`.
 
 ```
 1. Navegador: hash, extrai texto, aplica regras, resolve a pasta de destino
-2. Navegador → noradocs-drive: "sessão de upload para a pasta X"
-3. Edge Fn (token do escritório): garante a árvore de pastas e abre a
-   sessão resumable → devolve SÓ a URL de sessão
-4. Navegador → Google: PUT dos bytes direto
-5. Navegador → Supabase: grava os metadados
+2. Navegador → noradocs-drive: garante a árvore de pastas (com cache)
+3. Navegador → noradocs-drive: pede um token de upload
+4. Edge Fn: refresca o token do escritório e devolve um access_token de 1h
+5. Navegador → Google: POST multipart dos bytes, direto
+6. Navegador → Supabase: grava os metadados
 ```
 
-A URL de sessão resumable funciona como credencial: carrega um `upload_id` e
-dispensa cabeçalho `Authorization`. É isso que permite o navegador enviar direto
-ao Google **sem nunca ver o token do escritório**.
+O upload é `uploadType=multipart`, e **não** resumable. A tentativa original
+era mais elegante — o servidor abriria a sessão e passaria só a URL, sem token
+algum no navegador — mas não funciona: a URL de sessão do resumable é servida
+por um host do Google (`UploadServer`) que não devolve cabeçalho CORS, então o
+`PUT` do navegador morre em `Failed to fetch`. Medição em
+[`spike-e0.md`](./spike-e0.md).
 
-> ✅ **Validado na Etapa 0** (`spike-e0.md`): o preflight CORS do endpoint de
-> upload do Drive libera `PUT` com `Content-Type` e `Content-Range` para
-> qualquer origem. Duas consequências viraram regra de implementação: nunca
-> enviar `Authorization` no `PUT` (a URL de sessão já é a credencial) e enviar
-> o arquivo em uma única chamada, já que sem `access-control-expose-headers` o
-> navegador não lê o `Range` necessário para retomar upload interrompido —
-> irrelevante para os tamanhos de documento contábil do MVP.
+O que se preserva: **nenhum byte de documento passa por servidor da NoraTech**.
+O que se cede: um access token de 1h, limitado a `drive.file`, na memória do
+navegador de um funcionário já autenticado — o refresh token continua
+exclusivamente no servidor. Multipart é envio de uma tacada só, sem retomada,
+daí o teto de 25 MB por arquivo, recusado com mensagem explícita acima disso.
+
+> ⚠️ **O spike da Etapa 0 errou aqui, e a Etapa 6 corrigiu.** O teste mediu o
+> endpoint que *inicia* o upload resumable, não a URL de sessão que o navegador
+> de fato chama — e são hosts diferentes, com comportamento de CORS diferente.
+> A conclusão "premissa validada" não tinha sido conquistada. O relato completo,
+> incluindo a lição de método, está em [`spike-e0.md`](./spike-e0.md).
 
 ### Template de pastas
 
