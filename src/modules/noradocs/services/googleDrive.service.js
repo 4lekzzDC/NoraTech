@@ -19,6 +19,20 @@ function callbackUrl() {
   return `${window.location.origin}${GOOGLE_CALLBACK_ROUTE}`;
 }
 
+// Quando a Edge Function responde com status não-2xx, o supabase-js devolve
+// um `error` genérico ("Edge Function returned a non-2xx status code") e
+// guarda a Response de verdade em `error.context` — sem ler isso, a mensagem
+// específica que a função mandou (a que o usuário precisa ver) se perde.
+async function functionErrorMessage(error, fallback) {
+  if (error?.context && typeof error.context.json === 'function') {
+    try {
+      const body = await error.context.json();
+      if (body?.error) return body.error;
+    } catch { /* corpo da resposta não era JSON */ }
+  }
+  return error?.message || fallback;
+}
+
 // Redireciona a própria aba para o consentimento do Google. Full-page
 // redirect, não popup: mais simples, funciona igual em qualquer navegador e
 // não depende de bloqueador de popup.
@@ -55,7 +69,7 @@ export async function completeGoogleConnect({ code, state }) {
   const { data, error } = await supabase.functions.invoke('noradocs-google-oauth', {
     body: { action: 'connect', code, redirectUri: callbackUrl() },
   });
-  if (error) throw new Error(error.message || 'Não foi possível concluir a conexão com o Google.');
+  if (error) throw new Error(await functionErrorMessage(error, 'Não foi possível concluir a conexão com o Google.'));
   if (data?.error) throw new Error(data.error);
   return data;
 }
@@ -64,7 +78,7 @@ export async function disconnectGoogle() {
   const { data, error } = await supabase.functions.invoke('noradocs-google-oauth', {
     body: { action: 'disconnect' },
   });
-  if (error) throw new Error(error.message || 'Não foi possível desconectar.');
+  if (error) throw new Error(await functionErrorMessage(error, 'Não foi possível desconectar.'));
   if (data?.error) throw new Error(data.error);
   return data;
 }
@@ -109,7 +123,7 @@ export async function pickRootFolder() {
   const { data, error } = await supabase.functions.invoke('noradocs-drive', {
     body: { action: 'picker-token' },
   });
-  if (error) throw new Error(error.message || 'Não foi possível preparar o seletor de pastas.');
+  if (error) throw new Error(await functionErrorMessage(error, 'Não foi possível preparar o seletor de pastas.'));
   if (data?.error) throw new Error(data.error);
 
   await loadPickerLibrary();
@@ -145,7 +159,7 @@ export async function confirmRootFolder({ id, name }) {
   const { data, error } = await supabase.functions.invoke('noradocs-drive', {
     body: { action: 'set-root-folder', folderId: id, folderName: name },
   });
-  if (error) throw new Error(error.message || 'Não foi possível confirmar a pasta escolhida.');
+  if (error) throw new Error(await functionErrorMessage(error, 'Não foi possível confirmar a pasta escolhida.'));
   if (data?.error) throw new Error(data.error);
   return data;
 }
