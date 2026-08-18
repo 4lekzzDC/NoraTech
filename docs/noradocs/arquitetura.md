@@ -3,7 +3,11 @@
 > Documento de decisão. Escrito **antes** da implementação, para ser revisado e
 > aprovado. Nenhum código de produto foi escrito ainda.
 >
-> Status: proposta · Alvo: MVP funcional · Stack: React/Vite + Supabase + Google APIs + Gemini
+> Status: proposta revisada (v2) · Alvo: MVP funcional
+> Stack: React/Vite + Supabase + Google Drive API (`drive.file`) · **sem IA no MVP**
+>
+> A investigação que sustenta as decisões de integração com o Google está em
+> [`integracao-google.md`](./integracao-google.md).
 
 ---
 
@@ -35,8 +39,9 @@ sistema não tem certeza, ele **pergunta** em vez de errar em silêncio.
 
 Isso define a regra de ouro da arquitetura:
 
-> A IA **sugere**. O sistema **move** apenas quando a confiança passa do limiar
-> configurado pelo escritório. Toda movimentação fica registrada e é reversível.
+> O sistema **arquiva sozinho** apenas quando as regras identificam cliente,
+> competência e categoria sem ambiguidade. Na dúvida, ele **pergunta**. Toda
+> movimentação fica registrada e é reversível.
 
 ---
 
@@ -50,7 +55,7 @@ Isso define a regra de ouro da arquitetura:
 | 2 | Cadastro de empresas/clientes | Tabela própria do NoraDocs, com importação opcional do módulo Soluções Contábeis |
 | 3 | Upload manual de arquivos | Drag & drop, múltiplos arquivos, com deduplicação por hash |
 | 4 | Caixa de entrada | Tela principal do produto |
-| 5 | Análise/classificação | Regras determinísticas primeiro, IA como fallback |
+| 5 | Análise/classificação | Regras determinísticas, no navegador. Sem IA |
 | 6 | Identificação de cliente, competência e categoria | Três campos independentes, com confiança independente |
 | 7 | Confirmação manual quando houver dúvida | Status `revisar` + painel de revisão |
 | 8 | Organização automática no Drive | Move por metadados (sem re-upload) |
@@ -60,15 +65,18 @@ Isso define a regra de ouro da arquitetura:
 
 ### Fora do MVP (mas com arquitetura preparada)
 
-- **Ingestão por e-mail/Gmail** — o pipeline recebe um `origem` desde o primeiro
-  dia e é acionado por uma função única `ingest()`. O conector Gmail vira apenas
-  mais um produtor que chama a mesma função.
+- **Caminho do Gmail** — na Etapa 2, como **complemento do Gmail feito em Apps
+  Script** (e não extensão Chrome — ver `integracao-google.md` §4). O pipeline já
+  recebe um campo `origem` desde o primeiro dia, então o complemento vira apenas
+  mais um produtor chamando a mesma função de ingestão.
 - **Disparador de documentos** (cobrar arquivos pendentes / enviar arquivos ao
   cliente) — depende de canal (e-mail/WhatsApp) e de contato do cliente, que já
   são modelados agora (`email`, `telefone` em `noradocs_clients`).
 - **Portal do cliente** (cliente logando para enviar arquivos).
-- **OCR pesado de documentos digitalizados** — no MVP, PDFs sem camada de texto
-  vão direto para a IA multimodal ou caem em `revisar`.
+- **OCR de documentos digitalizados** — no MVP, PDF sem camada de texto é
+  classificado só pelo nome do arquivo; não dando, vai para `revisar`.
+- **IA de qualquer tipo** — removida do MVP por decisão de privacidade. Se voltar,
+  volta como opt-in desligado por padrão.
 - Extração de dados fiscais (valores, vencimentos, XML de NF-e).
 
 Essas exclusões são deliberadas: cada uma delas dobraria o tamanho do MVP sem
@@ -147,63 +155,73 @@ src/modules/noradocs/
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  BROWSER (React/Vite)                                            │
+│  BROWSER (React/Vite)  — onde o documento é lido e decidido      │
 │  • Caixa de entrada, revisão, cadastros, configurações           │
 │  • Hash SHA-256 do arquivo (SubtleCrypto)                        │
-│  • Extração de texto de PDF com camada textual (pdfjs-dist)      │
-│  • Upload dos BYTES direto para o Google (URL resumable)         │
+│  • Extração de texto (pdfjs-dist) — o texto morre aqui           │
+│  • CLASSIFICAÇÃO por regras determinísticas (domain/rules.js)    │
+│  • Google Picker (só no setup, para escolher a pasta raiz)       │
+│  • PUT dos bytes direto no Google                                │
 └───────────┬─────────────────────────────────┬────────────────────┘
             │ supabase-js (RLS)               │ PUT bytes
+            │ só metadados                    │
             ▼                                 ▼
 ┌────────────────────────────┐    ┌──────────────────────────────┐
 │  SUPABASE / POSTGRES       │    │  GOOGLE DRIVE (do escritório)│
 │  • Tabelas noradocs_*      │    │  • Pasta raiz escolhida      │
-│  • RLS por tenant          │    │  • _triagem/ (staging)       │
+│  • RLS por tenant          │    │  • _triagem/ (só duvidosos)  │
 │  • Histórico append-only   │    │  • Estrutura final           │
+│  • NENHUM byte de doc      │    │  ← armazenamento oficial     │
 └────────────┬───────────────┘    └──────────────▲───────────────┘
-             │                                   │ API (metadados, move)
-             ▼                                   │
+             │                                   │
+             ▼                                   │ Drive API (token do escritório)
 ┌──────────────────────────────────────────────────────────────────┐
-│  EDGE FUNCTIONS (Deno, service_role) — o único lugar com token   │
-│  noradocs-google-oauth    → troca code por refresh token         │
-│  noradocs-upload-url      → devolve URL resumable de upload      │
-│  noradocs-process         → classifica (regras → IA) e decide    │
-│  noradocs-organize        → garante pastas e move o arquivo      │
-└──────────────────────────────┬───────────────────────────────────┘
-                               │
-                               ▼
-                    ┌────────────────────┐
-                    │  GEMINI API        │  (mesmo provedor já usado
-                    │  classificação     │   em supabase/functions/
-                    │  estruturada       │   support-chat)
-                    └────────────────────┘
+│  EDGE FUNCTIONS (Deno, service_role) — duas, e só duas           │
+│  noradocs-google-oauth  → troca code por refresh token, revoga   │
+│  noradocs-drive         → upload-session · ensure-folder · move  │
+│                           (único lugar que toca o token)         │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-### Princípios que sustentam esse desenho
+Sem IA. Sem storage próprio. Sem fila. Duas Edge Functions.
 
-1. **O refresh token do Google nunca chega ao navegador.** Ele vive em uma tabela
-   sem nenhuma policy de RLS — inacessível pela `anon key` por construção — e só
-   é lido por Edge Functions com `service_role`.
-2. **Os bytes do arquivo nunca passam pela nossa infraestrutura.** A Edge Function
-   negocia com o Drive uma *URL de sessão resumable*; o navegador envia o arquivo
-   direto para o Google. Isso elimina o limite de tamanho de corpo da Edge
-   Function, reduz custo de banda e mantém o token protegido.
-3. **Nenhum armazenamento próprio de arquivos.** Nem bucket, nem staging local: o
-   arquivo entra direto numa pasta `_triagem` dentro do Drive do escritório e,
-   quando classificado, é **movido por metadados** (`files.update` com
-   `addParents`/`removeParents`) — operação barata, sem re-upload.
-4. **Edge Function deriva o tenant do JWT do chamador, nunca do corpo da
-   requisição.** Convenção já aplicada em `support-chat/index.ts` e que precisa
-   valer aqui com ainda mais rigor.
-5. **Cada passo é idempotente e re-executável.** Reprocessar um documento com erro
-   nunca duplica arquivo no Drive nem linha no banco.
+### Os princípios que sustentam o desenho
 
----
+1. **Nenhum byte de documento passa por servidor da NoraTech.** O navegador lê o
+   arquivo, classifica localmente e envia direto ao Google. O Supabase recebe
+   apenas metadados. Isso deixou de ser detalhe de implementação e virou posição
+   comercial — ver `integracao-google.md` §5.
+2. **O refresh token do Google nunca chega ao navegador.** Vive em tabela sem
+   nenhuma policy de RLS — inalcançável pela `anon key` por construção — e só é
+   lido por Edge Function com `service_role`.
+3. **Uma conta Google por escritório, no servidor.** A concessão do `drive.file`
+   é por `(app, usuário, arquivo)`; se cada funcionário autenticasse a própria
+   conta, um documento enviado pela Ana não poderia ser confirmado pelo Bruno
+   dois dias depois. Com uma identidade única do escritório, quem opera a tela é
+   irrelevante — e os funcionários **não precisam de conta Google nenhuma**.
+4. **A Edge Function deriva o tenant do JWT do chamador**, nunca do corpo da
+   requisição. Convenção já aplicada em `support-chat`.
+5. **Cada passo é idempotente.** Reprocessar um documento com erro nunca duplica
+   arquivo no Drive nem linha no banco.
 
+### Por que a classificação roda no navegador
+
+Porque ela é determinística e os dados de que precisa — clientes, categorias,
+regras — já são legíveis por RLS. Sem IA, não há segredo a proteger nem custo a
+controlar: mandar os sinais para uma função de borda só para aplicar regex seria
+uma viagem de rede sem contrapartida, e obrigaria o texto do documento a sair do
+navegador. O motor de regras é um módulo puro (`domain/rules.js`), sem React e
+sem DOM — quando a Etapa 2 precisar dele no servidor para o caminho do Gmail, o
+mesmo arquivo é importado pela Edge Function.
 ## 5. Modelo de dados
 
 Todas as tabelas com prefixo `noradocs_`, RLS habilitada, `tenant_company_id`
 apontando para `companies`, e trigger `touch_updated_at()` (já existe no banco).
+
+> **Regra que atravessa o modelo inteiro:** o banco guarda *metadados*. Nenhum
+> byte de documento, e nenhum texto extraído. A única coisa que sobrevive da
+> leitura do arquivo é a **evidência curta** que justificou a decisão — por
+> exemplo `"CNPJ 12.345.678/0001-90 no texto"`.
 
 ### 5.1 Entidades centrais
 
@@ -215,8 +233,8 @@ drive_root_folder_name text
 drive_staging_folder_id text         -- subpasta _triagem
 folder_template        text          -- default '{cliente}/{ano}/{competencia}/{categoria}'
 auto_organize          boolean       -- default true
-ai_enabled             boolean       -- default true
-confidence_threshold   numeric(3,2)  -- default 0.85
+auto_organize          boolean       -- default true
+root_mode              text          -- 'raiz_nova' | 'mapeamento_por_cliente'
 keep_original_filename boolean       -- default true
 ```
 
@@ -277,7 +295,7 @@ competencia       text   -- 'YYYY-MM', com CHECK de formato
 category_id       uuid → noradocs_categories
 doc_type          text   -- refinamento livre dentro da categoria
 
-suggestion        jsonb  -- { client_id, competencia, category_id, confidences{}, method, rationale }
+matched           jsonb  -- { client_id, competencia, category_id, evidence[] }
 confidence        numeric(3,2)
 review_reason     text   -- por que caiu em revisar
 
@@ -306,7 +324,7 @@ payload     jsonb
 created_at
 ```
 
-**`noradocs_classification_runs`** — auditoria da decisão automática
+**`noradocs_classification_runs`** — auditoria da decisão automática (só regras)
 ```
 id, tenant_company_id, document_id
 method        text  -- rules | ai
@@ -337,7 +355,8 @@ priority    int
 source      text  -- manual | learned
 ```
 Quando o contador corrige uma classificação, oferecemos *"criar regra para os
-próximos"*. É o mecanismo mais barato de melhorar a precisão sem tocar em IA.
+próximos"*. Sem IA no MVP, este **é** o mecanismo de aprendizado do produto — e
+tem a vantagem de ser legível e editável, em vez de enterrado em pesos.
 
 ### 5.3 Preparado para a etapa 2 (não criado agora)
 
@@ -350,69 +369,67 @@ para que a etapa 2 não exija migração destrutiva.
 
 ## 6. O pipeline de classificação
 
-Executado pela Edge Function `noradocs-process`, um documento por invocação,
-idempotente.
+Todo ele roda no navegador, com regras determinísticas. **Nenhum documento é
+enviado para IA no MVP.**
 
 ```
-      arquivo recebido
+      arquivo solto na caixa de entrada
              │
    ┌─────────▼──────────┐
-   │ 0. Sinais          │  nome do arquivo, mime, tamanho, hash,
-   │    (browser)       │  texto extraído (pdfjs) quando há camada textual
+   │ 1. SINAIS          │  nome do arquivo, mime, tamanho, hash SHA-256,
+   │                    │  texto extraído com pdfjs quando há camada textual
    └─────────┬──────────┘
              ▼
    ┌────────────────────┐
-   │ 1. REGRAS          │  • CNPJ no texto (com validação de dígitos)
-   │    determinísticas │    → casa com noradocs_clients
-   │    custo zero      │  • noradocs_client_rules (padrões do escritório)
-   │                    │  • data/competência por regex (MM/AAAA, AAAA-MM, mês por extenso)
-   │                    │  • categoria por dicionário de keywords
+   │ 2. REGRAS          │  • CNPJ/CPF no texto ou no nome, com validação
+   │    determinísticas │    de dígitos → casa com noradocs_clients
+   │    custo zero      │  • apelidos do cliente (aliases) no nome do arquivo
+   │    100% local      │  • noradocs_client_rules — padrões do escritório
+   │                    │  • competência: MM/AAAA, AAAA-MM, mês por extenso
+   │                    │  • categoria: dicionário de palavras-chave
    └─────────┬──────────┘
-             │  campos ainda indefinidos?
-       não ──┤── sim
-             │        ┌────────────────────┐
-             │        │ 2. IA (Gemini)     │  só os campos que faltam,
-             │        │    JSON estruturado│  lista FECHADA de candidatos,
-             │        │    confiança 0..1  │  texto/página amostrados
-             │        └─────────┬──────────┘
-             ▼                  ▼
+             ▼
    ┌──────────────────────────────────────┐
    │ 3. PORTÃO DE DECISÃO                 │
-   │  todos os campos ≥ threshold         │
-   │   e auto_organize ligado?            │
+   │  cliente + competência + categoria   │
+   │  identificados por regra?            │
    └───────┬──────────────────────┬───────┘
           sim                    não
            ▼                      ▼
-   noradocs-organize          status = revisar
-   (move no Drive)            (sugestões pré-preenchidas)
-           ▼
-   status = organizado
+   upload direto na          upload em _triagem
+   PASTA FINAL               status = revisar
+   status = organizado       (com o que foi identificado pré-preenchido)
 ```
 
-### Por que regras antes de IA
+### A simplificação que isso permite
 
-- **Custo e latência**: a maioria dos documentos de um escritório é repetitiva.
-  Extrato do Itaú do cliente X chega todo mês com o mesmo padrão de nome. Isso é
-  regex, não LLM.
-- **Determinismo auditável**: quando o contador pergunta "por que foi para cá?",
-  "a regra CNPJ 12.345.678/0001-90 → Cliente X" é uma resposta; "o modelo achou"
-  não é.
-- **A IA fica para o caso difícil**, que é onde ela realmente ganha: PDF
-  digitalizado, nome de arquivo `documento(3).pdf`, boleto sem CNPJ legível.
+Como a classificação acontece **antes** do upload, o documento identificado com
+sucesso é criado **já no lugar certo**. Não existe etapa de mover: sem staging,
+sem `addParents`/`removeParents`, sem estado intermediário.
 
-### Regras de contenção da IA
+Só o documento duvidoso vai para `_triagem`, e só ele é movido — na hora em que o
+contador confirma. Na prática, a operação de mover deixa de estar no caminho
+principal e passa a ser a exceção.
 
-1. A IA **nunca** recebe a lista completa de clientes — só um conjunto de
-   candidatos (top-N por similaridade) mais a opção "nenhum". Isso controla custo
-   de token e reduz alucinação.
-2. Saída em **JSON com schema fechado**; qualquer campo fora do enum vira
-   `revisar` automaticamente.
-3. A IA **não tem ferramenta de escrita**. Ela devolve uma sugestão; quem move é
-   `noradocs-organize`, e só depois do portão de decisão.
-4. Confiança é **por campo**. Um documento pode ter cliente certo e competência
-   duvidosa — nesse caso vai para revisão com apenas um campo destacado.
-5. `ai_enabled = false` desliga a IA por escritório; tudo que as regras não
-   resolverem cai em `revisar`. Um escritório conservador pode operar assim.
+### O que as regras cobrem
+
+| Campo | Sinais, em ordem de prioridade |
+|-------|-------------------------------|
+| **Cliente** | CNPJ/CPF validado no texto → CNPJ no nome do arquivo → alias do cliente no nome → regra cadastrada pelo escritório |
+| **Competência** | `MM/AAAA` e variantes no nome → data no texto → mês por extenso em português → mês anterior ao de recebimento (fallback explícito, sempre marcado como suposição) |
+| **Categoria** | Palavras-chave da categoria no nome → palavras-chave no texto → regra cadastrada → nome de banco conhecido ⇒ extratos |
+
+Qualquer campo sem resposta manda o documento inteiro para `revisar`. Não há
+chute: o fallback de competência é a única suposição do sistema, e ela nunca
+sozinha aprova o arquivamento automático.
+
+### Cobertura baixa no início é o comportamento esperado
+
+Nas primeiras semanas de cada escritório muita coisa cai em "Revisar". Isso não é
+falha — é o mecanismo de descoberta. Cada correção do contador oferece *"criar
+regra para os próximos"*, gravando em `noradocs_client_rules`. A fila encolhe
+sozinha à medida que o escritório ensina o sistema, e o que foi aprendido fica
+legível e editável, não enterrado em pesos de um modelo.
 
 ### Máquina de estados
 
@@ -420,15 +437,15 @@ idempotente.
                   ┌──────────────┐
    upload ───────▶│ processando  │
                   └──┬────┬───┬──┘
-        alta confiança│    │   │falha
-                      ▼    │   ▼
-              ┌───────────┐│┌───────┐
-              │ organizado│││ erro  │──── retry ──┐
-              └───────────┘│└───────┘             │
-                    ▲      │baixa confiança       │
-                    │      ▼                      │
-                    │  ┌─────────┐                │
-                    └──┤ revisar │◀───────────────┘
+    tudo identificado│    │   │falha
+                     ▼    │   ▼
+             ┌───────────┐│┌───────┐
+             │ organizado│││ erro  │──── retry ──┐
+             └───────────┘│└───────┘             │
+                    ▲     │algum campo em aberto │
+                    │     ▼                      │
+                    │  ┌─────────┐               │
+                    └──┤ revisar │◀──────────────┘
            confirmação └────┬────┘
               manual        │ descartar
                             ▼
@@ -437,82 +454,91 @@ idempotente.
                       └────────────┘
 ```
 
-Transições válidas ficam em `domain/status.js`, uma única fonte de verdade
-consultada tanto pela UI quanto pelas Edge Functions.
-
----
-
+As transições válidas ficam em `domain/status.js` — fonte de verdade única para a
+UI e para as Edge Functions.
 ## 7. Integração com o Google Drive
 
-### 7.1 Escopo OAuth — a decisão mais delicada do projeto
+> A investigação completa, com fontes e o que ainda precisa de spike, está em
+> [`integracao-google.md`](./integracao-google.md). Aqui fica só a decisão.
 
-O escopo `https://www.googleapis.com/auth/drive` (acesso total) é classificado
-pelo Google como **restrito**. Publicar um app com ele exige verificação com
-avaliação de segurança **CASA** — processo caro (US$ 500–4.500/ano) e demorado
-(semanas a meses). Antes disso, o app fica limitado a 100 usuários de teste.
+### Escopo: `drive.file`, nada além disso
 
-**Recomendação: usar `drive.file` + Google Picker.**
+`drive.file` é **não sensível**: sem CASA, sem auditoria anual, sem custo
+recorrente, apenas a verificação básica de marca. E funciona com toda a REST API
+do Drive — criar pasta, criar arquivo, mover, tudo disponível. O acesso é por
+arquivo, restrito ao que o app criou e ao que o escritório escolheu no Picker.
 
-- `drive.file` é escopo **não sensível**: dá acesso apenas aos arquivos e pastas
-  que o app criou **ou que o usuário selecionou explicitamente** pelo Picker.
-- Fluxo: o escritório clica em "Escolher pasta raiz", o Picker abre, ele
-  seleciona a pasta existente do escritório. A partir daí o NoraDocs pode criar
-  subpastas e arquivos **dentro dela** normalmente.
-- Resultado prático: cobre 100% do MVP, sem verificação restrita, sem custo, sem
-  espera. O escritório também ganha a garantia de que o sistema não enxerga o
-  resto do Drive dele — argumento comercial forte.
+O escopo amplo `drive` está **descartado** e não volta à mesa: exigiria auditoria
+CASA anual e daria ao NoraDocs visão do Drive inteiro do escritório — o oposto do
+princípio de menor privilégio.
 
-O escopo total fica como opção futura, se algum caso de uso realmente exigir
-varrer o Drive inteiro.
+### A limitação que muda o setup
 
-### 7.2 Fluxo de conexão
+**Escolher uma pasta pelo Picker não dá acesso ao que já existe dentro dela.** O
+NoraDocs pode criar conteúdo lá, mas não enxerga o conteúdo anterior.
+
+Isso tem uma consequência concreta: se o escritório aponta um `/Clientes` que já
+tem `Silva ME` dentro, o NoraDocs não vê essa pasta e cria uma **segunda**
+`Silva ME` ao lado. O Drive aceita nomes duplicados — ninguém receberia erro, e a
+estrutura se dividiria em silêncio.
+
+Daí dois modos de configuração, ambos no MVP:
+
+| Modo | Como funciona | Para quem |
+|------|---------------|-----------|
+| **Raiz nova** *(padrão)* | O escritório escolhe ou cria uma pasta vazia; o NoraDocs constrói a árvore inteira a partir dela | Escritório novo, ou disposto a adotar a estrutura do NoraDocs |
+| **Mapeamento por cliente** | O escritório aponta pelo Picker a pasta **de cada cliente**, uma vez, gravando em `noradocs_clients.drive_folder_id` | Escritório com estrutura legada a preservar |
+
+O aviso sobre isso vai na **tela de conexão**, no momento da escolha — não no
+contrato, onde ninguém lê.
+
+### Fluxo de conexão (uma vez, feito por owner/admin)
 
 ```
-Escritório clica "Conectar Google Drive"
-   → OAuth consent (access_type=offline, prompt=consent)
-   → callback com `code` → Edge Function noradocs-google-oauth
-   → troca code por refresh_token → grava em noradocs_google_accounts
-   → Picker escolhe a pasta raiz → grava drive_root_folder_id em settings
-   → Edge Function cria a subpasta `_triagem`
+"Conectar Google Drive"
+   → OAuth consent (drive.file, access_type=offline, prompt=consent)
+   → Edge Function noradocs-google-oauth troca code por refresh token
+   → grava criptografado em noradocs_google_accounts
+   → Picker escolhe a pasta raiz  ⚠ mesma conta Google do passo anterior
+   → grava drive_root_folder_id + cria a subpasta _triagem
 ```
 
-Só quem tem papel `owner`/`admin` no escritório pode conectar ou desconectar.
+A conferência de que a conta do Picker é a mesma do consentimento é obrigatória —
+contas diferentes produzem uma concessão que o token do servidor não alcança.
 
-### 7.3 Upload e organização
+### Upload: os bytes não passam pela NoraTech
 
 ```
-1. Browser: calcula hash, cria a linha em noradocs_documents (status=processando)
-2. Browser → noradocs-upload-url: pede uma sessão de upload
-3. Edge Function: cria a sessão resumable no Drive, dentro de _triagem
-4. Browser: PUT dos bytes direto para o Google (com progresso e retomada)
-5. Browser → noradocs-process: classifica
-6. Se aprovado → noradocs-organize:
-   a. resolve o caminho pelo template
-   b. garante cada pasta (cache → busca → cria), gravando em noradocs_drive_folders
-   c. files.update com addParents / removeParents  ← MOVE, não copia
-   d. grava drive_path, drive_web_link, status=organizado, evento no histórico
+1. Navegador: hash, extrai texto, aplica regras, resolve a pasta de destino
+2. Navegador → noradocs-drive: "sessão de upload para a pasta X"
+3. Edge Fn (token do escritório): garante a árvore de pastas e abre a
+   sessão resumable → devolve SÓ a URL de sessão
+4. Navegador → Google: PUT dos bytes direto
+5. Navegador → Supabase: grava os metadados
 ```
 
-Todas as chamadas com `supportsAllDrives: true` desde o início, para que Drives
-Compartilhados funcionem sem retrabalho.
+A URL de sessão resumable funciona como credencial: carrega um `upload_id` e
+dispensa cabeçalho `Authorization`. É isso que permite o navegador enviar direto
+ao Google **sem nunca ver o token do escritório**.
 
-### 7.4 Template de pastas
+> ⚠️ **Premissa a validar antes de codificar.** Falta confirmar que o endpoint de
+> upload do Drive aceita o `PUT` do navegador via CORS. É um spike de vinte
+> linhas e é a **primeira tarefa da Etapa 0**. Planos B, em ordem: access token
+> efêmero de 1h no navegador; ou proxy dos bytes pela Edge Function sem gravar.
+
+### Template de pastas
 
 ```
 {cliente}/{ano}/{competencia}/{categoria}
+
+tokens: {cliente} {cnpj} {ano} {mes} {competencia} {categoria} {tipo}
 ```
 
-Tokens disponíveis: `{cliente}`, `{cnpj}`, `{ano}`, `{mes}`, `{competencia}`,
-`{categoria}`, `{tipo}`. A tela de configuração mostra **pré-visualização ao
-vivo** com um documento de exemplo — o contador precisa ver o caminho antes de
-salvar, não descobrir depois com 300 arquivos arquivados errado.
-
-Normalização de nomes (acentos, barras, espaços duplos) é centralizada em
-`domain/folderTemplate.js` e usada tanto na pré-visualização quanto na criação
-real, para que nunca divirjam.
-
----
-
+Pré-visualização ao vivo na tela de configuração: o contador precisa ver o
+caminho antes de salvar, não descobrir depois com 300 arquivos no lugar errado. A
+normalização de nomes fica em `domain/folderTemplate.js`, usada tanto na
+pré-visualização quanto na criação real, para que nunca divirjam. Todas as
+chamadas com `supportsAllDrives: true` desde o início.
 ## 8. Telas e fluxos
 
 Quatro telas. Nada além disso no MVP.
@@ -538,7 +564,7 @@ existe para zerar a fila, não para contemplar números.
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
-- Campos sugeridos pela IA aparecem com marcação visual discreta (`?`), não com
+- Campos que a regra não fechou aparecem com marcação discreta (`?`), não com
   alarde.
 - Seleção múltipla → **confirmar em lote** as sugestões de alta confiança. É o
   atalho que faz o produto parecer rápido.
@@ -572,8 +598,7 @@ assina o hub contábil.
 
 Quatro blocos: conexão Google (status, e-mail, pasta raiz, reconectar),
 estrutura de pastas (template + pré-visualização), categorias (ordenar, renomear,
-palavras-chave), automação (IA ligada/desligada, limiar de confiança,
-organização automática).
+palavras-chave), automação (arquivamento automático ligado/desligado).
 
 ### 8.6 Linguagem visual
 
@@ -588,72 +613,84 @@ sem KPI cards.
 
 | # | Decisão | Escolha | Por quê |
 |---|---------|---------|---------|
-| D1 | Escopo OAuth | `drive.file` + Picker | Evita verificação CASA (custo e meses de espera) e é mais defensável comercialmente |
-| D2 | Armazenamento | Nenhum próprio; `_triagem` no Drive do escritório | Atende o requisito do produto; mover é operação de metadado, barata |
-| D3 | Caminho dos bytes | Sessão resumable → browser envia direto ao Google | Sem limite de corpo da Edge Function, sem custo de banda, token protegido |
-| D4 | Guarda do refresh token | Tabela sem policies + criptografia; só `service_role` | Sem caminho de leitura pela `anon key`, por construção |
-| D5 | Classificação | Regras primeiro, IA como fallback | Custo, latência e auditabilidade |
-| D6 | Extração de texto | `pdfjs-dist` no browser (já é dependência); IA multimodal para digitalizados | Zero infra de OCR no MVP |
-| D7 | Cadastro de clientes | Tabela própria + link opcional para `accounting_companies` | Mantém os dois produtos vendáveis separadamente |
-| D8 | Competência | `text` no formato `YYYY-MM` com CHECK | Consistente com o módulo contábil já em produção |
-| D9 | Processamento | Uma Edge Function por documento, idempotente; UI acompanha por Realtime | Simples; fila dedicada só quando o volume exigir |
-| D10 | Isolamento | RLS em todas as tabelas; Edge Function deriva tenant do JWT | Convenção já validada em `support-chat` |
-| D11 | Provedor de IA | Gemini | Já configurado no projeto (`GEMINI_API_KEY`), multimodal, barato no tier flash |
-| D12 | Nome do arquivo | Preserva o original por padrão | Renomeação automática destrói a referência que o cliente usa; fica como opção |
-
----
-
+| D1 | Escopo OAuth | `drive.file` + Picker | Não sensível: sem CASA, sem custo anual, menor privilégio |
+| D2 | Escopo amplo `drive` | **Descartado** | Auditoria anual e visão do Drive inteiro — desproporcional |
+| D3 | Armazenamento | Zero na NoraTech; Drive do escritório | Requisito de produto; e some o item que domina o custo desse tipo de SaaS |
+| D4 | Caminho dos bytes | Navegador → Google, via URL de sessão resumable | Nenhum documento toca nossa infra; token fica no servidor |
+| D5 | Identidade no Drive | Uma conta por escritório, token no servidor | Concessão `drive.file` é por usuário: sem isso, a Ana envia e o Bruno não consegue confirmar |
+| D6 | Guarda do refresh token | Tabela sem policies + criptografia; só `service_role` | Sem caminho de leitura pela `anon key`, por construção |
+| D7 | Classificação | Regras determinísticas, **no navegador** | Sem IA, não há segredo nem custo a proteger — e o texto do documento não sai da máquina |
+| D8 | IA | **Fora do MVP**; se voltar, opt-in desligado por padrão | Menor exposição possível; vira argumento comercial de LGPD |
+| D9 | Momento da classificação | **Antes** do upload | O arquivo identificado nasce na pasta final: sem staging, sem mover |
+| D10 | Extração de texto | `pdfjs-dist` no navegador, resultado descartado | Dependência já existe no projeto; zero infra de OCR |
+| D11 | Estrutura legada | Raiz nova por padrão + mapeamento por cliente | O Picker não enxerga o conteúdo anterior da pasta |
+| D12 | Caminho do Gmail | Complemento Apps Script, **na Etapa 2** | Escopo sensível (grátis) contra restrito (CASA) da extensão |
+| D13 | Extensão Chrome | **Descartada** | Multisseleção não paga o preço: CASA ou dependência de DOM não documentado |
+| D14 | Cadastro de clientes | Tabela própria + link opcional | Mantém os dois produtos vendáveis separadamente |
+| D15 | Competência | `text` no formato `YYYY-MM` | Consistente com o módulo contábil em produção |
+| D16 | Edge Functions | Duas: `google-oauth` e `drive` | Só o que precisa obrigatoriamente do token |
+| D17 | Isolamento | RLS em tudo; tenant derivado do JWT | Convenção já validada em `support-chat` |
+| D18 | Nome do arquivo | Preserva o original por padrão | Renomear destrói a referência que o cliente usa |
 ## 10. Riscos
 
 | Risco | Impacto | Mitigação |
 |-------|---------|-----------|
-| **Verificação do Google** | Bloquearia o lançamento | D1: escopo não sensível resolve. Ainda assim, criar o projeto no Google Cloud e a tela de consentimento **na Etapa 2**, não na véspera do lançamento |
-| **Token revogado** (senha trocada, acesso removido) | Todo o pipeline para | Detectar `invalid_grant`, marcar `status=revoked`, banner persistente na UI, documentos ficam em `processando` e são retomados após reconectar — nunca marcados como erro definitivo |
-| **Classificação errada com confiança alta** | Perda de confiança no produto | Limiar conservador no início (0,85+), `auto_organize` desligado nos primeiros dias de cada escritório, histórico com um clique para desfazer |
-| **LGPD** — documentos contêm dados pessoais e financeiros de terceiros | Jurídico | Enviar à IA apenas trechos de texto e amostras, nunca o acervo; registrar o que foi enviado em `classification_runs`; permitir desligar a IA; tratar isso no contrato do escritório (ele é o controlador, NoraTech é operadora) |
-| **Limites de API do Drive** (rate limit por usuário) | Lentidão em lote | Backoff exponencial, cache de pastas, limite de concorrência por tenant |
-| **Pastas duplicadas** em uploads simultâneos | Estrutura suja | `unique(tenant, path)` em `noradocs_drive_folders` + criação sob a mesma transação lógica |
-| **Timeout de Edge Function** em PDFs grandes | Documento travado | Trabalho pesado no browser; Edge Function só decide; `retry_count` com reprocessamento manual |
-| **Contador move arquivos manualmente no Drive** | `drive_path` fica mentindo | Aceitar no MVP; validar o `drive_file_id` ao abrir o histórico e sinalizar divergência |
-| **Escopo do MVP inchar** | Atraso | O disparador e o Gmail estão explicitamente fora; a arquitetura os acomoda, o cronograma não |
+| **CORS bloquear o `PUT` do navegador** para a sessão resumable | Derruba a premissa central do desenho | **Spike na Etapa 0**, antes de qualquer código. Plano B: access token efêmero de 1h no navegador. Plano C: proxy pela Edge Function sem gravar |
+| **Concessão do Picker não valer para o refresh token do servidor** | Setup não funciona | Mesmo spike da Etapa 0 |
+| **Estrutura legada duplicada** — o Picker não enxerga o conteúdo existente | Silencioso: duas pastas com o mesmo nome, ninguém recebe erro | Raiz nova como padrão, mapeamento por cliente como alternativa, aviso na própria tela de conexão |
+| **Token revogado** (senha trocada, acesso removido) | Uploads param | Detectar `invalid_grant`, marcar `revoked`, banner persistente; documentos ficam em `processando` e retomam após reconectar — nunca marcados como erro definitivo |
+| **Revogar o token derruba todos os escopos** do client, não só o da sessão | Confusão no "Desconectar" | Texto explícito no botão |
+| **Cobertura baixa das regras** no início | Fila de revisão cheia nas primeiras semanas | Esperado e comunicado. Cada correção vira regra; a fila encolhe sozinha |
+| **Limites de API do Drive** — cota somada entre todos os escritórios | Lentidão em lote quando escalar | Cache `noradocs_drive_folders`, backoff exponencial, limite de concorrência por tenant |
+| **Pastas duplicadas** em uploads simultâneos | Estrutura suja | `unique(tenant, path)` em `noradocs_drive_folders` |
+| **Contador move arquivos à mão no Drive** | `drive_path` passa a mentir | Aceitar no MVP; validar o `drive_file_id` ao abrir o histórico e sinalizar divergência |
+| **Escopo do MVP inchar** | Atraso | Gmail e disparador explicitamente fora. A arquitetura os acomoda; o cronograma não |
 
----
-
+Comparado à proposta anterior, sumiram três riscos inteiros: verificação CASA,
+exposição de documentos a IA de terceiro, e a discussão de LGPD sobre envio de
+conteúdo para fora. Não foram mitigados — foram **removidos por construção**.
 ## 11. Plano de execução em etapas
-
-Cada etapa é pequena, entregável e testável isoladamente. Nada de script gigante.
 
 | Etapa | Entrega | Definição de pronto |
 |-------|---------|---------------------|
-| **E0 — Fundação** | Slug `noradocs` no catálogo e na tabela `systems`; rota `/noradocs` com `SubscriptionRoute`; esqueleto do módulo; paleta promovida para `src/lib/palette.js`; layout com sidebar | Acesso a `/noradocs` com assinatura ativa, telas vazias navegáveis |
-| **E1 — Banco** | Migration com todas as tabelas `noradocs_*`, RLS, `has_noradocs_access`, categorias-semente | Migration aplicada; `get_advisors` sem alerta de segurança |
-| **E2 — Clientes** | CRUD de `noradocs_clients` + importação do módulo contábil | Escritório cadastra e edita clientes; CNPJ validado |
-| **E3 — Google Drive** | OAuth, Picker, `noradocs_google_accounts`, tela de conexão, criação do `_triagem` | Escritório conecta a conta, escolhe a raiz, vê o status |
-| **E4 — Estrutura de pastas** | Template com tokens, pré-visualização ao vivo, `ensureFolderPath` + cache | Salvar template e ver o caminho de exemplo; pastas criadas sob demanda no Drive |
-| **E5 — Upload** | Dropzone, hash, sessão resumable, documento em `processando`, deduplicação | Arquivo aparece na caixa de entrada e no `_triagem` do Drive |
-| **E6 — Caixa de entrada + regras** | Motor de regras puro, tabela da inbox, abas de status, coluna Destino | Documentos com CNPJ reconhecível são classificados sem IA |
-| **E7 — Revisão e organização** | Drawer de revisão, confirmação (individual e em lote), move no Drive, eventos | Documento confirmado aparece na pasta final; histórico registra |
-| **E8 — Camada de IA** | Edge Function com Gemini, JSON estruturado, confiança por campo, portão de decisão, `classification_runs` | Documento sem CNPJ é sugerido pela IA; abaixo do limiar vai para `revisar` |
-| **E9 — Histórico e resiliência** | Tela de histórico com filtros, tratamento de erro, retry, reconexão do Drive | Erro é visível, explicado e reprocessável |
-| **E10 — Acabamento** | Atalhos de teclado, estados vazios, responsividade, `DOCS.md`, revisão de segurança | Fluxo completo executado ponta a ponta por um usuário real |
+| **E0 · Spike + fundação** | **Primeiro**: validar CORS do `PUT` na sessão resumable e a concessão do Picker sobre o refresh token. Depois: slug `noradocs` no catálogo e na tabela `systems`, rota com gate de assinatura, esqueleto do módulo, paleta promovida para `src/lib/palette.js`, layout com sidebar | O spike responde sim/não por escrito antes de qualquer outro código. `/noradocs` acessível com assinatura ativa |
+| **E1 · Banco** | Migration com as tabelas `noradocs_*`, RLS, `has_noradocs_access`, categorias-semente | Migration aplicada; `get_advisors` sem alerta de segurança |
+| **E2 · Clientes** | CRUD de `noradocs_clients` com CNPJ, apelidos e contatos; importação do módulo contábil | Escritório cadastra e edita clientes; CNPJ validado por dígito |
+| **E3 · Conexão Google** | OAuth `drive.file`, Picker, `noradocs_google_accounts`, tela de conexão com o aviso de estrutura legada, criação do `_triagem` | Escritório conecta, escolhe a raiz, vê status e e-mail conectado |
+| **E4 · Estrutura de pastas** | Template com tokens, pré-visualização ao vivo, `ensureFolderPath` + cache | Salvar template e ver o caminho de exemplo; pastas criadas sob demanda |
+| **E5 · Motor de regras** | `domain/rules.js` puro — CNPJ, apelidos, competência, categorias — com testes de mesa sobre nomes de arquivo reais do escritório | Dado um nome e um texto, a função devolve cliente, competência e categoria ou `null` justificado |
+| **E6 · Upload + caixa de entrada** | Dropzone, hash, extração de texto, classificação local, sessão resumable, gravação de metadados, tabela da inbox | Arquivo identificado nasce na pasta final; duvidoso vai para `_triagem` e aparece como "Revisar" |
+| **E7 · Revisão e histórico** | Drawer de revisão, confirmação individual e em lote, move no Drive, eventos, tela de histórico com filtros, "criar regra para os próximos" | Documento confirmado aparece na pasta final; o histórico conta a trilha completa |
+| **E8 · Resiliência** | Erros com causa legível, retry, reconexão do Drive, deduplicação por hash, divergência de `drive_file_id` | Erro é visível, explicado e reprocessável |
+| **E9 · Acabamento** | Atalhos de teclado, estados vazios, responsividade, `DOCS.md`, revisão de segurança | Fluxo completo executado ponta a ponta por um contador real |
 
-**Ordem de valor**: ao fim de **E7** o produto já é utilizável de verdade — um
-escritório consegue subir arquivos, classificar por regras, confirmar e arquivar
-no Drive. E8 em diante é aumento de automação, não requisito de funcionamento.
-Isso é proposital: se o cronograma apertar, a IA é a parte adiável, não o núcleo.
+**Ao fim da E7 o produto está completo para o MVP** — sobe arquivo, classifica,
+confirma, arquiva no Drive, registra histórico. E8 e E9 endurecem o que já
+funciona.
 
-### Preparação para a etapa 2 (pós-MVP)
+Comparado ao plano anterior, a etapa de IA deixou de existir e o pipeline ficou
+mais curto: onze etapas viraram dez, e nenhuma delas depende de aprovação
+externa do Google para começar.
 
-- **Gmail**: novo produtor chamando o mesmo `ingest()`, gravando `origem='email'`
-  e `origem_ref` com o id da mensagem. Nenhuma mudança no pipeline.
-- **Disparador**: `noradocs_document_requests` cruzando clientes × competência ×
-  categoria esperada contra o que já chegou. Os contatos do cliente já existem
-  desde E2.
+### Etapa 2, depois do MVP
+
+- **Complemento do Gmail (Apps Script)**: painel lateral, botão "Enviar anexos
+  para o NoraDocs" na mensagem aberta. Escopos: `gmail.addons.current.message.readonly`
+  (sensível, verificação gratuita) e `script.external_request` (não sensível).
+  **Nenhum escopo do Drive** — o complemento pede a URL de sessão ao NoraDocs e
+  faz o `PUT` direto no Google.
+- **Disparador de documentos**: `noradocs_document_requests` cruzando clientes ×
+  competência × categoria esperada contra o que já chegou. Os contatos do cliente
+  existem desde a E2.
+- **IA opcional**: apenas se as regras se mostrarem insuficientes na prática, e
+  sempre como opt-in desligado por padrão.
 
 ---
 
 ## Próximo passo
 
-Revisar e aprovar este documento — em especial **D1 (escopo OAuth)**, **D2
-(staging dentro do Drive)** e **D7 (cadastro de clientes próprio)**, que são as
-três decisões com maior custo de reversão. Aprovadas, começamos pela **Etapa 0**.
+Aprovado o documento, a **Etapa 0 começa pelo spike** — CORS do `PUT` na sessão
+resumable e validade da concessão do Picker sobre o refresh token. São as duas
+únicas premissas do desenho que ainda não têm confirmação documental, e ambas se
+respondem em algumas dezenas de linhas de código descartável. Só depois disso
+vale escrever qualquer coisa que dependa delas.
