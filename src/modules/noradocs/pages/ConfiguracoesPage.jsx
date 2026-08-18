@@ -3,9 +3,12 @@ import { ToastHost } from '../../../components/Toast';
 import { getCurrentMembership } from '../../../lib/subscriptions';
 import { useToasts } from '../../../lib/useToasts';
 import { useTheme } from '../../../contexts/ThemeContext';
-import EtapaPendente from '../components/EtapaPendente';
+import CategoriesCard from '../components/CategoriesCard';
+import FolderTemplateCard from '../components/FolderTemplateCard';
 import GoogleConnectionCard from '../components/GoogleConnectionCard';
 import NoraDocsLayout from '../components/NoraDocsLayout';
+import { createCategory, deleteCategory, listCategories, updateCategory } from '../services/categories.service';
+import { fetchFolderSettings } from '../services/settings.service';
 import { resolveTenant } from '../services/tenant';
 import { getPalette } from '../theme';
 
@@ -17,18 +20,62 @@ export default function ConfiguracoesPage() {
   const [tenantId, setTenantId] = useState(null);
   const [isManager, setIsManager] = useState(false);
   const [carregando, setCarregando] = useState(true);
+  const [template, setTemplate] = useState('');
+  const [categorias, setCategorias] = useState([]);
 
   useEffect(() => {
     let ativo = true;
     (async () => {
       const [{ tenantId: id }, membership] = await Promise.all([resolveTenant(), getCurrentMembership()]);
+      if (!ativo || !id) { setCarregando(false); return; }
+
+      const [settings, cats] = await Promise.all([fetchFolderSettings(id), listCategories(id)]);
       if (!ativo) return;
+
       setTenantId(id);
       setIsManager(membership?.role === 'owner' || membership?.role === 'admin');
+      setTemplate(settings?.folder_template || '');
+      setCategorias(cats);
       setCarregando(false);
     })();
     return () => { ativo = false; };
   }, []);
+
+  async function recarregarCategorias() {
+    setCategorias(await listCategories(tenantId));
+  }
+
+  async function alterarCategoria(id, patch) {
+    try {
+      await updateCategory(id, patch);
+      await recarregarCategorias();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function adicionarCategoria(nome) {
+    try {
+      await createCategory(tenantId, nome);
+      await recarregarCategorias();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function excluirCategoria(categoria) {
+    const ok = window.confirm(
+      `Excluir a categoria "${categoria.nome}"?\n\nDocumentos já arquivados nela continuam no Drive e no ` +
+      'histórico, mas deixam de apontar para uma categoria. Para só parar de usá-la, desmarque "Ativa".'
+    );
+    if (!ok) return;
+    try {
+      await deleteCategory(categoria.id);
+      await recarregarCategorias();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
 
   return (
     <NoraDocsLayout
@@ -49,16 +96,23 @@ export default function ConfiguracoesPage() {
       )}
 
       {!carregando && tenantId && (
-        <div style={{ display: 'grid', gap: 22, maxWidth: 640 }}>
+        <div style={{ display: 'grid', gap: 22, maxWidth: 680 }}>
           <GoogleConnectionCard tenantId={tenantId} isManager={isManager} showToast={showToast} />
 
-          <EtapaPendente
-            etapa="Etapa 4"
-            entrega="Estrutura de pastas e categorias."
-            itens={[
-              'Modelo de pastas com tokens e pré-visualização do caminho antes de salvar',
-              'Categorias do escritório: ordem, nome e palavras-chave',
-            ]}
+          <FolderTemplateCard
+            tenantId={tenantId}
+            template={template}
+            isManager={isManager}
+            showToast={showToast}
+            onSaved={setTemplate}
+          />
+
+          <CategoriesCard
+            categorias={categorias}
+            isManager={isManager}
+            onUpdate={alterarCategoria}
+            onCreate={adicionarCategoria}
+            onDelete={excluirCategoria}
           />
         </div>
       )}

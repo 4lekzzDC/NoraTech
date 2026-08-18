@@ -672,7 +672,7 @@ conteúdo para fora. Não foram mitigados — foram **removidos por construção
 | **E1 · Banco** | Migration com as tabelas `noradocs_*`, RLS, `has_noradocs_access`, categorias-semente | Migration aplicada; `get_advisors` sem alerta de segurança |
 | **E2 · Clientes** | CRUD de `noradocs_clients` com CNPJ, apelidos e contatos; importação do módulo contábil | Escritório cadastra e edita clientes; CNPJ validado por dígito |
 | **E3 · Conexão Google** ✅ | OAuth `drive.file`, Picker, `noradocs_google_accounts`, tela de conexão com o aviso de estrutura legada, criação do `_triagem` | Escritório conecta, escolhe a raiz, vê status e e-mail conectado |
-| **E4 · Estrutura de pastas** | Template com tokens, pré-visualização ao vivo, `ensureFolderPath` + cache | Salvar template e ver o caminho de exemplo; pastas criadas sob demanda |
+| **E4 · Estrutura de pastas** ✅ | Template com tokens, pré-visualização ao vivo, categorias editáveis | Salvar template e ver o caminho de exemplo; categorias com ordem, nome e palavras-chave |
 | **E5 · Motor de regras** | `domain/rules.js` puro — CNPJ, apelidos, competência, categorias — com suíte de testes em `node --test` (sem dependência nova) | Dado um nome e um texto, a função devolve cliente, competência e categoria ou `null` justificado. `npm test` verde |
 | **E6 · Upload + caixa de entrada** | Dropzone, hash, extração de texto, classificação local, sessão resumable, gravação de metadados, tabela da inbox | Arquivo identificado nasce na pasta final; duvidoso vai para `_triagem` e aparece como "Revisar" |
 | **E7 · Revisão e histórico** | Drawer de revisão, confirmação individual e em lote, move no Drive, eventos, tela de histórico com filtros, "criar regra para os próximos" | Documento confirmado aparece na pasta final; o histórico conta a trilha completa |
@@ -687,6 +687,16 @@ conteúdo para fora. Não foram mitigados — foram **removidos por construção
 >
 > Nos módulos de `domain/` os imports levam extensão `.js` explícita, porque o
 > loader ESM do Node exige — é a única pasta do projeto com essa regra.
+
+> **Ajuste de escopo na E4:** `ensureFolderPath` (caminhar/criar a árvore de
+> pastas real no Drive a partir de um caminho resolvido) e o cache
+> `noradocs_drive_folders` saíram desta etapa e passam a nascer na **E6**,
+> junto do upload — é só ali que existe um documento de verdade para
+> exercitar esse código contra o Drive. A E4, sozinha, entrega o que não
+> depende disso: o modelo de template (`domain/folderTemplate.js`, puro e
+> testado) e a tela de configuração — template com pré-visualização ao vivo e
+> categorias editáveis (ordem, nome, palavras-chave), ambos gravados direto
+> via RLS, sem Edge Function.
 
 **Ao fim da E7 o produto está completo para o MVP** — sobe arquivo, classifica,
 confirma, arquiva no Drive, registra histórico. E8 e E9 endurecem o que já
