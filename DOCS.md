@@ -97,6 +97,7 @@ Definidos em `package.json`:
 | `npm run build`    | Gera o bundle de produção em `dist/`                     |
 | `npm run preview`  | Serve o conteúdo de `dist/` para validação local         |
 | `npm run lint`     | Executa o ESLint em todo o projeto                       |
+| `npm test`         | Roda a suíte de testes dos módulos puros (`node --test`) |
 
 ---
 
@@ -376,7 +377,10 @@ retornar 404 ao recarregar a página.
 - **ESLint** (`eslint.config.js`) com regras para React Hooks e
   React Refresh.
 - Rode `npm run lint` antes de commitar.
-- Não há testes automatizados configurados.
+- Testes automatizados com `node --test` (runner nativo do Node, sem
+  dependência extra): `npm test`. Cobrem os módulos puros de
+  `src/modules/noradocs/domain/` — validação de CNPJ/CPF, competência e o
+  motor de classificação. O restante do projeto ainda não tem testes.
 
 ---
 

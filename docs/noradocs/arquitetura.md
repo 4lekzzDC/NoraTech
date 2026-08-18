@@ -658,11 +658,20 @@ conteúdo para fora. Não foram mitigados — foram **removidos por construção
 | **E2 · Clientes** | CRUD de `noradocs_clients` com CNPJ, apelidos e contatos; importação do módulo contábil | Escritório cadastra e edita clientes; CNPJ validado por dígito |
 | **E3 · Conexão Google** | OAuth `drive.file`, Picker, `noradocs_google_accounts`, tela de conexão com o aviso de estrutura legada, criação do `_triagem` | Escritório conecta, escolhe a raiz, vê status e e-mail conectado |
 | **E4 · Estrutura de pastas** | Template com tokens, pré-visualização ao vivo, `ensureFolderPath` + cache | Salvar template e ver o caminho de exemplo; pastas criadas sob demanda |
-| **E5 · Motor de regras** | `domain/rules.js` puro — CNPJ, apelidos, competência, categorias — com testes de mesa sobre nomes de arquivo reais do escritório | Dado um nome e um texto, a função devolve cliente, competência e categoria ou `null` justificado |
+| **E5 · Motor de regras** | `domain/rules.js` puro — CNPJ, apelidos, competência, categorias — com suíte de testes em `node --test` (sem dependência nova) | Dado um nome e um texto, a função devolve cliente, competência e categoria ou `null` justificado. `npm test` verde |
 | **E6 · Upload + caixa de entrada** | Dropzone, hash, extração de texto, classificação local, sessão resumable, gravação de metadados, tabela da inbox | Arquivo identificado nasce na pasta final; duvidoso vai para `_triagem` e aparece como "Revisar" |
 | **E7 · Revisão e histórico** | Drawer de revisão, confirmação individual e em lote, move no Drive, eventos, tela de histórico com filtros, "criar regra para os próximos" | Documento confirmado aparece na pasta final; o histórico conta a trilha completa |
 | **E8 · Resiliência** | Erros com causa legível, retry, reconexão do Drive, deduplicação por hash, divergência de `drive_file_id` | Erro é visível, explicado e reprocessável |
 | **E9 · Acabamento** | Atalhos de teclado, estados vazios, responsividade, `DOCS.md`, revisão de segurança | Fluxo completo executado ponta a ponta por um contador real |
+
+> **Decisão tomada na E5:** o projeto passou a ter testes automatizados, e a
+> escolha foi `node --test` — o runner que já vem no Node 22, sem adicionar
+> nenhuma dependência. O escopo é deliberadamente estreito: só a pasta
+> `domain/`, que é pura e onde uma regressão silenciosa custa caro. Componentes
+> de tela continuam sem teste; o retorno não pagaria a manutenção neste momento.
+>
+> Nos módulos de `domain/` os imports levam extensão `.js` explícita, porque o
+> loader ESM do Node exige — é a única pasta do projeto com essa regra.
 
 **Ao fim da E7 o produto está completo para o MVP** — sobe arquivo, classifica,
 confirma, arquiva no Drive, registra histórico. E8 e E9 endurecem o que já
