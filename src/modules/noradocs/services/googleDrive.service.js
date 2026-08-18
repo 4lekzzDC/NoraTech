@@ -137,6 +137,12 @@ export async function pickRootFolder() {
       const picker = new window.google.picker.PickerBuilder()
         .setOAuthToken(data.accessToken)
         .setDeveloperKey(apiKey)
+        // Sem isto, o Google não valida a origem da página, e a concessão de
+        // acesso à pasta escolhida (o grant do drive.file) não é registrada
+        // direito — o Picker deixa escolher normalmente, mas o servidor
+        // depois não alcança o arquivo (404 em files.get, não 403: o Google
+        // não distingue "não existe" de "você não pode ver").
+        .setOrigin(window.location.origin)
         .addView(view)
         .setTitle('Escolha a pasta raiz do NoraDocs')
         .setCallback((result) => {
