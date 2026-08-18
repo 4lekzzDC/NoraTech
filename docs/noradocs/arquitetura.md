@@ -492,19 +492,31 @@ Daí dois modos de configuração, ambos no MVP:
 O aviso sobre isso vai na **tela de conexão**, no momento da escolha — não no
 contrato, onde ninguém lê.
 
-### Fluxo de conexão (uma vez, feito por owner/admin)
+### Fluxo de conexão (uma vez, feito por owner/admin) — implementado na Etapa 3
 
 ```
 "Conectar Google Drive"
    → OAuth consent (drive.file, access_type=offline, prompt=consent)
    → Edge Function noradocs-google-oauth troca code por refresh token
-   → grava criptografado em noradocs_google_accounts
-   → Picker escolhe a pasta raiz  ⚠ mesma conta Google do passo anterior
-   → grava drive_root_folder_id + cria a subpasta _triagem
+   → grava em noradocs_google_tokens (RLS sem policies) + status em noradocs_google_accounts
+   → Picker escolhe a pasta raiz
+   → Edge Function noradocs-drive confirma a pasta e cria a subpasta _triagem
+   → grava drive_root_folder_id em noradocs_settings
 ```
 
-A conferência de que a conta do Picker é a mesma do consentimento é obrigatória —
-contas diferentes produzem uma concessão que o token do servidor não alcança.
+Um único grant, não dois. A versão anterior deste documento previa uma segunda
+autenticação do navegador só para abrir o Picker — e com ela, o risco de duas
+contas Google diferentes entrarem em jogo. Isso foi eliminado no desenho final:
+o Picker nunca fala com o Google para autenticar ninguém. Ele recebe um
+`access_token` de curta duração que `noradocs-drive` obtém **refrescando o
+mesmo refresh token** salvo na conexão inicial (ação `picker-token`). Não há
+uma segunda conta para conferir, porque não há um segundo login.
+
+A verificação de que esse token realmente alcança a pasta escolhida acontece
+em tempo de execução: antes de gravar qualquer coisa, `noradocs-drive` (ação
+`set-root-folder`) busca a pasta com esse mesmo token. Falhar aí devolve um
+erro explícito ao navegador em vez de deixar o escritório com uma configuração
+quebrada. Detalhe completo em `spike-e0.md`.
 
 ### Upload: os bytes não passam pela NoraTech
 
@@ -521,10 +533,13 @@ A URL de sessão resumable funciona como credencial: carrega um `upload_id` e
 dispensa cabeçalho `Authorization`. É isso que permite o navegador enviar direto
 ao Google **sem nunca ver o token do escritório**.
 
-> ⚠️ **Premissa a validar antes de codificar.** Falta confirmar que o endpoint de
-> upload do Drive aceita o `PUT` do navegador via CORS. É um spike de vinte
-> linhas e é a **primeira tarefa da Etapa 0**. Planos B, em ordem: access token
-> efêmero de 1h no navegador; ou proxy dos bytes pela Edge Function sem gravar.
+> ✅ **Validado na Etapa 0** (`spike-e0.md`): o preflight CORS do endpoint de
+> upload do Drive libera `PUT` com `Content-Type` e `Content-Range` para
+> qualquer origem. Duas consequências viraram regra de implementação: nunca
+> enviar `Authorization` no `PUT` (a URL de sessão já é a credencial) e enviar
+> o arquivo em uma única chamada, já que sem `access-control-expose-headers` o
+> navegador não lê o `Range` necessário para retomar upload interrompido —
+> irrelevante para os tamanhos de documento contábil do MVP.
 
 ### Template de pastas
 
@@ -656,7 +671,7 @@ conteúdo para fora. Não foram mitigados — foram **removidos por construção
 | **E0 · Spike + fundação** | **Primeiro**: validar CORS do `PUT` na sessão resumable e a concessão do Picker sobre o refresh token. Depois: slug `noradocs` no catálogo e na tabela `systems`, rota com gate de assinatura, esqueleto do módulo, paleta promovida para `src/lib/palette.js`, layout com sidebar | O spike responde sim/não por escrito antes de qualquer outro código. `/noradocs` acessível com assinatura ativa |
 | **E1 · Banco** | Migration com as tabelas `noradocs_*`, RLS, `has_noradocs_access`, categorias-semente | Migration aplicada; `get_advisors` sem alerta de segurança |
 | **E2 · Clientes** | CRUD de `noradocs_clients` com CNPJ, apelidos e contatos; importação do módulo contábil | Escritório cadastra e edita clientes; CNPJ validado por dígito |
-| **E3 · Conexão Google** | OAuth `drive.file`, Picker, `noradocs_google_accounts`, tela de conexão com o aviso de estrutura legada, criação do `_triagem` | Escritório conecta, escolhe a raiz, vê status e e-mail conectado |
+| **E3 · Conexão Google** ✅ | OAuth `drive.file`, Picker, `noradocs_google_accounts`, tela de conexão com o aviso de estrutura legada, criação do `_triagem` | Escritório conecta, escolhe a raiz, vê status e e-mail conectado |
 | **E4 · Estrutura de pastas** | Template com tokens, pré-visualização ao vivo, `ensureFolderPath` + cache | Salvar template e ver o caminho de exemplo; pastas criadas sob demanda |
 | **E5 · Motor de regras** | `domain/rules.js` puro — CNPJ, apelidos, competência, categorias — com suíte de testes em `node --test` (sem dependência nova) | Dado um nome e um texto, a função devolve cliente, competência e categoria ou `null` justificado. `npm test` verde |
 | **E6 · Upload + caixa de entrada** | Dropzone, hash, extração de texto, classificação local, sessão resumable, gravação de metadados, tabela da inbox | Arquivo identificado nasce na pasta final; duvidoso vai para `_triagem` e aparece como "Revisar" |

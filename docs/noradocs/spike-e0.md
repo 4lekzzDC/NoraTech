@@ -1,8 +1,9 @@
 # Spike E0 — validação das premissas de upload direto
 
 > Executado em 18/08/2026, antes de qualquer código do NoraDocs.
-> Duas perguntas travavam o desenho da arquitetura. Uma está respondida; a outra
-> precisa de um teste manual com um projeto Google real.
+> Duas perguntas travavam o desenho da arquitetura. **Atualização (Etapa 3):**
+> a segunda deixou de precisar de teste manual — o desenho da implementação
+> mudou para resolvê-la por construção. Ver nota no fim desta seção.
 
 ---
 
@@ -76,40 +77,42 @@ O que estava em dúvida era o CORS, e o CORS está respondido.
 
 ## Pergunta 2 — a concessão feita no Picker vale para o refresh token do servidor?
 
-**Resposta: pendente de teste manual.** ⏳
+**Resposta original: pendente de teste manual.** Na implementação da Etapa 3,
+a pergunta deixou de fazer sentido — o desenho mudou para eliminar o risco em
+vez de testá-lo.
 
-Não é validável sem um projeto no Google Cloud com tela de consentimento
-configurada e um usuário real consentindo. Fica como a primeira tarefa da
-**Etapa 3**, antes de a tela de conexão ser construída.
+### O que mudou
 
-### O raciocínio, enquanto não há teste
+O plano original previa **dois grants independentes**: um consentimento
+completo (code flow, com refresh token, feito no back-end) e uma segunda
+autenticação do navegador só para o Picker (um token client GIS separado,
+implícito). A pergunta era se esses dois grants, feitos em momentos diferentes,
+apontavam para o mesmo arquivo depois de escolhido.
 
-A concessão do `drive.file` é registrada pela tripla **(client ID, usuário,
-arquivo)**. Nem o Picker nem o fluxo de código criam identidades separadas: se
-os dois usarem o mesmo `client_id` e a mesma conta Google, o arquivo concedido
-via Picker deve ser alcançável por qualquer token daquele par — inclusive o
-emitido a partir do refresh token guardado no servidor.
+A implementação final tem **um grant só**. O Picker nunca autentica o usuário
+no Google — ele recebe um `access_token` de curta duração que a Edge Function
+`noradocs-drive` obtém **refrescando o mesmo refresh token** guardado na
+conexão inicial (ação `picker-token`). Não há uma segunda concessão para
+reconciliar com a primeira, porque não existe segunda concessão.
 
-O risco real não é o modelo de permissão, é **erro de conta**: o admin consente
-com uma conta e opera o Picker logado em outra. Por isso a conferência de
-igualdade de conta é requisito da tela de conexão, não item de polimento.
+Isso não é só mais simples — é estritamente mais seguro: o navegador nunca
+alterna entre logar no NoraDocs e logar no Google, então a possibilidade que
+mais preocupava ("o admin consente com uma conta e abre o Picker logado em
+outra") deixou de existir. Só há um ponto de escolha de conta: o consentimento
+inicial.
 
-### Procedimento do teste (Etapa 3)
+### Onde a verificação realmente acontece agora
 
-1. Criar o projeto no Google Cloud, ativar Drive API e Picker API, configurar a
-   tela de consentimento com o escopo `drive.file`.
-2. No navegador: consentir com `access_type=offline` e guardar o refresh token.
-3. Ainda no navegador, com a **mesma conta**, abrir o Picker e escolher uma pasta.
-4. **No servidor**, trocar o refresh token por um access token novo e chamar
-   `files.create` com `parents: [<id da pasta escolhida>]`.
-5. Sucesso = a premissa está confirmada. `404` ou `403` = ver plano B.
-
-**Plano B**, se falhar: em vez de o escritório escolher uma pasta existente, o
-NoraDocs **cria** a própria pasta raiz (`files.create` no servidor). Pasta criada
-pelo app é acessível ao app por definição, sem depender do Picker. Perde-se a
-escolha de onde a raiz fica; ganha-se independência da concessão do Picker. O
-modo "mapeamento por cliente" cairia junto, e a estrutura legada passaria a ser
-tratada só por migração manual.
+Não é mais um teste manual prévio — é uma checagem em tempo de execução, a
+cada vez que uma pasta raiz é confirmada. `noradocs-drive` (ação
+`set-root-folder`) faz `GET /drive/v3/files/{folderId}` com o access token
+recém-emitido, **antes** de gravar qualquer coisa em `noradocs_settings`. Se a
+pasta escolhida pelo Picker não for alcançável por esse token — o que só
+aconteceria se o `client_id` estivesse errado ou a API não estivesse ativada —
+a resposta vem `4xx` e a função devolve um erro explícito ao invés de gravar um
+estado quebrado. A primeira execução real desse caminho, com um projeto Google
+configurado, é o teste que a Pergunta 2 pedia — só que integrado ao fluxo, não
+descartável.
 
 ---
 

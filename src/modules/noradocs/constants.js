@@ -16,6 +16,12 @@ export function noradocsRoute(path = '') {
   return path ? `${NORADOCS_ROUTE}/${path}` : NORADOCS_ROUTE;
 }
 
+// Rota de destino do redirect do Google após o consentimento OAuth. Não é uma
+// tela de navegação normal — não entra em NAV_ITEMS, não aparece na sidebar.
+// Existe só para consumir o `code` da URL e devolver o contador para
+// Configurações.
+export const GOOGLE_CALLBACK_ROUTE = `${NORADOCS_ROUTE}/configuracoes/google/callback`;
+
 // Navegação lateral. Quatro telas, e a intenção é que continuem sendo quatro:
 // a Caixa de Entrada é o produto, o resto existe para alimentá-la.
 export const NAV_ITEMS = [

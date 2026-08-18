@@ -37,8 +37,10 @@ import {
   NoraDocsHistoricoPage,
   NoraDocsClientesPage,
   NoraDocsConfiguracoesPage,
+  NoraDocsGoogleCallbackPage,
   NORADOCS_SLUG,
   NORADOCS_ROUTE,
+  GOOGLE_CALLBACK_ROUTE,
 } from './modules/noradocs'
 import CodificadorPage from './modules/solucoes-contabeis/sistemas/codificador/CodificadorPage.jsx'
 import ConciliadorExtratosPage from './modules/solucoes-contabeis/sistemas/conciliador-extratos/ConciliadorExtratosPage.jsx'
@@ -181,6 +183,8 @@ createRoot(document.getElementById('root')).render(
           <Route path={`${NORADOCS_ROUTE}/historico`} element={<NoraDocsRoute><NoraDocsHistoricoPage /></NoraDocsRoute>} />
           <Route path={`${NORADOCS_ROUTE}/clientes`} element={<NoraDocsRoute><NoraDocsClientesPage /></NoraDocsRoute>} />
           <Route path={`${NORADOCS_ROUTE}/configuracoes`} element={<NoraDocsRoute><NoraDocsConfiguracoesPage /></NoraDocsRoute>} />
+          {/* Destino do redirect do Google após o consentimento OAuth — não é uma tela de navegação normal */}
+          <Route path={GOOGLE_CALLBACK_ROUTE} element={<NoraDocsRoute><NoraDocsGoogleCallbackPage /></NoraDocsRoute>} />
           {/* Qualquer outra sub-rota do NoraDocs volta para a caixa de entrada */}
           <Route path={`${NORADOCS_ROUTE}/*`} element={<Navigate to={NORADOCS_ROUTE} replace />} />
           {/* Catch-all: itens do catálogo sem rota dedicada caem aqui */}

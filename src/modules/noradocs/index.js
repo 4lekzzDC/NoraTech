@@ -6,6 +6,7 @@ export { default as NoraDocsInboxPage } from './pages/InboxPage.jsx';
 export { default as NoraDocsHistoricoPage } from './pages/HistoricoPage.jsx';
 export { default as NoraDocsClientesPage } from './pages/ClientesPage.jsx';
 export { default as NoraDocsConfiguracoesPage } from './pages/ConfiguracoesPage.jsx';
+export { default as NoraDocsGoogleCallbackPage } from './pages/GoogleCallbackPage.jsx';
 
 export {
   NORADOCS_SLUG,
@@ -14,5 +15,7 @@ export {
   NAV_ITEMS,
   DOCUMENT_STATUS,
   SEED_CATEGORIES,
+  REGIME_OPTIONS,
+  GOOGLE_CALLBACK_ROUTE,
   noradocsRoute,
 } from './constants.js';
