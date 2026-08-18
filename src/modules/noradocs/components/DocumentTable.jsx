@@ -82,7 +82,15 @@ export default function DocumentTable({ documentos, onAbrir }) {
                 </td>
                 <td style={td}><StatusBadge status={doc.status} P={P} /></td>
                 <td style={{ ...td, fontFamily: FONT_MONO, fontSize: '0.74rem', color: P.muted, maxWidth: 280 }}>
-                  {doc.drive_path || <span style={{ color: P.muted2 }}>em triagem</span>}
+                  {/* Sem caminho, o texto depende do status: um documento em
+                      revisão está mesmo em _triagem, mas um que falhou no
+                      envio não chegou a lugar nenhum — dizer "em triagem" ali
+                      mandaria o contador procurar um arquivo que não existe. */}
+                  {doc.drive_path || (
+                    <span style={{ color: P.muted2 }}>
+                      {doc.status === 'erro' ? 'não enviado' : 'em triagem'}
+                    </span>
+                  )}
                 </td>
               </tr>
             );

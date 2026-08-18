@@ -73,7 +73,17 @@ export default function UploadDropzone({ onArquivos, progresso, ocupado }) {
                 padding: '9px 14px', borderBottom: `1px solid ${P.border}`, fontSize: '0.83rem',
               }}
             >
-              <span style={{ fontFamily: FONT_MONO, fontSize: '0.76rem', color: P.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {/* minWidth impede que uma mensagem de erro longa comprima o
+                  nome até sobrar uma letra: num lote de 30 arquivos, saber
+                  QUAL falhou é a única informação que importa. */}
+              <span
+                title={nome}
+                style={{
+                  fontFamily: FONT_MONO, fontSize: '0.76rem', color: P.muted,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  minWidth: '9ch', flex: '1 1 auto',
+                }}
+              >
                 {nome}
               </span>
               <span style={{
