@@ -14,6 +14,11 @@ import {
   SOLUCOES_CONTABEIS_ROUTE,
   SOLUCOES_CONTABEIS_NAME,
 } from '../modules/solucoes-contabeis';
+import {
+  NORADOCS_SLUG,
+  NORADOCS_NAME,
+  NORADOCS_ROUTE,
+} from '../modules/noradocs';
 
 export const SYSTEM_LOGOS_BUCKET = 'system-logos';
 
@@ -34,6 +39,15 @@ export const SYSTEMS = [
     color: '#7C3AED',
     description: 'Gestão operacional do fechamento mensal — status de tarefas, alertas de pendências e visão gerencial por empresa.',
     url: SOLUCOES_CONTABEIS_ROUTE,
+    internal: true,
+  },
+  {
+    slug: NORADOCS_SLUG,
+    name: NORADOCS_NAME,
+    icon: '🗂️',
+    color: '#7C3AED',
+    description: 'Recebimento e organização automática de documentos: identifica cliente, competência e categoria e arquiva no Google Drive do escritório.',
+    url: NORADOCS_ROUTE,
     internal: true,
   },
 ];
