@@ -42,6 +42,24 @@ nem o nome da pasta raiz. Quem tiver o token consegue, no pior caso, empurrar
 lixo para a fila de revisão de um escritório — visível, rastreável na trilha e
 descartável em massa.
 
+**Essa garantia dependia de uma escolha de mecanismo, e quase se perdeu.** O
+caminho óbvio seria o complemento pedir um `access_token` do Drive e enviar o
+anexo, como o navegador faz. Só que um `access_token` de `drive.file` dá acesso
+de LEITURA a todos os arquivos que o NoraDocs já criou para aquele escritório —
+um token de entrada vazado passaria a ler o arquivo contábil inteiro, e a frase
+acima viraria mentira.
+
+A saída é a **URI de sessão resumable**: o servidor abre a sessão e devolve
+apenas a URL. Ela serve para criar aquele arquivo, naquela pasta, uma vez — e o
+`PUT` não precisa de cabeçalho de autorização, porque a própria URI carrega a
+autorização (documentado pelo Google; ainda não medido em campo, ver §6).
+
+E aqui está a ironia: **é exatamente o desenho que a E0 tentou usar no navegador
+e teve de abandonar.** A URL de sessão é servida por um host do Google que não
+responde CORS, e o `PUT` do navegador morria em "Failed to fetch". Mas CORS é
+política de navegador, e o `UrlFetchApp` do Apps Script é servidor. O que morreu
+lá vive aqui — e é o que sustenta o limite de dano do token.
+
 ```
 noradocs_inbound_tokens
   tenant_company_id   uuid
@@ -163,6 +181,13 @@ já provado.
 
 - **O token é credencial portadora.** Mitigado por ser de escrita e só de
   entrada, revogável, com rótulo, teto de requisições e `last_used_at` visível.
+- **O `PUT` sem autorização na URI de sessão está documentado, não medido.**
+  É a premissa que sustenta o limite de dano do token, e a lição da E0 foi
+  justamente que documentação não é medição. Se em campo o `PUT` exigir
+  cabeçalho de autorização, a resposta NÃO é emprestar o access_token ao
+  complemento — é o complemento enviar os bytes ao servidor, que os repassa.
+  Custa a propriedade de "bytes nunca passam pela NoraTech"; a alternativa
+  custaria a de "o token não lê nada", que é mais cara.
 - **Classificação mais fraca sem texto de PDF.** Aceito conscientemente: o
   remetente compensa, e o reprocessamento pelo navegador é a rede de segurança.
   Se na prática não compensar, a resposta é `pdfjs` no Deno — não IA.

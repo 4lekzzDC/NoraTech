@@ -206,3 +206,56 @@ revoke all on function public.noradocs_create_inbound_token(uuid, text) from pub
 revoke all on function public.noradocs_revoke_inbound_token(uuid)       from public, anon;
 grant execute on function public.noradocs_create_inbound_token(uuid, text) to authenticated;
 grant execute on function public.noradocs_revoke_inbound_token(uuid)       to authenticated;
+
+
+-- =========================================================================
+-- 4) Encontrar ou criar o cliente provisório
+-- =========================================================================
+-- Feito no banco, e não na Edge Function, por uma razão concreta: a chave de
+-- unicidade do provisório é um índice de EXPRESSÃO (lower(nome)), e o
+-- on_conflict do PostgREST só aceita nomes de coluna. Tentar pelo cliente HTTP
+-- daria ou um erro na primeira duplicata, ou um select-depois-insert com
+-- janela de corrida — e dois anexos da mesma empresa chegando juntos é
+-- exatamente o caso normal de uso.
+--
+-- `on conflict do nothing` seguido do select resolve os dois: quem perde a
+-- corrida encontra o cliente que o vencedor acabou de criar.
+
+create or replace function public.noradocs_cliente_provisorio(
+  p_company_id uuid,
+  p_nome       text,
+  p_origem     jsonb default '{}'::jsonb
+)
+  returns public.noradocs_clients
+  language plpgsql
+  volatile
+  security definer
+  set search_path = public
+as $$
+declare
+  v_nome    text := btrim(p_nome);
+  v_cliente public.noradocs_clients;
+begin
+  if v_nome = '' then
+    raise exception 'Nome do cliente provisório não pode ser vazio' using errcode = '22023';
+  end if;
+
+  insert into public.noradocs_clients (tenant_company_id, nome, status, origem_deteccao)
+  values (p_company_id, v_nome, 'provisorio', coalesce(p_origem, '{}'::jsonb))
+  on conflict do nothing;
+
+  select * into v_cliente
+  from public.noradocs_clients
+  where tenant_company_id = p_company_id
+    and status = 'provisorio'
+    and lower(nome) = lower(v_nome);
+
+  return v_cliente;
+end;
+$$;
+
+-- Só a Edge Function de entrada chama isto, com service_role. Nenhum usuário
+-- do navegador cria cliente provisório — provisório nasce de uma detecção,
+-- não de um formulário.
+revoke all on function public.noradocs_cliente_provisorio(uuid, text, jsonb) from public, anon, authenticated;
+grant execute on function public.noradocs_cliente_provisorio(uuid, text, jsonb) to service_role;
