@@ -6,8 +6,10 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import CategoriesCard from '../components/CategoriesCard';
 import FolderTemplateCard from '../components/FolderTemplateCard';
 import GoogleConnectionCard from '../components/GoogleConnectionCard';
+import InboundTokensCard from '../components/InboundTokensCard';
 import NoraDocsLayout from '../components/NoraDocsLayout';
 import { createCategory, deleteCategory, listCategories, updateCategory } from '../services/categories.service';
+import { listarTokens } from '../services/inbound.service';
 import { fetchFolderSettings } from '../services/settings.service';
 import { resolveTenant } from '../services/tenant';
 import { getPalette } from '../theme';
@@ -22,6 +24,7 @@ export default function ConfiguracoesPage() {
   const [carregando, setCarregando] = useState(true);
   const [template, setTemplate] = useState('');
   const [categorias, setCategorias] = useState([]);
+  const [tokens, setTokens] = useState([]);
 
   useEffect(() => {
     let ativo = true;
@@ -29,13 +32,19 @@ export default function ConfiguracoesPage() {
       const [{ tenantId: id }, membership] = await Promise.all([resolveTenant(), getCurrentMembership()]);
       if (!ativo || !id) { setCarregando(false); return; }
 
-      const [settings, cats] = await Promise.all([fetchFolderSettings(id), listCategories(id)]);
+      // A RLS de noradocs_inbound_tokens só deixa dono/admin ler. Para membro
+      // comum a consulta volta vazia, sem erro — o card mostra a explicação em
+      // vez de uma lista que ele nunca poderia ver.
+      const [settings, cats, toks] = await Promise.all([
+        fetchFolderSettings(id), listCategories(id), listarTokens(id),
+      ]);
       if (!ativo) return;
 
       setTenantId(id);
       setIsManager(membership?.role === 'owner' || membership?.role === 'admin');
       setTemplate(settings?.folder_template || '');
       setCategorias(cats);
+      setTokens(toks);
       setCarregando(false);
     })();
     return () => { ativo = false; };
@@ -43,6 +52,10 @@ export default function ConfiguracoesPage() {
 
   async function recarregarCategorias() {
     setCategorias(await listCategories(tenantId));
+  }
+
+  async function recarregarTokens() {
+    setTokens(await listarTokens(tenantId));
   }
 
   async function alterarCategoria(id, patch) {
@@ -113,6 +126,14 @@ export default function ConfiguracoesPage() {
             onUpdate={alterarCategoria}
             onCreate={adicionarCategoria}
             onDelete={excluirCategoria}
+          />
+
+          <InboundTokensCard
+            tenantId={tenantId}
+            tokens={tokens}
+            isManager={isManager}
+            showToast={showToast}
+            onMudou={recarregarTokens}
           />
         </div>
       )}

@@ -17,6 +17,10 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /.*\/lib\/supabase$/, replacement: m('supabase.js') },
+      { find: /.*\/lib\/subscriptions$/, replacement: m('subscriptions.js') },
+      { find: /.*\/services\/settings\.service$/, replacement: m('settings.service.js') },
+      { find: /.*\/services\/categories\.service$/, replacement: m('categories.service.js') },
+      { find: /.*\/services\/inbound\.service$/, replacement: m('inbound.service.js') },
       { find: /.*\/services\/documents\.service$/, replacement: m('documents.service.js') },
       { find: /.*\/services\/review\.service$/, replacement: m('review.service.js') },
       { find: /.*\/services\/googleDrive\.service$/, replacement: m('googleDrive.service.js') },

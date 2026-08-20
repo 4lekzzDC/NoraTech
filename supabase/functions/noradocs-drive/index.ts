@@ -4,8 +4,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 // servidor. Cinco ações:
 //
 //   picker-token       empresta um access_token curto para o Picker abrir
-//   set-root-folder    confirma a pasta raiz escolhida e cria a _triagem
-//   ensure-folder-path caminha/cria a árvore de pastas do destino, com cache
+//   set-root-folder    confirma a raiz e cria _triagem e _verificação
+//   ensure-folder-path caminha/cria a árvore do destino, com cache; a base é
+//                      a raiz, _triagem ou _verificação
 //   upload-token       empresta um access_token curto para o envio direto
 //   move-file          troca o pai do arquivo — de _triagem para o destino
 //
@@ -33,6 +34,10 @@ const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const DRIVE_FILES_URL = 'https://www.googleapis.com/drive/v3/files';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 const STAGING_FOLDER_NAME = '_triagem';
+// Irmã de _triagem, com propósito diferente: _triagem guarda o que não foi
+// identificado; _verificação guarda o que foi identificado como uma empresa
+// que ainda não é cliente. Num falta informação, no outro falta cadastro.
+const VERIFICACAO_FOLDER_NAME = '_verificação';
 
 async function refreshAccessToken(refreshToken: string, clientId: string, clientSecret: string) {
   const res = await fetch(TOKEN_URL, {
@@ -193,31 +198,16 @@ Deno.serve(async (req) => {
         return json({ error: 'O item escolhido não é uma pasta.' }, 400);
       }
 
-      // Busca antes de criar: um clique duplo (ou reconfirmar a mesma pasta
-      // depois) não deve gerar duas "_triagem" na mesma raiz.
-      const searchRes = await fetch(
-        `${DRIVE_FILES_URL}?q=${encodeURIComponent(
-          `'${escapeDriveQuery(folderId)}' in parents and name='${STAGING_FOLDER_NAME}' `
-          + `and mimeType='${FOLDER_MIME}' and trashed=false`
-        )}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-      );
-      const searchData = await searchRes.json().catch(() => ({ files: [] }));
-      let stagingId = searchData.files?.[0]?.id as string | undefined;
-
-      if (!stagingId) {
-        const createRes = await fetch(`${DRIVE_FILES_URL}?supportsAllDrives=true`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: STAGING_FOLDER_NAME, mimeType: FOLDER_MIME, parents: [folderId] }),
-        });
-        if (!createRes.ok) {
-          const errBody = await createRes.text().catch(() => '');
-          console.error('[noradocs-drive] staging create failed', createRes.status, errBody);
-          return json({ error: 'Pasta raiz confirmada, mas não foi possível criar a subpasta de triagem.' }, 500);
-        }
-        const created = await createRes.json();
-        stagingId = created.id;
+      // ensureChildFolder busca antes de criar, então reconfirmar a mesma raiz
+      // (ou um clique duplo) não gera pastas repetidas.
+      let stagingId: string;
+      let verificacaoId: string;
+      try {
+        stagingId = await ensureChildFolder(accessToken, folderId, STAGING_FOLDER_NAME);
+        verificacaoId = await ensureChildFolder(accessToken, folderId, VERIFICACAO_FOLDER_NAME);
+      } catch (err) {
+        console.error('[noradocs-drive] subpastas da raiz', err);
+        return json({ error: 'Pasta raiz confirmada, mas não foi possível criar as subpastas de trabalho.' }, 500);
       }
 
       const { error: upErr } = await admin.from('noradocs_settings').upsert({
@@ -225,31 +215,75 @@ Deno.serve(async (req) => {
         drive_root_folder_id: folderId,
         drive_root_folder_name: folder.name || folderName || null,
         drive_staging_folder_id: stagingId,
+        drive_verificacao_folder_id: verificacaoId,
       }, { onConflict: 'tenant_company_id' });
       if (upErr) throw upErr;
 
-      return json({ rootFolderId: folderId, rootFolderName: folder.name, stagingFolderId: stagingId });
+      return json({
+        rootFolderId: folderId,
+        rootFolderName: folder.name,
+        stagingFolderId: stagingId,
+        verificacaoFolderId: verificacaoId,
+      });
     }
 
     if (action === 'ensure-folder-path') {
       const segments = Array.isArray(body?.segments) ? (body.segments as string[]) : [];
-      const useStaging = body?.staging === true;
+
+      // Três pontos de partida possíveis. `staging: true` é a forma antiga e
+      // continua entendida: durante a janela entre implantar esta função e
+      // implantar o frontend novo, o navegador em produção ainda a envia.
+      const base = String(body?.base || (body?.staging === true ? 'triagem' : 'raiz'));
+      if (!['raiz', 'triagem', 'verificacao'].includes(base)) {
+        return json({ error: 'base inválida' }, 400);
+      }
 
       const { data: settings } = await admin
         .from('noradocs_settings')
-        .select('drive_root_folder_id, drive_staging_folder_id')
+        .select('drive_root_folder_id, drive_staging_folder_id, drive_verificacao_folder_id')
         .eq('tenant_company_id', tenantId)
         .maybeSingle();
 
-      const rootId = useStaging ? settings?.drive_staging_folder_id : settings?.drive_root_folder_id;
-      if (!rootId) {
+      if (!settings?.drive_root_folder_id) {
         return json({ error: 'O escritório ainda não escolheu a pasta raiz no Google Drive.' }, 400);
       }
+
+      let rootId: string | null | undefined = {
+        raiz: settings.drive_root_folder_id,
+        triagem: settings.drive_staging_folder_id,
+        verificacao: settings.drive_verificacao_folder_id,
+      }[base];
+
+      // Escritório que configurou a raiz antes de _verificação existir não tem
+      // a pasta. Criar aqui, na primeira necessidade, evita obrigá-lo a
+      // reconfigurar a conexão só para ganhar uma subpasta.
+      if (!rootId && base === 'verificacao') {
+        rootId = await ensureChildFolder(accessToken, settings.drive_root_folder_id, VERIFICACAO_FOLDER_NAME);
+        await admin.from('noradocs_settings')
+          .update({ drive_verificacao_folder_id: rootId })
+          .eq('tenant_company_id', tenantId);
+      }
+      if (!rootId) {
+        return json({ error: 'A pasta de trabalho do escritório não foi encontrada no Drive.' }, 400);
+      }
+
       // Documento duvidoso vai inteiro para _triagem, sem árvore: o caminho
       // definitivo só é conhecido depois que alguém confirma a classificação.
-      if (useStaging || segments.length === 0) return json({ folderId: rootId, path: null });
+      // Já em _verificação a árvore É construída — a empresa foi identificada,
+      // o que falta é o cadastro dela.
+      if (base === 'triagem' || segments.length === 0) return json({ folderId: rootId, path: null });
 
+      // O prefixo da base entra na chave do cache: "Aurora/2026/08" dentro de
+      // _verificação é uma pasta diferente de "Aurora/2026/08" na raiz, e sem
+      // isto a segunda reusaria o id da primeira e o documento iria parar na
+      // árvore errada.
       const path = segments.join('/');
+      const chaveCache = base === 'raiz' ? path : `${base}:${path}`;
+
+      // O que volta daqui vira a coluna "Destino" na tela. Devolver
+      // "Aurora/2026/08" para algo que está dentro de _verificação mandaria o
+      // contador procurar a pasta na árvore de clientes, onde ela não está.
+      const pathExibido = base === 'verificacao' ? `${VERIFICACAO_FOLDER_NAME}/${path}` : path;
 
       // Cache: evita percorrer o Drive a cada arquivo do mesmo cliente e
       // mês — que é o padrão real de uso, lotes de dezenas de uma vez.
@@ -257,9 +291,9 @@ Deno.serve(async (req) => {
         .from('noradocs_drive_folders')
         .select('drive_folder_id')
         .eq('tenant_company_id', tenantId)
-        .eq('path', path)
+        .eq('path', chaveCache)
         .maybeSingle();
-      if (cached?.drive_folder_id) return json({ folderId: cached.drive_folder_id, path, cached: true });
+      if (cached?.drive_folder_id) return json({ folderId: cached.drive_folder_id, path: pathExibido, cached: true });
 
       // Caminha a árvore criando o que faltar, e memoriza cada nível — não só
       // o final: o próximo documento do mesmo cliente em outro mês já acha o
@@ -268,7 +302,7 @@ Deno.serve(async (req) => {
       const acumulado: string[] = [];
       for (const segment of segments) {
         acumulado.push(segment);
-        const parcial = acumulado.join('/');
+        const parcial = base === 'raiz' ? acumulado.join('/') : `${base}:${acumulado.join('/')}`;
 
         const { data: cachedLevel } = await admin
           .from('noradocs_drive_folders')
@@ -292,7 +326,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      return json({ folderId: parentId, path });
+      return json({ folderId: parentId, path: pathExibido });
     }
 
     if (action === 'upload-token') {
