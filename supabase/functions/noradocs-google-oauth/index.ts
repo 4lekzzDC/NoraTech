@@ -5,9 +5,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 // repositório, nunca visível ao navegador.
 //
 // O tenant NUNCA vem do corpo da requisição: é resolvido a partir da
-// membresia ativa de quem chama, do mesmo jeito que o resto do NoraTech
-// resolve "minha empresa" (ver src/lib/subscriptions.js). Um corpo malicioso
-// não consegue apontar para o escritório de outra pessoa.
+// membresia de quem chama, do mesmo jeito que o resto do NoraTech resolve
+// "minha empresa" (ver src/lib/companies.js). Um corpo malicioso não
+// consegue apontar para o escritório de outra pessoa.
 //
 // Self-contained de propósito (sem import de ../_shared/): evita qualquer
 // ambiguidade de resolução de caminho relativo no empacotamento remoto desta
@@ -61,14 +61,22 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { return json({ error: 'Corpo inválido' }, 400); }
   const action = body?.action;
 
-  const { data: membership } = await caller
+  // A MESMA regra de src/lib/companies.js (fetchMyCompany): membresia mais
+  // recente, preferindo a ativa. Não é detalhe — se o servidor escolhesse o
+  // escritório por outro critério, quem pertence a dois veria a tela de um e
+  // teria os documentos arquivados no Drive do outro. E o `.maybeSingle()`
+  // que estava aqui não escolhia nada: com duas membresias o PostgREST
+  // devolve erro, e o usuário levava um "você não pertence a nenhum
+  // escritório" que era falso.
+  const { data: membresias } = await caller
     .from('company_members')
-    .select('company_id')
+    .select('company_id, status, created_at')
     .eq('user_id', user.id)
-    .eq('status', 'active')
-    .maybeSingle();
+    .in('status', ['active', 'pending'])
+    .order('created_at', { ascending: false });
+  const membership = (membresias || []).find((m) => m.status === 'active') || (membresias || [])[0];
   const tenantId = membership?.company_id as string | undefined;
-  if (!tenantId) return json({ error: 'Você não pertence a nenhum escritório ativo.' }, 400);
+  if (!tenantId) return json({ error: 'Você não pertence a nenhum escritório.' }, 400);
 
   const { data: canManage } = await caller.rpc('has_noradocs_manage', { p_company_id: tenantId });
   if (!canManage) {

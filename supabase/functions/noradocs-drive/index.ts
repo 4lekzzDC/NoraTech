@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 // Operações do NoraDocs sobre o Drive do escritório que exigem o token do
-// servidor. Quatro ações:
+// servidor. Cinco ações:
 //
 //   picker-token       empresta um access_token curto para o Picker abrir
 //   set-root-folder    confirma a pasta raiz escolhida e cria a _triagem
@@ -48,7 +48,9 @@ async function refreshAccessToken(refreshToken: string, clientId: string, client
 }
 
 // Aspas simples fecham o literal na sintaxe de busca do Drive. Uma pasta de
-// cliente chamada "D'Angelo Ltda" montaria uma query quebrada sem isto.
+// cliente chamada "D'Angelo Ltda" montaria uma query quebrada sem isto — e
+// todo valor que entra numa query aqui vem do corpo da requisição, então
+// nenhum deles pode ser interpolado cru, nem os que "sempre" são ids.
 function escapeDriveQuery(value: string) {
   return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
@@ -106,14 +108,22 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { return json({ error: 'Corpo inválido' }, 400); }
   const action = body?.action;
 
-  const { data: membership } = await caller
+  // A MESMA regra de src/lib/companies.js (fetchMyCompany): membresia mais
+  // recente, preferindo a ativa. Não é detalhe — se o servidor escolhesse o
+  // escritório por outro critério, quem pertence a dois veria a tela de um e
+  // teria os documentos arquivados no Drive do outro. E o `.maybeSingle()`
+  // que estava aqui não escolhia nada: com duas membresias o PostgREST
+  // devolve erro, e o usuário levava um "você não pertence a nenhum
+  // escritório" que era falso.
+  const { data: membresias } = await caller
     .from('company_members')
-    .select('company_id')
+    .select('company_id, status, created_at')
     .eq('user_id', user.id)
-    .eq('status', 'active')
-    .maybeSingle();
+    .in('status', ['active', 'pending'])
+    .order('created_at', { ascending: false });
+  const membership = (membresias || []).find((m) => m.status === 'active') || (membresias || [])[0];
   const tenantId = membership?.company_id as string | undefined;
-  if (!tenantId) return json({ error: 'Você não pertence a nenhum escritório ativo.' }, 400);
+  if (!tenantId) return json({ error: 'Você não pertence a nenhum escritório.' }, 400);
 
   // Duas alçadas diferentes, de propósito. CONFIGURAR a conexão (escolher a
   // pasta raiz, abrir o seletor) é decisão de quem responde pela conta do
@@ -170,7 +180,7 @@ Deno.serve(async (req) => {
       // Confirma que o token do servidor realmente alcança a pasta que o
       // Picker devolveu, e que é mesmo uma pasta.
       const folderRes = await fetch(
-        `${DRIVE_FILES_URL}/${folderId}?fields=id,name,mimeType&supportsAllDrives=true`,
+        `${DRIVE_FILES_URL}/${encodeURIComponent(folderId)}?fields=id,name,mimeType&supportsAllDrives=true`,
         { headers: { Authorization: `Bearer ${accessToken}` } },
       );
       if (!folderRes.ok) {
@@ -187,7 +197,8 @@ Deno.serve(async (req) => {
       // depois) não deve gerar duas "_triagem" na mesma raiz.
       const searchRes = await fetch(
         `${DRIVE_FILES_URL}?q=${encodeURIComponent(
-          `'${folderId}' in parents and name='${STAGING_FOLDER_NAME}' and mimeType='${FOLDER_MIME}' and trashed=false`
+          `'${escapeDriveQuery(folderId)}' in parents and name='${STAGING_FOLDER_NAME}' `
+          + `and mimeType='${FOLDER_MIME}' and trashed=false`
         )}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
         { headers: { Authorization: `Bearer ${accessToken}` } },
       );
@@ -311,7 +322,7 @@ Deno.serve(async (req) => {
       // id, o mesmo link e o mesmo histórico. Por isso é preciso saber de
       // qual pasta ele sai — addParents sozinho deixaria o arquivo nas duas.
       const atualRes = await fetch(
-        `${DRIVE_FILES_URL}/${fileId}?fields=id,parents&supportsAllDrives=true`,
+        `${DRIVE_FILES_URL}/${encodeURIComponent(fileId)}?fields=id,parents&supportsAllDrives=true`,
         { headers: { Authorization: `Bearer ${accessToken}` } },
       );
       if (!atualRes.ok) {
@@ -329,8 +340,8 @@ Deno.serve(async (req) => {
       }
 
       const moveRes = await fetch(
-        `${DRIVE_FILES_URL}/${fileId}?addParents=${destinoId}`
-        + `${paisAtuais ? `&removeParents=${paisAtuais}` : ''}`
+        `${DRIVE_FILES_URL}/${encodeURIComponent(fileId)}?addParents=${encodeURIComponent(destinoId)}`
+        + `${paisAtuais ? `&removeParents=${encodeURIComponent(paisAtuais)}` : ''}`
         + '&fields=id,name,webViewLink&supportsAllDrives=true',
         { method: 'PATCH', headers: { Authorization: `Bearer ${accessToken}` } },
       );
