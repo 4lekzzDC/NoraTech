@@ -168,7 +168,7 @@ seguem apontando para o mesmo `client_id`; nada é reprocessado.
 | **E10** ✅ | `noradocs_inbound_tokens`, cliente provisório, raiz `_verificação`; tela de tokens em Configurações | O escritório gera, vê e revoga um token |
 | **E11** ✅ | Edge Function `noradocs-inbound`: valida token, classifica com `domain/*`, cria provisório se preciso, envia ao Drive | Um `curl` com anexo cai na pasta certa e aparece na caixa de entrada |
 | **E12** ✅ | Seção *Em verificação* em Clientes: confirmar, fundir, mover a pasta | Confirmar um provisório move a pasta e some da seção |
-| **E13** | O complemento Apps Script: cartão no painel do Gmail, primeiro uso com o token, botão de arquivar | Contador arquiva um anexo sem sair do Gmail |
+| **E13** ✅ | O complemento Apps Script: cartão no painel do Gmail, primeiro uso com o token, botão de arquivar | Código em `addon/`. A implantação é na conta Google do escritório — ver `complemento-gmail.md` |
 | **E14** | Publicação no Workspace Marketplace | Complemento instalável por outro escritório |
 
 E11 é o coração e dá para exercitar inteiro por `curl`, sem depender do
