@@ -1,0 +1,43 @@
+// Dublês dos serviços, para abrir a caixa de entrada sem banco nem Google.
+const clients = [
+  { id: 'c1', nome: 'Silva Comércio ME', cnpj: '12345678000190' },
+  { id: 'c2', nome: "D'Angelo Transportes Ltda", cnpj: '98765432000110' },
+  { id: 'c3', nome: 'Padaria Aurora', cnpj: '11222333000181' },
+];
+const categories = [
+  { id: 'k1', nome: 'Extratos bancários' },
+  { id: 'k2', nome: 'Notas fiscais' },
+  { id: 'k3', nome: 'Folha' },
+];
+
+const docs = [
+  { id: 'd1', file_name: 'extrato_itau_08-2026.pdf', status: 'revisar', competencia: '2026-08',
+    client: clients[0], category: categories[0], drive_path: null, matched: { pendencias: [] },
+    review_reason: null },
+  { id: 'd2', file_name: 'documento-sem-nome.pdf', status: 'revisar', competencia: null,
+    client: null, category: null, drive_path: null, matched: { pendencias: ['cliente', 'categoria'] },
+    review_reason: 'CNPJ não encontrado no texto nem no nome do arquivo' },
+  { id: 'd3', file_name: 'NFe_98765432000110_072026.xml', status: 'revisar', competencia: '2026-07',
+    client: clients[1], category: categories[1], drive_path: null, matched: { pendencias: [] },
+    review_reason: null },
+  { id: 'd4', file_name: 'folha-aurora-agosto.pdf', status: 'erro', competencia: '2026-08',
+    client: clients[2], category: categories[2], drive_path: null, matched: { pendencias: [] },
+    review_reason: null, error_message: 'O Google recusou o envio do arquivo (403).' },
+  { id: 'd5', file_name: 'extrato_bradesco_08-2026.pdf', status: 'revisar', competencia: '2026-08',
+    client: clients[0], category: categories[0], drive_path: null, matched: { pendencias: [] },
+    review_reason: null },
+];
+
+export const documentsService = {
+  listDocuments: async ({ status }) => (status ? docs.filter((d) => d.status === status) : docs),
+  countByStatus: async () => ({ revisar: 4, erro: 1 }),
+  fetchContextoDeClassificacao: async () => ({ clients, categories, rules: [] }),
+  fetchSettingsCompletas: async () => ({ drive_root_folder_id: 'root', folder_template: '{cliente}/{ano}/{mes}', auto_organize: true }),
+};
+export const reviewService = {
+  confirmarDocumento: async () => {}, criarRegra: async () => {},
+  descartarDocumento: async () => {}, reprocessarDocumento: async () => true,
+};
+export const driveService = { fetchConnectionStatus: async () => ({ account: { status: 'connected', google_email: 'escritorio@exemplo.com' }, settings: {} }) };
+export const tenantService = { resolveTenant: async () => ({ tenantId: 't1', ready: true }) };
+export const uploadService = { processarArquivo: async () => ({ status: 'organizado' }) };

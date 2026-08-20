@@ -1,0 +1,28 @@
+{
+  "timeZone": "America/Sao_Paulo",
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/gmail.addons.current.message.readonly",
+    "https://www.googleapis.com/auth/gmail.addons.execute",
+    "https://www.googleapis.com/auth/script.external_request"
+  ],
+  "addOns": {
+    "common": {
+      "name": "NoraDocs",
+      "logoUrl": "https://www.gstatic.com/images/icons/material/system/2x/folder_shared_black_24dp.png",
+      "useLocaleFromApp": true,
+      "homepageTrigger": {
+        "runFunction": "aoAbrirInicio"
+      }
+    },
+    "gmail": {
+      "contextualTriggers": [
+        {
+          "unconditional": {},
+          "onTriggerFunction": "aoAbrirMensagem"
+        }
+      ]
+    }
+  }
+}

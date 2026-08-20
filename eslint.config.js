@@ -26,4 +26,14 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    // Os testes rodam sob `node --test`, não no navegador: globais como
+    // Buffer e process existem lá e não aqui. Sem esta declaração o lint
+    // reprova código correto, e a saída é escrever o teste torto para
+    // agradá-lo.
+    files: ['**/*.test.js'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 ])

@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "test": "node --test \"src/**/*.test.js\"",
+    "preview": "vite preview",
+    "preview:ui": "vite --config vite.preview.config.js",
+    "sync:edge-domain": "for f in cnpj texto competencia rules folderTemplate destino; do cp \"src/modules/noradocs/domain/$f.js\" supabase/functions/noradocs-inbound/domain/; done"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.8.0",

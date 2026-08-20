@@ -32,6 +32,16 @@ import {
   SOLUCOES_CONTABEIS_ROUTE,
   ACOMPANHAMENTO_CONTABIL_LEGACY_ROUTE,
 } from './modules/solucoes-contabeis'
+import {
+  NoraDocsInboxPage,
+  NoraDocsHistoricoPage,
+  NoraDocsClientesPage,
+  NoraDocsConfiguracoesPage,
+  NoraDocsGoogleCallbackPage,
+  NORADOCS_SLUG,
+  NORADOCS_ROUTE,
+  GOOGLE_CALLBACK_ROUTE,
+} from './modules/noradocs'
 import CodificadorPage from './modules/solucoes-contabeis/sistemas/codificador/CodificadorPage.jsx'
 import ConciliadorExtratosPage from './modules/solucoes-contabeis/sistemas/conciliador-extratos/ConciliadorExtratosPage.jsx'
 import ConciliadorFornecedoresPage from './modules/solucoes-contabeis/sistemas/conciliador-fornecedores/ConciliadorFornecedoresPage.jsx'
@@ -76,6 +86,13 @@ function SolucoesContabeisRoute({ moduleSlug, children }) {
       {children}
     </SubscriptionRoute>
   )
+}
+
+// Gate de assinatura do NoraDocs. Produto comercial separado do hub Soluções
+// Contábeis: slug próprio, assinatura própria. Sem `moduleSlug` — o NoraDocs é
+// vendido inteiro, não por módulo.
+function NoraDocsRoute({ children }) {
+  return <SubscriptionRoute systemSlug={NORADOCS_SLUG}>{children}</SubscriptionRoute>
 }
 
 createRoot(document.getElementById('root')).render(
@@ -161,6 +178,15 @@ createRoot(document.getElementById('root')).render(
             path={`${SOLUCOES_CONTABEIS_ROUTE}/calculadora-irpj-csll`}
             element={<SolucoesContabeisRoute moduleSlug="calculadora-irpj-csll"><CalculadoraIrpjCsllPage /></SolucoesContabeisRoute>}
           />
+          {/* NoraDocs — organização automática de documentos no Google Drive */}
+          <Route path={NORADOCS_ROUTE} element={<NoraDocsRoute><NoraDocsInboxPage /></NoraDocsRoute>} />
+          <Route path={`${NORADOCS_ROUTE}/historico`} element={<NoraDocsRoute><NoraDocsHistoricoPage /></NoraDocsRoute>} />
+          <Route path={`${NORADOCS_ROUTE}/clientes`} element={<NoraDocsRoute><NoraDocsClientesPage /></NoraDocsRoute>} />
+          <Route path={`${NORADOCS_ROUTE}/configuracoes`} element={<NoraDocsRoute><NoraDocsConfiguracoesPage /></NoraDocsRoute>} />
+          {/* Destino do redirect do Google após o consentimento OAuth — não é uma tela de navegação normal */}
+          <Route path={GOOGLE_CALLBACK_ROUTE} element={<NoraDocsRoute><NoraDocsGoogleCallbackPage /></NoraDocsRoute>} />
+          {/* Qualquer outra sub-rota do NoraDocs volta para a caixa de entrada */}
+          <Route path={`${NORADOCS_ROUTE}/*`} element={<Navigate to={NORADOCS_ROUTE} replace />} />
           {/* Catch-all: itens do catálogo sem rota dedicada caem aqui */}
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/:slug`}
