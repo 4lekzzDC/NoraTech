@@ -675,16 +675,16 @@ conteúdo para fora. Não foram mitigados — foram **removidos por construção
 
 | Etapa | Entrega | Definição de pronto |
 |-------|---------|---------------------|
-| **E0 · Spike + fundação** | **Primeiro**: validar CORS do `PUT` na sessão resumable e a concessão do Picker sobre o refresh token. Depois: slug `noradocs` no catálogo e na tabela `systems`, rota com gate de assinatura, esqueleto do módulo, paleta promovida para `src/lib/palette.js`, layout com sidebar | O spike responde sim/não por escrito antes de qualquer outro código. `/noradocs` acessível com assinatura ativa |
-| **E1 · Banco** | Migration com as tabelas `noradocs_*`, RLS, `has_noradocs_access`, categorias-semente | Migration aplicada; `get_advisors` sem alerta de segurança |
-| **E2 · Clientes** | CRUD de `noradocs_clients` com CNPJ, apelidos e contatos; importação do módulo contábil | Escritório cadastra e edita clientes; CNPJ validado por dígito |
+| **E0 · Spike + fundação** ✅ | **Primeiro**: validar CORS do `PUT` na sessão resumable e a concessão do Picker sobre o refresh token. Depois: slug `noradocs` no catálogo e na tabela `systems`, rota com gate de assinatura, esqueleto do módulo, paleta promovida para `src/lib/palette.js`, layout com sidebar | O spike responde sim/não por escrito antes de qualquer outro código. `/noradocs` acessível com assinatura ativa |
+| **E1 · Banco** ✅ | Migration com as tabelas `noradocs_*`, RLS, `has_noradocs_access`, categorias-semente | Migration aplicada; `get_advisors` sem alerta de segurança |
+| **E2 · Clientes** ✅ | CRUD de `noradocs_clients` com CNPJ, apelidos e contatos; importação do módulo contábil | Escritório cadastra e edita clientes; CNPJ validado por dígito |
 | **E3 · Conexão Google** ✅ | OAuth `drive.file`, Picker, `noradocs_google_accounts`, tela de conexão com o aviso de estrutura legada, criação do `_triagem` | Escritório conecta, escolhe a raiz, vê status e e-mail conectado |
 | **E4 · Estrutura de pastas** ✅ | Template com tokens, pré-visualização ao vivo, categorias editáveis | Salvar template e ver o caminho de exemplo; categorias com ordem, nome e palavras-chave |
-| **E5 · Motor de regras** | `domain/rules.js` puro — CNPJ, apelidos, competência, categorias — com suíte de testes em `node --test` (sem dependência nova) | Dado um nome e um texto, a função devolve cliente, competência e categoria ou `null` justificado. `npm test` verde |
+| **E5 · Motor de regras** ✅ | `domain/rules.js` puro — CNPJ, apelidos, competência, categorias — com suíte de testes em `node --test` (sem dependência nova) | Dado um nome e um texto, a função devolve cliente, competência e categoria ou `null` justificado. `npm test` verde |
 | **E6 · Upload + caixa de entrada** ✅ | Dropzone, hash, extração de texto, classificação local, `ensureFolderPath` + cache, sessão resumable, gravação de metadados, tabela da inbox | Arquivo identificado nasce na pasta final; duvidoso vai para `_triagem` e aparece como "Revisar" |
 | **E7 · Revisão e histórico** ✅ | Drawer de revisão, confirmação individual e em lote, move no Drive, eventos, tela de histórico com filtros, "criar regra para os próximos" | Documento confirmado aparece na pasta final; o histórico conta a trilha completa |
 | **E8 · Resiliência** ✅ | Erros com causa legível, retry, reconexão do Drive, deduplicação por hash, divergência de `drive_file_id` | Erro é visível, explicado e reprocessável |
-| **E9 · Acabamento** | Atalhos de teclado, estados vazios, responsividade, `DOCS.md`, revisão de segurança | Fluxo completo executado ponta a ponta por um contador real |
+| **E9 · Acabamento** | Atalhos de teclado, estados vazios, responsividade, `DOCS.md`, revisão de segurança | Entregas feitas. A definição de pronto — fluxo completo executado por um contador real — depende de uso em campo, não de código |
 
 > **Decisão tomada na E5:** o projeto passou a ter testes automatizados, e a
 > escolha foi `node --test` — o runner que já vem no Node 22, sem adicionar
@@ -730,8 +730,23 @@ externa do Google para começar.
 
 ## Próximo passo
 
-Aprovado o documento, a **Etapa 0 começa pelo spike** — CORS do `PUT` na sessão
-resumable e validade da concessão do Picker sobre o refresh token. São as duas
-únicas premissas do desenho que ainda não têm confirmação documental, e ambas se
-respondem em algumas dezenas de linhas de código descartável. Só depois disso
-vale escrever qualquer coisa que dependa delas.
+O MVP está construído: E0 a E9 entregues, `npm test` verde, funções
+implantadas. O manual de operação está em `DOCS.md`.
+
+O que decide o que vem depois **não é código, é uso**. A E9 tem uma definição
+de pronto que nenhuma linha a mais satisfaz — um contador percorrendo o fluxo
+inteiro com documentos de verdade. É esse uso que vai dizer:
+
+- **se a fila de revisão encolhe.** O mecanismo de aprendizado é o "criar
+  regra para os próximos". Se depois de algumas semanas a fila continuar do
+  mesmo tamanho, o problema está nos sinais que as regras leem — e é aí, com
+  casos reais na mão, que se discute se vale abrir a exceção da IA opcional.
+- **se a estrutura de pastas padrão serve.** `{cliente}/{ano}/{competencia}/{categoria}`
+  é um palpite informado, não uma constatação.
+- **se 25 MB e a ausência de OCR incomodam de fato**, ou só na teoria.
+
+A **etapa 2** já tem direção escolhida e nada construído: o complemento do
+Gmail, com o contador **selecionando** os e-mails — nunca monitoramento
+contínuo da caixa. O pipeline não muda: a coluna `origem` já aceita `'email'` e
+o caminho a partir do arquivo é o mesmo. A comparação entre extensão de
+navegador e Apps Script está em `integracao-google.md`.
