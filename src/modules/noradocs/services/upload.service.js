@@ -116,13 +116,24 @@ export async function processarArquivo(file, { tenantId, settings, contexto, onE
   // há por que extrair texto, criar pasta nem gastar uma sessão de upload.
   const { data: jaExiste } = await supabase
     .from('noradocs_documents')
-    .select('id, file_name, status')
+    .select('id, file_name, status, drive_path')
     .eq('tenant_company_id', tenantId)
     .eq('content_hash', contentHash)
     .neq('status', 'descartado')
     .maybeSingle();
   if (jaExiste) {
-    const erro = new Error(`Este arquivo já foi recebido antes, como "${jaExiste.file_name}".`);
+    // A mensagem precisa dar SAÍDA, não só constatar o bloqueio. Sem isso a
+    // deduplicação vira beco sem saída: quem apagou o arquivo no Drive e
+    // tenta reenviar não tem como saber que o caminho é descartar o registro
+    // antigo — e o registro em si é invisível, porque o nome do arquivo pode
+    // ter mudado no meio do caminho.
+    const onde = jaExiste.drive_path
+      ? `arquivado em ${jaExiste.drive_path}`
+      : `com status "${jaExiste.status}"`;
+    const erro = new Error(
+      `Já recebido antes como "${jaExiste.file_name}" (${onde}). `
+      + 'Se aquele arquivo não existe mais, descarte o registro no Histórico para poder reenviar.'
+    );
     erro.code = 'duplicado';
     erro.documentoExistente = jaExiste;
     throw erro;

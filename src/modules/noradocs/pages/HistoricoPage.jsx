@@ -1,9 +1,11 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
+import { ToastHost } from '../../../components/Toast';
+import { useToasts } from '../../../lib/useToasts';
 import { useTheme } from '../../../contexts/ThemeContext';
 import NoraDocsLayout from '../components/NoraDocsLayout';
 import { competenciaLegivel } from '../domain/competencia';
 import { fetchContextoDeClassificacao, listHistorico } from '../services/documents.service';
-import { listarEventos, verificarNoDrive } from '../services/review.service';
+import { descartarDocumento, listarEventos, verificarNoDrive } from '../services/review.service';
 import { resolveTenant } from '../services/tenant';
 import { getPalette, FONT_MONO } from '../theme';
 
@@ -130,14 +132,20 @@ export default function HistoricoPage() {
   const [clients, setClients] = useState([]);
   const [filtros, setFiltros] = useState({ clientId: '', competencia: '', status: '', busca: '' });
   const [expandido, setExpandido] = useState(null);
+  const [descartando, setDescartando] = useState(null);
+  const { toasts, showToast, dismissToast } = useToasts();
 
+  // Uma consulta que falha não pode virar "nenhum documento": o histórico
+  // vazio é uma afirmação sobre o arquivo do escritório, e afirmá-la quando
+  // na verdade a busca quebrou é mentir para quem está procurando um papel.
   const buscar = useCallback(async (f) => {
     try {
       setDocumentos(await listHistorico(f));
-    } catch {
+    } catch (err) {
       setDocumentos([]);
+      showToast(err.message, 'error');
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     let ativo = true;
@@ -154,6 +162,30 @@ export default function HistoricoPage() {
     })();
     return () => { ativo = false; };
   }, [buscar]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Descartar é a ÚNICA saída para quem apagou o arquivo no Drive e quer
+  // reenviá-lo: a deduplicação bloqueia pelo hash, e só um registro
+  // descartado sai do caminho dela. Sem esta ação aqui, o documento
+  // arquivado virava um beco sem saída — não aparece na caixa de entrada, e
+  // não havia nenhuma outra tela onde mexer nele.
+  async function descartar(doc) {
+    const ok = window.confirm(
+      `Descartar o registro de "${doc.file_name}"?\n\n`
+      + 'O arquivo no Drive não é tocado — só o registro sai do histórico. '
+      + 'Use isto quando o arquivo já não existe mais lá e você precisa reenviá-lo.'
+    );
+    if (!ok) return;
+    setDescartando(doc.id);
+    try {
+      await descartarDocumento(doc, tenantId);
+      await buscar(filtros);
+      showToast('Registro descartado. O arquivo pode ser reenviado.');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setDescartando(null);
+    }
+  }
 
   // Filtro é ação do usuário: aplica no evento, não por efeito.
   function aplicar(patch) {
@@ -236,6 +268,7 @@ export default function HistoricoPage() {
                       <th style={th}>Competência</th>
                       <th style={th}>Categoria</th>
                       <th style={th}>Destino</th>
+                      <th style={{ ...th, width: 90 }} />
                     </tr>
                   </thead>
                   <tbody>
@@ -261,10 +294,26 @@ export default function HistoricoPage() {
                           <td style={{ ...td, fontFamily: FONT_MONO, fontSize: '0.74rem', color: P.muted, maxWidth: 260 }}>
                             {doc.drive_path || <span style={{ color: P.muted2 }}>em triagem</span>}
                           </td>
+                          <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            {doc.status !== 'descartado' && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); descartar(doc); }}
+                                disabled={descartando === doc.id}
+                                title="Tira o registro do histórico e libera o arquivo para ser reenviado"
+                                style={{
+                                  background: 'none', border: 'none', color: P.muted,
+                                  fontSize: '0.78rem', cursor: 'pointer', padding: '3px 6px',
+                                  fontFamily: 'inherit', textDecoration: 'underline',
+                                }}
+                              >
+                                {descartando === doc.id ? 'Descartando…' : 'Descartar'}
+                              </button>
+                            )}
+                          </td>
                         </tr>
                         {expandido === doc.id && (
                           <tr>
-                            <td colSpan={5} style={{ ...td, background: P.surface2 }}>
+                            <td colSpan={6} style={{ ...td, background: P.surface2 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 10 }}>
                                 <strong style={{ fontSize: '0.8rem' }}>Trilha do documento</strong>
                                 {doc.drive_web_link && (
@@ -290,6 +339,8 @@ export default function HistoricoPage() {
           </div>
         </>
       )}
+
+      <ToastHost toasts={toasts} onDismiss={dismissToast} />
     </NoraDocsLayout>
   );
 }
