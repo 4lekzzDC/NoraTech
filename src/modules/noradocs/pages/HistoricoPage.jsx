@@ -194,6 +194,8 @@ export default function HistoricoPage() {
     buscar(novos);
   }
 
+  const temFiltro = Object.values(filtros).some(Boolean);
+
   const campo = {
     padding: '8px 11px', borderRadius: 9, border: `1px solid ${P.border2}`,
     background: P.inputBg, color: P.text, fontSize: '0.84rem', fontFamily: 'inherit', outline: 'none',
@@ -251,12 +253,30 @@ export default function HistoricoPage() {
             overflow: 'hidden', boxShadow: P.shadow,
           }}>
             {documentos.length === 0 ? (
+              // "Nenhum documento ainda" é falso quando o escritório tem
+              // centenas e o filtro é que não bate — e manda procurar o papel
+              // no lugar errado. Filtro ativo pede outra frase, e a saída.
               <div style={{ padding: '30px 24px' }}>
-                <p style={{ margin: 0, fontWeight: 600 }}>Nenhum documento no histórico ainda.</p>
-                <p style={{ margin: '8px 0 0', color: P.muted, fontSize: '0.87rem', maxWidth: '58ch' }}>
-                  O que for arquivado ou descartado na caixa de entrada aparece aqui, com a trilha
-                  de tudo que aconteceu com ele.
+                <p style={{ margin: 0, fontWeight: 600 }}>
+                  {temFiltro ? 'Nenhum documento com esses filtros.' : 'Nenhum documento no histórico ainda.'}
                 </p>
+                <p style={{ margin: '8px 0 0', color: P.muted, fontSize: '0.87rem', maxWidth: '58ch' }}>
+                  {temFiltro
+                    ? 'O histórico pode ter outros documentos — estes filtros é que não alcançaram nenhum.'
+                    : 'O que for arquivado ou descartado na caixa de entrada aparece aqui, com a trilha de tudo que aconteceu com ele.'}
+                </p>
+                {temFiltro && (
+                  <button
+                    onClick={() => aplicar({ clientId: '', competencia: '', status: '', busca: '' })}
+                    style={{
+                      marginTop: 13, padding: '7px 14px', borderRadius: 8,
+                      border: `1px solid ${P.border2}`, background: P.surface, color: P.text,
+                      fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    Limpar filtros
+                  </button>
+                )}
               </div>
             ) : (
               <div style={{ overflowX: 'auto' }}>

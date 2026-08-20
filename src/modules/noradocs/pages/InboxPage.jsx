@@ -27,6 +27,24 @@ const ABAS = [
   { id: 'erro', label: 'Erro' },
 ];
 
+const VAZIO = {
+  tudo: {
+    titulo: 'Nada aguardando ação.',
+    detalhe: 'Envie arquivos acima. Os que forem identificados sem ambiguidade vão direto para a '
+      + 'pasta certa no Drive; os demais aparecem aqui para você confirmar.',
+  },
+  revisar: {
+    titulo: 'Nenhum documento esperando revisão.',
+    detalhe: 'Tudo que chegou foi identificado sozinho e já está arquivado. O que as regras não '
+      + 'conseguirem fechar cai aqui para você confirmar.',
+  },
+  erro: {
+    titulo: 'Nenhuma falha de arquivamento.',
+    detalhe: 'Aqui aparece o que não conseguiu chegar ao Drive — conexão caída, arquivo recusado '
+      + 'pelo Google — com a causa e o caminho para tentar de novo.',
+  },
+};
+
 export default function InboxPage() {
   const { theme } = useTheme();
   const P = getPalette(theme);
@@ -42,6 +60,10 @@ export default function InboxPage() {
   const [enviando, setEnviando] = useState(false);
   const [emRevisao, setEmRevisao] = useState(null);
   const [selecionados, setSelecionados] = useState(() => new Set());
+  // Linha sob o cursor do teclado. Índice, não id: a lista é recarregada
+  // inteira a cada ação, e um id guardado apontaria para um documento que
+  // acabou de sair da fila.
+  const [cursor, setCursor] = useState(-1);
   const [confirmando, setConfirmando] = useState(false);
   // Cadastro do escritório, usado pelo painel de revisão. Carregado junto com
   // a tela para o drawer abrir instantâneo — a fila de revisão é percorrida
@@ -231,6 +253,54 @@ export default function InboxPage() {
     }
   }
 
+  // A lista encolhe a cada documento arquivado; o cursor guardado pode passar
+  // do fim. Vale o índice clampado, não o cru.
+  const focado = documentos.length ? Math.min(cursor, documentos.length - 1) : -1;
+  const docFocado = focado >= 0 ? documentos[focado] : null;
+
+  // Zerar a fila é trabalho repetitivo de dezenas de itens: ↑↓ percorre,
+  // enter abre, espaço marca para o lote. Sem isso, cada documento custa um
+  // deslocamento de mão até o mouse e uma busca visual pela linha certa.
+  //
+  // Dois cuidados que fazem a diferença entre atalho e estorvo: nada dispara
+  // enquanto o foco está num campo (senão "espaço" vira seleção no meio de
+  // uma busca digitada), e nada dispara com o painel de revisão aberto —
+  // lá o teclado é dele, que já trata esc e ⌘↵.
+  useEffect(() => {
+    if (emRevisao) return undefined;
+
+    const aoTeclar = (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const alvo = e.target;
+      const digitando = alvo?.isContentEditable
+        || ['INPUT', 'SELECT', 'TEXTAREA'].includes(alvo?.tagName);
+      if (digitando) return;
+      if (!documentos.length) return;
+
+      if (e.key === 'ArrowDown' || e.key === 'j') {
+        e.preventDefault();
+        setCursor((c) => Math.min(c + 1, documentos.length - 1));
+      } else if (e.key === 'ArrowUp' || e.key === 'k') {
+        e.preventDefault();
+        setCursor((c) => Math.max(c - 1, 0));
+      } else if (e.key === 'Enter' && docFocado) {
+        e.preventDefault();
+        setEmRevisao(docFocado);
+      } else if (e.key === ' ' && docFocado) {
+        // preventDefault obrigatório: espaço rola a página por padrão, e a
+        // linha marcada sairia da vista no mesmo gesto que a marcou.
+        e.preventDefault();
+        if (podeConfirmarEmLote(docFocado)) alternarSelecao(docFocado.id);
+      } else if (e.key === 'Escape') {
+        setCursor(-1);
+        setSelecionados(new Set());
+      }
+    };
+
+    document.addEventListener('keydown', aoTeclar);
+    return () => document.removeEventListener('keydown', aoTeclar);
+  }, [documentos, docFocado, emRevisao]);
+
   const semDrive = settings && !settings.drive_root_folder_id;
   const total = Object.values(contagens).reduce((a, b) => a + b, 0);
 
@@ -300,7 +370,7 @@ export default function InboxPage() {
                   key={t.label}
                   // Recarrega no clique, não por efeito: trocar de aba é um
                   // evento do usuário, não sincronização de estado externo.
-                  onClick={() => { setAba(t.id); recarregar(t.id); }}
+                  onClick={() => { setAba(t.id); setCursor(-1); recarregar(t.id); }}
                   style={{
                     padding: '6px 13px', borderRadius: 999, fontFamily: 'inherit', fontSize: '0.82rem',
                     fontWeight: ativa ? 700 : 500, cursor: 'pointer',
@@ -329,16 +399,33 @@ export default function InboxPage() {
             )}
           </div>
 
+          {/* Atalho que ninguém descobre é atalho que não existe. Uma linha
+              discreta basta — e some quando não há fila para percorrer. */}
+          {documentos.length > 0 && (
+            <p style={{
+              margin: '0 0 10px', fontSize: '0.73rem', color: P.muted2,
+              display: 'flex', gap: 14, flexWrap: 'wrap',
+            }}>
+              <span><strong style={{ fontWeight: 600 }}>↑↓</strong> navegar</span>
+              <span><strong style={{ fontWeight: 600 }}>enter</strong> abrir</span>
+              <span><strong style={{ fontWeight: 600 }}>espaço</strong> selecionar</span>
+              <span><strong style={{ fontWeight: 600 }}>esc</strong> limpar</span>
+            </p>
+          )}
+
           <div style={{
             border: `1px solid ${P.border}`, borderRadius: 14, background: P.surface,
             overflow: 'hidden', boxShadow: P.shadow,
           }}>
             {documentos.length === 0 ? (
+              // O vazio de cada aba quer dizer uma coisa diferente. Repetir
+              // "envie arquivos acima" na aba Erro sugeriria que nada chegou,
+              // quando o que houve foi que nada falhou — que é notícia boa e
+              // merece ser dita como tal.
               <div style={{ padding: '30px 24px' }}>
-                <p style={{ margin: 0, fontWeight: 600 }}>Nada aguardando ação.</p>
+                <p style={{ margin: 0, fontWeight: 600 }}>{VAZIO[aba ?? 'tudo'].titulo}</p>
                 <p style={{ margin: '8px 0 0', color: P.muted, fontSize: '0.87rem', maxWidth: '58ch' }}>
-                  Envie arquivos acima. Os que forem identificados sem ambiguidade vão direto para a
-                  pasta certa no Drive; os demais aparecem aqui para você confirmar.
+                  {VAZIO[aba ?? 'tudo'].detalhe}
                 </p>
               </div>
             ) : (
@@ -347,6 +434,7 @@ export default function InboxPage() {
                 onAbrir={setEmRevisao}
                 selecionados={selecionados}
                 onAlternar={alternarSelecao}
+                focadoId={docFocado?.id}
               />
             )}
           </div>

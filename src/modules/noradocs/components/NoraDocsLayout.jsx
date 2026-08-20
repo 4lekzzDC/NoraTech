@@ -45,9 +45,16 @@ export default function NoraDocsLayout({ title, subtitle, actions, children }) {
         @media (max-width: 860px) {
           .nd-header-inner { padding: 0 18px; }
           .nd-shell { flex-direction: column; }
-          .nd-sidebar { width: 100% !important; position: static !important;
+          /* border-box é obrigatório aqui: o projeto usa content-box, então
+             width:100% mais o padding lateral estourava a viewport e a página
+             inteira ganhava rolagem horizontal — 28px de deslize em todo
+             gesto vertical. */
+          .nd-sidebar { width: 100% !important; box-sizing: border-box; position: static !important;
             border-right: none !important; max-height: none !important; }
           .nd-nav { display: flex; gap: 6px; overflow-x: auto; }
+        }
+        @media (max-width: 640px) {
+          .nd-main { padding: 22px 16px 60px !important; }
         }
       `}</style>
 
@@ -111,7 +118,7 @@ export default function NoraDocsLayout({ title, subtitle, actions, children }) {
           </nav>
         </aside>
 
-        <main style={{ flex: 1, minWidth: 0, padding: '28px 32px 72px' }}>
+        <main className="nd-main" style={{ flex: 1, minWidth: 0, padding: '28px 32px 72px' }}>
           <div style={{
             display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
             gap: 16, flexWrap: 'wrap', marginBottom: 24,
