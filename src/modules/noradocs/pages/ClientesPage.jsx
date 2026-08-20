@@ -4,11 +4,15 @@ import { useToasts } from '../../../lib/useToasts';
 import { useTheme } from '../../../contexts/ThemeContext';
 import NoraDocsLayout from '../components/NoraDocsLayout';
 import ClienteForm from '../components/ClienteForm';
+import VerificacaoCard from '../components/VerificacaoCard';
 import { formatCNPJ } from '../domain/cnpj';
 import {
   createClient, deleteClient, fetchImportaveis, importarDoContabil,
   listClients, setClientAtivo, updateClient,
 } from '../services/clients.service';
+import { fetchContextoDeClassificacao } from '../services/documents.service';
+import { fetchFolderSettings } from '../services/settings.service';
+import { confirmarProvisorio, fundirProvisorio, listarProvisorios } from '../services/verificacao.service';
 import { resolveTenant } from '../services/tenant';
 import { getPalette, FONT_MONO } from '../theme';
 
@@ -28,6 +32,13 @@ export default function ClientesPage() {
   const [editando, setEditando] = useState(null);   // null = fechado, {} = novo
   const [salvando, setSalvando] = useState(false);
   const [importaveis, setImportaveis] = useState([]);
+  const [provisorios, setProvisorios] = useState([]);
+  // `confirmando` guarda o provisório que está virando cliente: o formulário
+  // é o MESMO de um cadastro normal, pré-preenchido com o nome detectado.
+  // Reaproveitá-lo é o que garante que confirmar exija o mesmo CNPJ válido
+  // que qualquer outro cadastro — um provisório promovido sem CNPJ seria um
+  // cliente que o motor de regras nunca conseguiria identificar sozinho.
+  const [confirmando, setConfirmando] = useState(null);
 
   const recarregar = useCallback(async (termo) => {
     try {
@@ -46,6 +57,7 @@ export default function ClientesPage() {
       if (id) {
         await recarregar('');
         setImportaveis(await fetchImportaveis(id));
+        setProvisorios(await listarProvisorios(id));
       }
       if (ativo) setCarregando(false);
     })();
@@ -63,7 +75,18 @@ export default function ClientesPage() {
   async function salvar(form) {
     setSalvando(true);
     try {
-      if (editando?.id) {
+      if (confirmando) {
+        const { promovidos, pastaMovida } = await confirmarProvisorio({
+          tenantId, cliente: confirmando, dados: form,
+        });
+        showToast(
+          `${confirmando.nome} agora é cliente.`
+          + (pastaMovida ? ' A pasta saiu de _verificação.' : '')
+          + (promovidos ? ` ${promovidos} documento(s) arquivado(s).` : '')
+        );
+        setConfirmando(null);
+        setProvisorios(await listarProvisorios(tenantId));
+      } else if (editando?.id) {
         await updateClient(editando.id, form);
         showToast('Cliente atualizado.');
       } else {
@@ -71,6 +94,40 @@ export default function ClientesPage() {
         showToast('Cliente cadastrado.');
       }
       setEditando(null);
+      await recarregar();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  // Confirmar abre o formulário de cadastro pré-preenchido. Não é um atalho
+  // com menos campos de propósito: o CNPJ é o que fará o motor reconhecer os
+  // próximos documentos desta empresa sozinho, e pular essa etapa deixaria o
+  // cliente confirmado e mudo.
+  function abrirConfirmacao(provisorio) {
+    setConfirmando(provisorio);
+    setEditando({ nome: provisorio.nome });
+  }
+
+  async function fundir(provisorio, alvoId) {
+    setSalvando(true);
+    try {
+      const [settings, ctx] = await Promise.all([
+        fetchFolderSettings(tenantId), fetchContextoDeClassificacao(),
+      ]);
+      const { movidos, pendentes } = await fundirProvisorio({
+        tenantId, provisorio, alvoId,
+        settings, clients: ctx.clients, categories: ctx.categories,
+      });
+      showToast(
+        `${movidos} documento(s) rearquivado(s).`
+        + (pendentes.length
+          ? ` ${pendentes.length} ficaram na fila por falta de competência ou categoria.`
+          : '')
+      );
+      setProvisorios(await listarProvisorios(tenantId));
       await recarregar();
     } catch (err) {
       showToast(err.message, 'error');
@@ -161,6 +218,14 @@ export default function ClientesPage() {
       {tenantId && (
         <div style={{ display: 'grid', gridTemplateColumns: editando ? 'minmax(0,1fr) 380px' : '1fr', gap: 22, alignItems: 'start' }}>
           <div>
+            <VerificacaoCard
+              provisorios={provisorios}
+              clientes={clientes}
+              ocupado={salvando}
+              onConfirmar={abrirConfirmacao}
+              onFundir={fundir}
+            />
+
             <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
               <input
                 value={busca}
@@ -266,11 +331,18 @@ export default function ClientesPage() {
 
           {editando && (
             <ClienteForm
-              key={editando.id || 'novo'}
-              cliente={editando.id ? editando : null}
+              // A chave inclui o provisório: abrir a confirmação de outra
+              // empresa sem ela manteria o formulário montado com o nome da
+              // anterior, porque ambos os casos cairiam em 'novo'.
+              key={editando.id || confirmando?.id || 'novo'}
+              // `{}` é cadastro em branco; `{nome}` é confirmação pré-
+              // preenchida. Testar só por `id` jogava o nome detectado fora.
+              cliente={Object.keys(editando).length ? editando : null}
+              titulo={confirmando ? `Confirmar ${confirmando.nome}` : undefined}
+              rotuloSalvar={confirmando ? 'Confirmar cliente' : undefined}
               salvando={salvando}
               onSalvar={salvar}
-              onCancelar={() => setEditando(null)}
+              onCancelar={() => { setEditando(null); setConfirmando(null); }}
             />
           )}
         </div>

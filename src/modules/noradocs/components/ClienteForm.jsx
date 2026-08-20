@@ -28,7 +28,11 @@ function paraFormulario(cliente) {
   };
 }
 
-export default function ClienteForm({ cliente, salvando, onSalvar, onCancelar }) {
+// `titulo` e `rotuloSalvar` existem para um caso só: confirmar um cliente
+// provisório usa este mesmo formulário, e chamá-lo de "Novo cliente" faria o
+// contador achar que vai criar um segundo registro ao lado do provisório em
+// vez de promover aquele.
+export default function ClienteForm({ cliente, salvando, onSalvar, onCancelar, titulo, rotuloSalvar }) {
   const { theme } = useTheme();
   const P = getPalette(theme);
   // Sem efeito para recarregar o formulário quando o cliente muda: quem chama
@@ -78,7 +82,7 @@ export default function ClienteForm({ cliente, salvando, onSalvar, onCancelar })
       }}
     >
       <h2 style={{ margin: '0 0 18px', fontSize: '1rem', fontWeight: 700 }}>
-        {editando ? 'Editar cliente' : 'Novo cliente'}
+        {titulo || (editando ? 'Editar cliente' : 'Novo cliente')}
       </h2>
 
       <div style={{ display: 'grid', gap: 14 }}>
@@ -183,7 +187,7 @@ export default function ClienteForm({ cliente, salvando, onSalvar, onCancelar })
             fontFamily: 'inherit',
           }}
         >
-          {salvando ? 'Salvando…' : editando ? 'Salvar alterações' : 'Cadastrar cliente'}
+          {salvando ? 'Salvando…' : rotuloSalvar || (editando ? 'Salvar alterações' : 'Cadastrar cliente')}
         </button>
         <button
           type="button" onClick={onCancelar}
