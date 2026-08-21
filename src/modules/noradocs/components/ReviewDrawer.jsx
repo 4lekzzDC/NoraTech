@@ -54,9 +54,20 @@ export default function ReviewDrawer({
     background: P.inputBg, color: P.text, fontSize: '0.87rem', fontFamily: 'inherit', outline: 'none',
   };
 
+  // Ver o documento é o que torna a revisão possível: sem olhar o papel, o
+  // contador não tem como dizer de quem ele é.
   const previewUrl = documento.drive_file_id
     ? `https://drive.google.com/file/d/${documento.drive_file_id}/preview`
     : null;
+
+  // O link é derivado do id quando o banco não tem o `drive_web_link`. Pela
+  // entrada do Gmail ele vem vazio — a resposta do upload retomável não traz
+  // esse campo —, e sem isto o único caminho para o arquivo seria uma
+  // pré-visualização que pode não carregar.
+  const linkDoDrive = documento.drive_web_link
+    || (documento.drive_file_id
+      ? `https://drive.google.com/file/d/${documento.drive_file_id}/view`
+      : null);
 
   return (
     <>
@@ -131,25 +142,34 @@ export default function ReviewDrawer({
 
           {previewUrl && (
             <div style={{ marginBottom: 18 }}>
-              {/* O preview vem do próprio Drive. Se o funcionário não tiver
-                  acesso àquele arquivo com a conta Google do navegador, o
-                  quadro fica vazio — daí o link ao lado, que sempre resolve. */}
+              {/* O quadro vem do próprio Drive, então depende da conta Google
+                  logada NESTE navegador ter acesso ao arquivo. Quando não tem,
+                  o Google mostra uma tela de permissão dentro do iframe, e não
+                  há como detectar isso de fora (é outra origem).
+                  Por isso o link fica sempre visível, e não só quando o quadro
+                  falha: é o caminho que funciona em qualquer caso. */}
               <iframe
                 src={previewUrl}
                 title="Pré-visualização do documento"
                 style={{
-                  width: '100%', height: 260, border: `1px solid ${P.border}`,
+                  width: '100%', height: 340, border: `1px solid ${P.border}`,
                   borderRadius: 10, background: P.surface2,
                 }}
               />
-              {documento.drive_web_link && (
+              <div style={{
+                display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+                gap: 10, marginTop: 8, flexWrap: 'wrap',
+              }}>
                 <a
-                  href={documento.drive_web_link} target="_blank" rel="noopener noreferrer"
-                  style={{ display: 'inline-block', marginTop: 8, fontSize: '0.79rem', color: P.primaryText }}
+                  href={linkDoDrive} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: '0.79rem', color: P.primaryText, fontWeight: 600 }}
                 >
                   Abrir no Google Drive →
                 </a>
-              )}
+                <span style={{ fontSize: '0.72rem', color: P.muted2 }}>
+                  Quadro em branco? O navegador está em outra conta Google.
+                </span>
+              </div>
             </div>
           )}
 
