@@ -82,25 +82,31 @@ function identificarCliente(sinais, contexto) {
   const porRegra = aplicarRegrasDeCliente(sinais, contexto, clientes);
   if (porRegra) return porRegra;
 
-  // 5) Apelidos e nome. Último recurso: casa por convenção de nomenclatura,
-  // que é justamente a parte que cada cliente faz do seu jeito.
-  const nomeNormalizado = normalizarNomeArquivo(nome);
-  const porApelido = clientes.filter((c) =>
-    [c.nome, ...(c.aliases || [])].some((termo) => contemTermo(nomeNormalizado, termo))
-  );
+  // 5) Apelidos e nome. Último recurso: casa por convenção de nomenclatura —
+  // no texto do documento (o nome do titular impresso num extrato bancário,
+  // por exemplo) ou no nome do arquivo, que é a parte que cada cliente faz
+  // do seu jeito. Texto primeiro, mesma ordem de prioridade da E1 e E2.
+  for (const [origem, alvo] of [
+    ['no texto', normalizar(texto)],
+    ['no nome do arquivo', normalizarNomeArquivo(nome)],
+  ]) {
+    if (!alvo) continue;
+    const porApelido = clientes.filter((c) =>
+      [c.nome, ...(c.aliases || [])].some((termo) => contemTermo(alvo, termo))
+    );
 
-  if (porApelido.length === 1) {
-    const cliente = porApelido[0];
-    const termo = [cliente.nome, ...(cliente.aliases || [])]
-      .find((t) => contemTermo(nomeNormalizado, t));
-    return { cliente, evidencia: `"${termo}" no nome do arquivo` };
-  }
-  if (porApelido.length > 1) {
-    const nomes = porApelido.map((c) => c.nome).join(' e ');
-    return { cliente: null, motivo: `o nome do arquivo casa com mais de um cliente (${nomes})` };
+    if (porApelido.length === 1) {
+      const cliente = porApelido[0];
+      const termo = [cliente.nome, ...(cliente.aliases || [])].find((t) => contemTermo(alvo, t));
+      return { cliente, evidencia: `"${termo}" ${origem}` };
+    }
+    if (porApelido.length > 1) {
+      const nomes = porApelido.map((c) => c.nome).join(' e ');
+      return { cliente: null, motivo: `${origem} casa com mais de um cliente (${nomes})` };
+    }
   }
 
-  return { cliente: null, motivo: 'nenhum CNPJ conhecido no texto nem no nome do arquivo' };
+  return { cliente: null, motivo: 'nenhum CNPJ conhecido no texto nem no nome do arquivo, nem nome de cliente reconhecido' };
 }
 
 function aplicarRegrasDeCliente(sinais, contexto, clientes) {

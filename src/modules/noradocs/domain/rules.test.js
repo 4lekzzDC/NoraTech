@@ -70,6 +70,26 @@ test('apelido no nome do arquivo identifica quando não há CNPJ', () => {
   assert.match(r.evidence.find((e) => e.campo === 'cliente').detalhe, /Silva ME/);
 });
 
+// Extrato bancário chega com nome de arquivo genérico (gerado pelo banco),
+// mas o titular da conta vem impresso no texto — foi exatamente esse caso
+// que passou batido antes: categoria certa, cliente sem identificar.
+test('apelido no texto do documento identifica quando o nome do arquivo é genérico', () => {
+  const r = run({
+    fileName: 'extrato_08-2026.pdf',
+    text: 'Banco Itaú — Extrato de conta corrente — Titular: Silva Comércio de Alimentos ME',
+  });
+  assert.equal(r.clientId, 'cli-silva');
+  assert.match(r.evidence.find((e) => e.campo === 'cliente').detalhe, /no texto/);
+});
+
+test('apelido ambíguo no texto entre dois clientes ativos vai para revisão', () => {
+  const contexto = { ...CONTEXTO, clients: [SILVA, { ...ANTIGO, ativo: true }] };
+  const r = run({ fileName: 'extrato.pdf', text: 'titular Silva ME' }, contexto);
+  assert.equal(r.clientId, null);
+  assert.equal(r.decisao, 'revisar');
+  assert.match(r.motivoRevisao, /mais de um cliente/);
+});
+
 // Dois candidatos não é meio acerto — arquivar no cliente errado é pior do que
 // perguntar.
 test('apelido ambíguo entre dois clientes ativos vai para revisão', () => {
