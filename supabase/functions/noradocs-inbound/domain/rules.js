@@ -198,7 +198,9 @@ function identificarCategoria(sinais, contexto) {
 }
 
 function identificarCompetencia(sinais) {
-  const doNome = extrairCompetencia(sinais.fileName || '');
+  // Só o nome do arquivo libera o ano de dois dígitos: "folha ago 26" ali é
+  // competência, mas "entregue ago 16" no corpo de um e-mail não é.
+  const doNome = extrairCompetencia(sinais.fileName || '', { permitirAnoCurto: true });
   if (doNome) {
     return { competencia: doNome.competencia, evidencia: `${doNome.rotulo} no nome do arquivo` };
   }

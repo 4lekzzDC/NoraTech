@@ -514,7 +514,7 @@ begin
     (p_company_id, 'contas-a-pagar', 'Contas a pagar', 2,
       array['pagar', 'boleto', 'fornecedor', 'despesa', 'pagamento']),
     (p_company_id, 'contas-a-receber', 'Contas a receber', 3,
-      array['receber', 'recebimento', 'cliente', 'faturamento']),
+      array['receber', 'recebimento', 'faturamento']),
     (p_company_id, 'cartoes-taxas', 'Cartões e taxas', 4,
       array['cartao', 'cartoes', 'taxa', 'taxas', 'tarifa', 'maquininha']),
     (p_company_id, 'notas-fiscais', 'Notas fiscais', 5,

@@ -3,6 +3,7 @@ import { classificar, RULES_VERSION } from './domain/rules.js';
 import { resolveFolderPath } from './domain/folderTemplate.js';
 import { decidirDestino } from './domain/destino.js';
 import { formatCNPJ } from './domain/cnpj.js';
+import { empresaDoRemetente } from './domain/remetente.js';
 
 // A porta de entrada automática do NoraDocs. Quem bate nela hoje é o
 // complemento do Gmail; qualquer outra origem futura (portal, WhatsApp) entra
@@ -47,15 +48,6 @@ const TAMANHO_MAXIMO = 25 * 1024 * 1024;
 // antes de alguém perceber.
 const LIMITE_POR_HORA = 300;
 
-// Domínio de provedor aberto não identifica empresa nenhuma. Sem esta lista,
-// um cliente que escreve do Gmail viraria um cliente provisório chamado
-// "gmail.com", e a pasta de verificação juntaria empresas sem relação.
-const PROVEDORES_ABERTOS = new Set([
-  'gmail.com', 'googlemail.com', 'hotmail.com', 'hotmail.com.br', 'outlook.com',
-  'outlook.com.br', 'live.com', 'msn.com', 'yahoo.com', 'yahoo.com.br',
-  'uol.com.br', 'bol.com.br', 'terra.com.br', 'ig.com.br', 'globo.com',
-  'r7.com', 'icloud.com', 'me.com', 'protonmail.com', 'proton.me', 'zoho.com',
-]);
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -197,20 +189,6 @@ async function abrirSessaoDeUpload(
   return uploadUrl;
 }
 
-// Nome da empresa a partir do remetente — o único palpite que este caminho
-// dá, e com freio: se o domínio é de provedor aberto, não há empresa
-// nenhuma ali, e o documento vai para _triagem em vez de inventar um cliente.
-function empresaDoRemetente(remetente: string, remetenteNome: string) {
-  const dominio = String(remetente || '').split('@')[1]?.toLowerCase().trim();
-  if (!dominio || PROVEDORES_ABERTOS.has(dominio)) return null;
-
-  // Nome de exibição é bem melhor que o domínio como nome de pasta
-  // ("Padaria Aurora" e não "padariaaurora.com.br"), mas só vale quando o
-  // domínio já provou ser corporativo.
-  const exibicao = String(remetenteNome || '').trim();
-  const nome = exibicao && !exibicao.includes('@') ? exibicao : dominio;
-  return { nome: nome.slice(0, 120), dominio };
-}
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Método não suportado' }, 405);
