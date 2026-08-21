@@ -4,6 +4,7 @@ import { competenciaAnterior, isCompetencia } from '../domain/competencia';
 import { sugerirPadrao } from '../domain/rules';
 import { podeReprocessar } from '../domain/status';
 import { getPalette, FONT_MONO } from '../theme';
+import EventTrail from './EventTrail';
 
 // Painel de revisão — abre à direita, sobre a lista.
 //
@@ -16,7 +17,7 @@ function competenciaParaInput(competencia) {
 }
 
 export default function ReviewDrawer({
-  documento, clients, categories, salvando, onConfirmar, onDescartar, onReprocessar, onFechar,
+  documento, clients, categories, tenantId, salvando, onConfirmar, onDescartar, onReprocessar, onFechar,
 }) {
   const { theme } = useTheme();
   const P = getPalette(theme);
@@ -221,6 +222,15 @@ export default function ReviewDrawer({
                 </div>
               )}
             </div>
+
+            <details style={{ borderTop: `1px solid ${P.border}`, paddingTop: 14 }}>
+              <summary style={{ fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>
+                Trilha do documento
+              </summary>
+              <div style={{ marginTop: 10 }}>
+                <EventTrail doc={documento} tenantId={tenantId} P={P} />
+              </div>
+            </details>
           </div>
         </div>
 

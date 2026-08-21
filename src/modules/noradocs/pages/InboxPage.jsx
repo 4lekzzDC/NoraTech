@@ -447,6 +447,7 @@ export default function InboxPage() {
           documento={emRevisao}
           clients={cadastro.clients}
           categories={cadastro.categories}
+          tenantId={tenantId}
           salvando={confirmando}
           onConfirmar={confirmar}
           onDescartar={descartar}

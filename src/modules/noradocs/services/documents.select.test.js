@@ -29,6 +29,7 @@ const COLUNAS_DO_DOCUMENTO = colunasDaConsulta();
 const LEITORES = [
   '../components/ReviewDrawer.jsx',
   '../components/DocumentTable.jsx',
+  '../components/EventTrail.jsx',
   '../pages/HistoricoPage.jsx',
   '../domain/status.js',
   './review.service.js',
