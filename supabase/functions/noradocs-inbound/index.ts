@@ -103,6 +103,22 @@ async function ensureChildFolder(accessToken: string, parentId: string, name: st
   return (await createRes.json()).id as string;
 }
 
+// O cache de `noradocs_drive_folders` guarda um id para sempre — e um id do
+// Drive não é para sempre. Se a pasta de um cliente é apagada por fora
+// (limpeza manual de dados de teste, por exemplo), o cache não fica sabendo
+// e continua devolvendo o id de uma pasta que não existe mais: o documento é
+// "arquivado" num endereço fantasma, sem erro nenhum. Mesma função de
+// noradocs-drive, pelo mesmo motivo de sempre — sem import cross-função.
+async function folderAindaExiste(accessToken: string, folderId: string) {
+  const res = await fetch(
+    `${DRIVE_FILES_URL}/${encodeURIComponent(folderId)}?fields=id,trashed,mimeType&supportsAllDrives=true`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!res.ok) return false;
+  const data = await res.json().catch(() => ({}));
+  return data.mimeType === FOLDER_MIME && !data.trashed;
+}
+
 // Caminha a árvore a partir de uma das três bases, com o mesmo cache e a mesma
 // convenção de chave de noradocs-drive: o prefixo da base entra na chave,
 // senão "Aurora/2026/08" em _verificação reusaria o id da pasta homônima na
@@ -156,7 +172,10 @@ async function resolverPasta(
       .eq('path', chave)
       .maybeSingle();
 
-    if (cache?.drive_folder_id) { parentId = cache.drive_folder_id; continue; }
+    if (cache?.drive_folder_id && await folderAindaExiste(accessToken, cache.drive_folder_id)) {
+      parentId = cache.drive_folder_id;
+      continue;
+    }
 
     parentId = await ensureChildFolder(accessToken, parentId, segment);
     await admin.from('noradocs_drive_folders').upsert(
@@ -715,7 +734,10 @@ async function reclassificarComTextoDoPdf({ admin, tenantId, documentId, documen
         .from('noradocs_drive_folders')
         .select('drive_folder_id')
         .eq('tenant_company_id', tenantId).eq('path', chave).maybeSingle();
-      if (cache?.drive_folder_id) { parentId = cache.drive_folder_id; continue; }
+      if (cache?.drive_folder_id && await folderAindaExiste(accessToken, cache.drive_folder_id)) {
+        parentId = cache.drive_folder_id;
+        continue;
+      }
       parentId = await ensureChildFolder(accessToken, parentId, segmento);
       await admin.from('noradocs_drive_folders').upsert(
         { tenant_company_id: tenantId, path: chave, drive_folder_id: parentId },

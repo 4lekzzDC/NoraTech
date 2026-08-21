@@ -91,6 +91,27 @@ async function ensureChildFolder(accessToken: string, parentId: string, name: st
   return created.id as string;
 }
 
+// O cache de `noradocs_drive_folders` guarda um id para sempre — e um id do
+// Drive não é para sempre. Se alguém apaga a pasta de um cliente por fora
+// (limpando dados de teste, por exemplo), o cache não fica sabendo: continua
+// devolvendo o id de uma pasta que não existe mais, e todo documento novo
+// desse cliente é "arquivado" num endereço fantasma, sem erro nenhum. Foi
+// exatamente isso que aconteceu com um extrato: o registro dizia "arquivado",
+// mas a pasta do meio da árvore tinha sido apagada dias antes.
+//
+// Por isso todo cache HIT passa por aqui antes de ser confiado. Custa uma
+// chamada extra ao Drive por nível — pouco, perto do que custa um documento
+// silenciosamente perdido.
+async function folderAindaExiste(accessToken: string, folderId: string) {
+  const res = await fetch(
+    `${DRIVE_FILES_URL}/${encodeURIComponent(folderId)}?fields=id,trashed,mimeType&supportsAllDrives=true`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!res.ok) return false;
+  const data = await res.json().catch(() => ({}));
+  return data.mimeType === FOLDER_MIME && !data.trashed;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -299,14 +320,17 @@ Deno.serve(async (req) => {
       const pathExibido = base === 'verificacao' ? `${VERIFICACAO_FOLDER_NAME}/${path}` : path;
 
       // Cache: evita percorrer o Drive a cada arquivo do mesmo cliente e
-      // mês — que é o padrão real de uso, lotes de dezenas de uma vez.
+      // mês — que é o padrão real de uso, lotes de dezenas de uma vez. Mas só
+      // vale se a pasta ainda existir — ver folderAindaExiste.
       const { data: cached } = await admin
         .from('noradocs_drive_folders')
         .select('drive_folder_id')
         .eq('tenant_company_id', tenantId)
         .eq('path', chaveCache)
         .maybeSingle();
-      if (cached?.drive_folder_id) return json({ folderId: cached.drive_folder_id, path: pathExibido, cached: true });
+      if (cached?.drive_folder_id && await folderAindaExiste(accessToken, cached.drive_folder_id)) {
+        return json({ folderId: cached.drive_folder_id, path: pathExibido, cached: true });
+      }
 
       // Caminha a árvore criando o que faltar, e memoriza cada nível — não só
       // o final: o próximo documento do mesmo cliente em outro mês já acha o
@@ -324,7 +348,7 @@ Deno.serve(async (req) => {
           .eq('path', parcial)
           .maybeSingle();
 
-        if (cachedLevel?.drive_folder_id) {
+        if (cachedLevel?.drive_folder_id && await folderAindaExiste(accessToken, cachedLevel.drive_folder_id)) {
           parentId = cachedLevel.drive_folder_id;
           continue;
         }
