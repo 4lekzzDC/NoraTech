@@ -102,6 +102,29 @@ export default function InboxPage() {
     return () => { ativo = false; };
   }, [recarregar]);
 
+  // 'processando' é estado de trânsito: o upload e, pela entrada de e-mail, a
+  // reclassificação com o texto do PDF terminam sozinhos, no servidor,
+  // segundos depois de a linha aparecer aqui. Sem recarregar, a tela fica
+  // presa no primeiro palpite (antes do PDF ser lido) até alguém trocar de
+  // aba ou dar F5 — foi o que aconteceu num teste real: cliente, categoria e
+  // pré-visualização já estavam certos no banco, mas a tela ainda mostrava o
+  // estado de antes do envio terminar.
+  const temProcessando = documentos.some((d) => d.status === 'processando');
+  useEffect(() => {
+    if (!temProcessando) return undefined;
+    const t = setInterval(() => recarregar(aba), 3000);
+    return () => clearInterval(t);
+  }, [temProcessando, aba, recarregar]);
+
+  // O painel de revisão abre com uma cópia do documento; sem isto, ele fica
+  // com essa cópia parada mesmo depois de a lista acima trazer os dados
+  // atualizados.
+  useEffect(() => {
+    if (!emRevisao) return;
+    const atualizado = documentos.find((d) => d.id === emRevisao.id);
+    if (atualizado && atualizado !== emRevisao) setEmRevisao(atualizado);
+  }, [documentos, emRevisao]);
+
   async function enviarArquivos(arquivos) {
     setEnviando(true);
     setProgresso(Object.fromEntries(arquivos.map((f) => [f.name, { etapa: null }])));
@@ -443,7 +466,15 @@ export default function InboxPage() {
 
       {emRevisao && (
         <ReviewDrawer
-          key={emRevisao.id}
+          // O status entra na key de propósito: os campos do formulário
+          // (cliente, competência, categoria) só são lidos do documento UMA
+          // vez, na primeira renderização. Um documento aberto ainda
+          // 'processando' — antes de a reclassificação com o texto do PDF
+          // terminar, no servidor — mostraria os campos vazios para sempre
+          // sem isto, mesmo depois de recarregar() trazer os dados certos:
+          // só a troca de key força o formulário a nascer de novo com o
+          // valor final.
+          key={`${emRevisao.id}:${emRevisao.status}`}
           documento={emRevisao}
           clients={cadastro.clients}
           categories={cadastro.categories}
