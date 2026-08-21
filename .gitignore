@@ -28,3 +28,6 @@ server/uploads/
 *.sln
 *.sw?
 .claude/settings.local.json
+
+# Arquivo temporário do teste de pdfTexto.js (removido ao final; sobra só se o teste crashar no meio)
+.pdfTexto-teste-*.mjs

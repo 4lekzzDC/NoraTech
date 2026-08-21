@@ -24,7 +24,7 @@ import { dirname, join } from 'node:path';
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const COPIA = join(AQUI, '../../../../supabase/functions/noradocs-inbound/domain');
 
-const MODULOS = ['cnpj.js', 'texto.js', 'competencia.js', 'rules.js', 'folderTemplate.js', 'destino.js', 'remetente.js'];
+const MODULOS = ['cnpj.js', 'texto.js', 'competencia.js', 'rules.js', 'folderTemplate.js', 'destino.js', 'remetente.js', 'reclassificacao.js'];
 
 for (const modulo of MODULOS) {
   test(`domain/${modulo} está idêntico à cópia da Edge Function`, () => {
