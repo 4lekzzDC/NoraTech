@@ -462,7 +462,8 @@ function UploadPanel({ showToast }) {
         setLoading(false);
         return;
       }
-      const regras = listRegras(companyId).filter((r) => r.company_id === empresa.id && r.is_active);
+      const regras = listRegras(companyId)
+        .filter((r) => r.is_active && (r.company_id === empresa.id || !r.company_id));
       const { coded, rows: out } = applyRules(parsed, regras, '9999');
       const pending = out.length - coded;
       setRows(out);
@@ -650,7 +651,10 @@ function RegrasPanel({ showToast }) {
   const [editing, setEditing] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
-  const filtered = filterEmp ? regras.filter((r) => r.company_id === filterEmp) : regras;
+  // Regra global (company_id nulo) vale para todo cliente, então continua
+  // aparecendo mesmo quando o filtro está travado num cliente específico —
+  // senão pareceria que ela não se aplica a ele.
+  const filtered = filterEmp ? regras.filter((r) => r.company_id === filterEmp || !r.company_id) : regras;
   const empName = (id) => empresas.find((e) => e.id === id)?.name || '—';
 
   const handleOpen = (rule) => {
@@ -694,16 +698,16 @@ function RegrasPanel({ showToast }) {
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
             <thead>
-              <tr>{['Cliente', 'Nome', 'Padrão', 'Tipo', 'Conta', 'Histórico', 'Status', ''].map((h) => <Th key={h}>{h}</Th>)}</tr>
+              <tr>{['Cliente', 'Nome', 'Padrão', 'Natureza', 'Tipo', 'Conta', 'Histórico', 'Status', ''].map((h) => <Th key={h}>{h}</Th>)}</tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><Td colSpan={8}><Empty icon="⚙️" text="Nenhuma regra cadastrada." /></Td></tr>
+                <tr><Td colSpan={9}><Empty icon="⚙️" text="Nenhuma regra cadastrada." /></Td></tr>
               ) : filtered.map((r) => (
                 <RegraRow
                   key={r.id}
                   rule={r}
-                  empName={empName(r.company_id)}
+                  empName={r.company_id ? empName(r.company_id) : '🌐 Global'}
                   onToggle={handleToggle}
                   onEdit={() => handleOpen(r)}
                   onDelete={() => handleDelete(r.id)}
@@ -733,6 +737,11 @@ function RegraRow({ rule, empName, onToggle, onEdit, onDelete }) {
       <Td>{empName}</Td>
       <Td style={{ fontWeight: 600 }}>{rule.name}</Td>
       <Td mono>{rule.pattern}</Td>
+      <Td>
+        {rule.nature
+          ? <Pill color={rule.nature === 'C' ? P.green : P.red}>{rule.nature === 'C' ? 'Recebimento' : 'Pagamento'}</Pill>
+          : <Pill color={P.muted}>ambos</Pill>}
+      </Td>
       <Td><Pill color={P.primary}>{rule.match_type}</Pill></Td>
       <Td mono>{rule.account}</Td>
       <Td muted>{rule.history_template || '—'}</Td>
@@ -842,21 +851,34 @@ function ContasPanel({ showToast }) {
 // Modais
 // =============================================================================
 
+// Sentinela do <select> de empresa: HTML não aceita `null` como value de
+// <option>, então "regra global" precisa de um valor de string próprio até
+// a hora de salvar, quando vira o `company_id: null` de verdade.
+const EMPRESA_GLOBAL = '__global__';
+
 function RegraModal({ rule, empresas, onClose, onSave }) {
-  const [companyId, setCompanyId] = useState(rule?.company_id || empresas[0]?.id || '');
+  const [companyId, setCompanyId] = useState(() => {
+    if (rule) return rule.company_id || EMPRESA_GLOBAL;
+    return empresas[0]?.id || '';
+  });
   const [name, setName] = useState(rule?.name || '');
   const [pattern, setPattern] = useState(rule?.pattern || '');
   const [matchType, setMatchType] = useState(rule?.match_type || 'contains');
+  // Sem valor padrão de propósito: o mesmo histórico de banco aparece tanto
+  // num pagamento quanto num recebimento, e não é a mesma contrapartida —
+  // por isso a regra obriga essa escolha em vez de presumir uma natureza.
+  const [nature, setNature] = useState(rule?.nature || '');
   const [account, setAccount] = useState(rule?.account || '');
   const [historyTpl, setHistoryTpl] = useState(rule?.history_template || '');
 
   const submit = () => {
-    if (!name.trim() || !pattern.trim() || !account.trim()) return;
+    if (!name.trim() || !pattern.trim() || !account.trim() || !nature) return;
     onSave({
-      company_id: companyId,
+      company_id: companyId === EMPRESA_GLOBAL ? null : companyId,
       name: name.trim(),
       pattern: pattern.trim(),
       match_type: matchType,
+      nature,
       account: account.trim(),
       history_template: historyTpl.trim(),
       is_active: rule?.is_active ?? 1,
@@ -867,10 +889,18 @@ function RegraModal({ rule, empresas, onClose, onSave }) {
     <ModalShell title={rule ? 'Editar Regra' : 'Nova Regra'} subtitle="Configure como o padrão será identificado e codificado." onClose={onClose}>
       <Field label="Empresa">
         <Select value={companyId} onChange={setCompanyId}>
+          <option value={EMPRESA_GLOBAL}>🌐 Todos os clientes (regra global)</option>
           {empresas.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
         </Select>
       </Field>
       <Field label="Nome da regra"><Input value={name} onChange={setName} placeholder="Ex: Pagamento fornecedor" /></Field>
+      <Field label="Esta palavra-chave é para">
+        <Select value={nature} onChange={setNature}>
+          <option value="">Selecione…</option>
+          <option value="D">Pagamento (débito)</option>
+          <option value="C">Recebimento (crédito)</option>
+        </Select>
+      </Field>
       <FieldRow>
         <Field label="Padrão de busca"><Input value={pattern} onChange={setPattern} placeholder="Ex: PAGTO FORN" /></Field>
         <Field label="Tipo de match">
@@ -885,7 +915,7 @@ function RegraModal({ rule, empresas, onClose, onSave }) {
         <Field label="Conta contábil (contrapartida)"><Input value={account} onChange={setAccount} placeholder="Ex: 2.1.01" /></Field>
         <Field label="Modelo de histórico (opcional)"><Input value={historyTpl} onChange={setHistoryTpl} placeholder="Ex: Pgto fornecedor" /></Field>
       </FieldRow>
-      <ModalActions onCancel={onClose} onSave={submit} disabled={!name.trim() || !pattern.trim() || !account.trim()} />
+      <ModalActions onCancel={onClose} onSave={submit} disabled={!name.trim() || !pattern.trim() || !account.trim() || !nature} />
     </ModalShell>
   );
 }

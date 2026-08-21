@@ -67,7 +67,11 @@ export function deleteConta(id, companyId) {
 }
 
 // ── Regras de codificação ──
-// Schema: { id, company_id, name, pattern, match_type, account, history_template?, is_active }
+// Schema: { id, company_id, name, pattern, match_type, nature, account, history_template?, is_active }
+// company_id null = regra global, aplicada a qualquer cliente.
+// nature 'D' = pagamento (débito), 'C' = recebimento (crédito) — o mesmo
+// histórico de banco costuma valer para os dois sentidos, e não é a mesma
+// contrapartida contábil; regra antiga sem este campo casa com qualquer natureza.
 export function listRegras(companyId) {
   return readJSON(scopedKey(K_REGRAS, companyId), []);
 }
@@ -136,9 +140,9 @@ export function seedDemoIfEmpty(companyId) {
   }
   if (!listRegras(companyId).length) {
     saveRegras([
-      { id: 'r1', company_id: eid, name: 'Pagamento Fornecedor', pattern: 'PAGTO', match_type: 'contains', account: '2.1.01', history_template: 'Pgto fornecedor', is_active: 1 },
-      { id: 'r2', company_id: eid, name: 'Recebimento Clientes', pattern: 'TED RECEBIDA', match_type: 'contains', account: '1.1.02', history_template: 'Recebimento de clientes', is_active: 1 },
-      { id: 'r3', company_id: eid, name: 'Tarifa Bancária', pattern: 'TARIFA', match_type: 'contains', account: '6.1.01', history_template: 'Tarifa bancária', is_active: 1 },
+      { id: 'r1', company_id: eid, name: 'Pagamento Fornecedor', pattern: 'PAGTO', match_type: 'contains', nature: 'D', account: '2.1.01', history_template: 'Pgto fornecedor', is_active: 1 },
+      { id: 'r2', company_id: eid, name: 'Recebimento Clientes', pattern: 'TED RECEBIDA', match_type: 'contains', nature: 'C', account: '1.1.02', history_template: 'Recebimento de clientes', is_active: 1 },
+      { id: 'r3', company_id: null, name: 'Tarifa Bancária', pattern: 'TARIFA', match_type: 'contains', nature: 'D', account: '6.1.01', history_template: 'Tarifa bancária', is_active: 1 },
     ], companyId);
   }
   return { createdEmpresa };
