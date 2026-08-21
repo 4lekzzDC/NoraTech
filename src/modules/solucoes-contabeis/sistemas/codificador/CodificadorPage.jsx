@@ -3,11 +3,11 @@ import SolucoesHeader from '../../components/SolucoesHeader';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
 import {
-  listEmpresas, listContas, listRegras, listLogs, pushLog,
-  upsertConta, deleteConta,
+  listRegras, listLogs, pushLog,
   upsertRegra, toggleRegra, deleteRegra,
   seedDemoIfEmpty,
 } from '../../services/codificador.service';
+import { getClientes, getBancos, getAllBancos, importLegacyClientsIfNeeded } from '../../services/clients.service';
 import { parseXlsxFile, applyRules, exportDominio, timeAgo } from './codEngine';
 import { getCurrentTenantCompanyId } from '../../../../lib/subscriptions';
 
@@ -134,13 +134,18 @@ const PANELS = [
 const PANEL_SUB = {
   home: 'Visão geral do módulo.',
   upload: 'Selecione o cliente, conta e envie o extrato (XLSX).',
-  configuracoes: 'Gerencie regras de codificação e contas bancárias.',
+  configuracoes: 'Gerencie as regras de codificação. Contas bancárias ficam em Gestão de Clientes.',
 };
 
 const PaletteCtx   = createContext(null);
 const useP         = () => useContext(PaletteCtx);
 const CompanyCtx   = createContext(null);
 const useCompanyId = () => useContext(CompanyCtx);
+// Clientes da equipe (base compartilhada) — carregados uma vez no topo da
+// página e compartilhados entre os painéis, em vez de cada painel buscar
+// por conta própria.
+const EmpresasCtx  = createContext({ empresas: [], loading: true, refresh: () => {} });
+const useEmpresas  = () => useContext(EmpresasCtx);
 
 // =============================================================================
 // Página
@@ -157,9 +162,27 @@ export default function CodificadorPage() {
     getCurrentTenantCompanyId().then(id => setCompanyId(id || null)).catch(() => setCompanyId(null));
   }, []);
 
-  useEffect(() => {
-    if (companyId !== undefined && companyId !== null) seedDemoIfEmpty(companyId);
+  const [empresas, setEmpresas] = useState([]);
+  const [empresasLoading, setEmpresasLoading] = useState(true);
+  const refreshEmpresas = useCallback(() => {
+    if (!companyId) { setEmpresas([]); setEmpresasLoading(false); return; }
+    setEmpresasLoading(true);
+    getClientes(companyId)
+      .then(setEmpresas)
+      .catch(() => setEmpresas([]))
+      .finally(() => setEmpresasLoading(false));
   }, [companyId]);
+
+  useEffect(() => {
+    if (companyId === undefined) return;
+    if (!companyId) { Promise.resolve().then(refreshEmpresas); return; }
+    seedDemoIfEmpty(companyId);
+    importLegacyClientsIfNeeded(companyId)
+      .catch(() => {})
+      .finally(refreshEmpresas);
+  }, [companyId, refreshEmpresas]);
+
+  const empresasCtx = useMemo(() => ({ empresas, loading: empresasLoading, refresh: refreshEmpresas }), [empresas, empresasLoading, refreshEmpresas]);
 
   const showToast = useCallback((msg) => setToast({ id: Date.now(), msg }), []);
 
@@ -171,6 +194,7 @@ export default function CodificadorPage() {
 
   return (
     <CompanyCtx.Provider value={companyId}>
+    <EmpresasCtx.Provider value={empresasCtx}>
     <PaletteCtx.Provider value={P}>
       <div style={{ minHeight: '100vh', background: P.bg, color: P.text, fontFamily: FONT_INTER }}>
         <style>{`
@@ -279,6 +303,7 @@ export default function CodificadorPage() {
         )}
       </div>
     </PaletteCtx.Provider>
+    </EmpresasCtx.Provider>
     </CompanyCtx.Provider>
   );
 }
@@ -290,10 +315,15 @@ export default function CodificadorPage() {
 function HomePanel({ onNavigate }) {
   const P         = useP();
   const companyId = useCompanyId();
-  const empresas  = useMemo(() => listEmpresas(companyId), [companyId]);
+  const { empresas } = useEmpresas();
   const regras    = useMemo(() => listRegras(companyId),   [companyId]);
-  const contas    = useMemo(() => listContas(companyId),   [companyId]);
   const logs      = useMemo(() => listLogs(companyId),     [companyId]);
+  const [contas, setContas] = useState([]);
+  useEffect(() => {
+    Promise.resolve(companyId ? getAllBancos(companyId) : [])
+      .then(setContas)
+      .catch(() => setContas([]));
+  }, [companyId]);
 
   const regrasAtivas = regras.filter((r) => r.is_active).length;
   const totalLinhas  = logs.reduce((s, l) => s + (l.total   || 0), 0);
@@ -416,12 +446,19 @@ function HomePanel({ onNavigate }) {
 function UploadPanel({ showToast }) {
   const P         = useP();
   const companyId = useCompanyId();
-  const empresas  = useMemo(() => listEmpresas(companyId), [companyId]);
-  const allContas = useMemo(() => listContas(companyId),   [companyId]);
+  const { empresas } = useEmpresas();
 
-  const [empresaId, setEmpresaId] = useState(empresas[0]?.id || '');
-  const contasEmpresa = useMemo(() => allContas.filter((c) => c.company_id === empresaId), [allContas, empresaId]);
-  const [contaId, setContaId] = useState(contasEmpresa[0]?.id || '');
+  const [empresaId, setEmpresaId] = useState('');
+  useEffect(() => {
+    if (!empresaId && empresas.length) setEmpresaId(empresas[0].id);
+  }, [empresas]);
+
+  const [contasEmpresa, setContasEmpresa] = useState([]);
+  useEffect(() => {
+    if (!empresaId) { setContasEmpresa([]); return; }
+    getBancos(empresaId).then(setContasEmpresa).catch(() => setContasEmpresa([]));
+  }, [empresaId]);
+  const [contaId, setContaId] = useState('');
 
   useEffect(() => {
     setContaId(contasEmpresa[0]?.id || '');
@@ -435,7 +472,7 @@ function UploadPanel({ showToast }) {
   const inputRef = useRef(null);
 
   const empresa = empresas.find((e) => e.id === empresaId);
-  const conta = allContas.find((c) => c.id === contaId);
+  const conta = contasEmpresa.find((c) => c.id === contaId);
 
   const handleFile = useCallback(async (f) => {
     if (!f) return;
@@ -628,23 +665,12 @@ function UploadPanel({ showToast }) {
 // =============================================================================
 
 function ConfigPanel({ showToast }) {
-  const P = useP();
-  const [tab, setTab] = useState('regras');
-  return (
-    <>
-      <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: `1px solid ${P.border}` }}>
-        <ConfigTab active={tab === 'regras'}  onClick={() => setTab('regras')}>⚙️ Regras de Codificação</ConfigTab>
-        <ConfigTab active={tab === 'contas'}  onClick={() => setTab('contas')}>💳 Contas Bancárias</ConfigTab>
-      </div>
-      {tab === 'regras' && <RegrasPanel showToast={showToast} />}
-      {tab === 'contas' && <ContasPanel showToast={showToast} />}
-    </>
-  );
+  return <RegrasPanel showToast={showToast} />;
 }
 
 function RegrasPanel({ showToast }) {
   const companyId = useCompanyId();
-  const empresas  = useMemo(() => listEmpresas(companyId), [companyId]);
+  const { empresas } = useEmpresas();
   const [filterEmp, setFilterEmp] = useState('');
   const [regras, setRegras] = useState([]);
   useEffect(() => { setRegras(listRegras(companyId)); }, [companyId]);
@@ -763,89 +789,6 @@ function RegraRow({ rule, empName, onToggle, onEdit, onDelete }) {
   );
 }
 
-function ContasPanel({ showToast }) {
-  const companyId = useCompanyId();
-  const empresas  = useMemo(() => listEmpresas(companyId), [companyId]);
-  const [filterEmp, setFilterEmp] = useState('');
-  const [contas, setContas] = useState([]);
-  useEffect(() => { setContas(listContas(companyId)); }, [companyId]);
-  const [editing, setEditing] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-
-  const filtered = filterEmp ? contas.filter((c) => c.company_id === filterEmp) : contas;
-  const empName = (id) => empresas.find((e) => e.id === id)?.name || '—';
-
-  const handleOpen = (conta) => {
-    if (!empresas.length) {
-      showToast('⚠️ Cadastre uma empresa primeiro.');
-      return;
-    }
-    setEditing(conta || null);
-    setShowModal(true);
-  };
-
-  const handleSave = (values) => {
-    const next = upsertConta(editing ? { ...values, id: editing.id } : values, companyId);
-    setContas(next);
-    setShowModal(false);
-    showToast('✅ Conta salva!');
-  };
-
-  const handleDelete = (id) => {
-    if (!window.confirm('Remover esta conta?')) return;
-    setContas(deleteConta(id, companyId));
-    showToast('🗑 Conta removida');
-  };
-
-  return (
-    <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 12, flexWrap: 'wrap' }}>
-        <Select value={filterEmp} onChange={setFilterEmp} style={{ width: 240 }}>
-          <option value="">Todos os clientes</option>
-          {empresas.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-        </Select>
-        <PrimaryBtn onClick={() => handleOpen(null)}>＋ Nova Conta</PrimaryBtn>
-      </div>
-
-      <Card>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
-            <thead>
-              <tr>{['Cliente', 'Banco', 'Código', 'Label', ''].map((h) => <Th key={h}>{h}</Th>)}</tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><Td colSpan={5}><Empty icon="💳" text="Nenhuma conta cadastrada." /></Td></tr>
-              ) : filtered.map((c) => (
-                <tr key={c.id} className="cod-row">
-                  <Td>{empName(c.company_id)}</Td>
-                  <Td>{c.bank_name || '—'}</Td>
-                  <Td mono>{c.code}</Td>
-                  <Td style={{ fontWeight: 600 }}>{c.label}</Td>
-                  <Td>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <IconBtn onClick={() => handleOpen(c)} title="Editar">✏️</IconBtn>
-                      <IconBtn onClick={() => handleDelete(c.id)} title="Remover" danger>🗑</IconBtn>
-                    </div>
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      {showModal && (
-        <ContaModal
-          conta={editing}
-          empresas={empresas}
-          onClose={() => setShowModal(false)}
-          onSave={handleSave}
-        />
-      )}
-    </>
-  );
-}
 
 // =============================================================================
 // Modais
@@ -916,39 +859,6 @@ function RegraModal({ rule, empresas, onClose, onSave }) {
         <Field label="Modelo de histórico (opcional)"><Input value={historyTpl} onChange={setHistoryTpl} placeholder="Ex: Pgto fornecedor" /></Field>
       </FieldRow>
       <ModalActions onCancel={onClose} onSave={submit} disabled={!name.trim() || !pattern.trim() || !account.trim() || !nature} />
-    </ModalShell>
-  );
-}
-
-function ContaModal({ conta, empresas, onClose, onSave }) {
-  const [companyId, setCompanyId] = useState(conta?.company_id || empresas[0]?.id || '');
-  const [code, setCode] = useState(conta?.code || '');
-  const [bankName, setBankName] = useState(conta?.bank_name || '');
-  const [label, setLabel] = useState(conta?.label || '');
-
-  const submit = () => {
-    if (!code.trim() || !label.trim()) return;
-    onSave({
-      company_id: companyId,
-      code: code.trim(),
-      bank_name: bankName.trim(),
-      label: label.trim(),
-    });
-  };
-
-  return (
-    <ModalShell title={conta ? 'Editar Conta' : 'Nova Conta Bancária'} subtitle="Configure a conta bancária e seu código contábil." onClose={onClose}>
-      <Field label="Empresa">
-        <Select value={companyId} onChange={setCompanyId}>
-          {empresas.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-        </Select>
-      </Field>
-      <FieldRow>
-        <Field label="Código contábil da conta"><Input value={code} onChange={setCode} placeholder="Ex: 1.1.01" /></Field>
-        <Field label="Nome do banco"><Input value={bankName} onChange={setBankName} placeholder="Ex: Banco do Brasil" /></Field>
-      </FieldRow>
-      <Field label="Label / identificação"><Input value={label} onChange={setLabel} placeholder="Ex: Conta Corrente BB 1234-5" /></Field>
-      <ModalActions onCancel={onClose} onSave={submit} disabled={!code.trim() || !label.trim()} />
     </ModalShell>
   );
 }
@@ -1078,25 +988,6 @@ function Empty({ icon, text }) {
       <div style={{ fontSize: '2rem', marginBottom: 8, opacity: 0.6 }}>{icon}</div>
       <p style={{ fontSize: '0.85rem' }}>{text}</p>
     </div>
-  );
-}
-
-function ConfigTab({ active, onClick, children }) {
-  const P = useP();
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        padding: '10px 18px', border: 'none', background: 'none', cursor: 'pointer',
-        color: active ? P.primaryText : P.muted,
-        fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: active ? 700 : 500,
-        borderBottom: `2px solid ${active ? P.primary : 'transparent'}`,
-        marginBottom: -1,
-      }}
-    >
-      {children}
-    </button>
   );
 }
 

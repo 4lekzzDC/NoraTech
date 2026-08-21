@@ -10,7 +10,8 @@ import {
   getHistory, recordAnalysis,
 } from './ademEngine';
 import { getCurrentTenantCompanyId } from '../../../../lib/subscriptions';
-import { getClientes, TRIBUT_COLORS, TRIBUT_OPTIONS } from '../gestao-clientes/gcService';
+import { TRIBUT_COLORS, TRIBUT_OPTIONS } from '../gestao-clientes/gcService';
+import { getClientes } from '../../services/clients.service';
 
 Chart.register(...registerables);
 
@@ -905,18 +906,29 @@ export default function AnaliseDemonstracoesPage() {
 
   const historico = companyId !== undefined ? getHistory(companyId) : [];
 
+  // Empresas cadastradas, agrupadas por regime tributário — carregado à
+  // parte porque getClientes agora é assíncrono (base compartilhada da
+  // equipe no Supabase, não mais localStorage).
+  const [empresasPorTributacao, setEmpresasPorTributacao] = useState([]);
+  useEffect(() => {
+    let ativo = true;
+    Promise.resolve(companyId ? getClientes(companyId) : [])
+      .then((clientes) => {
+        if (!ativo) return;
+        const contagem = {};
+        clientes.forEach((c) => {
+          const t = TRIBUT_OPTIONS.includes(c.tributacao) ? c.tributacao : 'Outro';
+          contagem[t] = (contagem[t] || 0) + 1;
+        });
+        setEmpresasPorTributacao(Object.entries(contagem).map(([label, value]) => ({ label, value, color: TRIBUT_COLORS[label] || TRIBUT_COLORS.Outro })));
+      })
+      .catch(() => { if (ativo) setEmpresasPorTributacao([]); });
+    return () => { ativo = false; };
+  }, [companyId]);
+
   const stats = {
     historico,
-    // Empresas cadastradas, agrupadas por regime tributário.
-    empresasPorTributacao: (() => {
-      if (!companyId) return [];
-      const contagem = {};
-      getClientes(companyId).forEach((c) => {
-        const t = TRIBUT_OPTIONS.includes(c.tributacao) ? c.tributacao : 'Outro';
-        contagem[t] = (contagem[t] || 0) + 1;
-      });
-      return Object.entries(contagem).map(([label, value]) => ({ label, value, color: TRIBUT_COLORS[label] || TRIBUT_COLORS.Outro }));
-    })(),
+    empresasPorTributacao,
     // Análises realizadas, agrupadas por resultado do período (lucro/prejuízo).
     analisesPorResultado: (() => {
       let lucro = 0, prejuizo = 0, semDre = 0;
