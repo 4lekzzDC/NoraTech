@@ -11,7 +11,6 @@
     "common": {
       "name": "NoraDocs",
       "logoUrl": "https://www.gstatic.com/images/icons/material/system/2x/folder_shared_black_24dp.png",
-      "useLocaleFromApp": true,
       "homepageTrigger": {
         "runFunction": "aoAbrirInicio"
       }
