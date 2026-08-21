@@ -6,7 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 //   picker-token       empresta um access_token curto para o Picker abrir
 //   set-root-folder    confirma a raiz e cria _triagem e _verificação
 //   ensure-folder-path caminha/cria a árvore do destino, com cache; a base é
-//                      a raiz, _triagem ou _verificação
+//                      a raiz, _triagem, _verificação ou _descartados
 //   upload-token       empresta um access_token curto para o envio direto
 //   move-file          troca o pai do arquivo — de _triagem para o destino
 //
@@ -38,6 +38,10 @@ const STAGING_FOLDER_NAME = '_triagem';
 // identificado; _verificação guarda o que foi identificado como uma empresa
 // que ainda não é cliente. Num falta informação, no outro falta cadastro.
 const VERIFICACAO_FOLDER_NAME = '_verificação';
+// Terceira irmã: onde vai o arquivo de um documento descartado. Sair da
+// vista de quem está arquivando sem apagar nada do Drive do escritório —
+// quem decide apagar de verdade é o dono da conta, não o NoraDocs.
+const DESCARTADOS_FOLDER_NAME = '_descartados';
 
 async function refreshAccessToken(refreshToken: string, clientId: string, clientSecret: string) {
   const res = await fetch(TOKEN_URL, {
@@ -126,7 +130,12 @@ Deno.serve(async (req) => {
     .eq('user_id', user.id)
     .in('status', ['active', 'pending'])
     .order('created_at', { ascending: false });
-  const membership = (membresias || []).find((m) => m.status === 'active') || (membresias || [])[0];
+  // Anotação explícita, não pré-existente por acaso: o cliente Supabase é
+  // `any` (import via esm.sh, sem tipos neste checkout), e sem isto o
+  // `deno check` real — bloqueado até agora pela rede — acusa parâmetro
+  // implicitamente `any`.
+  const membership = (membresias || []).find((m: { status?: string }) => m.status === 'active')
+    || (membresias || [])[0];
   const tenantId = membership?.company_id as string | undefined;
   if (!tenantId) return json({ error: 'Você não pertence a nenhum escritório.' }, 400);
 
@@ -234,13 +243,13 @@ Deno.serve(async (req) => {
       // continua entendida: durante a janela entre implantar esta função e
       // implantar o frontend novo, o navegador em produção ainda a envia.
       const base = String(body?.base || (body?.staging === true ? 'triagem' : 'raiz'));
-      if (!['raiz', 'triagem', 'verificacao'].includes(base)) {
+      if (!['raiz', 'triagem', 'verificacao', 'descartados'].includes(base)) {
         return json({ error: 'base inválida' }, 400);
       }
 
       const { data: settings } = await admin
         .from('noradocs_settings')
-        .select('drive_root_folder_id, drive_staging_folder_id, drive_verificacao_folder_id')
+        .select('drive_root_folder_id, drive_staging_folder_id, drive_verificacao_folder_id, drive_descartados_folder_id')
         .eq('tenant_company_id', tenantId)
         .maybeSingle();
 
@@ -252,15 +261,19 @@ Deno.serve(async (req) => {
         raiz: settings.drive_root_folder_id,
         triagem: settings.drive_staging_folder_id,
         verificacao: settings.drive_verificacao_folder_id,
+        descartados: settings.drive_descartados_folder_id,
       }[base];
 
-      // Escritório que configurou a raiz antes de _verificação existir não tem
-      // a pasta. Criar aqui, na primeira necessidade, evita obrigá-lo a
-      // reconfigurar a conexão só para ganhar uma subpasta.
-      if (!rootId && base === 'verificacao') {
-        rootId = await ensureChildFolder(accessToken, settings.drive_root_folder_id, VERIFICACAO_FOLDER_NAME);
+      // Escritório que configurou a raiz antes de _verificação (ou
+      // _descartados) existir não tem a pasta. Criar aqui, na primeira
+      // necessidade, evita obrigá-lo a reconfigurar a conexão só para ganhar
+      // uma subpasta.
+      if (!rootId && (base === 'verificacao' || base === 'descartados')) {
+        const nome = base === 'verificacao' ? VERIFICACAO_FOLDER_NAME : DESCARTADOS_FOLDER_NAME;
+        rootId = await ensureChildFolder(accessToken, settings.drive_root_folder_id, nome);
+        const coluna = base === 'verificacao' ? 'drive_verificacao_folder_id' : 'drive_descartados_folder_id';
         await admin.from('noradocs_settings')
-          .update({ drive_verificacao_folder_id: rootId })
+          .update({ [coluna]: rootId })
           .eq('tenant_company_id', tenantId);
       }
       if (!rootId) {

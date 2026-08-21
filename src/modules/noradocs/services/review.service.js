@@ -102,10 +102,34 @@ export async function confirmarDocumento(doc, escolha, contexto) {
   return atualizado;
 }
 
+// Descartar não apaga nada no Drive do escritório — quem decide apagar de
+// verdade é o dono da conta. O que o NoraDocs faz é o equivalente a arquivar
+// numa quarta pasta de trabalho, _descartados: sai da vista de quem está
+// organizando (e de _triagem/_verificação, que são filas de trabalho), mas o
+// arquivo continua existindo e localizável para quem for atrás dele.
 export async function descartarDocumento(doc, tenantId) {
+  const atualizacao = { status: 'descartado', review_reason: null };
+
+  // Mover é best-effort, de propósito: descartar é também a saída de quem
+  // apagou o arquivo NO DRIVE por fora e quer reenviá-lo (ver HistoricoPage) —
+  // nesse caso o arquivo já não existe, move-file responde 404, e travar o
+  // descarte por causa disso prenderia exatamente quem mais precisa dele.
+  // Quando o arquivo ainda existe, ele sai de _triagem/_verificação para
+  // _descartados; quando não existe mais, só o registro muda de status.
+  if (doc.drive_file_id) {
+    try {
+      const { folderId } = await invocarDrive({ action: 'ensure-folder-path', base: 'descartados', segments: [] });
+      await invocarDrive({ action: 'move-file', fileId: doc.drive_file_id, folderId });
+      atualizacao.drive_folder_id = folderId;
+      atualizacao.drive_path = '_descartados';
+    } catch (err) {
+      console.warn('[noradocs] não foi possível mover o arquivo descartado no Drive:', err.message);
+    }
+  }
+
   const { error } = await supabase
     .from('noradocs_documents')
-    .update({ status: 'descartado', review_reason: null })
+    .update(atualizacao)
     .eq('id', doc.id);
   if (error) throw new Error(error.message);
 

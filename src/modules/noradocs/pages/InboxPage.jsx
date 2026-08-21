@@ -237,7 +237,7 @@ export default function InboxPage() {
 
   async function descartar(doc) {
     const ok = window.confirm(
-      `Descartar "${doc.file_name}"?\n\nEle sai da fila e o arquivo continua no Drive, na pasta de triagem.`
+      `Descartar "${doc.file_name}"?\n\nEle sai da fila e o arquivo vai para a pasta _descartados no Drive.`
     );
     if (!ok) return;
     setConfirmando(true);

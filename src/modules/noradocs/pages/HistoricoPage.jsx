@@ -171,8 +171,8 @@ export default function HistoricoPage() {
   async function descartar(doc) {
     const ok = window.confirm(
       `Descartar o registro de "${doc.file_name}"?\n\n`
-      + 'O arquivo no Drive não é tocado — só o registro sai do histórico. '
-      + 'Use isto quando o arquivo já não existe mais lá e você precisa reenviá-lo.'
+      + 'Se o arquivo ainda existir no Drive, ele vai para a pasta _descartados. '
+      + 'Se já não existir mais lá, só o registro sai do histórico — use isto para poder reenviá-lo.'
     );
     if (!ok) return;
     setDescartando(doc.id);
