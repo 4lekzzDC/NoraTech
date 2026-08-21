@@ -26,7 +26,7 @@ async function invocarDrive(body) {
   return data;
 }
 
-async function registrarEvento(tenantId, documentId, type, payload) {
+export async function registrarEvento(tenantId, documentId, type, payload) {
   const { data: { user } } = await supabase.auth.getUser();
   await supabase.from('noradocs_events').insert({
     tenant_company_id: tenantId,
@@ -198,12 +198,16 @@ export async function reprocessarDocumento(doc, contexto) {
 //
 // O contador pode mover ou apagar coisas no Drive por fora — é o Drive dele.
 // Quando isso acontece, o caminho gravado aqui passa a mentir, e a única
-// forma honesta de lidar é verificar sob demanda e registrar a divergência.
+// forma honesta de lidar é verificar sob demanda e registrar o resultado —
+// SEMPRE, não só a divergência. Uma verificação que deu certo também é
+// trilha: é a diferença entre "ninguém nunca checou" e "checado em
+// 21/08, estava tudo certo".
 export async function verificarNoDrive(doc, tenantId) {
   if (!doc.drive_file_id) return { ok: false, motivo: 'Este documento não tem arquivo no Drive.' };
 
   try {
     await invocarDrive({ action: 'move-file', fileId: doc.drive_file_id, folderId: doc.drive_folder_id });
+    await registrarEvento(tenantId, doc.id, 'verificado_drive', { drive_path: doc.drive_path });
     return { ok: true };
   } catch (err) {
     await registrarEvento(tenantId, doc.id, 'divergencia_drive', { mensagem: err.message });

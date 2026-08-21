@@ -26,6 +26,7 @@ const ROTULO_EVENTO = {
   descartado: 'Descartado',
   regra_criada: 'Regra criada',
   divergencia_drive: 'Divergência no Drive',
+  verificado_drive: 'Verificado no Drive',
 };
 
 function dataHora(iso) {
@@ -44,7 +45,7 @@ function Trilha({ doc, tenantId, P }) {
     setVerificacao({ carregando: true });
     const r = await verificarNoDrive(doc, tenantId);
     setVerificacao(r);
-    if (!r.ok) setEventos(await listarEventos(documentId));
+    setEventos(await listarEventos(documentId));
   }
 
   useEffect(() => {
