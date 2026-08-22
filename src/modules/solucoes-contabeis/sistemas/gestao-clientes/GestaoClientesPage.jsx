@@ -7,9 +7,13 @@ import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
 import SolucoesHeader from '../../components/SolucoesHeader';
 import {
   TRIBUT_COLORS, TRIBUT_OPTIONS, RAMO_ATIVIDADE_OPTIONS, RAMO_LABEL_BY_ID,
-  getClientes, saveCliente, deleteCliente,
-  getBancos, buscarCNPJ, buscarCEP, geocode,
+  buscarCNPJ, buscarCEP, geocode,
 } from './gcService';
+import {
+  getClientes, saveCliente, deleteCliente,
+  getBancos, saveBanco, deleteBanco,
+  importLegacyClientsIfNeeded,
+} from '../../services/clients.service';
 import { getCurrentTenantCompanyId } from '../../../../lib/subscriptions';
 
 Chart.register(...registerables);
@@ -586,9 +590,13 @@ function Row({ label, value }) {
 }
 
 function PerfilPanel({ cliente, onEdit, onBack }) {
-  const p         = useP();
-  const companyId = useCompanyId();
-  const bancos    = useMemo(() => getBancos(cliente.id, companyId), [cliente.id, companyId]);
+  const p = useP();
+  const [bancos, setBancos] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    getBancos(cliente.id).then((rows) => { if (!cancelled) setBancos(rows); }).catch(() => { if (!cancelled) setBancos([]); });
+    return () => { cancelled = true; };
+  }, [cliente.id]);
 
   return (
     <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -662,15 +670,14 @@ function PerfilPanel({ cliente, onEdit, onBack }) {
 
         {/* Contas bancárias */}
         <div style={{ background: p.surface, border: `1px solid ${p.border}`, borderRadius: 12 }}>
-          <div style={{ padding: '14px 18px', borderBottom: `1px solid ${p.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ padding: '14px 18px', borderBottom: `1px solid ${p.border}` }}>
             <span style={{ fontWeight: 700, fontSize: 14, color: p.text }}>Contas Bancárias</span>
-            <span style={{ fontSize: 11, color: p.muted }}>via Codificador de Extrato</span>
           </div>
           <div style={{ padding: '14px 18px' }}>
             {bancos.length === 0 ? (
               <div style={{ fontSize: 13, color: p.muted, lineHeight: 1.6 }}>
                 Nenhuma conta cadastrada.<br />
-                Adicione no <strong>Codificador de Extrato → Configurações → Contas</strong>.
+                Adicione em <strong>Editar → Contas Bancárias</strong>.
               </div>
             ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -709,6 +716,21 @@ function ClienteModal({ clienteId, clientes, onClose, onSaved, onToast }) {
   const existing = clienteId ? clientes.find((c) => c.id === clienteId) : null;
   const [form, setForm] = useState(existing ? { ...EMPTY_FORM, ...existing } : { ...EMPTY_FORM });
   const [loading, setLoading] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const [bancos, setBancos] = useState([]);
+  const [removedBancoIds, setRemovedBancoIds] = useState([]);
+  const [bancosLoading, setBancosLoading] = useState(!!clienteId);
+  useEffect(() => {
+    if (!clienteId) { setBancos([]); setBancosLoading(false); return; }
+    let cancelled = false;
+    setBancosLoading(true);
+    getBancos(clienteId)
+      .then((rows) => { if (!cancelled) setBancos(rows); })
+      .catch(() => { if (!cancelled) setBancos([]); })
+      .finally(() => { if (!cancelled) setBancosLoading(false); });
+    return () => { cancelled = true; };
+  }, [clienteId]);
 
   function set(field, value) { setForm((f) => ({ ...f, [field]: value })); }
 
@@ -743,6 +765,24 @@ function ClienteModal({ clienteId, clientes, onClose, onSaved, onToast }) {
     });
   }
 
+  function addBanco() {
+    setBancos((b) => [...b, { _localId: 'novo_' + Date.now(), bank_name: '', agencia: '', conta_numero: '', code: '', label: '' }]);
+  }
+  function removeBanco(i) {
+    setBancos((b) => {
+      const alvo = b[i];
+      if (alvo?.id) setRemovedBancoIds((r) => [...r, alvo.id]);
+      return b.filter((_, j) => j !== i);
+    });
+  }
+  function setBancoField(i, field, val) {
+    setBancos((b) => {
+      const next = [...b];
+      next[i] = { ...next[i], [field]: val };
+      return next;
+    });
+  }
+
   async function handleSave() {
     if (!form.name.trim()) { onToast('Informe a Razão Social'); return; }
     // Regime e ramo são obrigatórios porque sistemas a jusante (Calculadora de
@@ -750,12 +790,41 @@ function ClienteModal({ clienteId, clientes, onClose, onSaved, onToast }) {
     // vira erro de apuração, não só ficha incompleta.
     if (!form.tributacao) { onToast('Informe o Regime Tributário'); return; }
     if (!form.ramo_atividade) { onToast('Informe o Ramo de Atividade'); return; }
-    const data = { ...form, socios: form.socios.filter((s) => s.nome) };
-    const saved = saveCliente(data, clienteId || null, companyId);
-    onSaved();
-    onToast('Cliente salvo! Disponível em todos os sistemas.');
-    if (saved.cidade && !saved.lat) geocode(saved, companyId).then(() => onSaved());
-    onClose();
+    for (const b of bancos) {
+      if (!b.code?.trim() || !b.label?.trim()) {
+        onToast('Preencha código contábil e identificação de todas as contas bancárias (ou remova a linha incompleta).');
+        return;
+      }
+    }
+
+    setSaving(true);
+    try {
+      const data = { ...form, socios: form.socios.filter((s) => s.nome) };
+      const saved = await saveCliente(data, clienteId || null, companyId);
+
+      for (const id of removedBancoIds) {
+        await deleteBanco(id);
+      }
+      for (const b of bancos) {
+        await saveBanco({
+          accounting_company_id: saved.id,
+          bank_name: b.bank_name?.trim() || null,
+          agencia: b.agencia?.trim() || null,
+          conta_numero: b.conta_numero?.trim() || null,
+          code: b.code.trim(),
+          label: b.label.trim(),
+        }, b.id);
+      }
+
+      onSaved();
+      onToast('Cliente salvo! Disponível em todos os sistemas.');
+      if (saved.cidade && !saved.lat) geocode(saved, companyId).then(() => onSaved());
+      onClose();
+    } catch (e) {
+      onToast('Erro ao salvar: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   const section = (label) => (
@@ -765,7 +834,7 @@ function ClienteModal({ clienteId, clientes, onClose, onSaved, onToast }) {
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.6)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
     }} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div style={{
         // surfaceSolid (opaco), não surface (translúcido) — surface é pensado
@@ -774,13 +843,20 @@ function ClienteModal({ clienteId, clientes, onClose, onSaved, onToast }) {
         // vazando através dele.
         background: p.surfaceSolid, border: `1px solid ${p.border}`, borderRadius: 14,
         boxShadow: '0 24px 60px -12px rgba(0,0,0,0.5)',
-        padding: 28, width: 620, maxWidth: '96vw', maxHeight: '90vh', overflowY: 'auto',
-        display: 'flex', flexDirection: 'column', gap: 0,
+        width: 620, maxWidth: '96vw', maxHeight: '90vh',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}>
-        <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 800, color: p.text }}>
-          {clienteId ? 'Editar Cliente' : 'Novo Cliente'}
-        </h3>
-        <p style={{ margin: '0 0 16px', fontSize: 12, color: p.muted }}>Dados cadastrais da empresa</p>
+        {/* Cabeçalho fixo — sempre visível, mesmo com o corpo rolando. */}
+        <div style={{ flex: '0 0 auto', padding: '22px 28px 16px', borderBottom: `1px solid ${p.border}` }}>
+          <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 800, color: p.text }}>
+            {clienteId ? 'Editar Cliente' : 'Novo Cliente'}
+          </h3>
+          <p style={{ margin: 0, fontSize: 12, color: p.muted }}>Dados cadastrais da empresa</p>
+        </div>
+
+        {/* Corpo com rolagem interna — o que passar da altura disponível
+            rola aqui dentro, sem levar cabeçalho nem rodapé junto. */}
+        <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '18px 28px' }}>
 
         {section('Identificação')}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, marginBottom: 10 }}>
@@ -877,13 +953,51 @@ function ClienteModal({ clienteId, clientes, onClose, onSaved, onToast }) {
             </div>
           ))}
         </div>
-        <button onClick={addSocio} style={{ ...btnStyle(p, false), alignSelf: 'flex-start', fontSize: 12, marginBottom: 18 }}>
+        <button onClick={addSocio} style={{ ...btnStyle(p, false), alignSelf: 'flex-start', fontSize: 12, marginBottom: 4 }}>
           ＋ Adicionar Sócio
         </button>
 
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4, borderTop: `1px solid ${p.border}` }}>
-          <button onClick={onClose} style={btnStyle(p, false)}>Cancelar</button>
-          <button onClick={handleSave} style={btnStyle(p, true)}>Salvar cliente</button>
+        {section('Contas Bancárias')}
+        <div style={{ fontSize: 11, color: p.muted2, marginBottom: 10, lineHeight: 1.45 }}>
+          Salvas aqui, ficam disponíveis automaticamente para o Codificador de Extrato e os demais sistemas — não precisa cadastrar de novo em cada um.
+        </div>
+        {bancosLoading ? (
+          <div style={{ fontSize: 12, color: p.muted, marginBottom: 10 }}>Carregando contas…</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+            {bancos.map((b, i) => (
+              <div key={b.id || b._localId} style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.8fr 0.9fr 1fr 1.3fr 30px', gap: 6, alignItems: 'center' }}>
+                <input value={b.bank_name || ''} onChange={(e) => setBancoField(i, 'bank_name', e.target.value)}
+                  placeholder="Banco" style={inputStyle(p)} />
+                <input value={b.agencia || ''} onChange={(e) => setBancoField(i, 'agencia', e.target.value)}
+                  placeholder="Agência" style={inputStyle(p)} />
+                <input value={b.conta_numero || ''} onChange={(e) => setBancoField(i, 'conta_numero', e.target.value)}
+                  placeholder="Conta" style={inputStyle(p)} />
+                <input value={b.code || ''} onChange={(e) => setBancoField(i, 'code', e.target.value)}
+                  placeholder="Cód. contábil *" style={{ ...inputStyle(p), borderColor: b.code ? p.border : p.red }} />
+                <input value={b.label || ''} onChange={(e) => setBancoField(i, 'label', e.target.value)}
+                  placeholder="Identificação *" style={{ ...inputStyle(p), borderColor: b.label ? p.border : p.red }} />
+                <button onClick={() => removeBanco(i)} style={{
+                  width: 30, height: 30, borderRadius: 6, border: '1px solid rgba(248,113,113,0.3)',
+                  background: 'rgba(248,113,113,0.08)', color: '#f87171', cursor: 'pointer', fontSize: 14,
+                }}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+        <button onClick={addBanco} style={{ ...btnStyle(p, false), alignSelf: 'flex-start', fontSize: 12 }}>
+          ＋ Adicionar Conta Bancária
+        </button>
+
+        </div>
+
+        {/* Rodapé fixo — Cancelar/Salvar continuam alcançáveis mesmo com o
+            formulário rolado até o fim. */}
+        <div style={{ flex: '0 0 auto', display: 'flex', gap: 10, justifyContent: 'flex-end', padding: '14px 28px', borderTop: `1px solid ${p.border}` }}>
+          <button onClick={onClose} disabled={saving} style={btnStyle(p, false)}>Cancelar</button>
+          <button onClick={handleSave} disabled={saving} style={{ ...btnStyle(p, true), opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
+            {saving ? 'Salvando…' : 'Salvar cliente'}
+          </button>
         </div>
       </div>
     </div>
@@ -953,28 +1067,42 @@ export function GestaoClientesContent() {
   }, []);
 
   const [panel,  setPanel]  = useState('home');
-  const [tick,   setTick]   = useState(0);
   const [modal,  setModal]  = useState(null);
   const [perfil, setPerfil] = useState(null);
   const [toast,  setToast]  = useState('');
 
-  const clientes = useMemo(
-    () => companyId !== undefined ? getClientes(companyId) : [],
-    [tick, companyId]
-  );
-  const refresh  = useCallback(() => setTick((t) => t + 1), []);
+  const [clientes, setClientes] = useState([]);
+  const [clientesLoading, setClientesLoading] = useState(true);
+  const refresh = useCallback(() => {
+    if (!companyId) { setClientes([]); setClientesLoading(false); return; }
+    setClientesLoading(true);
+    getClientes(companyId)
+      .then(setClientes)
+      .catch(() => setClientes([]))
+      .finally(() => setClientesLoading(false));
+  }, [companyId]);
+
+  useEffect(() => {
+    if (companyId === undefined) return;
+    if (!companyId) { Promise.resolve().then(refresh); return; }
+    importLegacyClientsIfNeeded(companyId).catch(() => {}).finally(refresh);
+  }, [companyId, refresh]);
 
   function handleEdit(id)   { setModal(id || 'new'); }
   function handlePerfil(id) { setPerfil(id); setPanel('perfil'); }
   function handleBack()     { setPerfil(null); setPanel('clientes'); }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
     const c = clientes.find((x) => x.id === id);
     if (!c) return;
     if (!window.confirm(`Remover "${c.name}"? Isso também o removerá dos demais sistemas.`)) return;
-    deleteCliente(id, companyId);
-    refresh();
-    setToast('Cliente removido.');
+    try {
+      await deleteCliente(id, companyId);
+      refresh();
+      setToast('Cliente removido.');
+    } catch (e) {
+      setToast('Erro ao remover: ' + e.message);
+    }
   }
 
   const perfilCliente = perfil ? clientes.find((c) => c.id === perfil) : null;
@@ -1003,7 +1131,7 @@ export function GestaoClientesContent() {
 
       {/* Content */}
       <div style={{ fontFamily: FONT_INTER }}>
-        {companyId === undefined ? (
+        {companyId === undefined || (companyId && clientesLoading) ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0', color: p.muted, fontSize: 14 }}>
             Carregando dados da organização...
           </div>

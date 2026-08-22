@@ -1,6 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { promoverCaminho } from '../domain/promocao';
-import { confirmarDocumento } from './review.service';
+import { confirmarDocumento, registrarEvento } from './review.service';
 
 // A fila de empresas detectadas que ainda não são clientes.
 //
@@ -281,6 +281,9 @@ export async function fundirProvisorio({ tenantId, provisorio, alvoId, settings,
         client_id: alvoId,
         review_reason: 'Preencha competência e categoria para arquivar.',
       }).eq('id', doc.id);
+      await registrarEvento(tenantId, doc.id, 'reprocessado', {
+        motivo: `fundido com o cliente "${alvo.nome}"`, client_id: alvoId,
+      });
       pendentes.push(doc.file_name);
     }
   }

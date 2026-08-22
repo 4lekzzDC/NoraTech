@@ -3,9 +3,32 @@ import { supabase } from '../../../lib/supabase';
 // Consultas da caixa de entrada e do histórico. O isolamento entre
 // escritórios é do RLS — nenhuma destas funções filtra por tenant à mão.
 
+// As colunas que a caixa de entrada e o histórico precisam trazer.
+//
+// A lista é explícita e tem teste (documents.select.test.js) porque esquecer
+// uma coluna aqui não dá erro em lugar nenhum: o campo chega `undefined`, e
+// quem depende dele simplesmente decide errado, em silêncio.
+//
+// Foi o que aconteceu com `drive_file_id`. Ele ficou de fora desde a Etapa 7 e
+// levou junto cinco comportamentos: a pré-visualização do arquivo nunca
+// aparecia, o botão "Tentar novamente" nunca surgia, "conferir no Drive"
+// respondia sempre que não havia arquivo — e, o pior, `confirmarDocumento`
+// achava que não havia arquivo para mover, então gravava o caminho novo no
+// banco e deixava o arquivo parado em _triagem. O banco dizia uma coisa, o
+// Drive tinha outra, e nada acusava.
+export const COLUNAS_DO_DOCUMENTO = [
+  'id', 'file_name', 'mime_type', 'size_bytes', 'origem', 'status', 'competencia',
+  'review_reason', 'matched', 'received_at', 'organized_at',
+  // Do Drive: file_id manda em quase toda decisão da revisão; folder_id é o
+  // ponto de partida da verificação; web_link é o atalho para abrir lá.
+  'drive_file_id', 'drive_folder_id', 'drive_path', 'drive_web_link',
+  // Do erro: sem a mensagem, o painel mostra "o arquivamento falhou" e cala
+  // sobre o motivo.
+  'error_message', 'retry_count',
+];
+
 const SELECT = `
-  id, file_name, mime_type, size_bytes, origem, status, competencia,
-  review_reason, matched, drive_path, drive_web_link, received_at, organized_at,
+  ${COLUNAS_DO_DOCUMENTO.join(', ')},
   client:noradocs_clients ( id, nome ),
   category:noradocs_categories ( id, nome )
 `;

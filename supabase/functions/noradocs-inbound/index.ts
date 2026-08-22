@@ -3,6 +3,9 @@ import { classificar, RULES_VERSION } from './domain/rules.js';
 import { resolveFolderPath } from './domain/folderTemplate.js';
 import { decidirDestino } from './domain/destino.js';
 import { formatCNPJ } from './domain/cnpj.js';
+import { empresaDoRemetente } from './domain/remetente.js';
+import { mesclarReclassificacao } from './domain/reclassificacao.js';
+import { extrairTextoDePdf } from './pdfTexto.js';
 
 // A porta de entrada automática do NoraDocs. Quem bate nela hoje é o
 // complemento do Gmail; qualquer outra origem futura (portal, WhatsApp) entra
@@ -47,15 +50,6 @@ const TAMANHO_MAXIMO = 25 * 1024 * 1024;
 // antes de alguém perceber.
 const LIMITE_POR_HORA = 300;
 
-// Domínio de provedor aberto não identifica empresa nenhuma. Sem esta lista,
-// um cliente que escreve do Gmail viraria um cliente provisório chamado
-// "gmail.com", e a pasta de verificação juntaria empresas sem relação.
-const PROVEDORES_ABERTOS = new Set([
-  'gmail.com', 'googlemail.com', 'hotmail.com', 'hotmail.com.br', 'outlook.com',
-  'outlook.com.br', 'live.com', 'msn.com', 'yahoo.com', 'yahoo.com.br',
-  'uol.com.br', 'bol.com.br', 'terra.com.br', 'ig.com.br', 'globo.com',
-  'r7.com', 'icloud.com', 'me.com', 'protonmail.com', 'proton.me', 'zoho.com',
-]);
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -107,6 +101,22 @@ async function ensureChildFolder(accessToken: string, parentId: string, name: st
     throw new Error(`Falha ao criar a pasta "${name}" no Drive: ${createRes.status}`);
   }
   return (await createRes.json()).id as string;
+}
+
+// O cache de `noradocs_drive_folders` guarda um id para sempre — e um id do
+// Drive não é para sempre. Se a pasta de um cliente é apagada por fora
+// (limpeza manual de dados de teste, por exemplo), o cache não fica sabendo
+// e continua devolvendo o id de uma pasta que não existe mais: o documento é
+// "arquivado" num endereço fantasma, sem erro nenhum. Mesma função de
+// noradocs-drive, pelo mesmo motivo de sempre — sem import cross-função.
+async function folderAindaExiste(accessToken: string, folderId: string) {
+  const res = await fetch(
+    `${DRIVE_FILES_URL}/${encodeURIComponent(folderId)}?fields=id,trashed,mimeType&supportsAllDrives=true`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!res.ok) return false;
+  const data = await res.json().catch(() => ({}));
+  return data.mimeType === FOLDER_MIME && !data.trashed;
 }
 
 // Caminha a árvore a partir de uma das três bases, com o mesmo cache e a mesma
@@ -162,7 +172,10 @@ async function resolverPasta(
       .eq('path', chave)
       .maybeSingle();
 
-    if (cache?.drive_folder_id) { parentId = cache.drive_folder_id; continue; }
+    if (cache?.drive_folder_id && await folderAindaExiste(accessToken, cache.drive_folder_id)) {
+      parentId = cache.drive_folder_id;
+      continue;
+    }
 
     parentId = await ensureChildFolder(accessToken, parentId, segment);
     await admin.from('noradocs_drive_folders').upsert(
@@ -197,20 +210,6 @@ async function abrirSessaoDeUpload(
   return uploadUrl;
 }
 
-// Nome da empresa a partir do remetente — o único palpite que este caminho
-// dá, e com freio: se o domínio é de provedor aberto, não há empresa
-// nenhuma ali, e o documento vai para _triagem em vez de inventar um cliente.
-function empresaDoRemetente(remetente: string, remetenteNome: string) {
-  const dominio = String(remetente || '').split('@')[1]?.toLowerCase().trim();
-  if (!dominio || PROVEDORES_ABERTOS.has(dominio)) return null;
-
-  // Nome de exibição é bem melhor que o domínio como nome de pasta
-  // ("Padaria Aurora" e não "padariaaurora.com.br"), mas só vale quando o
-  // domínio já provou ser corporativo.
-  const exibicao = String(remetenteNome || '').trim();
-  const nome = exibicao && !exibicao.includes('@') ? exibicao : dominio;
-  return { nome: nome.slice(0, 120), dominio };
-}
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Método não suportado' }, 405);
@@ -257,7 +256,7 @@ Deno.serve(async (req) => {
       return await preparar({ admin, body, tenantId, tokenId: tokenRow.id, clientId, clientSecret });
     }
     if (action === 'concluir') {
-      return await concluir({ admin, body, tenantId });
+      return await concluir({ admin, body, tenantId, clientId, clientSecret });
     }
     return json({ error: 'Ação desconhecida' }, 400);
   } catch (err) {
@@ -416,7 +415,13 @@ async function preparar({ admin, body, tenantId, tokenId, clientId, clientSecret
   }
   const accessToken = refreshed.data.access_token as string;
 
-  const { folderId, path } = await resolverPasta(admin, accessToken, tenantId, base, segmentos);
+  // `base` vem de decidirDestino() como string solta (destino.js é JS puro,
+  // sem união de tipos); decidirDestino só devolve um dos três valores de
+  // DESTINOS, então o cast é seguro — pré-existente desde a E11, corrigido
+  // aqui só porque o type-check real (bloqueado até agora pela rede) o pegou.
+  const { folderId, path } = await resolverPasta(
+    admin, accessToken, tenantId, base as 'raiz' | 'triagem' | 'verificacao', segmentos,
+  );
   const uploadUrl = await abrirSessaoDeUpload(accessToken, folderId, fileName, mimeType, sizeBytes);
 
   // ── O documento nasce antes dos bytes, como no navegador ────────────────
@@ -488,9 +493,10 @@ async function preparar({ admin, body, tenantId, tokenId, clientId, clientSecret
 }
 
 
-async function concluir({ admin, body, tenantId }: {
+async function concluir({ admin, body, tenantId, clientId, clientSecret }: {
   // deno-lint-ignore no-explicit-any
   admin: any; body: Record<string, unknown>; tenantId: string;
+  clientId: string; clientSecret: string;
 }) {
   const documentId = String(body?.documentId || '');
   const driveFileId = String(body?.driveFileId || '');
@@ -503,7 +509,10 @@ async function concluir({ admin, body, tenantId }: {
   // que descubra o uuid.
   const { data: documento } = await admin
     .from('noradocs_documents')
-    .select('id, status, drive_path, client_id, matched')
+    .select(`
+      id, file_name, mime_type, status, client_id, category_id, competencia,
+      drive_path, drive_folder_id, matched, origem_ref
+    `)
     .eq('id', documentId)
     .eq('tenant_company_id', tenantId)
     .maybeSingle();
@@ -545,5 +554,230 @@ async function concluir({ admin, body, tenantId }: {
     payload: { drive_path: documento.drive_path, drive_file_id: driveFileId },
   });
 
-  return json({ status, destino: documento.drive_path });
+  // ── Reclassificação com o texto real do PDF ─────────────────────────────
+  // Só quando o documento acabou de cair em revisão: um documento que já foi
+  // para a pasta final (raiz) não é reaberto por uma segunda opinião
+  // automática — mover um arquivo sozinho, sem ninguém pedir, é o tipo de
+  // coisa que corrói confiança no produto. Melhorar o que ainda ESTÁ pendente
+  // é puro ganho; mexer no que já está pronto não é.
+  //
+  // Best-effort e isolado de propósito: o upload já está registrado e
+  // arquivado acima. Nenhuma falha daqui pra frente pode virar erro para o
+  // complemento — na pior das hipóteses, o documento fica exatamente como
+  // já estava, esperando revisão manual como sempre esperou.
+  if (status === 'revisar' && documento.mime_type === 'application/pdf') {
+    try {
+      await reclassificarComTextoDoPdf({
+        admin, tenantId, documentId, documento, driveFileId, clientId, clientSecret,
+      });
+    } catch (err) {
+      console.warn('[noradocs-inbound] reclassificação pós-upload falhou:', (err as Error)?.message);
+    }
+  }
+
+  const { data: final } = await admin
+    .from('noradocs_documents')
+    .select('status, drive_path')
+    .eq('id', documentId)
+    .maybeSingle();
+
+  return json({ status: final?.status ?? status, destino: final?.drive_path ?? documento.drive_path });
+}
+
+// Troca o pai do arquivo no Drive — mesma operação de `noradocs-drive`'s
+// move-file, reescrita aqui porque esta função não tem acesso a ela e não
+// vale a pena resolver import cross-função só por uma chamada de API.
+async function moverArquivo(accessToken: string, fileId: string, novaPastaId: string) {
+  const atualRes = await fetch(
+    `${DRIVE_FILES_URL}/${encodeURIComponent(fileId)}?fields=id,parents&supportsAllDrives=true`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!atualRes.ok) throw new Error(`Não foi possível localizar o arquivo no Drive (${atualRes.status}).`);
+  const atual = await atualRes.json();
+  if ((atual.parents || []).includes(novaPastaId)) return; // já está lá
+
+  const paisAtuais = (atual.parents || []).join(',');
+  const moveRes = await fetch(
+    `${DRIVE_FILES_URL}/${encodeURIComponent(fileId)}?addParents=${encodeURIComponent(novaPastaId)}`
+    + `${paisAtuais ? `&removeParents=${encodeURIComponent(paisAtuais)}` : ''}`
+    + '&fields=id&supportsAllDrives=true',
+    { method: 'PATCH', headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!moveRes.ok) throw new Error(`O Google recusou mover o arquivo (${moveRes.status}).`);
+}
+
+/**
+ * Lê de volta o PDF que acabou de ser criado no Drive, reclassifica com o
+ * texto de verdade, e — só quando a decisão melhora de fato — atualiza o
+ * registro e move o arquivo.
+ *
+ * O grant que lê o arquivo é o MESMO que o criou (`drive.file`): nenhum
+ * escopo novo, nenhuma reautorização. Ver pdfTexto.js para o porquê disto
+ * acontecer aqui e não em `preparar`.
+ */
+async function reclassificarComTextoDoPdf({ admin, tenantId, documentId, documento, driveFileId, clientId, clientSecret }: {
+  // deno-lint-ignore no-explicit-any
+  admin: any; tenantId: string; documentId: string; driveFileId: string;
+  clientId: string; clientSecret: string;
+  documento: {
+    file_name: string; client_id: string | null; category_id: string | null;
+    competencia: string | null; drive_folder_id: string | null; drive_path: string | null;
+    // deno-lint-ignore no-explicit-any
+    origem_ref: any;
+  };
+}) {
+  const { data: tokRow } = await admin
+    .from('noradocs_google_tokens')
+    .select('refresh_token')
+    .eq('tenant_company_id', tenantId)
+    .maybeSingle();
+  if (!tokRow?.refresh_token) return;
+
+  const refreshed = await refreshAccessToken(tokRow.refresh_token, clientId, clientSecret);
+  if (!refreshed.ok || !refreshed.data.access_token) return;
+  const accessToken = refreshed.data.access_token as string;
+
+  const bytesRes = await fetch(
+    `${DRIVE_FILES_URL}/${encodeURIComponent(driveFileId)}?alt=media`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!bytesRes.ok) return; // arquivo ainda pode não estar indexado; não é erro, é "tenta na próxima"
+  const bytes = new Uint8Array(await bytesRes.arrayBuffer());
+
+  const textoPdf = await extrairTextoDePdf(bytes);
+  if (!textoPdf) return; // PDF escaneado (só imagem), ou extração falhou — nada a melhorar
+
+  const [{ data: clients }, { data: categories }, { data: rules }, { data: settings }] =
+    await Promise.all([
+      admin.from('noradocs_clients')
+        .select('id, nome, cnpj, cpf, aliases, ativo, status, folder_name_override')
+        .eq('tenant_company_id', tenantId).eq('ativo', true),
+      admin.from('noradocs_categories')
+        .select('id, nome, slug, folder_name, keywords, ativo')
+        .eq('tenant_company_id', tenantId).eq('ativo', true),
+      admin.from('noradocs_client_rules')
+        .select('id, client_id, category_id, match_type, pattern, priority, ativo')
+        .eq('tenant_company_id', tenantId).eq('ativo', true),
+      admin.from('noradocs_settings')
+        .select('folder_template, auto_organize, drive_root_folder_id')
+        .eq('tenant_company_id', tenantId).maybeSingle(),
+    ]);
+  const contexto = { clients: clients || [], categories: categories || [], rules: rules || [] };
+
+  const assunto = documento.origem_ref?.assunto || '';
+  const remetente = documento.origem_ref?.remetente || '';
+  const resultado = classificar({
+    fileName: documento.file_name,
+    text: [assunto, textoPdf].filter(Boolean).join('\n'),
+    mimeType: 'application/pdf',
+    remetente,
+  }, contexto);
+
+  const clienteAtual = contexto.clients.find((c: { id: string }) => c.id === documento.client_id);
+
+  // Só um cliente CONFIRMADO conta como "achou de verdade". Um match do
+  // motor contra um provisório (por apelido, por exemplo) não pode contar
+  // como a segunda opinião que substitui o palpite — ele PRÓPRIO é palpite.
+  const clienteNovo = contexto.clients.find((c: { id: string }) => c.id === resultado.clientId);
+  const clientIdConfirmadoNovo = clienteNovo && clienteNovo.status !== 'provisorio' ? clienteNovo.id : null;
+
+  const { clientId: clientIdFinal, categoryId: categoryIdFinal, competencia: competenciaFinal, mudou } =
+    mesclarReclassificacao(
+      { clientId: documento.client_id, categoryId: documento.category_id, competencia: documento.competencia },
+      { ...resultado, clientId: clientIdConfirmadoNovo },
+      clienteAtual?.status === 'provisorio',
+    );
+  if (!mudou) return;
+
+  const cliente = contexto.clients.find((c: { id: string }) => c.id === clientIdFinal) || null;
+  const categoria = contexto.categories.find((c: { id: string }) => c.id === categoryIdFinal);
+
+  const faltando = [
+    !clientIdFinal && 'cliente', !categoryIdFinal && 'categoria', !competenciaFinal && 'competência',
+  ].filter(Boolean);
+  const { base: baseFinal, status: statusFinal, motivo: motivoFinal } = decidirDestino({
+    resultado: {
+      decisao: faltando.length ? 'revisar' : 'organizar',
+      motivoRevisao: faltando.length ? `Falta ${faltando.join(' e ')} para arquivar.` : null,
+    },
+    cliente,
+    autoOrganize: settings?.auto_organize !== false,
+  });
+
+  // ── Só mexe no Drive se o destino realmente mudou ───────────────────────
+  // O padrão é MANTER onde já está: se o destino continua sendo _triagem ou
+  // _verificação, o caminho gravado não muda — só é recalculado quando o
+  // novo destino é a raiz.
+  let folderId = documento.drive_folder_id;
+  let path = documento.drive_path;
+  if (baseFinal === 'raiz' && settings?.drive_root_folder_id) {
+    const segmentos = resolveFolderPath(
+      settings?.folder_template || '{cliente}/{ano}/{competencia}/{categoria}',
+      {
+        clienteNome: cliente?.folder_name_override || cliente?.nome || '',
+        cnpj: cliente?.cnpj ? formatCNPJ(cliente.cnpj) : '',
+        competencia: competenciaFinal || '',
+        categoriaNome: categoria?.folder_name || categoria?.nome || '',
+        tipo: '',
+      },
+    );
+    // Caminha a árvore com o MESMO cache de pastas de `resolverPasta`, sem
+    // duplicar a função aqui: uma passagem simples basta, porque reclassificar
+    // é raro (só quando o texto do PDF muda a decisão) e o volume não paga a
+    // reaproveitação de código entre as duas.
+    let parentId = settings.drive_root_folder_id;
+    const acumulado: string[] = [];
+    for (const segmento of segmentos) {
+      acumulado.push(segmento);
+      const chave = acumulado.join('/');
+      const { data: cache } = await admin
+        .from('noradocs_drive_folders')
+        .select('drive_folder_id')
+        .eq('tenant_company_id', tenantId).eq('path', chave).maybeSingle();
+      if (cache?.drive_folder_id && await folderAindaExiste(accessToken, cache.drive_folder_id)) {
+        parentId = cache.drive_folder_id;
+        continue;
+      }
+      parentId = await ensureChildFolder(accessToken, parentId, segmento);
+      await admin.from('noradocs_drive_folders').upsert(
+        { tenant_company_id: tenantId, path: chave, drive_folder_id: parentId },
+        { onConflict: 'tenant_company_id,path' },
+      );
+    }
+    folderId = parentId;
+    path = segmentos.join('/');
+
+    if (folderId && folderId !== documento.drive_folder_id) {
+      await moverArquivo(accessToken, driveFileId, folderId);
+    }
+  }
+
+  await admin.from('noradocs_documents').update({
+    status: statusFinal,
+    client_id: clientIdFinal,
+    category_id: categoryIdFinal,
+    competencia: competenciaFinal,
+    drive_folder_id: folderId,
+    drive_path: path,
+    review_reason: motivoFinal,
+    organized_at: statusFinal === 'organizado' ? new Date().toISOString() : null,
+    matched: {
+      evidence: resultado.evidence,
+      suposicoes: resultado.suposicoes,
+      pendencias: resultado.pendencias,
+      provisorio: cliente?.status === 'provisorio',
+      status_previsto: statusFinal,
+      reclassificado_com_pdf: true,
+    },
+  }).eq('id', documentId);
+
+  await admin.from('noradocs_events').insert({
+    tenant_company_id: tenantId, document_id: documentId,
+    type: 'reprocessado',
+    actor_type: 'system',
+    payload: {
+      motivo: 'reclassificado com o texto do PDF', evidence: resultado.evidence,
+      drive_path: path, status_final: statusFinal,
+    },
+  });
 }

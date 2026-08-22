@@ -132,7 +132,14 @@ function normText(s) {
     .replace(/\s+/g, ' ');
 }
 
-function matchRule(descNorm, rule) {
+function matchRule(descNorm, nature, rule) {
+  // A mesma frase de histórico aparece em pagamento e recebimento — "TED
+  // FULANO" tanto pode ser um TED enviado quanto um recebido. Sem checar a
+  // natureza do lançamento, a regra casa com os dois e manda a contrapartida
+  // errada num deles. rule.nature vazio/ausente é regra antiga, de antes
+  // deste campo existir: continua casando com qualquer natureza.
+  if (rule.nature && rule.nature !== nature) return false;
+
   const pat = rule.match_type === 'regex' ? rule.pattern : normText(rule.pattern);
   if (rule.match_type === 'contains') return descNorm.includes(pat);
   if (rule.match_type === 'startswith') return descNorm.startsWith(pat);
@@ -150,7 +157,7 @@ export function applyRules(rows, rules, fallback = '9999') {
   let coded = 0;
   const out = rows.map((row) => {
     const descNorm = normText(row.description);
-    const matched = rules.find((r) => matchRule(descNorm, r));
+    const matched = rules.find((r) => matchRule(descNorm, row.nature, r));
     const nr = { ...row, description_norm: descNorm };
     if (matched) {
       nr.coded = 1;

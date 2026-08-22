@@ -14,9 +14,11 @@ const docs = [
   { id: 'd1', file_name: 'extrato_itau_08-2026.pdf', status: 'revisar', competencia: '2026-08',
     client: clients[0], category: categories[0], drive_path: null, matched: { pendencias: [] },
     review_reason: null },
-  { id: 'd2', file_name: 'documento-sem-nome.pdf', status: 'revisar', competencia: null,
+  { id: 'd2', file_name: '585532502422029870_1.pdf', status: 'revisar', competencia: '2026-07',
     client: null, category: null, drive_path: null, matched: { pendencias: ['cliente', 'categoria'] },
-    review_reason: 'CNPJ não encontrado no texto nem no nome do arquivo' },
+    review_reason: 'Cliente não identificado: nenhum CNPJ conhecido no texto nem no nome do arquivo. Competência suposta pelo mês anterior ao recebimento. Categoria não identificada: nenhuma palavra-chave de categoria encontrada.',
+    // Como vem pelo Gmail: tem id do arquivo, mas o web_link é nulo.
+    drive_file_id: '1E22rHkgE-fpz3IYck3JYoyAFG-tP8Ako', drive_web_link: null },
   { id: 'd3', file_name: 'NFe_98765432000110_072026.xml', status: 'revisar', competencia: '2026-07',
     client: clients[1], category: categories[1], drive_path: null, matched: { pendencias: [] },
     review_reason: null },

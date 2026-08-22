@@ -1,9 +1,10 @@
-// Serviço da Gestão de Clientes — localStorage, sem React, sem DOM.
-// Porta fiel das funções gc* do Autonomy (dashboard.html 4561-5005).
+// Constantes e helpers puros da Gestão de Clientes — sem React, sem DOM.
 //
-// Chave localStorage isolada por organização:
-//   gestao_clientes_<companyId> → array de clientes
-// Quando companyId é omitido cai no bucket global (modo demo/sem empresa).
+// O cadastro em si (CRUD de clientes e contas bancárias) mora em
+// clients.service.js, a base compartilhada da equipe (Supabase). Este
+// arquivo guarda só o que não depende de onde os dados estão salvas:
+// opções de formulário e as buscas externas (CNPJ, CEP, geocoding).
+import { saveCliente } from '../../services/clients.service';
 
 // ──────────────────────────────────────────────────────────────────────
 // Constantes
@@ -68,64 +69,10 @@ export function inferRamoFromCnae(cnae) {
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Chave com escopo por organização
-// ──────────────────────────────────────────────────────────────────────
-
-function gcKey(companyId) {
-  return companyId ? `gestao_clientes_${companyId}` : 'gestao_clientes';
-}
-
-// chave do cod_banks (codificador.service) — deve ser idêntica ao formato lá
-function banksKey(companyId) {
-  return companyId ? `cod_banks_${companyId}` : 'cod_banks';
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// Storage
-// ──────────────────────────────────────────────────────────────────────
-
-export function getAll(companyId) {
-  try { return JSON.parse(localStorage.getItem(gcKey(companyId)) || '[]'); }
-  catch { return []; }
-}
-
-export function saveAll(v, companyId) {
-  localStorage.setItem(gcKey(companyId), JSON.stringify(v));
-}
-
-export function getClientes(companyId) {
-  return getAll(companyId);
-}
-
-export function saveCliente(data, id, companyId) {
-  const lista = getAll(companyId);
-  if (id) {
-    const i = lista.findIndex((c) => c.id === id);
-    if (i > -1) lista[i] = { ...lista[i], ...data, updated_at: new Date().toISOString() };
-    saveAll(lista, companyId);
-    return lista[i >= 0 ? i : 0];
-  } else {
-    const obj = {
-      ...data,
-      id: 'cli_' + Date.now(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    lista.push(obj);
-    saveAll(lista, companyId);
-    return obj;
-  }
-}
-
-export function deleteCliente(id, companyId) {
-  saveAll(getAll(companyId).filter((c) => c.id !== id), companyId);
-}
-
-// ──────────────────────────────────────────────────────────────────────
 // Geocoding (Nominatim — background, non-blocking)
 // ──────────────────────────────────────────────────────────────────────
 
-export async function geocode(cliente, companyId) {
+export async function geocode(cliente, tenantCompanyId) {
   async function tryQ(q) {
     try {
       const r = await fetch(
@@ -164,14 +111,13 @@ export async function geocode(cliente, companyId) {
   for (let qi = 0; qi < queries.length; qi++) {
     const coords = await tryQ(queries[qi]);
     if (coords) {
-      const lista = getAll(companyId);
-      const i = lista.findIndex((c) => c.id === cliente.id);
-      if (i > -1) {
-        lista[i].lat       = coords.lat;
-        lista[i].lng       = coords.lng;
-        lista[i].geo_level = LEVELS[qi] ?? 'city';
-        saveAll(lista, companyId);
-      }
+      try {
+        await saveCliente(
+          { lat: coords.lat, lng: coords.lng, geo_level: LEVELS[qi] ?? 'city' },
+          cliente.id,
+          tenantCompanyId
+        );
+      } catch { /* geocoding é best-effort — falha aqui não deve travar a UI */ }
       return coords;
     }
     await new Promise((r) => setTimeout(r, 1100));
@@ -226,15 +172,4 @@ export async function buscarCEP(cep) {
     cidade:     d.localidade || '',
     estado:     d.uf || '',
   };
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// Contas bancárias (via Codificador de Extrato)
-// ──────────────────────────────────────────────────────────────────────
-
-export function getBancos(clienteId, companyId) {
-  try {
-    const banks = JSON.parse(localStorage.getItem(banksKey(companyId)) || '[]');
-    return banks.filter((b) => b.company_id === clienteId);
-  } catch { return []; }
 }

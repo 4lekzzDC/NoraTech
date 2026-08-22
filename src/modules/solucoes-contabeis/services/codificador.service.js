@@ -1,19 +1,19 @@
 // Serviço de persistência do Codificador de Arquivos.
 //
-// Toda I/O com localStorage do módulo está isolada aqui para que, quando
-// o backend Supabase ficar pronto, basta trocar a implementação destas
-// funções (mantendo as assinaturas) sem mexer na UI.
+// Regras e logs continuam em localStorage, isolados por organização — são
+// configuração do próprio Codificador, não cadastro de clientes da equipe.
+//
+// Empresas (clientes) e contas bancárias NÃO vivem mais aqui: vêm da base
+// compartilhada da equipe (services/clients.service.js), a mesma que a
+// Gestão de Clientes usa — ver a regra de arquitetura "Clientes por
+// equipe" (um cliente pertence à equipe, não a um sistema específico).
 //
 // Chaves isoladas por organização:
-//   cod_banks_<companyId>  → contas bancárias
 //   cod_rules_<companyId>  → regras de codificação
 //   cod_logs_<companyId>   → histórico de codificações
-//   gestao_clientes_<companyId> → empresas (chave compartilhada com Gestão de Clientes)
 
-const K_CONTAS   = 'cod_banks';
-const K_REGRAS   = 'cod_rules';
-const K_LOGS     = 'cod_logs';
-const K_CLIENTES = 'gestao_clientes';
+const K_REGRAS = 'cod_rules';
+const K_LOGS   = 'cod_logs';
 
 function scopedKey(base, companyId) {
   return companyId ? `${base}_${companyId}` : base;
@@ -32,42 +32,12 @@ function writeJSON(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-// ── Empresas (clientes) ──
-// Schema: { id, name, cnpj?, teamId? } — compartilhado com Gestão de Clientes.
-export function listEmpresas(companyId) {
-  return readJSON(scopedKey(K_CLIENTES, companyId), []);
-}
-
-// ── Contas bancárias ──
-// Schema: { id, company_id, code, label, bank_name? }
-export function listContas(companyId) {
-  return readJSON(scopedKey(K_CONTAS, companyId), []);
-}
-
-export function saveContas(contas, companyId) {
-  writeJSON(scopedKey(K_CONTAS, companyId), contas);
-}
-
-export function upsertConta(input, companyId) {
-  const contas = listContas(companyId);
-  if (input.id) {
-    const i = contas.findIndex((c) => c.id === input.id);
-    if (i > -1) contas[i] = { ...contas[i], ...input };
-  } else {
-    contas.push({ id: 'bk_' + Date.now(), ...input });
-  }
-  saveContas(contas, companyId);
-  return contas;
-}
-
-export function deleteConta(id, companyId) {
-  const next = listContas(companyId).filter((c) => c.id !== id);
-  saveContas(next, companyId);
-  return next;
-}
-
 // ── Regras de codificação ──
-// Schema: { id, company_id, name, pattern, match_type, account, history_template?, is_active }
+// Schema: { id, company_id, name, pattern, match_type, nature, account, history_template?, is_active }
+// company_id null = regra global, aplicada a qualquer cliente.
+// nature 'D' = pagamento (débito), 'C' = recebimento (crédito) — o mesmo
+// histórico de banco costuma valer para os dois sentidos, e não é a mesma
+// contrapartida contábil; regra antiga sem este campo casa com qualquer natureza.
 export function listRegras(companyId) {
   return readJSON(scopedKey(K_REGRAS, companyId), []);
 }
@@ -118,28 +88,15 @@ export function pushLog(log, companyId) {
   return logs;
 }
 
-// ── Bootstrap: cria dados demo se ainda não existirem ──
+// ── Bootstrap: cria regra demo global se ainda não existir nenhuma regra ──
+// Não cria mais cliente nem conta demo: clientes agora são um cadastro real
+// e compartilhado da equipe (Gestão de Clientes) — semear um "Cliente Demo
+// Ltda" ali seria poluir a base de verdade da equipe, não só uma tela vazia.
+// A regra global (company_id null) continua útil como exemplo, já que não
+// depende de nenhum cliente existir.
 export function seedDemoIfEmpty(companyId) {
-  let empresas = listEmpresas(companyId);
-  let createdEmpresa = false;
-  if (!empresas.length) {
-    const id = 'emp_' + Date.now();
-    empresas = [{ id, name: 'Cliente Demo Ltda', cnpj: '00.000.000/0001-00' }];
-    writeJSON(scopedKey(K_CLIENTES, companyId), empresas);
-    createdEmpresa = true;
-  }
-  const eid = empresas[0].id;
-  if (!listContas(companyId).length) {
-    saveContas([
-      { id: 'bk_' + Date.now(), company_id: eid, code: '1.1.01', label: 'Conta Corrente BB', bank_name: 'Banco do Brasil' },
-    ], companyId);
-  }
-  if (!listRegras(companyId).length) {
-    saveRegras([
-      { id: 'r1', company_id: eid, name: 'Pagamento Fornecedor', pattern: 'PAGTO', match_type: 'contains', account: '2.1.01', history_template: 'Pgto fornecedor', is_active: 1 },
-      { id: 'r2', company_id: eid, name: 'Recebimento Clientes', pattern: 'TED RECEBIDA', match_type: 'contains', account: '1.1.02', history_template: 'Recebimento de clientes', is_active: 1 },
-      { id: 'r3', company_id: eid, name: 'Tarifa Bancária', pattern: 'TARIFA', match_type: 'contains', account: '6.1.01', history_template: 'Tarifa bancária', is_active: 1 },
-    ], companyId);
-  }
-  return { createdEmpresa };
+  if (listRegras(companyId).length) return;
+  saveRegras([
+    { id: 'r_demo_tarifa', company_id: null, name: 'Tarifa Bancária', pattern: 'TARIFA', match_type: 'contains', nature: 'D', account: '6.1.01', history_template: 'Tarifa bancária', is_active: 1 },
+  ], companyId);
 }

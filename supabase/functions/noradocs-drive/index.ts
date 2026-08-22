@@ -6,7 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 //   picker-token       empresta um access_token curto para o Picker abrir
 //   set-root-folder    confirma a raiz e cria _triagem e _verificação
 //   ensure-folder-path caminha/cria a árvore do destino, com cache; a base é
-//                      a raiz, _triagem ou _verificação
+//                      a raiz, _triagem, _verificação ou _descartados
 //   upload-token       empresta um access_token curto para o envio direto
 //   move-file          troca o pai do arquivo — de _triagem para o destino
 //
@@ -38,6 +38,10 @@ const STAGING_FOLDER_NAME = '_triagem';
 // identificado; _verificação guarda o que foi identificado como uma empresa
 // que ainda não é cliente. Num falta informação, no outro falta cadastro.
 const VERIFICACAO_FOLDER_NAME = '_verificação';
+// Terceira irmã: onde vai o arquivo de um documento descartado. Sair da
+// vista de quem está arquivando sem apagar nada do Drive do escritório —
+// quem decide apagar de verdade é o dono da conta, não o NoraDocs.
+const DESCARTADOS_FOLDER_NAME = '_descartados';
 
 async function refreshAccessToken(refreshToken: string, clientId: string, clientSecret: string) {
   const res = await fetch(TOKEN_URL, {
@@ -87,6 +91,27 @@ async function ensureChildFolder(accessToken: string, parentId: string, name: st
   return created.id as string;
 }
 
+// O cache de `noradocs_drive_folders` guarda um id para sempre — e um id do
+// Drive não é para sempre. Se alguém apaga a pasta de um cliente por fora
+// (limpando dados de teste, por exemplo), o cache não fica sabendo: continua
+// devolvendo o id de uma pasta que não existe mais, e todo documento novo
+// desse cliente é "arquivado" num endereço fantasma, sem erro nenhum. Foi
+// exatamente isso que aconteceu com um extrato: o registro dizia "arquivado",
+// mas a pasta do meio da árvore tinha sido apagada dias antes.
+//
+// Por isso todo cache HIT passa por aqui antes de ser confiado. Custa uma
+// chamada extra ao Drive por nível — pouco, perto do que custa um documento
+// silenciosamente perdido.
+async function folderAindaExiste(accessToken: string, folderId: string) {
+  const res = await fetch(
+    `${DRIVE_FILES_URL}/${encodeURIComponent(folderId)}?fields=id,trashed,mimeType&supportsAllDrives=true`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!res.ok) return false;
+  const data = await res.json().catch(() => ({}));
+  return data.mimeType === FOLDER_MIME && !data.trashed;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -126,7 +151,12 @@ Deno.serve(async (req) => {
     .eq('user_id', user.id)
     .in('status', ['active', 'pending'])
     .order('created_at', { ascending: false });
-  const membership = (membresias || []).find((m) => m.status === 'active') || (membresias || [])[0];
+  // Anotação explícita, não pré-existente por acaso: o cliente Supabase é
+  // `any` (import via esm.sh, sem tipos neste checkout), e sem isto o
+  // `deno check` real — bloqueado até agora pela rede — acusa parâmetro
+  // implicitamente `any`.
+  const membership = (membresias || []).find((m: { status?: string }) => m.status === 'active')
+    || (membresias || [])[0];
   const tenantId = membership?.company_id as string | undefined;
   if (!tenantId) return json({ error: 'Você não pertence a nenhum escritório.' }, 400);
 
@@ -234,13 +264,13 @@ Deno.serve(async (req) => {
       // continua entendida: durante a janela entre implantar esta função e
       // implantar o frontend novo, o navegador em produção ainda a envia.
       const base = String(body?.base || (body?.staging === true ? 'triagem' : 'raiz'));
-      if (!['raiz', 'triagem', 'verificacao'].includes(base)) {
+      if (!['raiz', 'triagem', 'verificacao', 'descartados'].includes(base)) {
         return json({ error: 'base inválida' }, 400);
       }
 
       const { data: settings } = await admin
         .from('noradocs_settings')
-        .select('drive_root_folder_id, drive_staging_folder_id, drive_verificacao_folder_id')
+        .select('drive_root_folder_id, drive_staging_folder_id, drive_verificacao_folder_id, drive_descartados_folder_id')
         .eq('tenant_company_id', tenantId)
         .maybeSingle();
 
@@ -252,15 +282,19 @@ Deno.serve(async (req) => {
         raiz: settings.drive_root_folder_id,
         triagem: settings.drive_staging_folder_id,
         verificacao: settings.drive_verificacao_folder_id,
+        descartados: settings.drive_descartados_folder_id,
       }[base];
 
-      // Escritório que configurou a raiz antes de _verificação existir não tem
-      // a pasta. Criar aqui, na primeira necessidade, evita obrigá-lo a
-      // reconfigurar a conexão só para ganhar uma subpasta.
-      if (!rootId && base === 'verificacao') {
-        rootId = await ensureChildFolder(accessToken, settings.drive_root_folder_id, VERIFICACAO_FOLDER_NAME);
+      // Escritório que configurou a raiz antes de _verificação (ou
+      // _descartados) existir não tem a pasta. Criar aqui, na primeira
+      // necessidade, evita obrigá-lo a reconfigurar a conexão só para ganhar
+      // uma subpasta.
+      if (!rootId && (base === 'verificacao' || base === 'descartados')) {
+        const nome = base === 'verificacao' ? VERIFICACAO_FOLDER_NAME : DESCARTADOS_FOLDER_NAME;
+        rootId = await ensureChildFolder(accessToken, settings.drive_root_folder_id, nome);
+        const coluna = base === 'verificacao' ? 'drive_verificacao_folder_id' : 'drive_descartados_folder_id';
         await admin.from('noradocs_settings')
-          .update({ drive_verificacao_folder_id: rootId })
+          .update({ [coluna]: rootId })
           .eq('tenant_company_id', tenantId);
       }
       if (!rootId) {
@@ -286,14 +320,17 @@ Deno.serve(async (req) => {
       const pathExibido = base === 'verificacao' ? `${VERIFICACAO_FOLDER_NAME}/${path}` : path;
 
       // Cache: evita percorrer o Drive a cada arquivo do mesmo cliente e
-      // mês — que é o padrão real de uso, lotes de dezenas de uma vez.
+      // mês — que é o padrão real de uso, lotes de dezenas de uma vez. Mas só
+      // vale se a pasta ainda existir — ver folderAindaExiste.
       const { data: cached } = await admin
         .from('noradocs_drive_folders')
         .select('drive_folder_id')
         .eq('tenant_company_id', tenantId)
         .eq('path', chaveCache)
         .maybeSingle();
-      if (cached?.drive_folder_id) return json({ folderId: cached.drive_folder_id, path: pathExibido, cached: true });
+      if (cached?.drive_folder_id && await folderAindaExiste(accessToken, cached.drive_folder_id)) {
+        return json({ folderId: cached.drive_folder_id, path: pathExibido, cached: true });
+      }
 
       // Caminha a árvore criando o que faltar, e memoriza cada nível — não só
       // o final: o próximo documento do mesmo cliente em outro mês já acha o
@@ -311,7 +348,7 @@ Deno.serve(async (req) => {
           .eq('path', parcial)
           .maybeSingle();
 
-        if (cachedLevel?.drive_folder_id) {
+        if (cachedLevel?.drive_folder_id && await folderAindaExiste(accessToken, cachedLevel.drive_folder_id)) {
           parentId = cachedLevel.drive_folder_id;
           continue;
         }

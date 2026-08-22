@@ -35,6 +35,10 @@ autorizada para aquele arquivo naquela pasta e para mais nada.
 **Não há leitura da caixa de entrada.** Nenhum monitoramento, nenhuma varredura,
 nenhum "ler todos os e-mails". O complemento só enxerga o que você abriu.
 
+**São três escopos, e nenhum a mais.** Se o Gmail pedir permissão para algo fora
+desta lista — `script.locale`, por exemplo —, é sinal de que o manifesto colado
+no Apps Script está desatualizado, não de que o complemento precisa daquilo.
+
 ---
 
 ## Passo a passo
@@ -120,6 +124,7 @@ feita. Enquanto isso, a instalação por pessoa funciona igual.
 | "A conexão do escritório com o Google expirou" | O Drive do escritório precisa reconectar | Configurações → reconectar o Google |
 | "maior que 25 MB" | Anexo grande demais | Baixe e envie pela caixa de entrada |
 | O ícone não aparece no Gmail | A implantação de teste não foi instalada | Repita o passo 3 e recarregue o Gmail |
+| "O script não tem permissão… Permissões necessárias: …/auth/script.locale" | O `appsscript.json` colado é uma versão antiga, que tinha `useLocaleFromApp` | Recole o `addon/appsscript.json` atual (a opção foi removida), salve e reimplante |
 | "enviado, mas o registro falhou" | O arquivo chegou ao Drive; o NoraDocs não soube | O documento fica em erro na caixa de entrada, com *Tentar novamente* |
 
 **Onde olhar:** no Apps Script, **Execuções** (menu lateral) mostra cada

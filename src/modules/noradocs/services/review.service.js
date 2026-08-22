@@ -26,7 +26,7 @@ async function invocarDrive(body) {
   return data;
 }
 
-async function registrarEvento(tenantId, documentId, type, payload) {
+export async function registrarEvento(tenantId, documentId, type, payload) {
   const { data: { user } } = await supabase.auth.getUser();
   await supabase.from('noradocs_events').insert({
     tenant_company_id: tenantId,
@@ -102,10 +102,34 @@ export async function confirmarDocumento(doc, escolha, contexto) {
   return atualizado;
 }
 
+// Descartar não apaga nada no Drive do escritório — quem decide apagar de
+// verdade é o dono da conta. O que o NoraDocs faz é o equivalente a arquivar
+// numa quarta pasta de trabalho, _descartados: sai da vista de quem está
+// organizando (e de _triagem/_verificação, que são filas de trabalho), mas o
+// arquivo continua existindo e localizável para quem for atrás dele.
 export async function descartarDocumento(doc, tenantId) {
+  const atualizacao = { status: 'descartado', review_reason: null };
+
+  // Mover é best-effort, de propósito: descartar é também a saída de quem
+  // apagou o arquivo NO DRIVE por fora e quer reenviá-lo (ver HistoricoPage) —
+  // nesse caso o arquivo já não existe, move-file responde 404, e travar o
+  // descarte por causa disso prenderia exatamente quem mais precisa dele.
+  // Quando o arquivo ainda existe, ele sai de _triagem/_verificação para
+  // _descartados; quando não existe mais, só o registro muda de status.
+  if (doc.drive_file_id) {
+    try {
+      const { folderId } = await invocarDrive({ action: 'ensure-folder-path', base: 'descartados', segments: [] });
+      await invocarDrive({ action: 'move-file', fileId: doc.drive_file_id, folderId });
+      atualizacao.drive_folder_id = folderId;
+      atualizacao.drive_path = '_descartados';
+    } catch (err) {
+      console.warn('[noradocs] não foi possível mover o arquivo descartado no Drive:', err.message);
+    }
+  }
+
   const { error } = await supabase
     .from('noradocs_documents')
-    .update({ status: 'descartado', review_reason: null })
+    .update(atualizacao)
     .eq('id', doc.id);
   if (error) throw new Error(error.message);
 
@@ -174,12 +198,16 @@ export async function reprocessarDocumento(doc, contexto) {
 //
 // O contador pode mover ou apagar coisas no Drive por fora — é o Drive dele.
 // Quando isso acontece, o caminho gravado aqui passa a mentir, e a única
-// forma honesta de lidar é verificar sob demanda e registrar a divergência.
+// forma honesta de lidar é verificar sob demanda e registrar o resultado —
+// SEMPRE, não só a divergência. Uma verificação que deu certo também é
+// trilha: é a diferença entre "ninguém nunca checou" e "checado em
+// 21/08, estava tudo certo".
 export async function verificarNoDrive(doc, tenantId) {
   if (!doc.drive_file_id) return { ok: false, motivo: 'Este documento não tem arquivo no Drive.' };
 
   try {
     await invocarDrive({ action: 'move-file', fileId: doc.drive_file_id, folderId: doc.drive_folder_id });
+    await registrarEvento(tenantId, doc.id, 'verificado_drive', { drive_path: doc.drive_path });
     return { ok: true };
   } catch (err) {
     await registrarEvento(tenantId, doc.id, 'divergencia_drive', { mensagem: err.message });

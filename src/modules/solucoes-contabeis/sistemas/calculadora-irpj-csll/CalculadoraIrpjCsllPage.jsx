@@ -5,7 +5,8 @@ import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
 import { getCurrentTenantCompanyId } from '../../../../lib/subscriptions';
 import { moduleRoute } from '../../constants';
-import { getClientes, RAMO_LABEL_BY_ID } from '../gestao-clientes/gcService';
+import { RAMO_LABEL_BY_ID } from '../gestao-clientes/gcService';
+import { getClientes } from '../../services/clients.service';
 import {
   PRESUNCAO_POR_RAMO, ALIQUOTAS, LIMITE_ADICIONAL_MENSAL, LIMITE_COMPENSACAO_PREJUIZO,
   TRIMESTRES, CAMPOS_PRESUMIDO, CAMPOS_REAL,
@@ -623,10 +624,14 @@ export default function CalculadoraIrpjCsllPage() {
     getCurrentTenantCompanyId().then((id) => setCompanyId(id || null)).catch(() => setCompanyId(null));
   }, []);
 
-  const clientes = useMemo(
-    () => (companyId !== undefined ? getClientes(companyId) : []),
-    [companyId]
-  );
+  const [clientes, setClientes] = useState([]);
+  useEffect(() => {
+    let ativo = true;
+    Promise.resolve(companyId ? getClientes(companyId) : [])
+      .then((c) => { if (ativo) setClientes(c); })
+      .catch(() => { if (ativo) setClientes([]); });
+    return () => { ativo = false; };
+  }, [companyId]);
 
   const [step, setStep] = useState(0);
   const [maxReached, setMaxReached] = useState(0);
