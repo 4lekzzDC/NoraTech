@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Chart, registerables } from 'chart.js';
 import SolucoesHeader from '../../components/SolucoesHeader';
+import AnimatedDropzone from '../../../../components/AnimatedDropzone';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
 import {
@@ -588,30 +589,35 @@ function ResumoPanel({ parsed }) {
 // ══════════════════════════════════════════════════════════════════════
 
 // ── File upload slot ──────────────────────────────────────────────────
-function FileSlot({ label, icon, status, fileName, onFile }) {
+function FileSlot({ label, icon, file, uploadStatus, message, onFile, onRetry, onClear }) {
   const P = useP();
-  const inputRef = useRef(null);
-  const statusColors = { idle: P.muted2, loaded: P.green, error: P.red };
-  const statusLabels = { idle: 'Pendente', loaded: 'Carregado', error: 'Erro' };
+
+  const items = file ? [{
+    id: file.name,
+    name: file.name,
+    size: file.size,
+    status: uploadStatus,
+    progress: uploadStatus === 'uploading' ? 55 : 100,
+    message,
+  }] : [];
 
   return (
-    <div style={{ ...card(P), borderRadius: 12, borderColor: status === 'loaded' ? P.border2 : P.border, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: '1.3rem' }}>{icon}</span>
-          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: P.text }}>{label}</span>
-        </div>
-        <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '3px 10px', borderRadius: 100, background: status === 'loaded' ? 'rgba(52,211,153,.12)' : status === 'error' ? 'rgba(255,92,92,.12)' : P.surface2, color: statusColors[status] }}>
-          {statusLabels[status]}
-        </span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+        <span style={{ fontSize: '1.1rem' }}>{icon}</span>
+        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: P.text }}>{label}</span>
       </div>
-      {fileName && (
-        <div style={{ fontSize: '0.76rem', color: P.muted, fontFamily: FONT_MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileName}</div>
-      )}
-      <input ref={inputRef} type="file" accept=".xlsx,.xls,.pdf" style={{ display: 'none' }} onChange={(e) => { if (e.target.files[0]) onFile(e.target.files[0]); }} />
-      <button onClick={() => inputRef.current?.click()} style={{ padding: '7px 14px', borderRadius: 8, border: `1px solid ${P.border2}`, background: 'transparent', color: P.muted, fontFamily: FONT_INTER, fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start' }}>
-        {status === 'loaded' ? 'Trocar arquivo' : 'Selecionar arquivo'}
-      </button>
+      <AnimatedDropzone
+        items={items}
+        onFiles={(files) => onFile(files[0])}
+        onRetry={onRetry}
+        onClear={onClear}
+        disabled={uploadStatus === 'uploading'}
+        multiple={false}
+        accept=".xlsx,.xls,.pdf"
+        title="Selecionar arquivo"
+        hint="ou arraste aqui · XLSX ou PDF"
+      />
     </div>
   );
 }
@@ -620,21 +626,31 @@ function FileSlot({ label, icon, status, fileName, onFile }) {
 function UploadPanel({ onProcessed, onClear, hasParsed }) {
   const P         = useP();
   const companyId = useCompanyId();
+  const [files,   setFiles]   = useState({ dre: null, balanco: null, balancete: null });
   const [raw,     setRaw]     = useState({ dre: null, balanco: null, balancete: null });
-  const [status,  setStatus]  = useState({ dre: 'idle', balanco: 'idle', balancete: 'idle' });
-  const [names,   setNames]   = useState({ dre: '', balanco: '', balancete: '' });
+  const [status,  setStatus]  = useState({ dre: 'idle', balanco: 'idle', balancete: 'idle' }); // idle|uploading|done|error
+  const [errors,  setErrors]  = useState({ dre: '', balanco: '', balancete: '' });
   const [loading, setLoading] = useState(false);
 
   const handleFile = async (type, file) => {
+    setFiles((f) => ({ ...f, [type]: file }));
+    setStatus((s) => ({ ...s, [type]: 'uploading' }));
+    setErrors((e) => ({ ...e, [type]: '' }));
     try {
       const rows = await loadFile(file);
       setRaw((r) => ({ ...r, [type]: rows }));
-      setStatus((s) => ({ ...s, [type]: 'loaded' }));
-      setNames((n) => ({ ...n, [type]: file.name + ' (' + rows.length + ' linhas)' }));
-    } catch {
+      setStatus((s) => ({ ...s, [type]: 'done' }));
+    } catch (err) {
       setStatus((s) => ({ ...s, [type]: 'error' }));
-      setNames((n) => ({ ...n, [type]: 'Erro ao ler arquivo' }));
+      setErrors((e) => ({ ...e, [type]: 'Erro ao ler arquivo: ' + err.message }));
     }
+  };
+
+  const handleSlotClear = (type) => {
+    setFiles((f) => ({ ...f, [type]: null }));
+    setRaw((r) => ({ ...r, [type]: null }));
+    setStatus((s) => ({ ...s, [type]: 'idle' }));
+    setErrors((e) => ({ ...e, [type]: '' }));
   };
 
   const handleProcess = async () => {
@@ -651,21 +667,24 @@ function UploadPanel({ onProcessed, onClear, hasParsed }) {
   };
 
   const handleClear = () => {
+    setFiles({ dre: null, balanco: null, balancete: null });
     setRaw({ dre: null, balanco: null, balancete: null });
     setStatus({ dre: 'idle', balanco: 'idle', balancete: 'idle' });
-    setNames({ dre: '', balanco: '', balancete: '' });
+    setErrors({ dre: '', balanco: '', balancete: '' });
     clearParsed(companyId);
     onClear();
   };
 
-  const anyLoaded = Object.values(status).some((s) => s === 'loaded');
+  const anyLoaded = Object.values(status).some((s) => s === 'done');
+
+  const slotMessage = (type) => errors[type] || (status[type] === 'uploading' ? 'Lendo…' : `${raw[type]?.length ?? 0} linha(s) lida(s)`);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
-        <FileSlot label="DRE"                  icon="📊" status={status.dre}       fileName={names.dre}       onFile={(f) => handleFile('dre', f)} />
-        <FileSlot label="Balanço Patrimonial"  icon="⚖️" status={status.balanco}   fileName={names.balanco}   onFile={(f) => handleFile('balanco', f)} />
-        <FileSlot label="Balancete"            icon="📋" status={status.balancete} fileName={names.balancete} onFile={(f) => handleFile('balancete', f)} />
+        <FileSlot label="DRE"                  icon="📊" file={files.dre}       uploadStatus={status.dre}       message={slotMessage('dre')}       onFile={(f) => handleFile('dre', f)}       onRetry={() => files.dre && handleFile('dre', files.dre)}             onClear={() => handleSlotClear('dre')} />
+        <FileSlot label="Balanço Patrimonial"  icon="⚖️" file={files.balanco}   uploadStatus={status.balanco}   message={slotMessage('balanco')}   onFile={(f) => handleFile('balanco', f)}   onRetry={() => files.balanco && handleFile('balanco', files.balanco)}   onClear={() => handleSlotClear('balanco')} />
+        <FileSlot label="Balancete"            icon="📋" file={files.balancete} uploadStatus={status.balancete} message={slotMessage('balancete')} onFile={(f) => handleFile('balancete', f)} onRetry={() => files.balancete && handleFile('balancete', files.balancete)} onClear={() => handleSlotClear('balancete')} />
       </div>
 
       <div style={{ background: P.primarySoft, border: `1px solid ${P.primaryBorder}`, borderRadius: 10, padding: '12px 16px', fontSize: '0.8rem', color: P.primaryText, lineHeight: 1.6 }}>

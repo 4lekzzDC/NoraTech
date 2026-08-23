@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import SolucoesHeader from '../../components/SolucoesHeader';
+import AnimatedDropzone from '../../../../components/AnimatedDropzone';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
 import { parseXlsx, match as runMatch, exportResult } from './concEngine';
@@ -95,8 +96,6 @@ export default function ConciliadorExtratosPage() {
           .conc-tab-btn:hover { background: ${P.primarySoft}; color: ${P.primaryText}; }
           .conc-card { transition: all 0.18s ease; }
           .conc-card:hover { border-color: ${P.primaryBorder}; }
-          .conc-dropzone { transition: all 0.18s ease; }
-          .conc-dropzone.over { border-color: ${P.primary} !important; background: ${P.primarySoft} !important; }
           .conc-btn-primary { transition: all 0.15s ease; }
           .conc-btn-primary:hover { filter: brightness(1.1); }
           .conc-btn-ghost { transition: all 0.15s ease; }
@@ -324,31 +323,17 @@ function Step({ n, title, desc }) {
 function UploadPanel({ razao, extrato, setRazao, setExtrato, onProcess, showToast }) {
   const P = useP();
 
+  // Lança em vez de engolir o erro num toast: o DropCard mostra a falha (e o
+  // botão de tentar de novo) na própria linha do arquivo, não só de passagem.
   const handleFile = async (file, tipo) => {
-    if (!file) return;
     const ext = file.name.split('.').pop().toLowerCase();
-    if (ext === 'pdf') {
-      showToast('⚠️ PDF ainda não suportado — em breve. Use .xlsx por enquanto.');
-      return;
-    }
-    if (!['xlsx', 'xls', 'csv'].includes(ext)) {
-      showToast('⚠️ Formato não suportado. Use .xlsx');
-      return;
-    }
-    showToast('🔄 Lendo ' + file.name + '…');
-    try {
-      const rows = await parseXlsx(file, tipo);
-      if (!rows.length) {
-        showToast('⚠️ Nenhum lançamento encontrado no arquivo.');
-        return;
-      }
-      if (tipo === 'razao') setRazao(rows);
-      else setExtrato(rows);
-      showToast(`✅ ${rows.length} lançamentos carregados!`);
-    } catch (err) {
-      console.error(err);
-      showToast('❌ Erro ao ler arquivo: ' + err.message);
-    }
+    if (ext === 'pdf') throw new Error('PDF ainda não suportado — em breve. Use .xlsx por enquanto.');
+    if (!['xlsx', 'xls', 'csv'].includes(ext)) throw new Error('Formato não suportado. Use .xlsx');
+    const rows = await parseXlsx(file, tipo);
+    if (!rows.length) throw new Error('Nenhum lançamento encontrado no arquivo.');
+    if (tipo === 'razao') setRazao(rows);
+    else setExtrato(rows);
+    showToast(`✅ ${rows.length} lançamentos carregados!`);
   };
 
   const ready = razao.length > 0 && extrato.length > 0;
@@ -413,8 +398,32 @@ function UploadPanel({ razao, extrato, setRazao, setExtrato, onProcess, showToas
 
 function DropCard({ title, desc, accepted, accept, rows, badgeColor, onFile }) {
   const P = useP();
-  const [dragOver, setDragOver] = useState(false);
-  const inputRef = useRef(null);
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handle(f) {
+    if (!f) return;
+    setFile(f);
+    setError('');
+    setLoading(true);
+    try {
+      await onFile(f);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const uploadItems = file ? [{
+    id: file.name,
+    name: file.name,
+    size: file.size,
+    status: error ? 'error' : loading ? 'uploading' : 'done',
+    progress: loading ? 55 : 100,
+    message: error || (loading ? 'Lendo…' : `${rows.length} lançamento(s) carregado(s)`),
+  }] : [];
 
   return (
     <Card
@@ -431,33 +440,16 @@ function DropCard({ title, desc, accepted, accept, rows, badgeColor, onFile }) {
       }
     >
       <p style={{ fontSize: '0.82rem', color: P.muted, marginBottom: 12, lineHeight: 1.5 }}>{desc}</p>
-      <div
-        className={'conc-dropzone' + (dragOver ? ' over' : '')}
-        onClick={() => inputRef.current?.click()}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragOver(false);
-          const f = e.dataTransfer.files?.[0];
-          if (f) onFile(f);
-        }}
-        style={{
-          border: `2px dashed ${P.border2}`,
-          borderRadius: 10, padding: 32, textAlign: 'center', cursor: 'pointer',
-          background: P.surface2,
-        }}
-      >
-        <div style={{ fontSize: '2rem', marginBottom: 8 }}>{title.split(' ')[0]}</div>
-        <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: 4 }}>Clique ou arraste o arquivo</div>
-        <div style={{ fontSize: '0.75rem', color: P.muted }}>Formato aceito: {accepted}</div>
-      </div>
-      <input
-        ref={inputRef}
-        type="file"
+      <AnimatedDropzone
+        items={uploadItems}
+        onFiles={(files) => handle(files[0])}
+        onRetry={() => file && handle(file)}
+        onClear={() => { setFile(null); setError(''); }}
+        disabled={loading}
+        multiple={false}
         accept={accept}
-        style={{ display: 'none' }}
-        onChange={(e) => onFile(e.target.files?.[0])}
+        title="Clique ou arraste o arquivo"
+        hint={`Formato aceito: ${accepted}`}
       />
       {rows.length > 0 && (
         <div style={{ marginTop: 12 }}>

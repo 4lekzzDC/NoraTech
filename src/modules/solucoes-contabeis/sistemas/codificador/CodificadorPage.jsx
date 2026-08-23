@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import SolucoesHeader from '../../components/SolucoesHeader';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
@@ -10,6 +10,7 @@ import {
 import { getClientes, getBancos, getAllBancos, importLegacyClientsIfNeeded } from '../../services/clients.service';
 import { parseXlsxFile, applyRules, exportDominio, timeAgo } from './codEngine';
 import { getCurrentTenantCompanyId } from '../../../../lib/subscriptions';
+import AnimatedDropzone from '../../../../components/AnimatedDropzone';
 
 // =============================================================================
 // Página: /solucoes-contabeis/codificador
@@ -205,8 +206,6 @@ export default function CodificadorPage() {
           .cod-tab-btn:hover { background: ${P.primarySoft}; color: ${P.primaryText}; }
           .cod-card { transition: all 0.18s ease; }
           .cod-card:hover { border-color: ${P.primaryBorder}; }
-          .cod-dropzone { transition: all 0.18s ease; }
-          .cod-dropzone.over { border-color: ${P.primary} !important; background: ${P.primarySoft} !important; }
           .cod-btn-primary { transition: all 0.15s ease; }
           .cod-btn-primary:hover { filter: brightness(1.1); }
           .cod-btn-ghost { transition: all 0.15s ease; }
@@ -466,10 +465,9 @@ function UploadPanel({ showToast }) {
 
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [fileError, setFileError] = useState('');
   const [rows, setRows] = useState([]);
   const [counts, setCounts] = useState({ coded: 0, pending: 0 });
-  const [dragOver, setDragOver] = useState(false);
-  const inputRef = useRef(null);
 
   const empresa = empresas.find((e) => e.id === empresaId);
   const conta = contasEmpresa.find((c) => c.id === contaId);
@@ -491,6 +489,7 @@ function UploadPanel({ showToast }) {
     }
 
     setFile(f);
+    setFileError('');
     setLoading(true);
     try {
       const parsed = await parseXlsxFile(f);
@@ -516,18 +515,21 @@ function UploadPanel({ showToast }) {
       showToast(`✅ ${coded} codificados, ${pending} pendentes`);
     } catch (err) {
       console.error(err);
+      setFileError(err.message);
       showToast('❌ Erro ao ler arquivo: ' + err.message);
     } finally {
       setLoading(false);
     }
   }, [empresa, conta, showToast]);
 
-  const handleDrop = useCallback((e) => {
-    e.preventDefault();
-    setDragOver(false);
-    const f = e.dataTransfer.files?.[0];
-    if (f) handleFile(f);
-  }, [handleFile]);
+  const uploadItems = file ? [{
+    id: file.name,
+    name: file.name,
+    size: file.size,
+    status: fileError ? 'error' : loading ? 'uploading' : 'done',
+    progress: loading ? 55 : 100,
+    message: fileError || (loading ? 'Processando…' : `${rows.length} linha${rows.length === 1 ? '' : 's'} lida${rows.length === 1 ? '' : 's'}`),
+  }] : [];
 
   const handleExport = useCallback(() => {
     if (!rows.length) {
@@ -571,44 +573,17 @@ function UploadPanel({ showToast }) {
         </Card>
 
         <Card title="2. Envie o extrato">
-          <div
-            className={'cod-dropzone' + (dragOver ? ' over' : '')}
-            onClick={() => inputRef.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            style={{
-              border: `2px dashed ${P.border2}`,
-              borderRadius: 12, padding: 32, textAlign: 'center', cursor: 'pointer',
-              background: P.surface2,
-            }}
-          >
-            <div style={{ fontSize: '2rem', marginBottom: 8 }}>📂</div>
-            <div style={{ fontWeight: 600, marginBottom: 4 }}>Clique ou arraste o arquivo aqui</div>
-            <div style={{ color: P.muted, fontSize: '0.8rem' }}>
-              Suporte: <b>.xlsx</b> (planilha). <span style={{ color: P.muted2 }}>PDF em breve.</span>
-            </div>
-          </div>
-          <input
-            ref={inputRef}
-            type="file"
+          <AnimatedDropzone
+            items={uploadItems}
+            onFiles={(files) => handleFile(files[0])}
+            onRetry={() => handleFile(file)}
+            onClear={() => { setFile(null); setFileError(''); setRows([]); setCounts({ coded: 0, pending: 0 }); }}
+            disabled={loading}
+            multiple={false}
             accept=".xlsx,.xls"
-            style={{ display: 'none' }}
-            onChange={(e) => handleFile(e.target.files?.[0])}
+            title="Clique ou arraste o arquivo aqui"
+            hint="Suporte: .xlsx (planilha) · PDF em breve"
           />
-          {file && (
-            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, padding: 10, background: P.surface2, borderRadius: 8, fontSize: '0.83rem' }}>
-              <span>📄</span>
-              <span style={{ fontWeight: 600 }}>{file.name}</span>
-              <span style={{ color: P.muted, marginLeft: 'auto' }}>{rows.length ? rows.length + ' linhas' : ''}</span>
-            </div>
-          )}
-          {loading && (
-            <div style={{ textAlign: 'center', padding: 20, marginTop: 10 }}>
-              <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>⏳</div>
-              <div style={{ fontWeight: 600 }}>Processando…</div>
-            </div>
-          )}
         </Card>
       </div>
 

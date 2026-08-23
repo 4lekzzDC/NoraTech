@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ToastHost } from '../../../components/Toast';
 import { useToasts } from '../../../lib/useToasts';
@@ -125,9 +125,33 @@ export default function InboxPage() {
     if (atualizado && atualizado !== emRevisao) setEmRevisao(atualizado);
   }, [documentos, emRevisao]);
 
+  // Guarda o File de cada arquivo do lote — só assim dá pra reprocessar um
+  // que falhou sem pedir pro usuário arrastar de novo (o clique de "tentar
+  // novamente" não carrega o arquivo consigo, só o nome).
+  const arquivosRef = useRef(new Map());
+
+  async function processarUm(file, contexto) {
+    const marcar = (patch) =>
+      setProgresso((p) => ({ ...p, [file.name]: { ...p[file.name], ...patch } }));
+    try {
+      const doc = await processarArquivo(file, {
+        tenantId,
+        settings,
+        contexto,
+        onEtapa: (etapa) => marcar({ etapa }),
+      });
+      marcar(doc.status === 'organizado' ? { pronto: 'Arquivado', erro: null, etapa: null } : { pronto: 'Para revisar', erro: null, etapa: null });
+      return doc.status === 'organizado' ? 'organizado' : 'revisar';
+    } catch (err) {
+      marcar({ erro: err.message, pronto: null, etapa: null });
+      return 'falha';
+    }
+  }
+
   async function enviarArquivos(arquivos) {
     setEnviando(true);
-    setProgresso(Object.fromEntries(arquivos.map((f) => [f.name, { etapa: null }])));
+    arquivos.forEach((f) => arquivosRef.current.set(f.name, f));
+    setProgresso((p) => ({ ...p, ...Object.fromEntries(arquivos.map((f) => [f.name, { etapa: null }])) }));
 
     // O contexto é lido UMA vez para o lote inteiro: o cadastro não muda no
     // meio de um envio de 30 arquivos, e reconsultar a cada um seria 30 idas
@@ -142,27 +166,10 @@ export default function InboxPage() {
     // disputariam a criação da mesma pasta no Drive, e um lote grande
     // estouraria a cota da API. A fila é lenta e previsível — melhor assim.
     for (const file of arquivos) {
-      const marcar = (patch) =>
-        setProgresso((p) => ({ ...p, [file.name]: { ...p[file.name], ...patch } }));
-
-      try {
-        const doc = await processarArquivo(file, {
-          tenantId,
-          settings,
-          contexto,
-          onEtapa: (etapa) => marcar({ etapa }),
-        });
-        if (doc.status === 'organizado') {
-          organizados += 1;
-          marcar({ pronto: 'Arquivado', etapa: null });
-        } else {
-          paraRevisar += 1;
-          marcar({ pronto: 'Para revisar', etapa: null });
-        }
-      } catch (err) {
-        falhas += 1;
-        marcar({ erro: err.message, etapa: null });
-      }
+      const resultado = await processarUm(file, contexto);
+      if (resultado === 'organizado') organizados += 1;
+      else if (resultado === 'revisar') paraRevisar += 1;
+      else falhas += 1;
     }
 
     const partes = [];
@@ -173,6 +180,21 @@ export default function InboxPage() {
 
     await recarregar(aba);
     setEnviando(false);
+  }
+
+  async function retentarArquivo(nome) {
+    const file = arquivosRef.current.get(nome);
+    if (!file) return;
+    setEnviando(true);
+    const contexto = await fetchContextoDeClassificacao();
+    await processarUm(file, contexto);
+    await recarregar(aba);
+    setEnviando(false);
+  }
+
+  function limparProgresso() {
+    setProgresso({});
+    arquivosRef.current.clear();
   }
 
   async function confirmar(escolha, regra) {
@@ -382,7 +404,10 @@ export default function InboxPage() {
             </div>
           )}
 
-          <UploadDropzone onArquivos={enviarArquivos} progresso={progresso} ocupado={enviando} />
+          <UploadDropzone
+            onArquivos={enviarArquivos} progresso={progresso} ocupado={enviando}
+            onRetry={retentarArquivo} onClear={limparProgresso}
+          />
 
           <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
             {ABAS.map((t) => {

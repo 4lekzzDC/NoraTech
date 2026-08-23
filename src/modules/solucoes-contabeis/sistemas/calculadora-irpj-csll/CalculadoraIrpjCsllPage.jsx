@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import SolucoesHeader from '../../components/SolucoesHeader';
+import AnimatedDropzone from '../../../../components/AnimatedDropzone';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
 import { getCurrentTenantCompanyId } from '../../../../lib/subscriptions';
@@ -52,13 +53,6 @@ function IAlert({ size = 16 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="9" /><path d="M12 8v5" /><path d="M12 16h.01" />
-    </svg>
-  );
-}
-function IFile({ size = 15 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
     </svg>
   );
 }
@@ -389,51 +383,29 @@ function PeriodoStep({ empresa, periodo, setPeriodo, origem, setOrigem, onBack, 
 }
 
 // ── Etapa 3 — Dados ───────────────────────────────────────────────────────
-function DropZone({ label, hint, arquivos, onFiles }) {
-  const P = useP();
-  const [dragging, setDragging] = useState(false);
-  const inputRef = useRef(null);
+// Só anexa e lista os arquivos por enquanto — a extração ainda não está
+// ligada (ver hint no chamador) — por isso cada um já nasce "done": não há
+// upload nem leitura assíncrona para acompanhar aqui.
+function DropZone({ label, hint, arquivos, onFiles, onRemoveFile }) {
+  const items = arquivos.map((f) => ({
+    id: f.name,
+    name: f.name,
+    size: f.size,
+    status: 'done',
+    progress: 100,
+    message: 'Anexado',
+  }));
 
   return (
-    <div>
-      <div
-        onClick={() => inputRef.current?.click()}
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => { e.preventDefault(); setDragging(false); onFiles([...e.dataTransfer.files]); }}
-        style={{
-          border: `2px dashed ${dragging ? P.primary : P.border2}`,
-          borderRadius: 12, padding: '34px 24px', textAlign: 'center', cursor: 'pointer',
-          background: dragging ? P.primarySoft : 'transparent', transition: 'all 0.16s',
-        }}
-      >
-        <input ref={inputRef} type="file" multiple accept=".xlsx,.xls,.csv,.txt,.pdf"
-          style={{ display: 'none' }} onChange={(e) => onFiles([...e.target.files])} />
-        <span style={{ color: P.primary, display: 'inline-flex', marginBottom: 10 }}><IUpload size={26} /></span>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: P.text, marginBottom: 4 }}>{label}</div>
-        <div style={{ fontSize: 12, color: P.muted, lineHeight: 1.55 }}>{hint}</div>
-        <div style={{ fontSize: 11, color: P.muted2, marginTop: 8 }}>XLSX, XLS, CSV, TXT ou PDF</div>
-      </div>
-
-      {arquivos.length > 0 && (
-        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {arquivos.map((f, i) => (
-            <div key={i} style={{
-              display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
-              borderRadius: 9, background: P.surface2, border: `1px solid ${P.border}`,
-            }}>
-              <span style={{ color: P.primary, flexShrink: 0, display: 'flex' }}><IFile /></span>
-              <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: P.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {f.name}
-              </span>
-              <span style={{ fontSize: 11, color: P.muted2, flexShrink: 0, fontFamily: FONT_MONO }}>
-                {(f.size / 1024).toFixed(0)} KB
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    <AnimatedDropzone
+      items={items}
+      onFiles={onFiles}
+      onRemove={onRemoveFile}
+      multiple
+      accept=".xlsx,.xls,.csv,.txt,.pdf"
+      title={label}
+      hint={hint + ' · XLSX, XLS, CSV, TXT ou PDF'}
+    />
   );
 }
 
@@ -503,6 +475,7 @@ function DadosStep({ empresa, periodo, origem, valores, setValores, arquivos, se
               : `Demonstração do resultado do ${periodo.trimestre}º trimestre de ${periodo.ano}`}
             arquivos={arquivos}
             onFiles={(fs) => setArquivos([...arquivos, ...fs])}
+            onRemoveFile={(id) => setArquivos(arquivos.filter((f) => f.name !== id))}
           />
         </Card>
       )}

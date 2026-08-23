@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import SolucoesHeader from '../../components/SolucoesHeader';
 import UserAvatar from '../../components/UserAvatar';
+import AnimatedDropzone from '../../../../components/AnimatedDropzone';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
@@ -57,16 +58,6 @@ function IUploadCloud({ size = 38 }) {
       <polyline points="16 16 12 12 8 16"/>
       <line x1="12" y1="12" x2="12" y2="21"/>
       <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
-    </svg>
-  );
-}
-function IFileDoc({ size = 18 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-      <polyline points="14 2 14 8 20 8"/>
-      <line x1="16" y1="13" x2="8" y2="13"/>
-      <line x1="16" y1="17" x2="8" y2="17"/>
     </svg>
   );
 }
@@ -248,88 +239,37 @@ function LeftSidebar({ user, history, isDark, onClear }) {
   );
 }
 
-// ── Dropzone ───────────────────────────────────────────────────────────────────
-function DropZone({ onFile, disabled }) {
-  const P = useP();
-  const [dragging, setDragging] = useState(false);
-  const inputRef = useRef(null);
-
-  const handleFile = useCallback((file) => {
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-      alert('Envie apenas arquivos PDF.');
-      return;
-    }
-    onFile(file);
-  }, [onFile]);
-
-  const onDrop = (e) => {
-    e.preventDefault();
-    setDragging(false);
-    handleFile(e.dataTransfer.files[0]);
-  };
-
-  return (
-    <div
-      onClick={() => !disabled && inputRef.current?.click()}
-      onDragOver={(e) => { e.preventDefault(); if (!disabled) setDragging(true); }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={!disabled ? onDrop : undefined}
-      style={{
-        border: `2px dashed ${dragging ? '#7C3AED' : P.border2}`,
-        borderRadius: 14, padding: '34px 24px',
-        textAlign: 'center',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        background: dragging ? P.primarySoft : (P.surface2 || P.bg),
-        transition: 'all 0.18s', opacity: disabled ? 0.6 : 1,
-      }}
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".pdf"
-        style={{ display: 'none' }}
-        onChange={(e) => handleFile(e.target.files[0])}
-        disabled={disabled}
-      />
-      <div style={{ color: '#7C3AED', marginBottom: 12, display: 'flex', justifyContent: 'center' }}>
-        <IUploadCloud size={36} />
-      </div>
-      <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 5 }}>
-        {disabled ? 'Processando…' : 'Arraste e solte seu arquivo aqui'}
-      </div>
-      {!disabled && (
-        <div style={{ fontSize: 12, color: P.muted }}>ou clique para selecionar</div>
-      )}
-    </div>
-  );
-}
-
 // ── Card de conversão ─────────────────────────────────────────────────────────
-function ConverterCard({ onHistoryUpdate, isLight, rows, setRows }) {
+function ConverterCard({ onHistoryUpdate, rows, setRows }) {
   const P         = useP();
   const companyId = useCompanyId();
   const [processing,  setProcessing]  = useState(false);
-  const [fileName,    setFileName]    = useState('');
-  const [fileSize,    setFileSize]    = useState('');
+  const [file,        setFile]        = useState(null);
   const [error,       setError]       = useState('');
   const [processedAt, setProcessedAt] = useState('');
 
+  const fileName = file?.name || '';
+  const fileSize = file ? (file.size / 1024 / 1024).toFixed(2) + ' MB' : '';
   const totalPagar   = rows ? rows.reduce((a, r) => a + r.pagar,   0) : 0;
   const totalReceber = rows ? rows.reduce((a, r) => a + r.receber, 0) : 0;
   const saldo        = totalReceber - totalPagar;
-  const redRgb       = isLight ? '220,38,38' : '255,92,92';
 
-  const handleFile = async (file) => {
+  const handleFile = async (f) => {
+    if (!f) return;
+    setFile(f);
+    if (!f.name.toLowerCase().endsWith('.pdf')) {
+      setError('Envie apenas arquivos PDF.');
+      setRows(null);
+      return;
+    }
+
     setProcessing(true);
     setRows(null);
     setError('');
-    setFileName(file.name);
-    setFileSize((file.size / 1024 / 1024).toFixed(2) + ' MB');
     setProcessedAt('');
 
     try {
-      const { rows: parsed } = await parsePdf(file);
+      const { rows: parsed } = await parsePdf(f);
 
       if (parsed.length === 0) {
         setError('Nenhum lançamento identificado. Verifique se o PDF é um extrato bancário válido (formato Santander ou similar).');
@@ -341,7 +281,7 @@ function ConverterCard({ onHistoryUpdate, isLight, rows, setRows }) {
 
       const entry = {
         date:         new Date().toLocaleString('pt-BR'),
-        fileName:     file.name,
+        fileName:     f.name,
         rows:         parsed.length,
         totalPagar:   parsed.reduce((a, r) => a + r.pagar,   0),
         totalReceber: parsed.reduce((a, r) => a + r.receber, 0),
@@ -355,10 +295,18 @@ function ConverterCard({ onHistoryUpdate, isLight, rows, setRows }) {
     }
   };
 
+  const uploadItems = file ? [{
+    id: file.name,
+    name: file.name,
+    size: file.size,
+    status: error ? 'error' : processing ? 'uploading' : 'done',
+    progress: processing ? 55 : 100,
+    message: error || (processing ? 'Extraindo texto do PDF…' : `${rows?.length ?? 0} lançamento(s) identificado(s)`),
+  }] : [];
+
   function reset() {
     setRows(null);
-    setFileName('');
-    setFileSize('');
+    setFile(null);
     setError('');
     setProcessedAt('');
   }
@@ -388,57 +336,18 @@ function ConverterCard({ onHistoryUpdate, isLight, rows, setRows }) {
       </div>
 
       <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {!rows && <DropZone onFile={handleFile} disabled={processing} />}
-
-        {!rows && !processing && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, color: P.muted, fontSize: 11 }}>
-            <IInfo size={12} /> Formato aceito: PDF · Extratos Santander (PF e PJ)
-          </div>
-        )}
-
-        {processing && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: '11px 14px', background: P.primarySoft,
-            borderRadius: 10, border: `1px solid ${P.primaryBorder}`,
-          }}>
-            <div style={{
-              width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
-              border: `2px solid ${P.primaryBorder}`, borderTopColor: '#7C3AED',
-              animation: 'te-spin 0.8s linear infinite',
-            }} />
-            <span style={{ fontSize: 13, color: P.primaryText, fontWeight: 500 }}>Extraindo texto do PDF…</span>
-          </div>
-        )}
-
-        {error && (
-          <div style={{
-            background: `rgba(${redRgb},.08)`, border: `1px solid rgba(${redRgb},.20)`,
-            borderRadius: 10, padding: '11px 14px',
-            color: P.red, fontSize: 13, lineHeight: 1.5,
-          }}>
-            ⚠️ {error}
-          </div>
-        )}
-
-        {fileName && !processing && !rows && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '11px 14px', borderRadius: 10,
-            background: P.surface2 || P.bg, border: `1px solid ${P.border}`,
-          }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 9, flexShrink: 0,
-              background: 'rgba(239,68,68,0.1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444',
-            }}>
-              <IFileDoc size={16} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: P.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileName}</div>
-              <div style={{ fontSize: 11, color: P.muted, marginTop: 1 }}>{fileSize} · PDF</div>
-            </div>
-          </div>
+        {!rows && (
+          <AnimatedDropzone
+            items={uploadItems}
+            onFiles={(files) => handleFile(files[0])}
+            onRetry={() => file && handleFile(file)}
+            onClear={reset}
+            disabled={processing}
+            multiple={false}
+            accept=".pdf"
+            title="Arraste e solte seu extrato aqui"
+            hint="ou clique para selecionar · PDF · Extratos Santander (PF e PJ)"
+          />
         )}
 
         {/* Resultado */}
@@ -630,7 +539,6 @@ function ComoFunciona() {
 export default function TransformadorExtratoPage() {
   const { theme } = useTheme();
   const P         = getPalette(theme);
-  const isLight   = theme === 'light';
   const { user }  = useAuth();
 
   const [companyId, setCompanyId] = useState(undefined); // undefined = loading; null = loaded, no org
@@ -717,7 +625,6 @@ export default function TransformadorExtratoPage() {
 
                 <ConverterCard
                   onHistoryUpdate={setHistory}
-                  isLight={isLight}
                   rows={rows}
                   setRows={setRows}
                 />
