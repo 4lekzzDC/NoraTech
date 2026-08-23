@@ -42,4 +42,14 @@ export const reviewService = {
 };
 export const driveService = { fetchConnectionStatus: async () => ({ account: { status: 'connected', google_email: 'escritorio@exemplo.com' }, settings: {} }) };
 export const tenantService = { resolveTenant: async () => ({ tenantId: 't1', ready: true }) };
-export const uploadService = { processarArquivo: async () => ({ status: 'organizado' }) };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+export const uploadService = {
+  processarArquivo: async (file, { onEtapa } = {}) => {
+    for (const etapa of ['lendo', 'classificando', 'enviando', 'gravando']) {
+      onEtapa?.(etapa);
+      await sleep(500);
+    }
+    if (file.name.includes('falha')) throw new Error('O Google recusou o envio do arquivo (403).');
+    return { status: file.name.includes('revisar') ? 'revisar' : 'organizado' };
+  },
+};
