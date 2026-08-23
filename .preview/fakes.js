@@ -28,10 +28,31 @@ const docs = [
   { id: 'd5', file_name: 'extrato_bradesco_08-2026.pdf', status: 'revisar', competencia: '2026-08',
     client: clients[0], category: categories[0], drive_path: null, matched: { pendencias: [] },
     review_reason: null },
+  { id: 'd6', file_name: 'NFe_11222333000181_082026.xml', status: 'processando', competencia: '2026-08',
+    client: clients[2], category: categories[1], drive_path: null, matched: { pendencias: [] },
+    review_reason: null },
+  { id: 'd7', file_name: 'extrato_itau_07-2026.pdf', status: 'organizado', competencia: '2026-07',
+    client: clients[0], category: categories[0], mime_type: 'application/pdf',
+    drive_path: 'Silva Comércio ME/2026/2026-07/Extratos bancários/extrato_itau_07-2026.pdf',
+    drive_file_id: '1AbCdEfGhIjKlMnOpQrStUvWxYz012345', drive_web_link: 'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz012345/view',
+    received_at: '2026-08-02T09:14:00Z', organized_at: '2026-08-02T09:15:10Z',
+    matched: { pendencias: [] }, review_reason: null },
+  { id: 'd8', file_name: 'nota-fiscal-scaneada.jpg', status: 'descartado', competencia: '2026-06',
+    client: clients[1], category: categories[1], mime_type: 'image/jpeg',
+    drive_path: null, drive_file_id: null, drive_web_link: null,
+    received_at: '2026-07-18T14:02:00Z', organized_at: null,
+    matched: { pendencias: [] }, review_reason: null },
 ];
 
 export const documentsService = {
   listDocuments: async ({ status }) => (status ? docs.filter((d) => d.status === status) : docs),
+  listHistorico: async ({ clientId = '', dataDe = '', dataAte = '', status = '', busca = '' } = {}) => docs
+    .filter((d) => d.status === 'organizado' || d.status === 'descartado')
+    .filter((d) => !clientId || d.client?.id === clientId)
+    .filter((d) => !status || d.status === status)
+    .filter((d) => !dataDe || (d.received_at && d.received_at >= `${dataDe}T00:00:00`))
+    .filter((d) => !dataAte || (d.received_at && d.received_at <= `${dataAte}T23:59:59`))
+    .filter((d) => !busca || d.file_name.toLowerCase().includes(busca.trim().toLowerCase())),
   countByStatus: async () => ({ revisar: 4, erro: 1 }),
   fetchContextoDeClassificacao: async () => ({ clients, categories, rules: [] }),
   fetchSettingsCompletas: async () => ({ drive_root_folder_id: 'root', folder_template: '{cliente}/{ano}/{mes}', auto_organize: true }),

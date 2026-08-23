@@ -30,6 +30,7 @@ const LEITORES = [
   '../components/ReviewDrawer.jsx',
   '../components/DocumentTable.jsx',
   '../components/EventTrail.jsx',
+  '../components/HistoricoDrawer.jsx',
   '../pages/HistoricoPage.jsx',
   '../domain/status.js',
   './review.service.js',

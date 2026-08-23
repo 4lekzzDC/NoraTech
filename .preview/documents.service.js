@@ -4,4 +4,4 @@ export const listDocuments = documentsService.listDocuments;
 export const countByStatus = documentsService.countByStatus;
 export const fetchContextoDeClassificacao = documentsService.fetchContextoDeClassificacao;
 export const fetchSettingsCompletas = documentsService.fetchSettingsCompletas;
-export const listHistorico = documentsService.listDocuments;
+export const listHistorico = documentsService.listHistorico;

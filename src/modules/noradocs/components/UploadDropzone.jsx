@@ -54,6 +54,7 @@ export default function UploadDropzone({ onArquivos, progresso, ocupado, onRetry
         disabled={ocupado}
         onRetry={onRetry}
         onClear={onClear}
+        size="lg"
         title="Arraste os arquivos ou clique para escolher"
         hint="Vários de uma vez · você também pode colar. O NoraDocs identifica cliente, competência e categoria e arquiva no Drive — o que ficar em dúvida vai para revisão."
       />

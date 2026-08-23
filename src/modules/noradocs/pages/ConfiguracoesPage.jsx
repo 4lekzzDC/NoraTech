@@ -109,33 +109,68 @@ export default function ConfiguracoesPage() {
       )}
 
       {!carregando && tenantId && (
-        <div style={{ display: 'grid', gap: 22, maxWidth: 680 }}>
-          <GoogleConnectionCard tenantId={tenantId} isManager={isManager} showToast={showToast} />
+        <>
+          {/* Duas colunas em telas grandes — Drive e Estrutura de Pastas lado
+              a lado; Categorias e Entrada pelo Gmail pedem a largura toda,
+              por serem tabela/lista. Cada card usa esta classe para a
+              elevação no hover — e por isso nenhum deles define boxShadow
+              inline: um valor inline sempre venceria a regra :hover daqui,
+              travando o card na sombra parada. */}
+          <style>{`
+            .nd-config-grid { display: grid; gap: 20px; grid-template-columns: 1fr 1fr; }
+            /* Sem isto, o conteúdo mais largo de um card (a tabela de
+               categorias) usa sua própria largura mínima intrínseca pra
+               forçar a coluna do grid a crescer, e a página inteira ganha
+               rolagem horizontal — o overflow-x:auto interno do card nunca
+               chega a entrar em ação. */
+            .nd-config-grid > * { min-width: 0; }
+            .nd-config-grid .nd-span2 { grid-column: 1 / -1; }
+            @media (max-width: 860px) { .nd-config-grid { grid-template-columns: 1fr; } }
+            .nd-card-hover {
+              box-shadow: ${P.shadow};
+              transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+            }
+            .nd-card-hover:hover {
+              box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+              transform: translateY(-2px);
+              border-color: ${P.border2};
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .nd-card-hover:hover { transform: none; }
+            }
+          `}</style>
+          <div className="nd-config-grid">
+            <GoogleConnectionCard tenantId={tenantId} isManager={isManager} showToast={showToast} />
 
-          <FolderTemplateCard
-            tenantId={tenantId}
-            template={template}
-            isManager={isManager}
-            showToast={showToast}
-            onSaved={setTemplate}
-          />
+            <FolderTemplateCard
+              tenantId={tenantId}
+              template={template}
+              isManager={isManager}
+              showToast={showToast}
+              onSaved={setTemplate}
+            />
 
-          <CategoriesCard
-            categorias={categorias}
-            isManager={isManager}
-            onUpdate={alterarCategoria}
-            onCreate={adicionarCategoria}
-            onDelete={excluirCategoria}
-          />
+            <div className="nd-span2">
+              <CategoriesCard
+                categorias={categorias}
+                isManager={isManager}
+                onUpdate={alterarCategoria}
+                onCreate={adicionarCategoria}
+                onDelete={excluirCategoria}
+              />
+            </div>
 
-          <InboundTokensCard
-            tenantId={tenantId}
-            tokens={tokens}
-            isManager={isManager}
-            showToast={showToast}
-            onMudou={recarregarTokens}
-          />
-        </div>
+            <div className="nd-span2">
+              <InboundTokensCard
+                tenantId={tenantId}
+                tokens={tokens}
+                isManager={isManager}
+                showToast={showToast}
+                onMudou={recarregarTokens}
+              />
+            </div>
+          </div>
+        </>
       )}
 
       <ToastHost toasts={toasts} onDismiss={dismissToast} />

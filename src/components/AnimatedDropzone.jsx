@@ -28,8 +28,20 @@ function ensureProgressProperty() {
   style.textContent = `
     @property --p { syntax: '<number>'; inherits: true; initial-value: 0; }
     @keyframes adz-spin { to { transform: rotate(360deg); } }
+    @keyframes adz-particle-in {
+      from { opacity: 1; transform: translate(var(--adz-dx), var(--adz-dy)) scale(1); }
+      to   { opacity: 0; transform: translate(0, 0) scale(0.3); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .adz-particle { animation: none !important; opacity: 0 !important; }
+    }
   `;
   document.head.appendChild(style);
+}
+
+function prefersReducedMotion() {
+  return typeof window !== 'undefined'
+    && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 }
 
 // Aproximação de mola sem dependência: um back-ease com um leve overshoot,
@@ -106,6 +118,11 @@ export default function AnimatedDropzone({
   disabled = false,
   title,
   hint,
+  // 'default': compacto, ícone e texto lado a lado — usado pelos sistemas de
+  // Soluções Contábeis, onde a dropzone é só mais um bloco da tela.
+  // 'lg': hero centralizado, ícone maior acima do texto — a caixa de entrada
+  // do NoraDocs é a tela inteira, e a área de upload é o próprio produto.
+  size = 'default',
 }) {
   const { theme } = useTheme();
   const p = getPalette(theme);
@@ -115,6 +132,9 @@ export default function AnimatedDropzone({
   // object URL de imagem por id — precisa ser state (não ref) porque é lido
   // durante o render, pra desenhar a miniatura.
   const [previewUrls, setPreviewUrls] = useState({});
+  // Partículas da "sugada" do ícone ao soltar um arquivo — decorativo, curto
+  // (380ms) e descartado sozinho; nunca chega a ficar no meio de um reflow.
+  const [particles, setParticles] = useState([]);
   const inputRef = useRef(null);
   const zoneRef = useRef(null);
   const fromRef = useRef(null); // {x,y} de onde o(s) arquivo(s) mais recente(s) entraram
@@ -132,6 +152,27 @@ export default function AnimatedDropzone({
     const rect = zoneRef.current?.getBoundingClientRect();
     if (!rect) return null;
     return { x: rect.left + rect.width / 2, y: rect.top + 28 };
+  }
+
+  // O ícone "suga" o arquivo pra dentro: partículas nascem espalhadas ao
+  // redor dele e convergem pro centro enquanto desaparecem. Só no drop de
+  // verdade — é o gesto físico de soltar que a metáfora representa.
+  function burstParticles() {
+    if (prefersReducedMotion()) return;
+    const n = 8;
+    const novas = Array.from({ length: n }, (_, i) => {
+      const angulo = (Math.PI * 2 * i) / n + Math.random() * 0.3;
+      const dist = 30 + Math.random() * 14;
+      return {
+        id: `${Date.now()}-${i}`,
+        dx: Math.cos(angulo) * dist,
+        dy: Math.sin(angulo) * dist,
+      };
+    });
+    setParticles((prev) => [...prev, ...novas]);
+    setTimeout(() => {
+      setParticles((prev) => prev.filter((p) => !novas.some((n2) => n2.id === p.id)));
+    }, 420);
   }
 
   // Todo object URL já criado, vivo ou não — só existe pra garantir que o
@@ -206,6 +247,9 @@ export default function AnimatedDropzone({
   }
 
   const doneCount = items.filter((it) => it.status === 'done').length;
+  const hero = size === 'lg';
+  const iconBox = hero ? 52 : 30;
+  const iconGlyph = hero ? 24 : 15;
 
   return (
     <div>
@@ -218,6 +262,7 @@ export default function AnimatedDropzone({
           e.preventDefault();
           setDragOver(false);
           if (disabled) return;
+          if (e.dataTransfer.files?.length) burstParticles();
           acceptFiles(e.dataTransfer.files, { x: e.clientX, y: e.clientY });
         }}
         onPaste={(e) => {
@@ -229,9 +274,11 @@ export default function AnimatedDropzone({
         style={{
           border: `1.5px dashed ${dragOver ? p.primary : p.border2}`,
           background: dragOver ? p.primarySoft : p.surface,
-          borderRadius: 14, padding: '22px 20px', textAlign: 'center',
+          borderRadius: 14, padding: hero ? '44px 24px' : '22px 20px', textAlign: 'center',
           cursor: disabled ? 'progress' : 'pointer', outline: 'none',
-          transition: 'background 0.15s, border-color 0.15s',
+          transition: 'background 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out, transform 200ms ease-out',
+          boxShadow: dragOver ? `0 0 0 6px ${p.primarySoft}` : '0 0 0 0 transparent',
+          transform: dragOver ? 'scale(1.012)' : 'scale(1)',
           fontFamily: FONT_INTER,
         }}
       >
@@ -239,19 +286,37 @@ export default function AnimatedDropzone({
           ref={inputRef} type="file" hidden multiple={multiple} accept={accept}
           onChange={(e) => { acceptFiles(e.target.files, null); e.target.value = ''; }}
         />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: hero ? 0 : 10,
+          flexDirection: hero ? 'column' : 'row',
+        }}>
           <div style={{
-            width: 30, height: 30, borderRadius: 9, flexShrink: 0,
+            position: 'relative',
+            width: iconBox, height: iconBox, borderRadius: hero ? 16 : 9, flexShrink: 0,
             background: p.primarySoft, color: p.primaryText,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: hero ? 14 : 0,
           }}>
-            <IUpload size={15} />
+            <IUpload size={iconGlyph} />
+            {particles.map((particle) => (
+              <span
+                key={particle.id}
+                aria-hidden="true"
+                className="adz-particle"
+                style={{
+                  position: 'absolute', top: '50%', left: '50%',
+                  width: 4, height: 4, borderRadius: '50%', background: p.primary,
+                  '--adz-dx': `${particle.dx}px`, '--adz-dy': `${particle.dy}px`,
+                  animation: 'adz-particle-in 380ms cubic-bezier(0.2, 0, 0, 1) both',
+                }}
+              />
+            ))}
           </div>
-          <div style={{ textAlign: 'left' }}>
-            <p style={{ margin: 0, fontWeight: 600, fontSize: '0.9rem', color: p.text }}>
+          <div style={{ textAlign: hero ? 'center' : 'left' }}>
+            <p style={{ margin: 0, fontWeight: 600, fontSize: hero ? '1rem' : '0.9rem', color: p.text }}>
               {dragOver ? 'Solte os arquivos aqui' : (title || 'Arraste os arquivos aqui')}
             </p>
-            <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: p.muted }}>
+            <p style={{ margin: hero ? '4px 0 0' : '2px 0 0', fontSize: hero ? '0.82rem' : '0.78rem', color: p.muted }}>
               {dragOver ? '' : (hint || 'ou clique para escolher · você também pode colar')}
             </p>
           </div>

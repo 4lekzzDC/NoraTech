@@ -16,6 +16,11 @@ function competenciaParaInput(competencia) {
   return isCompetencia(competencia) ? competencia : competenciaAnterior();
 }
 
+// Sobe/desce a saída antes de desmontar de verdade, pra não sumir de golpe.
+// Só cobre o fechamento explícito (X, esc, clique fora) — confirmar/descartar
+// já têm o próprio sinal de conclusão (o toast) e saem direto.
+const SAIDA_MS = 180;
+
 export default function ReviewDrawer({
   documento, clients, categories, tenantId, salvando, onConfirmar, onDescartar, onReprocessar, onFechar,
 }) {
@@ -28,21 +33,53 @@ export default function ReviewDrawer({
   const [criarRegra, setCriarRegra] = useState(false);
   const [padrao, setPadrao] = useState(() => sugerirPadrao(documento.file_name));
 
+  const [reduceMotion] = useState(() => typeof window !== 'undefined'
+    && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  // Nasce fechado e abre no próximo frame — é essa troca de estado que
+  // dispara a transição CSS de entrada (dois estados fixos não animam nada).
+  // Com reduced-motion já nasce aberto: não há transição pra disparar, só
+  // um quadro a mais parado na posição errada.
+  const [aberto, setAberto] = useState(() => reduceMotion);
+  const [saindo, setSaindo] = useState(false);
+  const [preenchendo, setPreenchendo] = useState(false);
+  useEffect(() => {
+    if (reduceMotion) return undefined;
+    const raf = requestAnimationFrame(() => setAberto(true));
+    return () => cancelAnimationFrame(raf);
+  }, [reduceMotion]);
+
+  function fechar() {
+    if (reduceMotion) { onFechar(); return; }
+    setSaindo(true);
+    setTimeout(onFechar, SAIDA_MS);
+  }
+
   const completo = Boolean(clientId && categoryId && competencia);
 
   function confirmar() {
-    if (!completo || salvando) return;
-    onConfirmar(
-      { clientId, competencia, categoryId },
-      criarRegra && padrao.trim() ? { pattern: padrao.trim(), clientId, categoryId } : null,
-    );
+    if (!completo || salvando || preenchendo) return;
+    if (reduceMotion) {
+      onConfirmar(
+        { clientId, competencia, categoryId },
+        criarRegra && padrao.trim() ? { pattern: padrao.trim(), clientId, categoryId } : null,
+      );
+      return;
+    }
+    setPreenchendo(true);
+    setTimeout(() => {
+      setPreenchendo(false);
+      onConfirmar(
+        { clientId, competencia, categoryId },
+        criarRegra && padrao.trim() ? { pattern: padrao.trim(), clientId, categoryId } : null,
+      );
+    }, 180);
   }
 
   // Escape fecha; Ctrl/Cmd+Enter confirma. Registrado no documento porque o
   // foco costuma estar num campo do formulário, não no painel.
   useEffect(() => {
     const aoTeclar = (e) => {
-      if (e.key === 'Escape') onFechar();
+      if (e.key === 'Escape') fechar();
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) confirmar();
     };
     document.addEventListener('keydown', aoTeclar);
@@ -70,17 +107,32 @@ export default function ReviewDrawer({
       ? `https://drive.google.com/file/d/${documento.drive_file_id}/view`
       : null);
 
+  const visivel = aberto && !saindo;
+
   return (
     <>
+      <style>{`
+        @keyframes nd-campo-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+        .nd-campo-cascata { animation: nd-campo-in 220ms ease-out both; }
+        @media (prefers-reduced-motion: reduce) {
+          .nd-campo-cascata { animation: none; }
+        }
+      `}</style>
       <div
-        onClick={onFechar}
-        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200 }}
+        onClick={fechar}
+        style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200,
+          opacity: visivel ? 1 : 0,
+          transition: reduceMotion ? 'none' : 'opacity 220ms ease-out',
+        }}
       />
       <aside
         style={{
           position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(520px, 100vw)',
           background: P.surfaceSolid, borderLeft: `1px solid ${P.border2}`, zIndex: 201,
           display: 'flex', flexDirection: 'column', boxShadow: '-18px 0 48px rgba(0,0,0,0.3)',
+          transform: visivel ? 'translateX(0)' : 'translateX(100%)',
+          transition: reduceMotion ? 'none' : `transform ${saindo ? SAIDA_MS : 260}ms cubic-bezier(0.2, 0, 0, 1)`,
         }}
       >
         <header style={{
@@ -98,7 +150,7 @@ export default function ReviewDrawer({
             )}
           </div>
           <button
-            onClick={onFechar}
+            onClick={fechar}
             aria-label="Fechar"
             style={{ background: 'none', border: 'none', color: P.muted, fontSize: '1.3rem', cursor: 'pointer', lineHeight: 1, padding: 0 }}
           >
@@ -175,7 +227,7 @@ export default function ReviewDrawer({
           )}
 
           <div style={{ display: 'grid', gap: 14 }}>
-            <div>
+            <div className="nd-campo-cascata" style={{ animationDelay: '60ms' }}>
               <label style={rotulo} htmlFor="rev-cliente">Cliente</label>
               <select id="rev-cliente" style={campo} value={clientId} onChange={(e) => setClientId(e.target.value)}>
                 <option value="">Selecione…</option>
@@ -183,7 +235,7 @@ export default function ReviewDrawer({
               </select>
             </div>
 
-            <div>
+            <div className="nd-campo-cascata" style={{ animationDelay: '100ms' }}>
               <label style={rotulo} htmlFor="rev-competencia">Competência</label>
               <input
                 id="rev-competencia" type="month" style={{ ...campo, fontFamily: FONT_MONO }}
@@ -191,7 +243,7 @@ export default function ReviewDrawer({
               />
             </div>
 
-            <div>
+            <div className="nd-campo-cascata" style={{ animationDelay: '140ms' }}>
               <label style={rotulo} htmlFor="rev-categoria">Categoria</label>
               <select id="rev-categoria" style={campo} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
                 <option value="">Selecione…</option>
@@ -238,13 +290,24 @@ export default function ReviewDrawer({
           <button
             onClick={confirmar} disabled={!completo || salvando}
             style={{
+              position: 'relative', overflow: 'hidden',
               flex: 1, padding: '10px 18px', borderRadius: 9, border: 'none',
               background: P.primary, color: '#fff', fontSize: '0.86rem', fontWeight: 700,
               cursor: completo && !salvando ? 'pointer' : 'default',
               opacity: completo && !salvando ? 1 : 0.5, fontFamily: 'inherit',
             }}
           >
-            {salvando ? 'Arquivando…' : 'Confirmar e arquivar'}
+            {/* Sensação de confirmação sólida antes do clique de fato disparar
+                o salvamento — não é decoração parada, é feedback de que o
+                clique "pegou". */}
+            <span aria-hidden="true" style={{
+              position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.28)',
+              transform: preenchendo ? 'scaleX(1)' : 'scaleX(0)', transformOrigin: 'left',
+              transition: preenchendo ? 'transform 180ms cubic-bezier(0.2, 0, 0, 1)' : 'none',
+            }} />
+            <span style={{ position: 'relative' }}>
+              {salvando ? 'Arquivando…' : 'Confirmar e arquivar'}
+            </span>
           </button>
           <button
             onClick={() => onDescartar(documento)} disabled={salvando}

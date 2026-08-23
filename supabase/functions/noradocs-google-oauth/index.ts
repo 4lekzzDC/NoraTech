@@ -113,6 +113,17 @@ Deno.serve(async (req) => {
       });
       const userinfo = await userinfoRes.json().catch(() => ({}));
 
+      // O e-mail vira placeholder na tela quando cai aqui — mas sem isto não
+      // havia como saber DEPOIS se foi porque o Google não devolveu o campo,
+      // porque a chamada falhou (401/403/rede), ou porque o corpo não era
+      // JSON. As três caem no mesmo `|| '(e-mail não informado)'` acima, e só
+      // o log abaixo diferencia uma da outra.
+      if (!userinfoRes.ok || !userinfo.email) {
+        console.error(
+          '[noradocs-google-oauth] userinfo sem e-mail', userinfoRes.status, JSON.stringify(userinfo)
+        );
+      }
+
       const { error: accErr } = await admin.from('noradocs_google_accounts').upsert({
         tenant_company_id: tenantId,
         google_email: userinfo.email || '(e-mail não informado)',

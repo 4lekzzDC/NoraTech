@@ -74,13 +74,13 @@ export default function InboundTokensCard({ tenantId, tokens, isManager, showToa
 
   const cartao = {
     border: `1px solid ${P.border}`, borderRadius: 14, background: P.surface,
-    padding: '22px 24px', boxShadow: P.shadow,
+    padding: '22px 24px',
   };
 
   // ── O token recém-criado toma a tela ────────────────────────────────────
   if (novoToken) {
     return (
-      <div style={{ ...cartao, borderColor: P.primaryBorder }}>
+      <div className="nd-card-hover" style={{ ...cartao, borderColor: P.primaryBorder }}>
         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>Guarde este token agora</h2>
         <p style={{ margin: '5px 0 14px', color: P.muted, fontSize: '0.85rem', maxWidth: '58ch' }}>
           Ele não será mostrado de novo. O NoraDocs guarda apenas um resumo criptográfico —
@@ -124,7 +124,7 @@ export default function InboundTokensCard({ tenantId, tokens, isManager, showToa
 
   // ── A lista ─────────────────────────────────────────────────────────────
   return (
-    <div style={cartao}>
+    <div className="nd-card-hover" style={cartao}>
       <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>Entrada pelo Gmail</h2>
       <p style={{ margin: '5px 0 0', color: P.muted, fontSize: '0.85rem', maxWidth: '58ch' }}>
         O complemento do Gmail usa um token para saber a qual escritório entregar os anexos.
