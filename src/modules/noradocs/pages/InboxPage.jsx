@@ -18,34 +18,6 @@ import { resolveTenant } from '../services/tenant';
 import { processarArquivo } from '../services/upload.service';
 import { getPalette } from '../theme';
 
-// Pílula do cabeçalho: só existe pra dizer, num relance, se tem regra
-// rodando agora (upload ou reclassificação do texto do PDF em andamento) —
-// não é decoração fixa, é estado real de "o sistema está pensando".
-function PillRegras({ ativo, P }) {
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 8,
-      padding: '7px 14px', borderRadius: 999,
-      background: ativo ? P.primarySoft : P.surface2,
-      border: `1px solid ${ativo ? P.primaryBorder : P.border}`,
-      color: ativo ? P.primaryText : P.muted,
-      fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap',
-    }}>
-      <svg
-        aria-hidden="true"
-        width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-        className={ativo ? 'nd-pill-icone-ativo' : undefined}
-        style={{ flexShrink: 0 }}
-      >
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        <polyline points="9 12 11 14 15 10" />
-      </svg>
-      {ativo ? 'Módulo de Regras · Validando' : 'Módulo de Regras'}
-    </span>
-  );
-}
-
 // Rodapé de sincronização — status ambiente do Drive, sempre visível
 // enquanto há conexão carregada. O anel só gira quando há upload de
 // verdade em curso; parado o resto do tempo, senão vira ruído visual numa
@@ -426,21 +398,15 @@ export default function InboxPage() {
     padding: '26px 24px', boxShadow: P.shadow,
   };
 
-  const moduloAtivo = enviando || temProcessando;
-
   return (
     <NoraDocsLayout
       title="Caixa de entrada"
       subtitle="Arquivos recebidos aguardando identificação de cliente, competência e categoria."
-      actions={<PillRegras ativo={moduloAtivo} P={P} />}
     >
       <style>{`
-        @keyframes nd-pill-pulse { 0%, 100% { opacity: 0.55; transform: scale(0.94); } 50% { opacity: 1; transform: scale(1); } }
-        .nd-pill-icone-ativo { animation: nd-pill-pulse 1.4s ease-in-out infinite; }
         @keyframes nd-sync-spin { to { transform: rotate(360deg); } }
         .nd-sync-anel { animation: nd-sync-spin 0.8s linear infinite; }
         @media (prefers-reduced-motion: reduce) {
-          .nd-pill-icone-ativo { animation: none; }
           .nd-sync-anel { animation: none; }
         }
       `}</style>
