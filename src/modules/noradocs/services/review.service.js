@@ -215,12 +215,26 @@ export async function verificarNoDrive(doc, tenantId) {
   }
 }
 
+// Quem fez cada evento — não só "uma pessoa"/"o sistema": o nome (e o
+// e-mail, sempre) de quem confirmou/descartou/reprocessou, e o e-mail de
+// origem de quem enviou o documento por e-mail (a caixa de entrada do
+// Gmail já grava o remetente no payload do evento 'recebido' — só faltava
+// mostrar).
 export async function listarEventos(documentId) {
   const { data, error } = await supabase
     .from('noradocs_events')
-    .select('id, type, actor_type, payload, created_at')
+    .select('id, type, actor_type, actor_id, payload, created_at')
     .eq('document_id', documentId)
     .order('created_at', { ascending: true });
   if (error) return [];
-  return data || [];
+  const eventos = data || [];
+
+  const actorIds = [...new Set(eventos.map((e) => e.actor_id).filter(Boolean))];
+  let profilesById = {};
+  if (actorIds.length > 0) {
+    const { data: profiles } = await supabase.from('profiles').select('id, name, email').in('id', actorIds);
+    profilesById = Object.fromEntries((profiles || []).map((p) => [p.id, p]));
+  }
+
+  return eventos.map((e) => ({ ...e, actor: e.actor_id ? (profilesById[e.actor_id] || null) : null }));
 }

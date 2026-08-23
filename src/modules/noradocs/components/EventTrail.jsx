@@ -24,6 +24,25 @@ const ROTULO_EVENTO = {
   verificado_drive: 'Verificado no Drive',
 };
 
+// Documento recebido por e-mail traz o remetente no payload (a caixa de
+// entrada do Gmail é system, não tem usuário logado); qualquer outro
+// evento de pessoa mostra nome e e-mail de quem fez, quando o perfil ainda
+// existe — senão cai no genérico.
+function quemFez(ev) {
+  if (ev.payload?.origem === 'email' && ev.payload?.remetente) {
+    return `por e-mail de ${ev.payload.remetente}`;
+  }
+  if (ev.actor_type === 'user') {
+    const nome = ev.actor?.name;
+    const email = ev.actor?.email;
+    if (nome && email) return `por ${nome} (${email})`;
+    if (email) return `por ${email}`;
+    if (nome) return `por ${nome}`;
+    return 'por uma pessoa';
+  }
+  return 'pelo sistema';
+}
+
 function dataHora(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleString('pt-BR', {
@@ -105,7 +124,7 @@ export default function EventTrail({ doc, tenantId, P, mostrarVerificar = true }
                     {ROTULO_EVENTO[ev.type] || ev.type}
                   </span>
                   <span style={{ fontSize: '0.74rem', color: P.muted2, marginLeft: 8 }}>
-                    {ev.actor_type === 'user' ? 'por uma pessoa' : 'pelo sistema'}
+                    {quemFez(ev)}
                   </span>
                   {evidencias.length > 0 && (
                     <ul style={{ margin: '4px 0 0', paddingLeft: 16, color: P.muted, fontSize: '0.76rem' }}>
