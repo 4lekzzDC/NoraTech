@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import SolucoesHeader from '../../components/SolucoesHeader';
+import AnimatedDropzone from '../../../../components/AnimatedDropzone';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
 import {
@@ -42,49 +43,6 @@ function FilterTab({ active, onClick, children }) {
     }}>
       {children}
     </button>
-  );
-}
-
-// ── Dropzone ─────────────────────────────────────────────────────────
-function DropZone({ onFile, disabled }) {
-  const P = useP();
-  const [dragging, setDragging] = useState(false);
-  const inputRef = useRef(null);
-
-  const handle = (file) => {
-    if (!file) return;
-    const ext = file.name.split('.').pop().toLowerCase();
-    if (!['xlsx', 'xls', 'txt', 'csv'].includes(ext)) {
-      alert('Formatos aceitos: XLSX, XLS, TXT, CSV');
-      return;
-    }
-    onFile(file);
-  };
-
-  return (
-    <div
-      onClick={() => !disabled && inputRef.current?.click()}
-      onDragOver={(e) => { e.preventDefault(); if (!disabled) setDragging(true); }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={(e) => { e.preventDefault(); setDragging(false); if (!disabled) handle(e.dataTransfer.files[0]); }}
-      style={{
-        border: `2px dashed ${dragging ? P.primary : P.border2}`,
-        borderRadius: 14, padding: '44px 32px', textAlign: 'center',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        background: dragging ? P.primarySoft : P.surface,
-        transition: 'all 0.18s', opacity: disabled ? 0.6 : 1,
-      }}
-    >
-      <input ref={inputRef} type="file" accept=".xlsx,.xls,.txt,.csv"
-        style={{ display: 'none' }} onChange={(e) => handle(e.target.files[0])} disabled={disabled} />
-      <div style={{ fontSize: '2rem', marginBottom: 10 }}>📂</div>
-      <div style={{ fontSize: '0.92rem', fontWeight: 700, color: P.text, marginBottom: 5 }}>
-        {disabled ? 'Processando…' : 'Arraste o razão aqui ou clique para selecionar'}
-      </div>
-      <div style={{ fontSize: '0.78rem', color: P.muted }}>
-        Formatos: XLSX, XLS, TXT, CSV · Os históricos devem conter o número da NF entre {'<'} e {'>'}
-      </div>
-    </div>
   );
 }
 
@@ -180,17 +138,27 @@ function UploadPanel({ onProcessed }) {
   const P         = useP();
   const companyId = useCompanyId();
   const [processing, setProcessing] = useState(false);
-  const [fileName,   setFileName]   = useState('');
+  const [file,       setFile]       = useState(null);
   const [preview,    setPreview]    = useState(null); // { txs, count }
   const [error,      setError]      = useState('');
 
-  const handleFile = async (file) => {
+  const fileName = file?.name || '';
+
+  const handleFile = async (f) => {
+    if (!f) return;
+    setFile(f);
+    const ext = f.name.split('.').pop().toLowerCase();
+    if (!['xlsx', 'xls', 'txt', 'csv'].includes(ext)) {
+      setError('Formatos aceitos: XLSX, XLS, TXT, CSV');
+      setPreview(null);
+      return;
+    }
+
     setProcessing(true);
     setPreview(null);
     setError('');
-    setFileName(file.name);
     try {
-      const txs = await parseFile(file);
+      const txs = await parseFile(f);
       if (txs.length === 0) {
         setError('Nenhum lançamento com padrão <NF> encontrado. Verifique se os históricos contêm o número da nota entre < e >.');
         return;
@@ -210,22 +178,28 @@ function UploadPanel({ onProcessed }) {
     onProcessed({ groups, transactions: preview.txs, summary });
   };
 
+  const uploadItems = file ? [{
+    id: file.name,
+    name: file.name,
+    size: file.size,
+    status: error ? 'error' : processing ? 'uploading' : 'done',
+    progress: processing ? 55 : 100,
+    message: error || (processing ? 'Lendo arquivo…' : `${preview?.count ?? 0} lançamento(s) detectado(s)`),
+  }] : [];
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <DropZone onFile={handleFile} disabled={processing} />
-
-      {processing && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px', background: P.surface, borderRadius: 12, border: `1px solid ${P.border}` }}>
-          <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${P.primaryBorder}`, borderTopColor: P.primary, animation: 'cforn-spin 0.8s linear infinite' }} />
-          <span style={{ fontSize: '0.86rem', color: P.muted }}>Lendo arquivo…</span>
-        </div>
-      )}
-
-      {error && (
-        <div style={{ background: 'rgba(255,92,92,.08)', border: '1px solid rgba(255,92,92,.20)', borderRadius: 10, padding: '13px 16px', color: '#ff5c5c', fontSize: '0.84rem' }}>
-          ⚠️ {error}
-        </div>
-      )}
+      <AnimatedDropzone
+        items={uploadItems}
+        onFiles={(files) => handleFile(files[0])}
+        onRetry={() => file && handleFile(file)}
+        onClear={() => { setFile(null); setPreview(null); setError(''); }}
+        disabled={processing}
+        multiple={false}
+        accept=".xlsx,.xls,.txt,.csv"
+        title="Arraste o razão aqui ou clique para selecionar"
+        hint="Formatos: XLSX, XLS, TXT, CSV · os históricos devem conter o número da NF entre < e >"
+      />
 
       {preview && (
         <>
