@@ -118,6 +118,11 @@ export default function AnimatedDropzone({
   disabled = false,
   title,
   hint,
+  // 'default': compacto, ícone e texto lado a lado — usado pelos sistemas de
+  // Soluções Contábeis, onde a dropzone é só mais um bloco da tela.
+  // 'lg': hero centralizado, ícone maior acima do texto — a caixa de entrada
+  // do NoraDocs é a tela inteira, e a área de upload é o próprio produto.
+  size = 'default',
 }) {
   const { theme } = useTheme();
   const p = getPalette(theme);
@@ -242,6 +247,9 @@ export default function AnimatedDropzone({
   }
 
   const doneCount = items.filter((it) => it.status === 'done').length;
+  const hero = size === 'lg';
+  const iconBox = hero ? 52 : 30;
+  const iconGlyph = hero ? 24 : 15;
 
   return (
     <div>
@@ -266,7 +274,7 @@ export default function AnimatedDropzone({
         style={{
           border: `1.5px dashed ${dragOver ? p.primary : p.border2}`,
           background: dragOver ? p.primarySoft : p.surface,
-          borderRadius: 14, padding: '22px 20px', textAlign: 'center',
+          borderRadius: 14, padding: hero ? '44px 24px' : '22px 20px', textAlign: 'center',
           cursor: disabled ? 'progress' : 'pointer', outline: 'none',
           transition: 'background 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out, transform 200ms ease-out',
           boxShadow: dragOver ? `0 0 0 6px ${p.primarySoft}` : '0 0 0 0 transparent',
@@ -278,14 +286,18 @@ export default function AnimatedDropzone({
           ref={inputRef} type="file" hidden multiple={multiple} accept={accept}
           onChange={(e) => { acceptFiles(e.target.files, null); e.target.value = ''; }}
         />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: hero ? 0 : 10,
+          flexDirection: hero ? 'column' : 'row',
+        }}>
           <div style={{
             position: 'relative',
-            width: 30, height: 30, borderRadius: 9, flexShrink: 0,
+            width: iconBox, height: iconBox, borderRadius: hero ? 16 : 9, flexShrink: 0,
             background: p.primarySoft, color: p.primaryText,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: hero ? 14 : 0,
           }}>
-            <IUpload size={15} />
+            <IUpload size={iconGlyph} />
             {particles.map((particle) => (
               <span
                 key={particle.id}
@@ -300,11 +312,11 @@ export default function AnimatedDropzone({
               />
             ))}
           </div>
-          <div style={{ textAlign: 'left' }}>
-            <p style={{ margin: 0, fontWeight: 600, fontSize: '0.9rem', color: p.text }}>
+          <div style={{ textAlign: hero ? 'center' : 'left' }}>
+            <p style={{ margin: 0, fontWeight: 600, fontSize: hero ? '1rem' : '0.9rem', color: p.text }}>
               {dragOver ? 'Solte os arquivos aqui' : (title || 'Arraste os arquivos aqui')}
             </p>
-            <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: p.muted }}>
+            <p style={{ margin: hero ? '4px 0 0' : '2px 0 0', fontSize: hero ? '0.82rem' : '0.78rem', color: p.muted }}>
               {dragOver ? '' : (hint || 'ou clique para escolher · você também pode colar')}
             </p>
           </div>
