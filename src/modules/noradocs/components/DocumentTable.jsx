@@ -59,6 +59,24 @@ export default function DocumentTable({ documentos, onAbrir, selecionados, onAlt
           .nd-col-secundaria { display: none; }
           .nd-resumo { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 5px; }
         }
+        /* Disparo único quando a linha entra em 'processando' — as regras
+           "passam" por ela. Não é um loop: a mesma classe aplicada de novo
+           em cada recarregamento (o polling de 3s) não reinicia a animação,
+           só o primeiro render com a classe presente dispara. */
+        .nd-row-processando { position: relative; }
+        .nd-row-processando::after {
+          content: ''; position: absolute; inset: 0; pointer-events: none;
+          background: linear-gradient(100deg, transparent 30%, ${P.primarySoft} 45%, ${P.primaryBorder} 50%, ${P.primarySoft} 55%, transparent 70%);
+          background-size: 220% 100%; background-position: 140% 0;
+          animation: nd-row-sweep 900ms linear 1;
+        }
+        @keyframes nd-row-sweep {
+          from { background-position: 140% 0; opacity: 1; }
+          to   { background-position: -40% 0; opacity: 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .nd-row-processando::after { animation: none; display: none; }
+        }
       `}</style>
       <table className="nd-tabela" style={{ width: '100%', borderCollapse: 'collapse', minWidth: 780 }}>
         <thead>
@@ -80,6 +98,7 @@ export default function DocumentTable({ documentos, onAbrir, selecionados, onAlt
               <tr
                 key={doc.id}
                 onClick={() => onAbrir?.(doc)}
+                className={doc.status === 'processando' ? 'nd-row-processando' : undefined}
                 // A linha sob o cursor do teclado precisa ser achável de
                 // relance numa lista densa — daí a barra na lateral, e não só
                 // um fundo, que a 30 linhas some.

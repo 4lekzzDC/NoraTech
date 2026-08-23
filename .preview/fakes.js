@@ -28,6 +28,9 @@ const docs = [
   { id: 'd5', file_name: 'extrato_bradesco_08-2026.pdf', status: 'revisar', competencia: '2026-08',
     client: clients[0], category: categories[0], drive_path: null, matched: { pendencias: [] },
     review_reason: null },
+  { id: 'd6', file_name: 'NFe_11222333000181_082026.xml', status: 'processando', competencia: '2026-08',
+    client: clients[2], category: categories[1], drive_path: null, matched: { pendencias: [] },
+    review_reason: null },
 ];
 
 export const documentsService = {
