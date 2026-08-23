@@ -83,8 +83,12 @@ export async function fetchContextoDeClassificacao() {
 }
 
 // Histórico: o que já saiu da fila. Filtros combinam por AND — é assim que o
-// contador procura ("o que arquivei para o cliente X em agosto?").
-export async function listHistorico({ clientId = '', competencia = '', status = '', busca = '' } = {}) {
+// contador procura ("o que arquivei para o cliente X entre estas datas?").
+// O intervalo filtra por `received_at` (data de envio), não por competência:
+// competência é o que o rótulo diz sobre o documento, `received_at` é quando
+// ele de fato chegou — e todo documento tem a segunda, mesmo os que a
+// classificação não conseguiu supor a primeira.
+export async function listHistorico({ clientId = '', dataDe = '', dataAte = '', status = '', busca = '' } = {}) {
   let query = supabase
     .from('noradocs_documents')
     .select(SELECT)
@@ -94,7 +98,8 @@ export async function listHistorico({ clientId = '', competencia = '', status = 
     .limit(300);
 
   if (clientId) query = query.eq('client_id', clientId);
-  if (competencia) query = query.eq('competencia', competencia);
+  if (dataDe) query = query.gte('received_at', `${dataDe}T00:00:00`);
+  if (dataAte) query = query.lte('received_at', `${dataAte}T23:59:59`);
   if (status) query = query.eq('status', status);
 
   // Mesma precaução do cadastro de clientes: vírgula e parênteses são
