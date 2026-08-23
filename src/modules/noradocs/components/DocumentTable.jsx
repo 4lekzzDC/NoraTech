@@ -98,14 +98,12 @@ export default function DocumentTable({ documentos, onAbrir, selecionados, onAlt
             return (
               <tr
                 key={doc.id}
-                onClick={() => onAbrir?.(doc)}
                 className={doc.status === 'processando' ? 'nd-row-processando' : undefined}
                 // A linha sob o cursor do teclado precisa ser achável de
                 // relance numa lista densa — daí a barra na lateral, e não só
                 // um fundo, que a 30 linhas some.
                 ref={focado ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
                 style={{
-                  cursor: onAbrir ? 'pointer' : 'default',
                   background: focado ? P.primarySoft : 'transparent',
                   boxShadow: focado ? `inset 3px 0 0 ${P.primary}` : 'none',
                 }}
@@ -176,7 +174,7 @@ export default function DocumentTable({ documentos, onAbrir, selecionados, onAlt
                   )}
                 </td>
                 {onAbrir && (
-                  <td style={td} onClick={(e) => e.stopPropagation()}>
+                  <td style={td}>
                     <button
                       type="button"
                       onClick={() => onAbrir(doc)}
