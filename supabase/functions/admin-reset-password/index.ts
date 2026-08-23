@@ -1,5 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { checkRateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
+
+// Cada chamada dispara um e-mail de redefinição para a caixa de outra pessoa.
+// Sem teto, um admin com a conta tomada transforma isto em uma máquina de
+// spam contra os próprios usuários — e queima a reputação do domínio de envio
+// junto. O limite é por admin, não global: um não trava o trabalho do outro.
+const LIMITE_RESET = { bucket: 'admin_reset_password', limit: 15, windowSeconds: 3600 };
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -37,6 +44,16 @@ Deno.serve(async (req) => {
       .single();
 
     if (callerProfile?.role !== 'admin') return json({ error: 'Acesso negado' }, 403);
+
+    // Depois da checagem de admin, para não gastar contador com quem nem
+    // podia chamar — e antes do envio, que é o que custa.
+    const limite = await checkRateLimit(adminClient, LIMITE_RESET, caller.id);
+    if (!limite.allowed) {
+      return rateLimitResponse(
+        limite, corsHeaders,
+        'Muitas redefinições de senha enviadas nesta hora. Aguarde antes de enviar outra.',
+      );
+    }
 
     // Parse body
     const body = await req.json().catch(() => ({}));

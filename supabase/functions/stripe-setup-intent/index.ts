@@ -1,6 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import Stripe from 'https://esm.sh/stripe@22.4.0?target=deno';
 import { corsHeaders } from '../_shared/cors.ts';
+import { checkRateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
+
+// Cadastrar cartão é ato raro por natureza — uma rajada aqui é enumeração de
+// cartão, não uso legítimo.
+const LIMITE_SETUP = { bucket: 'stripe_setup_intent', limit: 10, windowSeconds: 300 };
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -37,6 +42,14 @@ Deno.serve(async (req) => {
 
     const { data: { user: caller } } = await callerClient.auth.getUser();
     if (!caller) return json({ error: 'Sessão inválida' }, 401);
+
+    const limite = await checkRateLimit(adminClient, LIMITE_SETUP, caller.id);
+    if (!limite.allowed) {
+      return rateLimitResponse(
+        limite, corsHeaders,
+        'Muitas tentativas de cadastro de cartão seguidas. Aguarde alguns minutos.',
+      );
+    }
 
     const body = await req.json().catch(() => ({}));
     const company_id: string | undefined = body?.company_id;

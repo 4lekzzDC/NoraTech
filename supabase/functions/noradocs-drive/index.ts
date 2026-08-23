@@ -30,6 +30,37 @@ function json(data: unknown, status = 200) {
   });
 }
 
+// Rate limit inline em vez de importar ../_shared/rateLimit.ts: esta função é
+// self-contained por decisão de implantação (ver o cabeçalho do arquivo), e o
+// custo de repetir doze linhas é menor que o de reintroduzir a resolução de
+// caminho relativo que ela evita.
+//
+// Cada ação aqui vira uma ou mais chamadas à API do Drive, que tem cota
+// própria: estourá-la derruba o arquivamento do escritório inteiro, não só de
+// quem abusou. O teto é por usuário e alto o bastante para um lote grande de
+// upload passar inteiro.
+const LIMITE_DRIVE = { bucket: 'noradocs_drive', limit: 120, windowSeconds: 60 };
+
+async function dentroDoLimite(
+  // deno-lint-ignore no-explicit-any
+  admin: any, userId: string,
+): Promise<{ allowed: boolean; retryAfter: number }> {
+  try {
+    const { data, error } = await admin.rpc('check_rate_limit', {
+      p_bucket: LIMITE_DRIVE.bucket,
+      p_key: userId,
+      p_limit: LIMITE_DRIVE.limit,
+      p_window_seconds: LIMITE_DRIVE.windowSeconds,
+    });
+    if (error) throw error;
+    return { allowed: Boolean(data?.allowed), retryAfter: Number(data?.retry_after ?? 60) };
+  } catch (err) {
+    // Falha aberta: sem banco, o arquivamento não pode parar de funcionar.
+    console.error('[noradocs-drive] rate limit falhou, liberando', err);
+    return { allowed: true, retryAfter: 0 };
+  }
+}
+
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const DRIVE_FILES_URL = 'https://www.googleapis.com/drive/v3/files';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
@@ -133,6 +164,24 @@ Deno.serve(async (req) => {
 
   const { data: { user } } = await caller.auth.getUser();
   if (!user) return json({ error: 'Sessão inválida' }, 401);
+
+  const limite = await dentroDoLimite(admin, user.id);
+  if (!limite.allowed) {
+    return new Response(
+      JSON.stringify({
+        error: 'Muitas operações no Drive em sequência. Aguarde um instante.',
+        retryAfter: limite.retryAfter,
+      }),
+      {
+        status: 429,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'Retry-After': String(limite.retryAfter),
+        },
+      },
+    );
+  }
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json({ error: 'Corpo inválido' }, 400); }

@@ -50,6 +50,65 @@ const TAMANHO_MAXIMO = 25 * 1024 * 1024;
 // antes de alguém perceber.
 const LIMITE_POR_HORA = 300;
 
+// Rate limit inline, e não via ../_shared/: esta função é self-contained por
+// decisão de implantação (ver cabeçalho do arquivo).
+//
+// São dois limites com propósitos distintos, e o LIMITE_POR_HORA acima não
+// substitui nenhum deles — aquele só conta documentos que já passaram por
+// toda a validação, de um token que já é válido.
+//
+// Por IP, antes de validar o token: esta é a única função com
+// verify_jwt: false, então qualquer um na internet pode chutar valores de
+// token contra ela o dia inteiro. Sem teto aqui, nada limita a velocidade
+// desse chute.
+const LIMITE_IP = { bucket: 'noradocs_inbound_ip', limit: 60, windowSeconds: 60 };
+// Por token, depois de validar: contém um token legítimo que vazou ou um
+// complemento em laço, sem punir os outros escritórios.
+const LIMITE_TOKEN = { bucket: 'noradocs_inbound_token', limit: 120, windowSeconds: 60 };
+
+async function dentroDoLimite(
+  // deno-lint-ignore no-explicit-any
+  admin: any,
+  regra: { bucket: string; limit: number; windowSeconds: number },
+  chave: string,
+): Promise<{ allowed: boolean; retryAfter: number }> {
+  try {
+    const { data, error } = await admin.rpc('check_rate_limit', {
+      p_bucket: regra.bucket,
+      p_key: chave,
+      p_limit: regra.limit,
+      p_window_seconds: regra.windowSeconds,
+    });
+    if (error) throw error;
+    return { allowed: Boolean(data?.allowed), retryAfter: Number(data?.retry_after ?? 60) };
+  } catch (err) {
+    // Falha aberta: a entrada por e-mail não pode parar porque o contador
+    // piscou. O log é o que impede a falha de passar despercebida.
+    console.error('[noradocs-inbound] rate limit falhou, liberando', regra.bucket, err);
+    return { allowed: true, retryAfter: 0 };
+  }
+}
+
+// Primeiro item do X-Forwarded-For é o cliente; o resto são os proxies. Vale
+// porque o gateway do Supabase preenche o cabeçalho — sem esse proxy na
+// frente, o valor seria forjável.
+function ipDeOrigem(req: Request): string {
+  const encaminhado = req.headers.get('x-forwarded-for');
+  const primeiro = encaminhado?.split(',')[0]?.trim();
+  return primeiro || req.headers.get('x-real-ip') || 'desconhecido';
+}
+
+function resposta429(retryAfter: number, mensagem: string) {
+  return new Response(JSON.stringify({ error: mensagem, retryAfter }), {
+    status: 429,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+      'Retry-After': String(retryAfter),
+    },
+  });
+}
+
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -234,6 +293,14 @@ Deno.serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // Antes de consultar o token: é este teto que limita a velocidade de quem
+  // está chutando valores, e ele precisa valer inclusive (principalmente)
+  // para as tentativas que vão falhar.
+  const limiteIp = await dentroDoLimite(admin, LIMITE_IP, ipDeOrigem(req));
+  if (!limiteIp.allowed) {
+    return resposta429(limiteIp.retryAfter, 'Muitas requisições. Aguarde um instante.');
+  }
+
   const { data: tokenRow } = await admin
     .from('noradocs_inbound_tokens')
     .select('id, tenant_company_id, revoked_at')
@@ -246,6 +313,14 @@ Deno.serve(async (req) => {
     return json({ error: 'Token de entrada inválido ou revogado.' }, 401);
   }
   const tenantId = tokenRow.tenant_company_id as string;
+
+  const limiteToken = await dentroDoLimite(admin, LIMITE_TOKEN, tokenRow.id as string);
+  if (!limiteToken.allowed) {
+    return resposta429(
+      limiteToken.retryAfter,
+      'Muitas entradas seguidas para este token. Aguarde um instante.',
+    );
+  }
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json({ error: 'Corpo inválido' }, 400); }

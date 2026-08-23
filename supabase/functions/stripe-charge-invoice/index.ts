@@ -1,6 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import Stripe from 'https://esm.sh/stripe@22.4.0?target=deno';
 import { corsHeaders } from '../_shared/cors.ts';
+import { checkRateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
+
+// Cobrança manual de fatura, disparada por admin. Cada uma move dinheiro de
+// verdade: o teto existe para conter um laço acidental (script de cobrança em
+// lote com bug) antes que ele cobre a mesma carteira dezenas de vezes.
+const LIMITE_COBRANCA = { bucket: 'stripe_charge_invoice', limit: 30, windowSeconds: 300 };
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -39,6 +45,11 @@ Deno.serve(async (req) => {
 
     const { data: callerProfile } = await adminClient.from('profiles').select('role').eq('id', caller.id).single();
     if (callerProfile?.role !== 'admin') return json({ error: 'Acesso negado' }, 403);
+
+    const limite = await checkRateLimit(adminClient, LIMITE_COBRANCA, caller.id);
+    if (!limite.allowed) {
+      return rateLimitResponse(limite, corsHeaders, 'Muitas cobranças seguidas. Aguarde alguns minutos.');
+    }
 
     const body = await req.json().catch(() => ({}));
     const invoice_id: string | undefined = body?.invoice_id;

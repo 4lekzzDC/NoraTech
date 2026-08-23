@@ -1,6 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import Stripe from 'https://esm.sh/stripe@22.4.0?target=deno';
 import { corsHeaders } from '../_shared/cors.ts';
+import { checkRateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
+
+// Cada intent é uma chamada à API da Stripe, e uma sequência delas é a forma
+// clássica de testar cartões roubados num checkout alheio — o que além do
+// custo derruba a taxa de aprovação da conta. Pagar uma fatura é ato raro:
+// um teto baixo não incomoda quem está pagando de verdade.
+const LIMITE_PAGAMENTO = { bucket: 'stripe_payment_intent', limit: 10, windowSeconds: 300 };
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -37,6 +44,14 @@ Deno.serve(async (req) => {
 
     const { data: { user: caller } } = await callerClient.auth.getUser();
     if (!caller) return json({ error: 'Sessão inválida' }, 401);
+
+    const limite = await checkRateLimit(adminClient, LIMITE_PAGAMENTO, caller.id);
+    if (!limite.allowed) {
+      return rateLimitResponse(
+        limite, corsHeaders,
+        'Muitas tentativas de pagamento seguidas. Aguarde alguns minutos antes de tentar de novo.',
+      );
+    }
 
     const body = await req.json().catch(() => ({}));
     const invoice_id: string | undefined = body?.invoice_id;

@@ -26,6 +26,33 @@ function json(data: unknown, status = 200) {
   });
 }
 
+// Rate limit inline, e não via ../_shared/: esta função é self-contained por
+// decisão de implantação (ver o cabeçalho do arquivo).
+//
+// Conectar ou desconectar o Google é ato raro — algumas vezes na vida de um
+// escritório. Uma rajada aqui é laço ou sondagem, e cada tentativa gasta uma
+// troca de código com o Google.
+const LIMITE_OAUTH = { bucket: 'noradocs_google_oauth', limit: 10, windowSeconds: 300 };
+
+async function dentroDoLimite(
+  // deno-lint-ignore no-explicit-any
+  admin: any, userId: string,
+): Promise<{ allowed: boolean; retryAfter: number }> {
+  try {
+    const { data, error } = await admin.rpc('check_rate_limit', {
+      p_bucket: LIMITE_OAUTH.bucket,
+      p_key: userId,
+      p_limit: LIMITE_OAUTH.limit,
+      p_window_seconds: LIMITE_OAUTH.windowSeconds,
+    });
+    if (error) throw error;
+    return { allowed: Boolean(data?.allowed), retryAfter: Number(data?.retry_after ?? 300) };
+  } catch (err) {
+    console.error('[noradocs-google-oauth] rate limit falhou, liberando', err);
+    return { allowed: true, retryAfter: 0 };
+  }
+}
+
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 const USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo';
@@ -81,6 +108,24 @@ Deno.serve(async (req) => {
   const { data: canManage } = await caller.rpc('has_noradocs_manage', { p_company_id: tenantId });
   if (!canManage) {
     return json({ error: 'Apenas o responsável pelo escritório (dono ou admin) pode gerenciar a conexão com o Google.' }, 403);
+  }
+
+  const limite = await dentroDoLimite(admin, user.id);
+  if (!limite.allowed) {
+    return new Response(
+      JSON.stringify({
+        error: 'Muitas tentativas de conexão com o Google. Aguarde alguns minutos.',
+        retryAfter: limite.retryAfter,
+      }),
+      {
+        status: 429,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'Retry-After': String(limite.retryAfter),
+        },
+      },
+    );
   }
 
   try {

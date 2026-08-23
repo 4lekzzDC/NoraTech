@@ -1,5 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { checkRateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
+
+// Devolve e-mail e datas de login de qualquer usuário a partir do id. Com a
+// conta de um admin tomada, isto vira uma ferramenta de varredura do cadastro
+// inteiro. O teto é folgado o bastante para o painel abrir usuário atrás de
+// usuário sem esbarrar, e apertado o bastante para uma varredura demorar.
+const LIMITE_GET_USER = { bucket: 'admin_get_user', limit: 60, windowSeconds: 60 };
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -38,6 +45,11 @@ Deno.serve(async (req) => {
       .single();
 
     if (callerProfile?.role !== 'admin') return json({ error: 'Acesso negado' }, 403);
+
+    const limite = await checkRateLimit(adminClient, LIMITE_GET_USER, caller.id);
+    if (!limite.allowed) {
+      return rateLimitResponse(limite, corsHeaders, 'Muitas consultas seguidas. Aguarde um instante.');
+    }
 
     // Parse body
     const body = await req.json().catch(() => ({}));

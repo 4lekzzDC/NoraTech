@@ -188,10 +188,18 @@ async function resetPasswordViaAdmin(userId) {
     const { data, error } = await supabase.functions.invoke('admin-reset-password', {
       body: { user_id: userId },
     });
-    if (error) return { ok: false, msg: error.message || 'Erro ao enviar e-mail.' };
+    if (error) {
+      // `error.message` de um status fora de 2xx é sempre a mesma frase
+      // genérica; o motivo real (rate limit atingido, por exemplo) só existe
+      // no corpo. Sem isto, quem esbarra no limite vê um erro sem explicação
+      // e reenvia — que é justamente o que o limite quer evitar.
+      let detalhe = '';
+      try { detalhe = (await error.context?.json())?.error || ''; } catch { /* corpo vazio */ }
+      return { ok: false, msg: detalhe || error.message || 'Erro ao enviar e-mail.' };
+    }
     if (data?.error) return { ok: false, msg: data.error };
     return { ok: true, msg: data?.message || 'E-mail enviado com sucesso!' };
-  } catch (err) {
+  } catch {
     return { ok: false, msg: 'Não foi possível conectar ao servidor.' };
   }
 }
