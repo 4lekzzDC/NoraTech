@@ -7,26 +7,6 @@ import { getPalette, FONT_MONO } from '../theme';
 // Tabela da caixa de entrada. Densa e tabular por decisão de projeto: a tela
 // existe para zerar a fila, não para exibir indicadores.
 
-// Ícone genérico de arquivo — decorativo, não distingue por extensão. A
-// coluna existe pra dar textura visual à linha, não pra classificar o tipo
-// (isso já é o que a coluna Categoria faz).
-function IconeArquivo({ P }) {
-  return (
-    <div
-      aria-hidden="true"
-      style={{
-        width: 26, height: 26, borderRadius: 7, background: P.surface2,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', color: P.muted,
-      }}
-    >
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <path d="M14 2v6h6" />
-      </svg>
-    </div>
-  );
-}
-
 function StatusBadge({ status, P }) {
   const info = DOCUMENT_STATUS[status] || { label: status, tone: 'neutral' };
   const cor = { ok: P.green, warn: P.gold, danger: P.red, muted: P.muted2, neutral: P.muted }[info.tone];
@@ -102,7 +82,6 @@ export default function DocumentTable({ documentos, onAbrir, selecionados, onAlt
         <thead>
           <tr>
             {onAlternar && <th style={{ ...th, width: 34 }} />}
-            <th style={{ ...th, width: 44 }} />
             <th style={th}>Arquivo</th>
             <th className="nd-col-secundaria" style={th}>Cliente</th>
             <th className="nd-col-secundaria" style={th}>Competência</th>
@@ -148,7 +127,6 @@ export default function DocumentTable({ documentos, onAbrir, selecionados, onAlt
                     />
                   </td>
                 )}
-                <td style={td}><IconeArquivo P={P} /></td>
                 <td style={td}>
                   {/* Nome de arquivo contábil não tem espaço onde quebrar
                       ("NFe_98765432000110_072026.xml"), e sem permissão para
