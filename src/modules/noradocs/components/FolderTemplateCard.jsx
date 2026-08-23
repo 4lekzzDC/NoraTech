@@ -14,6 +14,11 @@ const EXEMPLO = {
   tipo: 'Extrato bancário',
 };
 
+function prefersReducedMotion() {
+  return typeof window !== 'undefined'
+    && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+}
+
 export default function FolderTemplateCard({ tenantId, template, isManager, showToast, onSaved }) {
   const { theme } = useTheme();
   const P = getPalette(theme);
@@ -58,23 +63,52 @@ export default function FolderTemplateCard({ tenantId, template, isManager, show
   const caminho = formatFolderPath(valor, EXEMPLO);
   const alterado = valor.trim() !== (template || '').trim();
 
-  const chip = {
-    fontFamily: FONT_MONO, fontSize: '0.72rem', padding: '4px 9px', borderRadius: 7,
-    border: `1px solid ${P.border2}`, background: P.surface2, color: P.muted,
-    cursor: isManager ? 'pointer' : 'default',
-  };
+  // A pré-visualização não troca de texto seca: some com um fade curto e
+  // volta já com o caminho novo. `caminhoExibido` fica um passo atrás de
+  // `caminho` de propósito — é o que dá tempo do fade-out acontecer antes do
+  // texto trocar por baixo.
+  const [caminhoExibido, setCaminhoExibido] = useState(caminho);
+  const [apagando, setApagando] = useState(false);
+  useEffect(() => {
+    if (caminho === caminhoExibido) return undefined;
+    if (prefersReducedMotion()) { setCaminhoExibido(caminho); return undefined; }
+    setApagando(true);
+    const t = setTimeout(() => {
+      setCaminhoExibido(caminho);
+      setApagando(false);
+    }, 160);
+    return () => clearTimeout(t);
+  }, [caminho]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div style={{ border: `1px solid ${P.border}`, borderRadius: 14, background: P.surface, padding: '22px 24px', boxShadow: P.shadow }}>
+    <div className="nd-card-hover" style={{ border: `1px solid ${P.border}`, borderRadius: 14, background: P.surface, padding: '22px 24px' }}>
+      <style>{`
+        .nd-ft-chip {
+          font-family: ${FONT_MONO}; font-size: 0.74rem; font-weight: 600;
+          padding: 6px 12px; border-radius: 999px;
+          border: 1px solid ${P.border2}; background: ${P.surface2}; color: ${P.muted};
+          transition: all 0.2s ease; font: inherit; font-family: ${FONT_MONO};
+        }
+        .nd-ft-chip:not(:disabled):hover {
+          border-color: ${P.primaryBorder}; background: ${P.primarySoft}; color: ${P.primaryText};
+          transform: translateY(-1px);
+        }
+        .nd-ft-chip:disabled { cursor: default; opacity: 0.7; }
+        .nd-ft-input:focus { border-color: ${P.primaryBorder} !important; box-shadow: 0 0 0 3px ${P.primarySoft}; }
+        @media (prefers-reduced-motion: reduce) {
+          .nd-ft-chip:not(:disabled):hover { transform: none; }
+        }
+      `}</style>
+
       <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>Estrutura de pastas</h2>
       <p style={{ margin: '5px 0 0', color: P.muted, fontSize: '0.85rem', maxWidth: '58ch' }}>
-        Onde cada documento organizado é arquivado dentro da pasta raiz. Use os tokens abaixo para montar o caminho.
+        Onde cada documento organizado é arquivado dentro da pasta raiz. Clique nos tokens para inserir no caminho.
       </p>
 
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '14px 0' }}>
+      <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', margin: '14px 0' }}>
         {FOLDER_TEMPLATE_TOKENS.map((token) => (
           <button
-            key={token} type="button" style={chip} disabled={!isManager}
+            key={token} type="button" className="nd-ft-chip" disabled={!isManager}
             onClick={() => inserirToken(token)}
             title={isManager ? `Inserir {${token}}` : undefined}
           >
@@ -85,13 +119,14 @@ export default function FolderTemplateCard({ tenantId, template, isManager, show
 
       <input
         ref={inputRef}
+        className="nd-ft-input"
         value={valor}
         onChange={(e) => setValor(e.target.value)}
         disabled={!isManager}
         style={{
-          width: '100%', padding: '10px 12px', borderRadius: 9,
+          width: '100%', padding: '10px 12px', borderRadius: 9, outline: 'none',
           border: `1px solid ${P.border2}`, background: P.inputBg, color: P.text,
-          fontFamily: FONT_MONO, fontSize: '0.85rem', outline: 'none',
+          fontFamily: FONT_MONO, fontSize: '0.85rem', transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
         }}
       />
 
@@ -109,8 +144,9 @@ export default function FolderTemplateCard({ tenantId, template, isManager, show
           margin: 0, padding: '10px 12px', borderRadius: 9, background: P.primarySoft,
           border: `1px solid ${P.primaryBorder}`, color: P.primaryText,
           fontFamily: FONT_MONO, fontSize: '0.82rem', wordBreak: 'break-word',
+          opacity: apagando ? 0 : 1, transition: 'opacity 160ms ease',
         }}>
-          {caminho || '(caminho vazio)'}
+          {caminhoExibido || '(caminho vazio)'}
         </p>
       </div>
 
@@ -122,7 +158,7 @@ export default function FolderTemplateCard({ tenantId, template, isManager, show
             marginTop: 16, padding: '9px 16px', borderRadius: 9, border: 'none',
             background: P.primary, color: '#fff', fontSize: '0.83rem', fontWeight: 700,
             cursor: alterado && !salvando ? 'pointer' : 'default', opacity: alterado ? 1 : 0.5,
-            fontFamily: 'inherit',
+            fontFamily: 'inherit', transition: 'all 0.2s ease',
           }}
         >
           {salvando ? 'Salvando…' : 'Salvar modelo'}
