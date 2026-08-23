@@ -123,6 +123,26 @@ async function fetchFullProfile(userId) {
   return data || null;
 }
 
+// `profiles.company` é texto livre, digitado à mão por um admin neste
+// próprio painel — nada no fluxo normal (criar ou entrar numa empresa) grava
+// nele. Por isso fica vazio pra praticamente todo mundo, mesmo quem tem uma
+// empresa de verdade em `company_members`. Isto resolve a empresa real, pra
+// servir de retrato quando o campo de texto estiver em branco.
+async function fetchCompanyByUser() {
+  const { data } = await supabase
+    .from('company_members')
+    .select('user_id, role, status, company:companies(name)');
+
+  const porUsuario = new Map();
+  const pontuacao = (m) => (m.status === 'active' ? 2 : 0) + (m.role === 'owner' ? 1 : 0);
+  for (const m of data || []) {
+    if (!m.company?.name) continue;
+    const atual = porUsuario.get(m.user_id);
+    if (!atual || pontuacao(m) > pontuacao(atual)) porUsuario.set(m.user_id, m);
+  }
+  return new Map([...porUsuario].map(([userId, m]) => [userId, m.company.name]));
+}
+
 async function fetchAccessLogs(userId) {
   const { data, error } = await supabase
     .from('access_logs')
@@ -341,7 +361,7 @@ function TabPerfil({ user, setUser, onSwitchTab }) {
           <Field label="Empresa">
             <input
               style={{ ...inputStyle, color: mp.muted, cursor: 'not-allowed' }}
-              value={user.company || '—'}
+              value={user.company || user.resolvedCompany || '—'}
               disabled
             />
           </Field>
@@ -610,7 +630,7 @@ function TabEmpresa({ user, setUser, companies, me }) {
           <Field label="Empresa vinculada">
             <Dropdown
               searchable freeInput
-              value={user.company || ''}
+              value={user.company || user.resolvedCompany || ''}
               onChange={(v) => setUser((u) => ({ ...u, company: v }))}
               options={companies.map((c) => ({ value: c.name, label: c.name }))}
               placeholder="Selecione ou digite..."
@@ -1007,10 +1027,10 @@ function ManageUserModal({
 
                 {/* Meta rows */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, borderTop: `1px solid ${mp.border}`, paddingTop: 14 }}>
-                  {user.company && (
+                  {(user.company || user.resolvedCompany) && (
                     <SidebarMetaRow
                       label="Empresa"
-                      value={user.company}
+                      value={user.company || user.resolvedCompany}
                       icon={
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
@@ -1210,15 +1230,16 @@ export default function AdminUsersPage() {
 
   const load = async () => {
     setLoading(true);
-    const [usersRes, companiesRes] = await Promise.all([
+    const [usersRes, companiesRes, companyByUser] = await Promise.all([
       supabase
         .from('profiles')
         .select('id, name, photo_url, company, role, status, updated_at')
         .order('updated_at', { ascending: false }),
       supabase.from('companies').select('id, name').order('name'),
+      fetchCompanyByUser(),
     ]);
     if (usersRes.error) setError(usersRes.error.message);
-    setUsers(usersRes.data || []);
+    setUsers((usersRes.data || []).map((u) => ({ ...u, resolvedCompany: companyByUser.get(u.id) || null })));
     setCompanies(companiesRes.data || []);
     setLoading(false);
   };
@@ -1226,16 +1247,17 @@ export default function AdminUsersPage() {
   useEffect(() => {
     let active = true;
     (async () => {
-      const [usersRes, companiesRes] = await Promise.all([
+      const [usersRes, companiesRes, companyByUser] = await Promise.all([
         supabase
           .from('profiles')
           .select('id, name, photo_url, company, role, status, updated_at')
           .order('updated_at', { ascending: false }),
         supabase.from('companies').select('id, name').order('name'),
+        fetchCompanyByUser(),
       ]);
       if (!active) return;
       if (usersRes.error) setError(usersRes.error.message);
-      setUsers(usersRes.data || []);
+      setUsers((usersRes.data || []).map((u) => ({ ...u, resolvedCompany: companyByUser.get(u.id) || null })));
       setCompanies(companiesRes.data || []);
       setLoading(false);
     })();
@@ -1246,7 +1268,7 @@ export default function AdminUsersPage() {
     const q = search.trim().toLowerCase();
     if (!q) return users;
     return users.filter((u) =>
-      [u.name, u.company, u.id].some((v) => (v || '').toLowerCase().includes(q))
+      [u.name, u.company, u.resolvedCompany, u.id].some((v) => (v || '').toLowerCase().includes(q))
     );
   }, [users, search]);
 
@@ -1446,7 +1468,7 @@ export default function AdminUsersPage() {
                         </div>
                       </div>
                     </td>
-                    <td>{u.company || '—'}</td>
+                    <td>{u.company || u.resolvedCompany || '—'}</td>
                     <td>
                       <span className="admin-pill" style={{
                         background:  u.role === 'admin' ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.05)',
