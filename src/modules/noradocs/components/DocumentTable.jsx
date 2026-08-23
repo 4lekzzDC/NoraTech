@@ -109,7 +109,7 @@ export default function DocumentTable({ documentos, onAbrir, selecionados, onAlt
             <th className="nd-col-secundaria" style={th}>Categoria</th>
             <th style={th}>Status</th>
             <th className="nd-col-secundaria" style={th}>Destino</th>
-            {onAbrir && <th style={{ ...th, width: 44 }} />}
+            {onAbrir && <th style={{ ...th, width: 44 }}>Ação</th>}
           </tr>
         </thead>
         <tbody>

@@ -498,20 +498,6 @@ export default function InboxPage() {
             )}
           </div>
 
-          {/* Atalho que ninguém descobre é atalho que não existe. Uma linha
-              discreta basta — e some quando não há fila para percorrer. */}
-          {documentos.length > 0 && (
-            <p style={{
-              margin: '0 0 10px', fontSize: '0.73rem', color: P.muted2,
-              display: 'flex', gap: 14, flexWrap: 'wrap',
-            }}>
-              <span><strong style={{ fontWeight: 600 }}>↑↓</strong> navegar</span>
-              <span><strong style={{ fontWeight: 600 }}>enter</strong> abrir</span>
-              <span><strong style={{ fontWeight: 600 }}>espaço</strong> selecionar</span>
-              <span><strong style={{ fontWeight: 600 }}>esc</strong> limpar</span>
-            </p>
-          )}
-
           <div style={{
             border: `1px solid ${P.border}`, borderRadius: 14, background: P.surface,
             overflow: 'hidden', boxShadow: P.shadow,
