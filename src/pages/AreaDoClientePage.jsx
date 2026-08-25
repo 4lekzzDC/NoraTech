@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useIsAdmin, formatBRL } from '../lib/admin';
 import { useTheme } from '../contexts/ThemeContext';
 import ThemeToggle from '../components/ThemeToggle';
+import NotificationBell from '../components/NotificationBell';
 import CockpitCompany from '../components/CockpitCompany';
 import UserProfileMenu from '../components/UserProfileMenu';
 import { supabase, AVATARS_BUCKET } from '../lib/supabase';
@@ -799,7 +800,6 @@ export default function AreaDoClientePage() {
     clock:   svg(<><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></>),
     chart:   svg(<><path d="M21.2 15.9A10 10 0 1 1 8.1 2.8" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></>),
     bolt:    svg(<><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" /></>),
-    bell:    svg(<><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></>),
     chevron: svg(<polyline points="9 18 15 12 9 6" />, 14),
     arrow:   svg(<><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></>, 14),
     logout:  svg(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></>, 15),
@@ -890,7 +890,6 @@ export default function AreaDoClientePage() {
         .adc-top-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
         .adc-icon-btn { position:relative; width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:10px; background:transparent; border:1px solid var(--p-border); color:var(--p-muted); cursor:pointer; transition:all .15s; }
         .adc-icon-btn:hover { color:var(--p-text); border-color:var(--p-border2); }
-        .adc-dot { position:absolute; top:7px; right:8px; width:6px; height:6px; border-radius:50%; background:var(--p-primary); }
         .adc-toggle-slot button.theme-toggle,.adc-toggle-slot [class*="theme-toggle"] { width:34px!important; height:34px!important; border-radius:10px!important; background:transparent!important; border:1px solid var(--p-border)!important; color:var(--p-muted)!important; }
         .adc-toggle-slot button.theme-toggle:hover { color:var(--p-text)!important; border-color:var(--p-border2)!important; }
         .adc-admin-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border-radius:9px; border:1px solid var(--p-primary-border); background:var(--p-primary-soft); color:var(--p-primary); font-size:.72rem; font-weight:700; letter-spacing:.5px; text-transform:uppercase; transition:filter .15s; }
@@ -1012,10 +1011,7 @@ export default function AreaDoClientePage() {
                 Admin
               </Link>
             )}
-            <button type="button" className="adc-icon-btn" onClick={() => goTo('inicio', 'sec-atividade')} title="Atividade recente" aria-label="Atividade recente">
-              {ICON.bell}
-              {activity.length > 0 && <span className="adc-dot" />}
-            </button>
+            <NotificationBell />
             <span className="adc-toggle-slot" style={{ display: 'inline-flex' }}><ThemeToggle /></span>
             <UserProfileMenu />
           </div>

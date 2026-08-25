@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useIsDeveloper } from '../lib/dev';
 import ThemeToggle from './ThemeToggle';
 
 const NAV = [
@@ -12,8 +13,15 @@ const NAV = [
   { to: '/admin/suporte', label: 'Suporte', icon: '◐' },
 ];
 
+// Fora do NAV acima porque não é para todo admin: só aparece para quem tem
+// `profiles.is_developer`. Esconder o item não protege nada — quem protege são
+// o RLS e o `raise` dentro de logs_do_sistema() —, mas mostrar um menu que leva
+// a um redirecionamento é pior que não mostrar.
+const NAV_DEV = { to: '/admin/dev', label: 'DEV', icon: '⌘' };
+
 export default function AdminLayout({ title, subtitle, actions, children }) {
   const { user, logout } = useAuth();
+  const { isDeveloper } = useIsDeveloper();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -125,7 +133,7 @@ export default function AdminLayout({ title, subtitle, actions, children }) {
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {NAV.map((item) => (
+          {[...NAV, ...(isDeveloper ? [NAV_DEV] : [])].map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

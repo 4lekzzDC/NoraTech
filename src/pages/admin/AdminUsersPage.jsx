@@ -143,6 +143,10 @@ async function fetchCompanyByUser() {
   return new Map([...porUsuario].map(([userId, m]) => [userId, m.company.name]));
 }
 
+// Devolve { logs, erro }, e nao so a lista. Achatar os dois casos em `[]`
+// fazia uma consulta recusada pela RLS ficar identica a "esse usuario nao tem
+// registro nenhum" — e a tela entao acusava falta de tabela, que era o unico
+// palpite que ela tinha.
 async function fetchAccessLogs(userId) {
   const { data, error } = await supabase
     .from('access_logs')
@@ -150,7 +154,11 @@ async function fetchAccessLogs(userId) {
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(20);
-  return error ? [] : (data || []);
+  if (error) {
+    console.warn('[access_logs] consulta falhou:', error.message);
+    return { logs: [], erro: error.message };
+  }
+  return { logs: data || [], erro: null };
 }
 
 /**
@@ -716,7 +724,22 @@ function LogStatusPill({ status }) {
   );
 }
 
-function TabLogs({ logs, loading, onRefresh }) {
+// A coluna "Ação" mostrava a chave crua do evento — "open_admin_user" para
+// quem só quer saber o que aconteceu com a conta. O mapa traduz o que
+// conhecemos e deixa passar intacto o que não conhecemos, para um evento novo
+// aparecer como está em vez de sumir ou virar "desconhecido".
+const ROTULO_DA_ACAO = {
+  login: 'Entrou no sistema',
+  logout: 'Saiu do sistema',
+  open_admin_user: 'Aberto no painel administrativo',
+  update_user_permissions: 'Permissões alteradas',
+  admin_password_reset: 'E-mail de redefinição de senha enviado',
+  force_password_reset: 'Troca de senha exigida no próximo acesso',
+  deactivate_user: 'Usuário desativado',
+  reactivate_user: 'Usuário reativado',
+};
+
+function TabLogs({ logs, loading, erro, onRefresh }) {
   const mp = useMP();
 
   const refreshBtn = (
@@ -769,12 +792,14 @@ function TabLogs({ logs, loading, onRefresh }) {
           </div>
           <div>
             <div style={{ fontWeight: 600, fontSize: '0.9rem', color: mp.text, marginBottom: 6 }}>
-              Nenhum log encontrado
+              {erro ? 'Não foi possível carregar os logs' : 'Nenhum registro para este usuário'}
             </div>
-            <div style={{ fontSize: '0.78rem', color: mp.muted, lineHeight: 1.55, maxWidth: 320 }}>
-              Nenhum log de acesso registrado para este usuário.
-              Crie a tabela <code style={{ background: mp.codeBg, padding: '1px 5px', borderRadius: 4, fontSize: '0.74rem' }}>access_logs</code> no
-              Supabase para habilitar este recurso.
+            <div style={{ fontSize: '0.78rem', color: mp.muted, lineHeight: 1.55, maxWidth: 340 }}>
+              {erro
+                ? <>A consulta a <code style={{ background: mp.codeBg, padding: '1px 5px', borderRadius: 4, fontSize: '0.74rem' }}>access_logs</code> falhou: {erro}</>
+                : <>Ainda não há nada registrado para esta conta. A trilha guarda as
+                   entradas e saídas do usuário e o que o painel administrativo fez com
+                   ele — abrir, alterar permissões, redefinir senha.</>}
             </div>
           </div>
         </div>
@@ -817,7 +842,7 @@ function TabLogs({ logs, loading, onRefresh }) {
                 <td style={{ padding: '10px 16px', color: mp.muted, fontSize: '0.76rem', whiteSpace: 'nowrap' }}>
                   {formatDateTime(log.created_at)}
                 </td>
-                <td style={{ padding: '10px 16px', color: mp.text }}>{log.action || '—'}</td>
+                <td style={{ padding: '10px 16px', color: mp.text }}>{ROTULO_DA_ACAO[log.action] || log.action || '—'}</td>
                 <td style={{ padding: '10px 16px', fontFamily: 'monospace', fontSize: '0.75rem', color: mp.muted }}>
                   {log.ip || '—'}
                 </td>
@@ -895,7 +920,7 @@ function SidebarMetaRow({ icon, label, value, mono }) {
 function ManageUserModal({
   user, setUser, me, companies,
   activeTab, setActiveTab,
-  saving, actionState, logs, loadingLogs,
+  saving, actionState, logs, loadingLogs, logsErro,
   onSave, onClose, onDeactivate,
   onSendReset, onForceReset, onTerminateSessions,
   onRefreshLogs,
@@ -1168,7 +1193,7 @@ function ManageUserModal({
                     <TabEmpresa user={user} setUser={setUser} companies={companies} me={me} />
                   )}
                   {activeTab === 'logs' && (
-                    <TabLogs logs={logs} loading={loadingLogs} onRefresh={onRefreshLogs} />
+                    <TabLogs logs={logs} loading={loadingLogs} erro={logsErro} onRefresh={onRefreshLogs} />
                   )}
                 </form>
               </div>
@@ -1231,6 +1256,7 @@ export default function AdminUsersPage() {
 
   const [activeTab,   setActiveTab]   = useState('perfil');
   const [logs,        setLogs]        = useState([]);
+  const [logsErro,    setLogsErro]    = useState(null);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [actionState, setActionState] = useState({});
 
@@ -1287,6 +1313,7 @@ export default function AdminUsersPage() {
     setActiveTab('perfil');
     setActionState({});
     setLogs([]);
+    setLogsErro(null);
 
     // Fetch profile row and auth.users data in parallel
     const [full, authData] = await Promise.all([
@@ -1399,8 +1426,9 @@ export default function AdminUsersPage() {
   const handleLoadLogs = useCallback(async () => {
     if (!editing?.id) return;
     setLoadingLogs(true);
-    const data = await fetchAccessLogs(editing.id);
-    setLogs(data);
+    const { logs: encontrados, erro } = await fetchAccessLogs(editing.id);
+    setLogs(encontrados);
+    setLogsErro(erro);
     setLoadingLogs(false);
   }, [editing?.id]);
 
@@ -1522,6 +1550,7 @@ export default function AdminUsersPage() {
           actionState={actionState}
           logs={logs}
           loadingLogs={loadingLogs}
+          logsErro={logsErro}
           onSave={handleSave}
           onClose={() => setEditing(null)}
           onDeactivate={handleDeactivate}

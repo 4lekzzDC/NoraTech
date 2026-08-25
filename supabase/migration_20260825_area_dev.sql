@@ -1,0 +1,34 @@
+-- Área de DEV do painel: gate, logs do sistema e identidade do site.
+--
+-- Aplicada em produção nas migrações dev_gate_e_site_settings,
+-- app_errors_captura, logs_do_sistema, logs_admin_corrige_ator e
+-- bucket_site_branding. Este arquivo é o registro consolidado.
+--
+-- TRÊS DECISÕES QUE MOLDARAM O RESTO:
+--
+-- 1. `is_developer` é coluna PRÓPRIA, não `role = 'admin'`. Hoje as duas
+--    coincidem porque só existe um admin. Mas no dia em que alguém for
+--    promovido a admin para cuidar de faturas e suporte, essa pessoa não deve
+--    herdar uma tela que mostra stack trace, dado de outros escritórios e o
+--    controle da identidade do produto.
+--
+-- 2. O gate é de BANCO, não de tela. `logs_do_sistema()` levanta exceção na
+--    primeira linha do corpo, antes de tocar em qualquer registro, e
+--    `app_errors` tem RLS. Esconder o item de menu não protege nada — quem
+--    chama a API direto não passa pelo menu.
+--
+-- 3. Não existia log de erro NENHUM antes disto. Exceção de frontend morria
+--    num console que ninguém abre, e erro de Edge Function ia para o log da
+--    plataforma Supabase, que o navegador não alcança. A categoria "erros"
+--    não era um caso de mostrar o que já existia: foi preciso construir a
+--    captura inteira.
+--
+-- SOBRE O CUSTO DA UNIÃO: `logs_do_sistema()` une seis fontes ANTES de filtrar
+-- e limitar, então o custo cresce com o total de linhas de todas elas. Para as
+-- centenas de hoje é irrelevante. Passando de algumas dezenas de milhares, o
+-- caminho é materializar numa tabela de log única alimentada por gatilho, em
+-- vez de unir na leitura.
+--
+-- O conteúdo exato aplicado está nas migrações nomeadas acima, no histórico do
+-- projeto Supabase. Mantido aqui como ponto de entrada para quem for entender
+-- a área.
