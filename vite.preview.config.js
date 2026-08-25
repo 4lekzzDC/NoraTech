@@ -17,6 +17,11 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /.*\/lib\/supabase$/, replacement: m('supabase.js') },
+      // Os módulos DENTRO de src/lib/ importam o vizinho como './supabase', que
+      // não casa com o padrão acima — e aí a preview acabava usando o cliente
+      // real, tentando falar com a URL de fachada. Só existe um supabase.js no
+      // projeto, então casar o caminho relativo não tem como pegar outro alvo.
+      { find: /^\.\/supabase$/, replacement: m('supabase.js') },
       { find: /.*\/lib\/subscriptions$/, replacement: m('subscriptions.js') },
       { find: /.*\/services\/settings\.service$/, replacement: m('settings.service.js') },
       { find: /.*\/services\/categories\.service$/, replacement: m('categories.service.js') },

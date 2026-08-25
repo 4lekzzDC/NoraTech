@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import ThemeToggle from '../../../components/ThemeToggle';
+import NotificationBell from '../../../components/NotificationBell';
 import UserProfileMenu from '../../../components/UserProfileMenu';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { NAV_ITEMS, NORADOCS_NAME, NORADOCS_ROUTE, noradocsRoute } from '../constants';
@@ -212,6 +213,7 @@ export default function NoraDocsLayout({ title, subtitle, actions, children }) {
               Nora<span>Docs</span>
             </Link>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <NotificationBell />
               <ThemeToggle />
               <UserProfileMenu />
             </div>
