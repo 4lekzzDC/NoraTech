@@ -98,11 +98,13 @@ function ipDeOrigem(req: Request): string {
   return primeiro || req.headers.get('x-real-ip') || 'desconhecido';
 }
 
+// Sem cabeçalhos de CORS, igual ao `json()` abaixo: quem chama esta função é
+// o complemento do Gmail via UrlFetchApp, que é servidor. CORS não se aplica,
+// e inventar um `corsHeaders` aqui só criaria a ilusão de que se aplica.
 function resposta429(retryAfter: number, mensagem: string) {
   return new Response(JSON.stringify({ error: mensagem, retryAfter }), {
     status: 429,
     headers: {
-      ...corsHeaders,
       'Content-Type': 'application/json',
       'Retry-After': String(retryAfter),
     },
