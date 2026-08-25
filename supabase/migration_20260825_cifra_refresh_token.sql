@@ -165,11 +165,7 @@ end $$;
 
 commit;
 
--- ── DEPOIS de implantar noradocs-google-oauth, noradocs-drive e
---    noradocs-inbound, rodar numa migração separada:
---
---      alter table public.noradocs_google_tokens drop column refresh_token;
---
---    Enquanto a coluna existir, o token em claro segue no banco e o ganho
---    desta migração é só parcial. Não roda junto de propósito: derrubaria
---    qualquer função ainda não atualizada.
+-- ── A remoção da coluna em claro está em
+--    migration_20260825_remove_refresh_token_claro.sql, aplicada depois que
+--    as três Edge Functions subiram. Enquanto a coluna existia, o ganho desta
+--    migração era zero: o token cifrado convivia com uma cópia legível ao lado.
