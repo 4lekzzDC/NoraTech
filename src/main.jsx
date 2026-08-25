@@ -1,7 +1,9 @@
 import { StrictMode } from 'react'
 
-import { ligarCapturaDeErros } from './lib/errorReporter';
+import { ligarCapturaDeErros, ligarCapturaDeFuncoes } from './lib/errorReporter';
 import { aplicarIdentidadeDoSite } from './lib/dev';
+import { supabase } from './lib/supabase';
+import MaintenanceGate from './components/MaintenanceGate';
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
@@ -109,6 +111,7 @@ function NoraDocsRoute({ children }) {
 // Nenhuma das duas dá `await`. Identidade é acabamento e captura é observação:
 // se qualquer uma travar ou falhar, o app tem de subir do mesmo jeito.
 ligarCapturaDeErros();
+ligarCapturaDeFuncoes(supabase);
 aplicarIdentidadeDoSite();
 
 createRoot(document.getElementById('root')).render(
@@ -120,6 +123,7 @@ createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <AuthProvider>
         <ForcePasswordResetGate>
+        <MaintenanceGate>
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/privacidade" element={<PrivacyPage />} />
@@ -215,6 +219,7 @@ createRoot(document.getElementById('root')).render(
             element={<Navigate to={`${SOLUCOES_CONTABEIS_ROUTE}/acompanhamento-contabil`} replace />}
           />
         </Routes>
+        </MaintenanceGate>
         </ForcePasswordResetGate>
       </AuthProvider>
     </BrowserRouter>

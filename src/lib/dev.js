@@ -81,7 +81,7 @@ export async function contarPorCategoria(desde = null) {
 export async function buscarIdentidade() {
   const { data, error } = await supabase
     .from('site_settings')
-    .select('site_name, tagline, logo_url, logo_dark_url, favicon_url, updated_at')
+    .select('site_name, tagline, logo_url, logo_dark_url, favicon_url, maintenance_mode, maintenance_message, updated_at')
     .maybeSingle();
   if (error) throw error;
   return data;
@@ -177,4 +177,94 @@ export function useIdentidadeDoSite() {
   useEffect(() => { recarregar(); }, [recarregar]);
 
   return { identidade, carregando, recarregar, setIdentidade };
+}
+
+// ── Modo de manutenção ──────────────────────────────────────────────────
+//
+// É bloqueio de TELA, não de API. Quem tiver a anon key — que é pública, está
+// no bundle — continua alcançando o PostgREST com o modo ligado. Serve para
+// impedir que gente use o produto durante uma migração, não para conter quem
+// está tentando entrar à força. Bloquear de verdade exigiria derrubar o
+// projeto Supabase ou pôr um WAF na frente.
+
+export async function definirManutencao(ligado, mensagem) {
+  await salvarIdentidade({
+    maintenance_mode: Boolean(ligado),
+    maintenance_message: mensagem?.trim() || null,
+  });
+}
+
+export async function estadoDeManutencao() {
+  const { data, error } = await supabase
+    .from('site_settings')
+    .select('maintenance_mode, maintenance_message')
+    .maybeSingle();
+  if (error) throw error;
+  return data || { maintenance_mode: false, maintenance_message: null };
+}
+
+// ── Status do ambiente ──────────────────────────────────────────────────
+
+export async function statusDoAmbiente() {
+  const { data, error } = await supabase.rpc('status_do_ambiente');
+  if (error) throw error;
+  return data;
+}
+
+// ── Blocklist de IP ─────────────────────────────────────────────────────
+
+export async function listarBloqueios() {
+  const { data, error } = await supabase
+    .from('ip_blocklist')
+    .select('ip, motivo, bloqueado_em, expira_em, acertos, ultimo_acerto')
+    .order('bloqueado_em', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function bloquearIp({ ip, motivo, expiraEm }) {
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error } = await supabase.from('ip_blocklist').upsert({
+    ip: ip.trim(),
+    motivo: motivo?.trim() || null,
+    expira_em: expiraEm || null,
+    bloqueado_por: user?.id ?? null,
+  }, { onConflict: 'ip' });
+  if (error) throw error;
+}
+
+export async function desbloquearIp(ip) {
+  const { error } = await supabase.from('ip_blocklist').delete().eq('ip', ip);
+  if (error) throw error;
+}
+
+// ── Teste de envio de e-mail ────────────────────────────────────────────
+
+/**
+ * Dispara um e-mail de verdade pelo caminho que o produto usa.
+ *
+ * Não existe SMTP próprio neste projeto: o único e-mail que sai daqui é o do
+ * Supabase Auth (confirmação de cadastro e recuperação de senha). Um "testador
+ * de SMTP" testaria credenciais que não existem — então o teste usa o caminho
+ * real, `resetPasswordForEmail`.
+ *
+ * O que isto prova, e o que não prova. Prova que o Supabase ACEITOU o pedido de
+ * envio: se as credenciais de e-mail do projeto estiverem quebradas ou a cota
+ * estourada, o erro aparece aqui. Não prova entrega — caixa cheia, spam e
+ * bloqueio do destinatário acontecem depois e ninguém deste lado fica sabendo.
+ * Por isso a tela pede para conferir a caixa, em vez de declarar sucesso.
+ *
+ * Cuidado de uso: manda um link de recuperação de senha REAL. Use um endereço
+ * seu, não o de um cliente.
+ */
+export async function testarEnvioDeEmail(email) {
+  const alvo = String(email || '').trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(alvo)) {
+    throw new Error('Informe um e-mail válido.');
+  }
+  const { error } = await supabase.auth.resetPasswordForEmail(alvo, {
+    redirectTo: `${window.location.origin}/redefinir-senha`,
+  });
+  if (error) throw error;
+  return alvo;
 }

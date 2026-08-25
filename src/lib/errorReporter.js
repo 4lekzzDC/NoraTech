@@ -77,3 +77,59 @@ export function ligarCapturaDeErros() {
     });
   });
 }
+
+/**
+ * Captura falhas de Edge Function embrulhando `supabase.functions.invoke`.
+ *
+ * Embrulhar UMA vez, e não editar os treze pontos de chamada: um wrapper por
+ * chamada exigiria lembrar de usá-lo em toda função nova, e esquecer não daria
+ * erro — a falha só deixaria de ser registrada, que é o modo de falha mais
+ * difícil de perceber. Aqui, quem chamar `invoke` de qualquer lugar já está
+ * coberto.
+ *
+ * O contrato de retorno não muda: a chamada segue devolvendo `{ data, error }`
+ * como antes. Só passa a reportar de passagem.
+ *
+ * LIMITE, e importante: isto captura o que o NAVEGADOR vê falhar. Erro dentro
+ * de `noradocs-inbound`, que é chamada pelo complemento do Gmail e não pelo
+ * navegador, continua só no log da plataforma Supabase. Cobrir esse caso exige
+ * reportar de dentro das funções e reimplantá-las.
+ */
+export function ligarCapturaDeFuncoes(supabase) {
+  const funcoes = supabase?.functions;
+  if (!funcoes || funcoes.__capturaLigada) return;
+  funcoes.__capturaLigada = true;
+
+  const original = funcoes.invoke.bind(funcoes);
+
+  funcoes.invoke = async (nome, opcoes) => {
+    const resultado = await original(nome, opcoes);
+    const erro = resultado?.error;
+    if (!erro) return resultado;
+
+    // `invoke` transforma qualquer status fora de 2xx num Error genérico
+    // ("non-2xx status code"); a mensagem de verdade está no corpo, dentro de
+    // `error.context`. Sem desembrulhar, o log registraria a mesma frase inútil
+    // para todo tipo de falha.
+    // `.clone()` antes de ler, e isto não é zelo: `context` é um Response, e
+    // `.json()` CONSOME o corpo. `payments.js` desembrulha esse mesmo corpo
+    // para mostrar ao usuário a mensagem real da Stripe em vez do genérico
+    // "non-2xx status code". Ler aqui sem clonar deixaria o corpo vazio para
+    // ele, e a tela passaria a mostrar o erro inútil — uma regressão causada
+    // justamente pelo código que existe para observar melhor.
+    let detalhe = null;
+    try { detalhe = await erro.context?.clone?.()?.json?.(); } catch { /* corpo vazio ou não-JSON */ }
+
+    reportarErro(`[${nome}] ${detalhe?.error || erro.message}`, {
+      stack: erro.stack,
+      contexto: {
+        tipo: 'edge_function',
+        funcao: nome,
+        status: erro.context?.status ?? null,
+        corpo: detalhe ?? null,
+      },
+    });
+
+    return resultado;
+  };
+}

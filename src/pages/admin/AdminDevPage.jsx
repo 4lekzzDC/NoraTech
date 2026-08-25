@@ -5,6 +5,8 @@ import { useToasts } from '../../lib/useToasts';
 import {
   CATEGORIAS, buscarLogs, contarPorCategoria,
   useIdentidadeDoSite, salvarIdentidade, enviarArquivoDeMarca,
+  definirManutencao, statusDoAmbiente, testarEnvioDeEmail,
+  listarBloqueios, bloquearIp, desbloquearIp,
 } from '../../lib/dev';
 
 const PAGINA = 100;
@@ -425,6 +427,341 @@ function AbaIdentidade({ push }) {
   );
 }
 
+
+// ── Controle e ambiente ─────────────────────────────────────────────────
+
+function Aviso({ children }) {
+  return (
+    <div style={{
+      padding: '10px 13px', borderRadius: 9, marginTop: 12,
+      background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.25)',
+      color: '#d9a441', fontSize: '.75rem', lineHeight: 1.55,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function Metrica({ rotulo, valor, sub }) {
+  return (
+    <div style={{
+      padding: '13px 15px', borderRadius: 10,
+      background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)',
+    }}>
+      <div style={{ fontSize: '.68rem', color: '#888', textTransform: 'uppercase', letterSpacing: .7 }}>
+        {rotulo}
+      </div>
+      <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#eeede9', marginTop: 4,
+                    fontVariantNumeric: 'tabular-nums' }}>
+        {valor}
+      </div>
+      {sub && <div style={{ fontSize: '.7rem', color: '#666', marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+}
+
+function AbaControle({ push }) {
+  const { identidade, recarregar } = useIdentidadeDoSite();
+  const [ligado, setLigado] = useState(false);
+  const [mensagem, setMensagem] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [status, setStatus] = useState(null);
+  const [email, setEmail] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    if (!identidade) return;
+    setLigado(Boolean(identidade.maintenance_mode));
+    setMensagem(identidade.maintenance_message || '');
+  }, [identidade]);
+
+  useEffect(() => {
+    statusDoAmbiente().then(setStatus).catch((e) => push(e.message, 'error'));
+  }, [push]);
+
+  const alternar = async () => {
+    setSalvando(true);
+    try {
+      await definirManutencao(!ligado, mensagem);
+      setLigado(!ligado);
+      await recarregar();
+      push(!ligado ? 'Manutenção LIGADA. O público vê a página de espera.' : 'Manutenção desligada.', 'success');
+    } catch (err) {
+      push(err.message || 'Falha ao alternar', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const testarEmail = async () => {
+    setEnviando(true);
+    try {
+      const alvo = await testarEnvioDeEmail(email);
+      push(`Pedido aceito pelo Supabase. Confira a caixa de ${alvo}.`, 'success');
+    } catch (err) {
+      push(err.message || 'Falha no envio', 'error');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const campo = {
+    width: '100%', padding: '9px 12px', borderRadius: 9, background: '#111114',
+    border: '1px solid rgba(255,255,255,.12)', color: '#eeede9', fontSize: '.85rem', outline: 'none',
+  };
+
+  return (
+    <div style={{ display: 'grid', gap: 18, maxWidth: 780 }}>
+      <Card>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: '.9rem', fontWeight: 700, color: '#eeede9' }}>Modo de manutenção</div>
+            <div style={{ fontSize: '.78rem', color: '#888', marginTop: 3 }}>
+              {ligado ? 'LIGADO — o público vê "Voltamos logo".' : 'Desligado — o site está no ar.'}
+            </div>
+          </div>
+          <button
+            type="button" onClick={alternar} disabled={salvando}
+            style={{
+              flexShrink: 0, width: 52, height: 29, borderRadius: 15, cursor: salvando ? 'wait' : 'pointer',
+              background: ligado ? '#f59e0b' : 'rgba(255,255,255,.12)',
+              border: 'none', position: 'relative', transition: 'background .2s ease',
+            }}
+            aria-pressed={ligado}
+            aria-label="Alternar modo de manutenção"
+          >
+            <span style={{
+              position: 'absolute', top: 3, left: ligado ? 26 : 3,
+              width: 23, height: 23, borderRadius: '50%', background: '#fff',
+              transition: 'left .2s ease',
+            }} />
+          </button>
+        </div>
+
+        <div style={{ marginTop: 14 }}>
+          <label htmlFor="dev-msg" style={{ display: 'block', fontSize: '.76rem', color: '#999', marginBottom: 5 }}>
+            Mensagem exibida ao público
+          </label>
+          <input
+            id="dev-msg" value={mensagem} onChange={(e) => setMensagem(e.target.value)}
+            placeholder="Estamos fazendo uma manutenção rápida. Tente de novo em alguns minutos."
+            style={campo}
+            onBlur={() => { if (ligado) definirManutencao(true, mensagem).catch(() => {}); }}
+          />
+        </div>
+
+        <Aviso>
+          É bloqueio de <strong>tela</strong>, não de API. Quem tiver a anon key — que é pública e está
+          no bundle — continua alcançando o banco com o modo ligado. Serve para impedir que gente use o
+          produto durante uma migração, não para conter ataque. As telas de login e cadastro nunca são
+          bloqueadas: é por elas que você entra para desligar.
+        </Aviso>
+      </Card>
+
+      <Card>
+        <div style={{ fontSize: '.7rem', fontWeight: 800, color: '#888', textTransform: 'uppercase',
+                      letterSpacing: 1, marginBottom: 12 }}>
+          Status do ambiente
+        </div>
+        {!status ? <Spinner /> : (
+          <>
+            <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))' }}>
+              <Metrica rotulo="Banco de dados" valor={status.banco_legivel} sub={`Postgres ${status.postgres_versao}`} />
+              <Metrica rotulo="Conexões" valor={`${status.conexoes_abertas}/${status.conexoes_maximo}`} sub="abertas / limite" />
+              <Metrica rotulo="Erros 24h" valor={status.contagens?.erros_24h ?? 0} sub={`${status.contagens?.erros_7d ?? 0} em 7 dias`} />
+              <Metrica rotulo="Usuários" valor={status.contagens?.usuarios ?? 0} sub={`${status.contagens?.empresas ?? 0} empresas`} />
+              <Metrica rotulo="Documentos" valor={status.contagens?.documentos ?? 0} />
+              <Metrica rotulo="IPs bloqueados" valor={status.contagens?.ips_bloqueados ?? 0} />
+            </div>
+
+            <div style={{ marginTop: 16, fontSize: '.7rem', fontWeight: 800, color: '#888',
+                          textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+              Maiores tabelas
+            </div>
+            <div style={{ display: 'grid', gap: 4 }}>
+              {(status.maiores_tabelas || []).slice(0, 6).map((t) => (
+                <div key={t.tabela} style={{ display: 'flex', justifyContent: 'space-between',
+                                             fontSize: '.78rem', padding: '5px 0',
+                                             borderBottom: '1px solid rgba(255,255,255,.05)' }}>
+                  <span style={{ color: '#bbb' }}>{t.tabela}</span>
+                  <span style={{ color: '#777', fontVariantNumeric: 'tabular-nums' }}>
+                    {t.tamanho} · {t.linhas} linhas
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <Aviso>
+              Não há RAM, disco nem versão de PHP para mostrar: o frontend é estático numa CDN da Vercel
+              e as Edge Functions rodam em isolates efêmeros, sem processo persistente. O que existe de
+              verdade para medir é o Postgres — e é o que está acima. Um medidor de memória aqui seria
+              um número inventado, e painel de saúde que mente é pior que painel nenhum.
+            </Aviso>
+          </>
+        )}
+      </Card>
+
+      <Card>
+        <div style={{ fontSize: '.7rem', fontWeight: 800, color: '#888', textTransform: 'uppercase',
+                      letterSpacing: 1, marginBottom: 12 }}>
+          Teste de envio de e-mail
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <input
+            type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+            placeholder="seu@email.com" style={{ ...campo, flex: '1 1 220px', width: 'auto' }}
+          />
+          <button
+            type="button" onClick={testarEmail} disabled={enviando || !email.trim()}
+            style={{
+              padding: '9px 18px', borderRadius: 9,
+              cursor: enviando || !email.trim() ? 'not-allowed' : 'pointer',
+              background: '#7c3aed', border: 'none', color: '#fff',
+              fontSize: '.82rem', fontWeight: 700, opacity: enviando || !email.trim() ? .5 : 1,
+            }}
+          >
+            {enviando ? 'Enviando…' : 'Enviar teste'}
+          </button>
+        </div>
+        <Aviso>
+          Não existe SMTP próprio neste projeto: o único e-mail que sai daqui é o do Supabase Auth. Por
+          isso o teste usa o caminho real e dispara uma <strong>recuperação de senha de verdade</strong> —
+          use um endereço seu, não o de um cliente. Prova que o Supabase aceitou o pedido; se as
+          credenciais estiverem quebradas ou a cota estourada, o erro aparece aqui. Não prova entrega:
+          caixa cheia, spam e bloqueio acontecem depois e ninguém deste lado fica sabendo.
+        </Aviso>
+      </Card>
+    </div>
+  );
+}
+
+// ── Blocklist ───────────────────────────────────────────────────────────
+
+function AbaBlocklist({ push }) {
+  const [lista, setLista] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [ip, setIp] = useState('');
+  const [motivo, setMotivo] = useState('');
+  const [salvando, setSalvando] = useState(false);
+
+  const carregar = useCallback(async () => {
+    setCarregando(true);
+    try { setLista(await listarBloqueios()); }
+    catch (err) { push(err.message || 'Falha ao carregar', 'error'); }
+    finally { setCarregando(false); }
+  }, [push]);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const bloquear = async () => {
+    setSalvando(true);
+    try {
+      await bloquearIp({ ip, motivo });
+      setIp(''); setMotivo('');
+      await carregar();
+      push('IP bloqueado.', 'success');
+    } catch (err) {
+      push(err.message || 'Falha ao bloquear', 'error');
+    } finally { setSalvando(false); }
+  };
+
+  const campo = {
+    padding: '9px 12px', borderRadius: 9, background: '#111114',
+    border: '1px solid rgba(255,255,255,.12)', color: '#eeede9', fontSize: '.85rem', outline: 'none',
+  };
+
+  return (
+    <div style={{ display: 'grid', gap: 18, maxWidth: 780 }}>
+      <Card>
+        <div style={{ fontSize: '.7rem', fontWeight: 800, color: '#888', textTransform: 'uppercase',
+                      letterSpacing: 1, marginBottom: 12 }}>
+          Bloquear um IP
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <input value={ip} onChange={(e) => setIp(e.target.value)}
+                 placeholder="203.0.113.42" style={{ ...campo, flex: '0 1 170px' }} />
+          <input value={motivo} onChange={(e) => setMotivo(e.target.value)}
+                 placeholder="Motivo (opcional)" style={{ ...campo, flex: '1 1 200px' }} />
+          <button
+            type="button" onClick={bloquear} disabled={salvando || !ip.trim()}
+            style={{
+              padding: '9px 18px', borderRadius: 9,
+              cursor: salvando || !ip.trim() ? 'not-allowed' : 'pointer',
+              background: '#dc2626', border: 'none', color: '#fff',
+              fontSize: '.82rem', fontWeight: 700, opacity: salvando || !ip.trim() ? .5 : 1,
+            }}
+          >
+            Bloquear
+          </button>
+        </div>
+
+        <Aviso>
+          <strong>Alcance real, leia antes de confiar nisto.</strong> A lista só é consultada onde existe
+          código nosso vendo o IP: as Edge Functions. Login, cadastro e recuperação de senha vão do
+          navegador <strong>direto</strong> ao servidor de autenticação do Supabase — nenhuma linha nossa
+          participa, então não há onde checar a lista. Ou seja: isto <strong>não</strong> contém força
+          bruta de login, que é o caso que costuma motivar uma blocklist. Para esse, o caminho são os
+          rate limits de Auth no painel do Supabase ou um WAF na frente (Vercel Firewall, Cloudflare).
+        </Aviso>
+      </Card>
+
+      <Card style={{ padding: 0 }}>
+        {carregando ? (
+          <div style={{ padding: 40, display: 'flex', justifyContent: 'center' }}><Spinner /></div>
+        ) : lista.length === 0 ? (
+          <EmptyState>Nenhum IP bloqueado.</EmptyState>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.82rem' }}>
+              <thead>
+                <tr style={{ background: 'rgba(255,255,255,.03)' }}>
+                  {['IP', 'Motivo', 'Desde', 'Acertos', ''].map((h) => (
+                    <th key={h} style={{
+                      padding: '10px 14px', textAlign: 'left', fontSize: '.68rem', fontWeight: 700,
+                      color: '#888', textTransform: 'uppercase', letterSpacing: .7,
+                      borderBottom: '1px solid rgba(255,255,255,.08)', whiteSpace: 'nowrap',
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {lista.map((b) => (
+                  <tr key={b.ip} style={{ borderBottom: '1px solid rgba(255,255,255,.05)' }}>
+                    <td style={{ padding: '9px 14px', color: '#eeede9', fontFamily: 'monospace' }}>{b.ip}</td>
+                    <td style={{ padding: '9px 14px', color: '#999' }}>{b.motivo || '—'}</td>
+                    <td style={{ padding: '9px 14px', color: '#777', whiteSpace: 'nowrap' }}>
+                      {dataHora(b.bloqueado_em)}
+                    </td>
+                    <td style={{ padding: '9px 14px', color: '#999', fontVariantNumeric: 'tabular-nums' }}>
+                      {b.acertos}
+                    </td>
+                    <td style={{ padding: '9px 14px', textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try { await desbloquearIp(b.ip); await carregar(); push('IP liberado.', 'success'); }
+                          catch (err) { push(err.message || 'Falha', 'error'); }
+                        }}
+                        style={{
+                          background: 'none', border: '1px solid rgba(255,255,255,.12)',
+                          color: '#999', borderRadius: 7, padding: '3px 9px',
+                          fontSize: '.7rem', cursor: 'pointer',
+                        }}
+                      >
+                        Liberar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 // ── Página ──────────────────────────────────────────────────────────────
 
 export default function AdminDevPage() {
@@ -437,7 +774,12 @@ export default function AdminDevPage() {
       subtitle="Logs do sistema e identidade do site. Área restrita ao desenvolvedor."
     >
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid rgba(255,255,255,.08)' }}>
-        {[{ id: 'logs', label: 'Logs do sistema' }, { id: 'identidade', label: 'Identidade do site' }].map((t) => (
+        {[
+          { id: 'logs', label: 'Logs do sistema' },
+          { id: 'controle', label: 'Controle e ambiente' },
+          { id: 'blocklist', label: 'Blocklist' },
+          { id: 'identidade', label: 'Identidade do site' },
+        ].map((t) => (
           <button
             key={t.id}
             type="button"
@@ -454,7 +796,10 @@ export default function AdminDevPage() {
         ))}
       </div>
 
-      {aba === 'logs' ? <AbaLogs push={showToast} /> : <AbaIdentidade push={showToast} />}
+      {aba === 'logs'      && <AbaLogs push={showToast} />}
+      {aba === 'controle'  && <AbaControle push={showToast} />}
+      {aba === 'blocklist' && <AbaBlocklist push={showToast} />}
+      {aba === 'identidade' && <AbaIdentidade push={showToast} />}
 
       <ToastHost toasts={toasts} onDismiss={dismissToast} />
     </AdminLayout>
