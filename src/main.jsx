@@ -1,4 +1,7 @@
 import { StrictMode } from 'react'
+
+import { ligarCapturaDeErros } from './lib/errorReporter';
+import { aplicarIdentidadeDoSite } from './lib/dev';
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
@@ -21,6 +24,8 @@ import AdminCompaniesPage from './pages/admin/AdminCompaniesPage.jsx'
 import AdminSystemsPage from './pages/admin/AdminSystemsPage.jsx'
 import AdminInvoicesPage from './pages/admin/AdminInvoicesPage.jsx'
 import AdminSupportPage from './pages/admin/AdminSupportPage.jsx'
+import AdminDevPage from './pages/admin/AdminDevPage';
+import DevRoute from './components/DevRoute';
 import {
   SolucoesContabeisHub,
   SistemaEmConstrucao,
@@ -95,6 +100,17 @@ function NoraDocsRoute({ children }) {
   return <SubscriptionRoute systemSlug={NORADOCS_SLUG}>{children}</SubscriptionRoute>
 }
 
+// Liga a captura de erros e aplica a identidade do site ANTES de montar o app.
+//
+// A captura primeiro, de propósito: erro que acontece durante a montagem — o
+// mais difícil de reproduzir depois — só é registrado se o ouvinte já estiver
+// no ar quando ele dispara.
+//
+// Nenhuma das duas dá `await`. Identidade é acabamento e captura é observação:
+// se qualquer uma travar ou falhar, o app tem de subir do mesmo jeito.
+ligarCapturaDeErros();
+aplicarIdentidadeDoSite();
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ThemeProvider>
@@ -125,6 +141,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/admin/sistemas" element={<AdminRoute><AdminSystemsPage /></AdminRoute>} />
           <Route path="/admin/faturas" element={<AdminRoute><AdminInvoicesPage /></AdminRoute>} />
           <Route path="/admin/suporte" element={<AdminRoute><AdminSupportPage /></AdminRoute>} />
+          <Route path="/admin/dev" element={<DevRoute><AdminDevPage /></DevRoute>} />
           {/* Hub da suite Soluções Contábeis */}
           <Route
             path={SOLUCOES_CONTABEIS_ROUTE}
