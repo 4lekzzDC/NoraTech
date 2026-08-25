@@ -474,16 +474,16 @@ async function preparar({ admin, body, tenantId, tokenId, clientId, clientSecret
   );
 
   // ── Drive ───────────────────────────────────────────────────────────────
-  const { data: tokRow } = await admin
-    .from('noradocs_google_tokens')
-    .select('refresh_token')
-    .eq('tenant_company_id', tenantId)
-    .maybeSingle();
-  if (!tokRow?.refresh_token) {
+  // O refresh_token vive no Vault; esta RPC (só service_role) é o único
+  // caminho de leitura.
+  const { data: refreshToken, error: erroToken } = await admin
+    .rpc('noradocs_ler_refresh_token', { p_company_id: tenantId });
+  if (erroToken) throw erroToken;
+  if (!refreshToken) {
     return json({ error: 'O escritório ainda não conectou uma conta do Google.' }, 400);
   }
 
-  const refreshed = await refreshAccessToken(tokRow.refresh_token, clientId, clientSecret);
+  const refreshed = await refreshAccessToken(refreshToken, clientId, clientSecret);
   if (!refreshed.ok || !refreshed.data.access_token) {
     await admin.from('noradocs_google_accounts')
       .update({ status: 'revoked', last_error: refreshed.data?.error || 'refresh_failed' })
@@ -703,14 +703,11 @@ async function reclassificarComTextoDoPdf({ admin, tenantId, documentId, documen
     origem_ref: any;
   };
 }) {
-  const { data: tokRow } = await admin
-    .from('noradocs_google_tokens')
-    .select('refresh_token')
-    .eq('tenant_company_id', tenantId)
-    .maybeSingle();
-  if (!tokRow?.refresh_token) return;
+  const { data: refreshToken } = await admin
+    .rpc('noradocs_ler_refresh_token', { p_company_id: tenantId });
+  if (!refreshToken) return;
 
-  const refreshed = await refreshAccessToken(tokRow.refresh_token, clientId, clientSecret);
+  const refreshed = await refreshAccessToken(refreshToken, clientId, clientSecret);
   if (!refreshed.ok || !refreshed.data.access_token) return;
   const accessToken = refreshed.data.access_token as string;
 

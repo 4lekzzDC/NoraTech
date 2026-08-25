@@ -228,16 +228,16 @@ Deno.serve(async (req) => {
     }, 403);
   }
 
-  const { data: tokRow } = await admin
-    .from('noradocs_google_tokens')
-    .select('refresh_token')
-    .eq('tenant_company_id', tenantId)
-    .maybeSingle();
-  if (!tokRow?.refresh_token) {
+  // O refresh_token não fica mais em coluna de texto puro: vive no Vault, e
+  // esta RPC (só service_role) é o único caminho de leitura.
+  const { data: refreshToken, error: erroToken } = await admin
+    .rpc('noradocs_ler_refresh_token', { p_company_id: tenantId });
+  if (erroToken) throw erroToken;
+  if (!refreshToken) {
     return json({ error: 'O escritório ainda não conectou uma conta do Google.' }, 400);
   }
 
-  const refreshed = await refreshAccessToken(tokRow.refresh_token, clientId, clientSecret);
+  const refreshed = await refreshAccessToken(refreshToken, clientId, clientSecret);
   if (!refreshed.ok || !refreshed.data.access_token) {
     console.error('[noradocs-drive] refresh failed', refreshed.data);
     // invalid_grant = a conta revogou o acesso fora do NoraDocs (trocou
