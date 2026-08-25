@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase, AVATARS_BUCKET, purgeLocalSession } from '../lib/supabase';
 
+import { registrarAcesso } from '../lib/logAccess';
 const AuthContext = createContext(null);
 
 function translateAuthError(error) {
@@ -174,6 +175,11 @@ export function AuthProvider({ children }) {
       password,
     });
     if (error) throw new Error(translateAuthError(error));
+
+    // Sem await: a trilha de auditoria não pode atrasar a entrada de ninguém,
+    // e se ela falhar o login continua válido do mesmo jeito.
+    registrarAcesso('login');
+
     return data.user;
   }, []);
 
@@ -223,6 +229,11 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     if (user) setCachedName(user.id, '');
+
+    // Antes do signOut, e com await: depois dele não há mais sessão, e a RPC
+    // (que resolve o usuário por auth.uid()) não teria a quem atribuir a saída.
+    await registrarAcesso('logout');
+
     await supabase.auth.signOut();
     setUser(null);
   }, [user]);

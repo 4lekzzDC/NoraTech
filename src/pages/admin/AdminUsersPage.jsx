@@ -724,6 +724,21 @@ function LogStatusPill({ status }) {
   );
 }
 
+// A coluna "Ação" mostrava a chave crua do evento — "open_admin_user" para
+// quem só quer saber o que aconteceu com a conta. O mapa traduz o que
+// conhecemos e deixa passar intacto o que não conhecemos, para um evento novo
+// aparecer como está em vez de sumir ou virar "desconhecido".
+const ROTULO_DA_ACAO = {
+  login: 'Entrou no sistema',
+  logout: 'Saiu do sistema',
+  open_admin_user: 'Aberto no painel administrativo',
+  update_user_permissions: 'Permissões alteradas',
+  admin_password_reset: 'E-mail de redefinição de senha enviado',
+  force_password_reset: 'Troca de senha exigida no próximo acesso',
+  deactivate_user: 'Usuário desativado',
+  reactivate_user: 'Usuário reativado',
+};
+
 function TabLogs({ logs, loading, erro, onRefresh }) {
   const mp = useMP();
 
@@ -782,9 +797,9 @@ function TabLogs({ logs, loading, erro, onRefresh }) {
             <div style={{ fontSize: '0.78rem', color: mp.muted, lineHeight: 1.55, maxWidth: 340 }}>
               {erro
                 ? <>A consulta a <code style={{ background: mp.codeBg, padding: '1px 5px', borderRadius: 4, fontSize: '0.74rem' }}>access_logs</code> falhou: {erro}</>
-                : <>Ainda não há ação registrada sobre esta conta. A trilha guarda o que o
-                   painel administrativo fez com o usuário — abrir, alterar permissões,
-                   redefinir senha. Login não entra aqui.</>}
+                : <>Ainda não há nada registrado para esta conta. A trilha guarda as
+                   entradas e saídas do usuário e o que o painel administrativo fez com
+                   ele — abrir, alterar permissões, redefinir senha.</>}
             </div>
           </div>
         </div>
@@ -827,7 +842,7 @@ function TabLogs({ logs, loading, erro, onRefresh }) {
                 <td style={{ padding: '10px 16px', color: mp.muted, fontSize: '0.76rem', whiteSpace: 'nowrap' }}>
                   {formatDateTime(log.created_at)}
                 </td>
-                <td style={{ padding: '10px 16px', color: mp.text }}>{log.action || '—'}</td>
+                <td style={{ padding: '10px 16px', color: mp.text }}>{ROTULO_DA_ACAO[log.action] || log.action || '—'}</td>
                 <td style={{ padding: '10px 16px', fontFamily: 'monospace', fontSize: '0.75rem', color: mp.muted }}>
                   {log.ip || '—'}
                 </td>
