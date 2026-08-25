@@ -5,6 +5,6 @@ let tokens = [
 export const listarTokens = async () => tokens;
 export const gerarToken = async (_t, label) => {
   tokens = [...tokens, { id: 't' + (tokens.length + 1), label: label || null, created_at: new Date().toISOString(), last_used_at: null, revoked_at: null }];
-  return 'ndin_b415e2eb7f51a36ac4c1369b1632c00cd56e307d73df5fbb1354ad77756a2c57';
+  return 'ndin_EXEMPLO_DE_MENTIRA_nao_e_um_token_real';
 };
 export const revogarToken = async (id) => { tokens = tokens.map((t) => (t.id === id ? { ...t, revoked_at: new Date().toISOString() } : t)); };
