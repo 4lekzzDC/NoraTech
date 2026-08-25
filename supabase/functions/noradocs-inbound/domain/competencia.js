@@ -4,6 +4,8 @@
 // 2026-08, ago/26, "agosto de 2026" e dentro de uma data completa
 // 18/08/2026 — tudo no mesmo lote de arquivos.
 
+import { semAcentos } from './texto.js';
+
 const MESES = {
   jan: 1, janeiro: 1,
   fev: 2, fevereiro: 2,
@@ -120,9 +122,7 @@ export function extrairCompetencia(texto, { permitirAnoCurto = false } = {}) {
 }
 
 function normalizarParaData(texto) {
-  return semDocumentos(texto)
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+  return semAcentos(semDocumentos(texto))
     .toLowerCase()
     // Underscore é caractere de palavra em regex, então `\b` NÃO casa entre
     // "_" e "0" — sem esta troca, "extrato_08/2026.pdf" não daria competência

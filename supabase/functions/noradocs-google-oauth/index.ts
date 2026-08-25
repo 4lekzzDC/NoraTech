@@ -26,6 +26,33 @@ function json(data: unknown, status = 200) {
   });
 }
 
+// Rate limit inline, e não via ../_shared/: esta função é self-contained por
+// decisão de implantação (ver o cabeçalho do arquivo).
+//
+// Conectar ou desconectar o Google é ato raro — algumas vezes na vida de um
+// escritório. Uma rajada aqui é laço ou sondagem, e cada tentativa gasta uma
+// troca de código com o Google.
+const LIMITE_OAUTH = { bucket: 'noradocs_google_oauth', limit: 10, windowSeconds: 300 };
+
+async function dentroDoLimite(
+  // deno-lint-ignore no-explicit-any
+  admin: any, userId: string,
+): Promise<{ allowed: boolean; retryAfter: number }> {
+  try {
+    const { data, error } = await admin.rpc('check_rate_limit', {
+      p_bucket: LIMITE_OAUTH.bucket,
+      p_key: userId,
+      p_limit: LIMITE_OAUTH.limit,
+      p_window_seconds: LIMITE_OAUTH.windowSeconds,
+    });
+    if (error) throw error;
+    return { allowed: Boolean(data?.allowed), retryAfter: Number(data?.retry_after ?? 300) };
+  } catch (err) {
+    console.error('[noradocs-google-oauth] rate limit falhou, liberando', err);
+    return { allowed: true, retryAfter: 0 };
+  }
+}
+
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 const USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo';
@@ -83,6 +110,24 @@ Deno.serve(async (req) => {
     return json({ error: 'Apenas o responsável pelo escritório (dono ou admin) pode gerenciar a conexão com o Google.' }, 403);
   }
 
+  const limite = await dentroDoLimite(admin, user.id);
+  if (!limite.allowed) {
+    return new Response(
+      JSON.stringify({
+        error: 'Muitas tentativas de conexão com o Google. Aguarde alguns minutos.',
+        retryAfter: limite.retryAfter,
+      }),
+      {
+        status: 429,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'Retry-After': String(limite.retryAfter),
+        },
+      },
+    );
+  }
+
   try {
     if (action === 'connect') {
       const code = String(body?.code || '');
@@ -136,34 +181,36 @@ Deno.serve(async (req) => {
       }, { onConflict: 'tenant_company_id' });
       if (accErr) throw accErr;
 
-      const { error: tokErr } = await admin.from('noradocs_google_tokens').upsert({
-        tenant_company_id: tenantId,
-        refresh_token: tokenData.refresh_token,
-      }, { onConflict: 'tenant_company_id' });
+      // O refresh_token vai para o Vault, não para uma coluna de texto. A RPC
+      // (só service_role) cria ou atualiza o segredo e guarda apenas o id na
+      // tabela — o valor em si nunca fica legível num dump do banco.
+      const { error: tokErr } = await admin.rpc('noradocs_guardar_refresh_token', {
+        p_company_id: tenantId,
+        p_refresh_token: tokenData.refresh_token,
+      });
       if (tokErr) throw tokErr;
 
       return json({ connected: true, email: userinfo.email || null });
     }
 
     if (action === 'disconnect') {
-      const { data: tokRow } = await admin
-        .from('noradocs_google_tokens')
-        .select('refresh_token')
-        .eq('tenant_company_id', tenantId)
-        .maybeSingle();
+      const { data: refreshToken } = await admin
+        .rpc('noradocs_ler_refresh_token', { p_company_id: tenantId });
 
-      if (tokRow?.refresh_token) {
+      if (refreshToken) {
         // Revoga no Google. Derruba TODOS os escopos concedidos a este
         // client_id por esta conta, não só o desta sessão — a UI avisa isso
         // antes de chamar esta ação.
         await fetch(REVOKE_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({ token: tokRow.refresh_token }),
+          body: new URLSearchParams({ token: refreshToken }),
         }).catch((e) => console.error('[noradocs-google-oauth] revoke failed', e));
       }
 
-      await admin.from('noradocs_google_tokens').delete().eq('tenant_company_id', tenantId);
+      // Apaga a linha E o segredo no Vault: deixar para trás um refresh_token
+      // cifrado de uma conexão já revogada é guardar risco sem utilidade.
+      await admin.rpc('noradocs_apagar_refresh_token', { p_company_id: tenantId });
       await admin.from('noradocs_google_accounts')
         .update({ status: 'revoked', last_error: null })
         .eq('tenant_company_id', tenantId);

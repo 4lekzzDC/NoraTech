@@ -1,5 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { checkRateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
+
+// Cada mensagem aqui vira uma chamada paga ao Gemini. Dois limites, porque
+// eles respondem a abusos diferentes: o por usuário contém uma conta só
+// (script em laço, aba esquecida recarregando), e o por empresa contém o
+// somatório de várias contas do mesmo escritório — sem ele, um cliente com 30
+// usuários multiplicaria o teto por 30.
+const LIMITE_IA_USUARIO = { bucket: 'support_chat_user', limit: 20, windowSeconds: 300 };
+const LIMITE_IA_EMPRESA = { bucket: 'support_chat_company', limit: 150, windowSeconds: 3600 };
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -147,6 +156,26 @@ Deno.serve(async (req) => {
 
     const { data: membership } = await admin
       .from('company_members').select('company_id').eq('user_id', caller.id).maybeSingle();
+
+    // Antes de qualquer escrita: barrar depois de gravar a mensagem do usuário
+    // deixaria a conversa com uma pergunta pendurada e nenhuma resposta, e o
+    // usuário reenviaria — gastando o que o limite existe para poupar.
+    const limiteUsuario = await checkRateLimit(admin, LIMITE_IA_USUARIO, caller.id);
+    if (!limiteUsuario.allowed) {
+      return rateLimitResponse(
+        limiteUsuario, corsHeaders,
+        'Você enviou muitas mensagens seguidas. Aguarde um instante para continuar a conversa.',
+      );
+    }
+    if (membership?.company_id) {
+      const limiteEmpresa = await checkRateLimit(admin, LIMITE_IA_EMPRESA, membership.company_id);
+      if (!limiteEmpresa.allowed) {
+        return rateLimitResponse(
+          limiteEmpresa, corsHeaders,
+          'O limite de mensagens do chat para a sua empresa foi atingido nesta hora. Tente de novo mais tarde.',
+        );
+      }
+    }
 
     if (!ticketId) {
       const { data: created, error: createErr } = await admin

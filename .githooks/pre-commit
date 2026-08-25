@@ -1,0 +1,41 @@
+#!/bin/sh
+# Varredura de segredos antes de cada commit.
+#
+# Segredo que entra no histórico do git não sai: mesmo depois de removido do
+# arquivo, ele continua em todo clone, em todo fork e em todo cache do
+# GitHub. A única correção de verdade é revogar a credencial. Por isso a
+# barreira fica AQUI, antes do commit, e não numa revisão depois.
+#
+# Só olha o que está sendo commitado (--cached), então é rápido.
+#
+# Para pular num caso legítimo: git commit --no-verify
+
+if git diff --cached --name-only --diff-filter=ACM | grep -qE '(^|/)\.env($|\.)' ; then
+  if ! git diff --cached --name-only --diff-filter=ACM | grep -qE '\.env\.example$'; then
+    echo "pre-commit: um arquivo .env está no commit. Credencial real não vai para o repositório." >&2
+    exit 1
+  fi
+fi
+
+PADROES='(sk|rk)_(live|test)_[A-Za-z0-9]{20,}|sbp_[a-f0-9]{40}|sb_secret_[A-Za-z0-9_-]{20,}|GOCSPX-[A-Za-z0-9_-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----'
+
+encontrado=0
+for arquivo in $(git diff --cached --name-only --diff-filter=ACM); do
+  case "$arquivo" in
+    src/lib/segredos.test.js|.githooks/pre-commit) continue ;;
+    *.png|*.jpg|*.jpeg|*.gif|*.ico|*.pdf|*.woff*) continue ;;
+  esac
+  [ -f "$arquivo" ] || continue
+  if git show ":$arquivo" 2>/dev/null | grep -nEq "$PADROES"; then
+    echo "pre-commit: possível segredo em $arquivo" >&2
+    git show ":$arquivo" | grep -nE "$PADROES" | sed 's/^/    /' | cut -c1-120 >&2
+    encontrado=1
+  fi
+done
+
+if [ "$encontrado" = 1 ]; then
+  echo "" >&2
+  echo "Commit barrado. Se a credencial for real, REVOGUE ela antes de qualquer coisa." >&2
+  echo "Se for exemplo, deixe óbvio que é falso (ex.: 'sk_test_EXEMPLO')." >&2
+  exit 1
+fi

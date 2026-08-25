@@ -7,6 +7,19 @@ function translate(error) {
   return msg;
 }
 
+// `functions.invoke` resolve qualquer status fora da faixa 2xx num Error cuja
+// mensagem é sempre a mesma frase genérica ("non-2xx status code") — o motivo
+// de verdade fica no corpo, dentro de `error.context`. Sem desembrulhar isso,
+// um 429 de rate limit chega ao usuário como erro sem explicação, e ele fica
+// tentando de novo justamente quando deveria esperar.
+async function mensagemDaFuncao(error) {
+  try {
+    const corpo = await error?.context?.json();
+    if (corpo?.error) return corpo.error;
+  } catch { /* corpo vazio ou não-JSON: cai no genérico abaixo */ }
+  return translate(error);
+}
+
 /** Cartão padrão salvo da empresa (ou null se nenhum). */
 export async function fetchPaymentMethod(companyId) {
   const { data, error } = await supabase
@@ -24,7 +37,7 @@ export async function createSetupIntent(companyId) {
   const { data, error } = await supabase.functions.invoke('stripe-setup-intent', {
     body: { company_id: companyId },
   });
-  if (error) throw new Error(translate(error));
+  if (error) throw new Error(await mensagemDaFuncao(error));
   if (data?.error) throw new Error(data.error);
   return data.client_secret;
 }
@@ -34,7 +47,7 @@ export async function chargeInvoice(invoiceId) {
   const { data, error } = await supabase.functions.invoke('stripe-charge-invoice', {
     body: { invoice_id: invoiceId },
   });
-  if (error) throw new Error(translate(error));
+  if (error) throw new Error(await mensagemDaFuncao(error));
   if (data?.error) throw new Error(data.error);
   return data;
 }
@@ -47,7 +60,7 @@ export async function createInvoicePaymentIntent(invoiceId) {
   const { data, error } = await supabase.functions.invoke('stripe-payment-intent', {
     body: { invoice_id: invoiceId },
   });
-  if (error) throw new Error(translate(error));
+  if (error) throw new Error(await mensagemDaFuncao(error));
   if (data?.error) throw new Error(data.error);
   return data.client_secret;
 }

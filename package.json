@@ -10,7 +10,9 @@
     "test": "node --test \"src/**/*.test.js\"",
     "preview": "vite preview",
     "preview:ui": "vite --config vite.preview.config.js",
-    "sync:edge-domain": "for f in cnpj texto competencia rules folderTemplate destino remetente reclassificacao; do cp \"src/modules/noradocs/domain/$f.js\" supabase/functions/noradocs-inbound/domain/; done"
+    "sync:edge-domain": "for f in cnpj texto competencia rules folderTemplate destino remetente reclassificacao; do cp \"src/modules/noradocs/domain/$f.js\" supabase/functions/noradocs-inbound/domain/; done",
+    "prepare": "git config core.hooksPath .githooks || true",
+    "scan:segredos": "node --test \"src/lib/segredos.test.js\""
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.8.0",
