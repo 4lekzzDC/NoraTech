@@ -24,6 +24,7 @@ import { validarTabela, TIPOS_REGRA, digitosNcm } from './ncmRegras';
 import { montarTabelaUf } from './regrasNcmMerge';
 import { linhasDePlanilha, MODELO_CABECALHO } from './importarRegrasPlanilha';
 import { parseResultadosAliquota } from './econetParser';
+import { parseApiAliquotasEconetEmLote } from './econetApiParser';
 import { parseAliquotasPortalSvrs, ufsDoPortalSvrs, siglaUf } from './svrsPortalParser';
 import { fmtNcm, fmtPct } from './difalFormato';
 
@@ -115,6 +116,11 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
   const [lendoSvrs, setLendoSvrs] = useState(false);
   const [buscaSvrs, setBuscaSvrs] = useState('');
 
+  const [arquivosApiEconet, setArquivosApiEconet] = useState([]);
+  const [resultadoApiEconet, setResultadoApiEconet] = useState(null); // null | { registros, paginas }
+  const [lendoApiEconet, setLendoApiEconet] = useState(false);
+  const [buscaApiEconet, setBuscaApiEconet] = useState('');
+
   async function recarregar() {
     setCarregando(true);
     setErro(null);
@@ -175,6 +181,15 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
       return r.mercadoria.toLowerCase().includes(termo) || r.ncmSh.toLowerCase().includes(termo);
     });
   }, [registrosSvrs, uf, buscaSvrs]);
+
+  const registrosApiEconetFiltrados = useMemo(() => {
+    if (!resultadoApiEconet) return [];
+    const termo = buscaApiEconet.trim().toLowerCase();
+    if (!termo) return resultadoApiEconet.registros;
+    return resultadoApiEconet.registros.filter((r) => (
+      r.descricao.toLowerCase().includes(termo) || r.ncm.toLowerCase().includes(termo)
+    ));
+  }, [resultadoApiEconet, buscaApiEconet]);
 
   async function salvarConfig() {
     setErro(null);
@@ -318,6 +333,43 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
       fcp: registro.fecp != null ? String(registro.fecp) : '',
       fundamento: [registro.mercadoria, registro.observacao].filter(Boolean).join(' — '),
       fonte: 'svrs',
+    });
+  }
+
+  async function lerArquivosApiEconet(files) {
+    setLendoApiEconet(true);
+    try {
+      const textos = await Promise.all(files.map((f) => f.text()));
+      setResultadoApiEconet(parseApiAliquotasEconetEmLote(textos));
+      setArquivosApiEconet(files.map((f) => f.name));
+    } catch {
+      setResultadoApiEconet({ registros: [], paginas: [] });
+    } finally {
+      setLendoApiEconet(false);
+    }
+  }
+
+  function dataIsoOuVazia(valor) {
+    return /^\d{4}-\d{2}-\d{2}/.test(String(valor || '')) ? String(valor).slice(0, 10) : '';
+  }
+
+  function usarRegistroApiEconet(registro) {
+    const ncm = digitosNcm(registro.ncm);
+    const nivel = ncm.length;
+    const tipo = nivel === 2 ? 'capitulo' : nivel === 6 ? 'subposicao' : nivel === 8 ? 'item' : 'posicao';
+    const semAliquotaPropria = registro.aliquota == null;
+    const base = registro.baseLegal[0];
+    const fundamento = [base?.texto, base?.url].filter(Boolean).join(' — ');
+    setEditandoRegra({
+      ...REGRA_VAZIA,
+      ncm, tipo,
+      aliquota: semAliquotaPropria ? '' : String(registro.aliquota),
+      seguirGeral: semAliquotaPropria,
+      fcp: registro.fecp != null ? String(registro.fecp) : '',
+      fundamento,
+      vigenciaInicio: dataIsoOuVazia(registro.vigenciaInicio),
+      vigenciaFim: dataIsoOuVazia(registro.vigenciaFim),
+      fonte: 'econet',
     });
   }
 
@@ -608,6 +660,75 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
                 )}
               </div>
             ))}
+          </div>
+        )}
+      </Card>
+
+      {/* ── Importar da API da Econet (JSON) ── */}
+      <Card P={P} style={{ padding: 20, marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: P.primary, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+          Importar da API da Econet (JSON)
+        </div>
+        <div style={{ fontSize: 12, color: P.muted, lineHeight: 1.6, marginBottom: 12, maxWidth: 640 }}>
+          Mais completo que o "Copiar conteúdo": no DevTools (F12) → Network →
+          Fetch/XHR, depois de consultar na Econet, clique na requisição que
+          carregou o resultado e copie o conteúdo da aba Response — cada página
+          traz até 100 linhas de uma vez, com NCM, vigência e base legal já
+          organizados. Salve num arquivo .json ou .txt e envie aqui (pode
+          enviar várias páginas juntas). As alíquotas gravadas valem para a UF
+          selecionada lá em cima ({uf}) — confira se é a mesma UF da consulta.
+        </div>
+        <input type="file" accept=".json,.txt" multiple onChange={(e) => e.target.files.length && lerArquivosApiEconet(Array.from(e.target.files))} />
+
+        {lendoApiEconet && <div style={{ marginTop: 12, fontSize: 12, color: P.muted }}>Lendo {arquivosApiEconet.length} arquivo(s)…</div>}
+
+        {resultadoApiEconet && resultadoApiEconet.registros.length === 0 && !lendoApiEconet && (
+          <div style={{ marginTop: 12, fontSize: 12, color: P.red }}>
+            Não reconheci nenhuma página dessa API nos arquivos enviados.
+            Confirme que copiou o conteúdo da aba Response (não a Preview
+            formatada) de uma requisição de consulta de alíquota.
+          </div>
+        )}
+
+        {resultadoApiEconet && resultadoApiEconet.registros.length > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 11.5, color: P.muted2, marginBottom: 10 }}>
+              {resultadoApiEconet.registros.length} linha(s) carregadas de {arquivosApiEconet.length} arquivo(s).
+              {resultadoApiEconet.paginas[0]?.total > resultadoApiEconet.registros.length && (
+                <> Faltam páginas: a Econet reporta {resultadoApiEconet.paginas[0].total} no total
+                  (página {resultadoApiEconet.paginas[0].atual} de {resultadoApiEconet.paginas[0].ultima} enviada) —
+                  envie as próximas páginas pra completar.</>
+              )}
+            </div>
+            <input
+              value={buscaApiEconet}
+              onChange={(e) => setBuscaApiEconet(e.target.value)}
+              placeholder="Buscar por descrição ou NCM…"
+              style={{ ...inputStyle(P), marginBottom: 12 }}
+            />
+            {!registrosApiEconetFiltrados.length ? (
+              <div style={{ fontSize: 12, color: P.muted }}>Nada encontrado com esse filtro.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 420, overflowY: 'auto' }}>
+                {registrosApiEconetFiltrados.map((r, i) => (
+                  <div key={i} style={{ padding: '10px 12px', borderRadius: 9, border: `1px solid ${P.border}`, background: P.surface2 }}>
+                    <div style={{ fontSize: 12.5, color: P.text, marginBottom: 4 }}>
+                      <b>{r.descricao}</b>
+                      {r.ncm && <span style={{ color: P.muted2, fontFamily: FONT_MONO }}> · NCM: {r.ncm}</span>}
+                      {!r.ncmVigente && <span style={{ color: P.gold }}> · NCM pode não estar mais vigente</span>}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: P.muted, marginBottom: 8 }}>
+                      {r.aliquota != null ? fmtPct(r.aliquota) : 'sem alíquota própria'}
+                      {r.fecp != null && ` + FECP ${fmtPct(r.fecp)}`}
+                      {r.baseLegal[0] && ` — ${r.baseLegal[0].texto}`}
+                    </div>
+                    <Botao P={P} variante="secundario" onClick={() => usarRegistroApiEconet(r)}>
+                      Usar esta linha no formulário →
+                    </Botao>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </Card>

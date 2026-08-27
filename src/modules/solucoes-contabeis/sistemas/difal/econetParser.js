@@ -19,13 +19,13 @@ function decodificarEntidades(texto) {
     .replace(/&ordf;/g, 'ª');
 }
 
-function stripTags(html) {
+export function stripTags(html) {
   return decodificarEntidades(String(html || '').replace(/<[^>]*>/g, ' '))
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-function extrairLinks(html) {
+export function extrairLinks(html) {
   const links = [];
   const re = /<a[^>]*href=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/a>/gi;
   let m;
