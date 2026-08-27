@@ -33,6 +33,10 @@
 --
 -- Pré-requisitos: accounting_schema.sql aplicado (has_accounting_access,
 -- accounting_companies). Idempotente: pode rodar mais de uma vez.
+--
+-- Aplicada em produção (projeto NoraTech) em 27/08/2026. Conferido depois de
+-- aplicar: RLS ligada nas três tabelas, uma política em cada, e um SELECT
+-- como `anon` sobre uma linha real não devolve nada.
 -- =========================================================================
 
 -- -------------------------------------------------------------------------
