@@ -47,7 +47,7 @@ export const HUB_MODULES = [
   { slug: 'contabil', name: 'Contábil', icon: '📒', section: 'categorias',
     status: 'available', description: 'Grade dos módulos contábeis.' },
   { slug: 'fiscal', name: 'Fiscal', icon: '🧾', section: 'categorias',
-    status: 'soon', description: 'Grade dos módulos fiscais.' },
+    status: 'available', description: 'Grade dos módulos fiscais.' },
   { slug: 'financeiro', name: 'Financeiro', icon: '💸', section: 'categorias',
     status: 'soon', description: 'Grade dos módulos financeiros.' },
   { slug: 'gestao', name: 'Gestão', icon: '🗂️', section: 'categorias',

@@ -18,6 +18,7 @@ const TOOL_PARENTS = {
   'calculadora-irpj-csll':    { slug: 'contabil', name: 'Contábil' },
   'prazos':                   { slug: 'contabil', name: 'Contábil' },
   'gestao-clientes':          { slug: 'gestao',   name: 'Gestão' },
+  'calculadora-difal':        { slug: 'fiscal',   name: 'Fiscal' },
 };
 
 export default function SolucoesHeader() {

@@ -54,6 +54,7 @@ import ConciliadorExtratosPage from './modules/solucoes-contabeis/sistemas/conci
 import ConciliadorFornecedoresPage from './modules/solucoes-contabeis/sistemas/conciliador-fornecedores/ConciliadorFornecedoresPage.jsx'
 import GestaoClientesPage from './modules/solucoes-contabeis/sistemas/gestao-clientes/GestaoClientesPage.jsx'
 import PrazosPage from './modules/solucoes-contabeis/sistemas/prazos/PrazosPage.jsx'
+import FiscalPage from './modules/solucoes-contabeis/sistemas/fiscal/FiscalPage.jsx'
 import AnaliseDemonstracoesPage from './modules/solucoes-contabeis/sistemas/analise-demonstracoes/AnaliseDemonstracoesPage.jsx'
 import TransformadorExtratoPage from './modules/solucoes-contabeis/sistemas/transformador-extrato/TransformadorExtratoPage.jsx'
 import CalculadoraIrpjCsllPage from './modules/solucoes-contabeis/sistemas/calculadora-irpj-csll/CalculadoraIrpjCsllPage.jsx'
@@ -166,6 +167,11 @@ createRoot(document.getElementById('root')).render(
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/pessoal`}
             element={<SolucoesContabeisRoute><PessoalPage /></SolucoesContabeisRoute>}
+          />
+          {/* Categoria "Fiscal" — grade dos módulos fiscais */}
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/fiscal`}
+            element={<SolucoesContabeisRoute><FiscalPage /></SolucoesContabeisRoute>}
           />
           {/* Placeholders dos módulos do Autonomy em migração */}
           <Route
