@@ -119,23 +119,18 @@ function extrairSecoesNotas(tabelaHtml) {
   return secoes;
 }
 
-/**
- * Recebe o HTML de uma tela de resultado de consulta de alíquota da Econet
- * (uma linha de dados por NCM/EX consultado + tabela de base legal/observações)
- * e devolve uma estrutura simples e previsível, sem interpretar o texto livre.
- * Retorna null se o HTML não tiver o formato esperado (tabela de dados ausente).
- */
-export function parseResultadoAliquota(html) {
-  if (!html || typeof html !== 'string') return null;
-  const tabelas = extrairTabelas(html);
-  if (tabelas.length === 0) return null;
-
-  const linhasTabela1 = extrairLinhasTabela(tabelas[0]);
+function parseBloco(tabela1Html, tabela2Html) {
+  if (!tabela1Html) return null;
+  const linhasTabela1 = extrairLinhasTabela(tabela1Html);
   const cabecalho = linhasTabela1.find((l) => l.cabecalho);
   const dados = linhasTabela1.filter((l) => !l.cabecalho);
   if (!cabecalho || dados.length === 0) return null;
 
   const mapaColuna = cabecalho.celulasHtml.map((h) => normalizarCabecalho(stripTags(h)));
+  // Toda tabela de dados de verdade tem uma coluna NCM — sem isso, não é uma
+  // tabela de resultado (pode ser a de "Base Legal"/"Observações" caindo,
+  // por acidente de pareamento, na posição de tabela de dados).
+  if (!mapaColuna.includes('ncm')) return null;
 
   const registros = dados.map((linha) => {
     const registro = { aliquota: null, aliquotaEfetiva: null, fecp: null, ncm: null, ex: null, descricao: '' };
@@ -147,7 +142,7 @@ export function parseResultadoAliquota(html) {
     return registro;
   });
 
-  const secoes = tabelas[1] ? extrairSecoesNotas(tabelas[1]) : {};
+  const secoes = tabela2Html ? extrairSecoesNotas(tabela2Html) : {};
   const baseLegalLinha = secoes.baseLegal ? secoes.baseLegal[0] : null;
 
   return {
@@ -157,4 +152,35 @@ export function parseResultadoAliquota(html) {
       : null,
     observacoes: secoes.observacoes || [],
   };
+}
+
+/**
+ * Recebe o HTML de uma tela de resultado de consulta de alíquota da Econet
+ * (uma linha de dados por NCM/EX consultado + tabela de base legal/observações)
+ * e devolve uma estrutura simples e previsível, sem interpretar o texto livre.
+ * Retorna null se o HTML não tiver o formato esperado (tabela de dados ausente).
+ */
+export function parseResultadoAliquota(html) {
+  if (!html || typeof html !== 'string') return null;
+  const tabelas = extrairTabelas(html);
+  if (tabelas.length === 0) return null;
+  return parseBloco(tabelas[0], tabelas[1]);
+}
+
+/**
+ * Igual a `parseResultadoAliquota`, mas aceita várias consultas coladas em
+ * sequência (cada "Copiar conteúdo" clicado na Econet gera um par de
+ * tabelas — dados + base legal/observações). Cada par é interpretado como
+ * um resultado independente; um par malformado é descartado sem derrubar
+ * os demais. Devolve uma lista, vazia se nada reconhecível for encontrado.
+ */
+export function parseResultadosAliquota(html) {
+  if (!html || typeof html !== 'string') return [];
+  const tabelas = extrairTabelas(html);
+  const blocos = [];
+  for (let i = 0; i < tabelas.length; i += 2) {
+    const bloco = parseBloco(tabelas[i], tabelas[i + 1]);
+    if (bloco) blocos.push(bloco);
+  }
+  return blocos;
 }

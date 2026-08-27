@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseResultadoAliquota } from './econetParser.js';
+import { parseResultadoAliquota, parseResultadosAliquota } from './econetParser.js';
 
 const HTML_RESULTADO_3307 = `
 <table width="100%" border="1" style="width:100%; border-collapse: collapse">
@@ -93,4 +93,38 @@ test('percentual com vírgula decimal é convertido corretamente', () => {
   const html = HTML_RESULTADO_3307.replace('25 %', '17,5 %');
   const resultado = parseResultadoAliquota(html);
   assert.equal(resultado.registros[0].aliquota, 17.5);
+});
+
+test('parseResultadosAliquota reconhece um único resultado colado, igual ao parse singular', () => {
+  const resultados = parseResultadosAliquota(HTML_RESULTADO_3307);
+  assert.equal(resultados.length, 1);
+  assert.equal(resultados[0].registros[0].ncm, '3307');
+  assert.equal(resultados[0].baseLegal.texto, 'Artigo 55, inciso IV, do RICMS/SP');
+});
+
+test('parseResultadosAliquota reconhece vários "Copiar conteúdo" colados em sequência', () => {
+  const htmlOutraConsulta = HTML_RESULTADO_3307
+    .replace('3307', '2402')
+    .replace('25 %', '25 %'); // mantém alíquota, só troca o NCM para simular outra consulta
+  const html = HTML_RESULTADO_3307 + '\n' + htmlOutraConsulta;
+  const resultados = parseResultadosAliquota(html);
+  assert.equal(resultados.length, 2);
+  assert.equal(resultados[0].registros[0].ncm, '3307');
+  assert.equal(resultados[1].registros[0].ncm, '2402');
+});
+
+test('parseResultadosAliquota descarta um bloco malformado (sem coluna NCM) sem derrubar os demais', () => {
+  const blocoInvalido = `
+    <table><thead><tr><th>Nada</th></tr></thead><tbody><tr><td>x</td></tr></tbody></table>
+    <table><tbody><tr><th>Outra coisa</th></tr><tr><td>y</td></tr></tbody></table>
+  `;
+  const html = blocoInvalido + HTML_RESULTADO_3307;
+  const resultados = parseResultadosAliquota(html);
+  assert.equal(resultados.length, 1);
+  assert.equal(resultados[0].registros[0].ncm, '3307');
+});
+
+test('parseResultadosAliquota devolve lista vazia quando nada é reconhecível', () => {
+  assert.deepEqual(parseResultadosAliquota('<div>nada aqui</div>'), []);
+  assert.deepEqual(parseResultadosAliquota(''), []);
 });
