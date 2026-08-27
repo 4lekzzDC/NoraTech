@@ -57,6 +57,7 @@ import PrazosPage from './modules/solucoes-contabeis/sistemas/prazos/PrazosPage.
 import AnaliseDemonstracoesPage from './modules/solucoes-contabeis/sistemas/analise-demonstracoes/AnaliseDemonstracoesPage.jsx'
 import TransformadorExtratoPage from './modules/solucoes-contabeis/sistemas/transformador-extrato/TransformadorExtratoPage.jsx'
 import CalculadoraIrpjCsllPage from './modules/solucoes-contabeis/sistemas/calculadora-irpj-csll/CalculadoraIrpjCsllPage.jsx'
+import DifalPage from './modules/solucoes-contabeis/sistemas/difal/DifalPage.jsx'
 import AdminRoute from './components/AdminRoute.jsx'
 import SubscriptionRoute from './components/SubscriptionRoute.jsx'
 import OrgManagerRoute from './components/OrgManagerRoute.jsx'
@@ -198,6 +199,10 @@ createRoot(document.getElementById('root')).render(
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/calculadora-irpj-csll`}
             element={<SolucoesContabeisRoute moduleSlug="calculadora-irpj-csll"><CalculadoraIrpjCsllPage /></SolucoesContabeisRoute>}
+          />
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/calculadora-difal`}
+            element={<SolucoesContabeisRoute moduleSlug="calculadora-difal"><DifalPage /></SolucoesContabeisRoute>}
           />
           {/* NoraDocs — organização automática de documentos no Google Drive */}
           <Route path={NORADOCS_ROUTE} element={<NoraDocsRoute><NoraDocsInboxPage /></NoraDocsRoute>} />

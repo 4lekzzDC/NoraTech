@@ -83,6 +83,9 @@ export const HUB_MODULES = [
   { slug: 'calculadora-irpj-csll', name: 'Calculadora de IRPJ e CSLL', icon: '🧮',
     section: 'ferramentas', status: 'available',
     description: 'Apuração trimestral no Lucro Presumido e no Lucro Real.' },
+  { slug: 'calculadora-difal', name: 'Calculadora de DIFAL', icon: '🧾',
+    section: 'ferramentas', status: 'available',
+    description: 'Diferencial de alíquota do Simples Nacional, produto a produto, a partir do XML da NF-e.' },
 
   // Permissões
   { slug: 'permissoes-equipe', name: 'Permissões da Equipe', icon: '🔐',

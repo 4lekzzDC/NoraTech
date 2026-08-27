@@ -145,6 +145,7 @@ test('lote soma as notas, agrupa por NCM e lista as pendências', () => {
   assert.deepEqual(lote.pendencias[0], {
     arquivo: 'nfe-1234.xml',
     chave: '41260812345678000199550010000012341000012340',
+    numeroNota: '1234',
     nItem: 6,
     descricao: 'Item com NCM incompleto',
     motivo: lote.pendencias[0].motivo,

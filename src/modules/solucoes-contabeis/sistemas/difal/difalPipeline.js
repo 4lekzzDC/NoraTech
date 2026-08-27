@@ -208,6 +208,7 @@ export function consolidar(notas) {
         pendencias.push({
           arquivo: nota.arquivo ?? null,
           chave: nota.nota?.chave ?? null,
+          numeroNota: nota.nota?.numero ?? null,
           nItem: null,
           descricao: null,
           motivo: nota.motivo,
@@ -231,6 +232,7 @@ export function consolidar(notas) {
         pendencias.push({
           arquivo: nota.arquivo ?? null,
           chave: nota.nota.chave,
+          numeroNota: nota.nota.numero,
           nItem: item.nItem,
           descricao: item.descricao,
           motivo: item.motivo,
