@@ -646,9 +646,29 @@ function TabelaItens({ itens, onInspecionar }) {
 }
 
 // ── Consolidação por NCM ──────────────────────────────────────────────────
+// A lista de "quais NCM verificar na Econet" não precisa vir da tabela NCM
+// inteira do Brasil: ela sai daqui — os produtos que, no lote de verdade dos
+// clientes, não bateram com nenhuma faixa cadastrada e caíram na regra geral
+// da UF. É o motor mesmo que aponta onde vale a pena olhar exceção.
 function TabelaPorNcm({ porNcm }) {
   const P = useP();
+  const [soRegraGeral, setSoRegraGeral] = useState(false);
+  const [copiado, setCopiado] = useState(false);
   if (!porNcm.length) return null;
+
+  const regraGeral = porNcm.filter((l) => l.origemInterna === 'regra_geral');
+  const visiveis = soRegraGeral ? regraGeral : porNcm;
+
+  async function copiarNcmsRegraGeral() {
+    const lista = regraGeral.map((l) => fmtNcm(l.ncm)).join('\n');
+    try {
+      await navigator.clipboard.writeText(lista);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      window.prompt('Copie a lista de NCMs (Ctrl+C, Enter):', lista);
+    }
+  }
 
   const th = {
     textAlign: 'left', padding: '10px 12px', fontSize: 10.5, fontWeight: 700,
@@ -659,10 +679,29 @@ function TabelaPorNcm({ porNcm }) {
 
   return (
     <Card style={{ overflow: 'hidden', marginBottom: 20 }}>
-      <div style={{ padding: '18px 20px 4px' }}>
-        <SectionTitle hint="Quebra do lote por produto. Um NCM com muitos itens e alíquota inesperada é o primeiro lugar onde erro de cadastro aparece.">
+      <div style={{ padding: '18px 20px 14px', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <SectionTitle hint="Quebra do lote por produto. Os que caíram na regra geral (sem faixa de NCM cadastrada) são os candidatos a virar exceção — verifique na Econet e cadastre.">
           Consolidado por NCM
         </SectionTitle>
+        {regraGeral.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setSoRegraGeral((v) => !v)}
+              style={{
+                padding: '6px 12px', borderRadius: 8, fontFamily: FONT_INTER, fontSize: 12,
+                fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+                border: `1px solid ${soRegraGeral ? P.primaryBorder : P.border}`,
+                background: soRegraGeral ? P.primarySoft : 'transparent',
+                color: soRegraGeral ? P.primaryText : P.muted,
+              }}
+            >
+              Só regra geral <span style={{ opacity: 0.65 }}>{regraGeral.length}</span>
+            </button>
+            <Botao onClick={copiarNcmsRegraGeral} variante="secundario">
+              {copiado ? 'Copiado!' : `Copiar ${regraGeral.length} NCM(s)`}
+            </Botao>
+          </div>
+        )}
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 620 }}>
@@ -677,7 +716,7 @@ function TabelaPorNcm({ porNcm }) {
             </tr>
           </thead>
           <tbody>
-            {porNcm.map((l) => {
+            {visiveis.map((l) => {
               const origem = rotuloOrigemAliquota({
                 origemInterna: l.origemInterna, ncmRegra: l.ncmRegra,
                 nivelNcm: l.ncmRegra ? l.ncmRegra.length : 0,
