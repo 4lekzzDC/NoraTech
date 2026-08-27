@@ -11,6 +11,7 @@
 // e é isso que torna a conferência um diálogo, e não um formulário.
 
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import SolucoesHeader from '../../components/SolucoesHeader';
 import AnimatedDropzone from '../../../../components/AnimatedDropzone';
 import { useTheme } from '../../../../contexts/ThemeContext';
@@ -26,6 +27,7 @@ import {
   notasJaApuradas, salvarApuracao,
 } from '../../services/difal.service';
 import { getTabela } from './ncmRegras';
+import { carregarTabelaUf } from '../../services/regrasNcm.service';
 import { exportarXlsx } from './difalExport';
 import {
   ROTULO_FINALIDADE, ROTULO_METODO, achatarItens, competenciaDoLote,
@@ -211,14 +213,21 @@ function Select({ value, onChange, children }) {
 function ParametrosCard({
   clientes, clienteId, setClienteId, metodoBase, setMetodoBase,
   politicaRevenda, setPoliticaRevenda, ufDestino, competencia, setCompetencia,
+  tabela, carregandoTabela,
 }) {
   const P = useP();
-  const tabela = ufDestino ? getTabela(ufDestino) : null;
   const padraoMetodo = tabela ? ROTULO_METODO[tabela.metodoBase] : 'definido pela UF';
 
   return (
     <Card style={{ padding: 20, marginBottom: 20 }}>
-      <SectionTitle hint="A UF de destino e a data de emissão saem da própria nota. O que fica aqui é o que o XML não diz.">
+      <SectionTitle
+        hint="A UF de destino e a data de emissão saem da própria nota. O que fica aqui é o que o XML não diz."
+        acao={
+          <Link to="ajuste-fiscal" style={{ fontSize: 11.5, fontWeight: 600, color: P.primaryText, whiteSpace: 'nowrap' }}>
+            Ajustar alíquotas deste escritório →
+          </Link>
+        }
+      >
         Parâmetros da apuração
       </SectionTitle>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16 }} className="difal-params">
@@ -272,9 +281,19 @@ function ParametrosCard({
         </Campo>
       </div>
 
-      {ufDestino && !tabela && (
+      {ufDestino && !carregandoTabela && !tabela && (
         <div style={{ marginTop: 14, fontSize: 12, color: P.gold, display: 'flex', alignItems: 'center', gap: 7 }}>
           <IAlert size={14} /> Não há tabela de alíquotas internas cadastrada para {ufDestino}.
+        </div>
+      )}
+      {tabela && tabela.origemDados !== 'seed' && (
+        <div style={{ marginTop: 14, fontSize: 11.5, color: P.muted2 }}>
+          Alíquotas de {ufDestino} carregadas do banco{tabela.temAjusteDoEscritorio ? ', com ajuste deste escritório' : ''}.
+        </div>
+      )}
+      {tabela?.origemDados === 'seed' && (
+        <div style={{ marginTop: 14, fontSize: 11.5, color: P.muted2 }}>
+          Alíquotas de {ufDestino} vindas do arquivo de exemplo (nada cadastrado no banco para esta UF ainda).
         </div>
       )}
     </Card>
@@ -915,11 +934,20 @@ export default function DifalPage() {
   const cliente = clientes.find((c) => String(c.id) === clienteId) || null;
   const fechada = apuracaoAberta?.status === 'fechada';
 
+  // A UF de destino só é conhecida DEPOIS de um primeiro processamento (ela
+  // vem do XML das notas) — por isso este estado nasce antes de `aoVivo` mas
+  // só é preenchido de verdade depois que `ufDestino`, calculada mais abaixo
+  // a partir do resultado, aparece pela primeira vez. Na passada zero, o
+  // motor cai no próprio fallback dele (o arquivo de exemplo).
+  const [tabelaUf, setTabelaUf] = useState(null);
+  const [carregandoTabela, setCarregandoTabela] = useState(false);
+
   const aoVivo = useMemo(() => processarLote(entradas, {
     cnpjCliente: cliente?.cnpj || null,
     metodoBase: metodoBase || undefined,
     politicaRevenda: politicaRevenda || undefined,
-  }), [entradas, cliente, metodoBase, politicaRevenda]);
+    tabela: tabelaUf || undefined,
+  }), [entradas, cliente, metodoBase, politicaRevenda, tabelaUf]);
 
   const resultado = fechada && resultadoSalvo ? resultadoSalvo : aoVivo;
   const itens = useMemo(() => achatarItens(resultado.notas), [resultado]);
@@ -928,6 +956,37 @@ export default function DifalPage() {
   // cadastrado da empresa, que é o palpite honesto disponível.
   const ufDestino = resultado.notas.find((n) => n.ok && n.processada)?.operacao.ufDestino
     || cliente?.estado || '';
+
+  // A tabela vem do banco (global + ajuste do escritório, ver
+  // regrasNcm.service.js); o arquivo `ncmRegras.js` só entra como rede de
+  // segurança quando o banco não tem NADA cadastrado para a UF — cobre o
+  // período de transição e uma eventual falha de rede.
+  useEffect(() => {
+    let ativo = true;
+    if (!ufDestino) { setTabelaUf(null); return undefined; }
+    setCarregandoTabela(true);
+    carregarTabelaUf(ufDestino, companyId || null)
+      .then((doBanco) => {
+        if (!ativo) return;
+        if (doBanco) {
+          setTabelaUf({
+            ...doBanco,
+            origemDados: 'banco',
+            temAjusteDoEscritorio: doBanco.regras.some((r) => r.origemAjuste === 'tenant'),
+          });
+        } else {
+          const doArquivo = getTabela(ufDestino);
+          setTabelaUf(doArquivo ? { ...doArquivo, origemDados: 'seed' } : null);
+        }
+      })
+      .catch(() => {
+        if (!ativo) return;
+        const doArquivo = getTabela(ufDestino);
+        setTabelaUf(doArquivo ? { ...doArquivo, origemDados: 'seed' } : null);
+      })
+      .finally(() => { if (ativo) setCarregandoTabela(false); });
+    return () => { ativo = false; };
+  }, [ufDestino, companyId]);
 
   const recarregarHistorico = useCallback(async () => {
     if (!companyId) { setHistorico([]); return; }
@@ -1034,7 +1093,7 @@ export default function DifalPage() {
           metodoBase: resultado.notas.find((n) => n.processada)?.operacao.metodoBase || metodoBase || 'base_simples',
           politicaRevenda: resultado.notas.find((n) => n.processada)?.operacao.politicaRevenda || politicaRevenda || 'nao_incide',
           versaoMotor: VERSAO_MOTOR,
-          versaoTabela: getTabela(ufDestino)?.versao || null,
+          versaoTabela: tabelaUf?.versao || null,
           status: apuracaoAberta?.status || 'aberta',
         },
         xmlPorArquivo(entradas),
@@ -1168,6 +1227,8 @@ export default function DifalPage() {
                 ufDestino={ufDestino}
                 competencia={competencia}
                 setCompetencia={setCompetencia}
+                tabela={tabelaUf}
+                carregandoTabela={carregandoTabela}
               />
 
               {apuracaoAberta && (

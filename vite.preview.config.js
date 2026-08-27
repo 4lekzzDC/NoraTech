@@ -28,6 +28,7 @@ export default defineConfig({
       { find: /.*\/services\/inbound\.service$/, replacement: m('inbound.service.js') },
       { find: /.*\/services\/clients\.service$/, replacement: m('clients.service.js') },
       { find: /.*\/services\/difal\.service$/, replacement: m('difal.service.js') },
+      { find: /.*\/services\/regrasNcm\.service$/, replacement: m('regrasNcm.service.js') },
       { find: /.*\/services\/verificacao\.service$/, replacement: m('verificacao.service.js') },
       { find: /.*\/services\/documents\.service$/, replacement: m('documents.service.js') },
       { find: /.*\/services\/review\.service$/, replacement: m('review.service.js') },

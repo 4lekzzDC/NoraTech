@@ -9,10 +9,13 @@ import HistoricoPage from '../src/modules/noradocs/pages/HistoricoPage';
 import ClientesPage from '../src/modules/noradocs/pages/ClientesPage';
 import DifalPage from '../src/modules/solucoes-contabeis/sistemas/difal/DifalPage';
 import FiscalPage from '../src/modules/solucoes-contabeis/sistemas/fiscal/FiscalPage';
+import AdminDifalRegrasPage from '../src/pages/admin/AdminDifalRegrasPage';
+import AjusteFiscalPage from '../src/modules/solucoes-contabeis/sistemas/difal/AjusteFiscalPage';
 
 const TELAS = {
   inbox: InboxPage, configuracoes: ConfiguracoesPage, historico: HistoricoPage,
   clientes: ClientesPage, difal: DifalPage, fiscal: FiscalPage,
+  regrasGlobais: AdminDifalRegrasPage, ajusteFiscal: AjusteFiscalPage,
 };
 const params = new URLSearchParams(location.search);
 const Tela = TELAS[params.get('tela')] || InboxPage;

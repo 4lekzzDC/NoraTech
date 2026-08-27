@@ -24,6 +24,7 @@ import AdminOverviewPage from './pages/admin/AdminOverviewPage.jsx'
 import AdminUsersPage from './pages/admin/AdminUsersPage.jsx'
 import AdminCompaniesPage from './pages/admin/AdminCompaniesPage.jsx'
 import AdminSystemsPage from './pages/admin/AdminSystemsPage.jsx'
+import AdminDifalRegrasPage from './pages/admin/AdminDifalRegrasPage.jsx'
 import AdminInvoicesPage from './pages/admin/AdminInvoicesPage.jsx'
 import AdminSupportPage from './pages/admin/AdminSupportPage.jsx'
 import AdminDevPage from './pages/admin/AdminDevPage';
@@ -59,6 +60,7 @@ import AnaliseDemonstracoesPage from './modules/solucoes-contabeis/sistemas/anal
 import TransformadorExtratoPage from './modules/solucoes-contabeis/sistemas/transformador-extrato/TransformadorExtratoPage.jsx'
 import CalculadoraIrpjCsllPage from './modules/solucoes-contabeis/sistemas/calculadora-irpj-csll/CalculadoraIrpjCsllPage.jsx'
 import DifalPage from './modules/solucoes-contabeis/sistemas/difal/DifalPage.jsx'
+import AjusteFiscalPage from './modules/solucoes-contabeis/sistemas/difal/AjusteFiscalPage.jsx'
 import AdminRoute from './components/AdminRoute.jsx'
 import SubscriptionRoute from './components/SubscriptionRoute.jsx'
 import OrgManagerRoute from './components/OrgManagerRoute.jsx'
@@ -145,6 +147,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/admin/usuarios" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
           <Route path="/admin/empresas" element={<AdminRoute><AdminCompaniesPage /></AdminRoute>} />
           <Route path="/admin/sistemas" element={<AdminRoute><AdminSystemsPage /></AdminRoute>} />
+          <Route path="/admin/difal-regras" element={<AdminRoute><AdminDifalRegrasPage /></AdminRoute>} />
           <Route path="/admin/faturas" element={<AdminRoute><AdminInvoicesPage /></AdminRoute>} />
           <Route path="/admin/suporte" element={<AdminRoute><AdminSupportPage /></AdminRoute>} />
           <Route path="/admin/dev" element={<DevRoute><AdminDevPage /></DevRoute>} />
@@ -209,6 +212,10 @@ createRoot(document.getElementById('root')).render(
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/calculadora-difal`}
             element={<SolucoesContabeisRoute moduleSlug="calculadora-difal"><DifalPage /></SolucoesContabeisRoute>}
+          />
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/calculadora-difal/ajuste-fiscal`}
+            element={<SolucoesContabeisRoute moduleSlug="calculadora-difal"><OrgManagerRoute><AjusteFiscalPage /></OrgManagerRoute></SolucoesContabeisRoute>}
           />
           {/* NoraDocs — organização automática de documentos no Google Drive */}
           <Route path={NORADOCS_ROUTE} element={<NoraDocsRoute><NoraDocsInboxPage /></NoraDocsRoute>} />
