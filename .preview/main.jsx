@@ -7,8 +7,12 @@ import InboxPage from '../src/modules/noradocs/pages/InboxPage';
 import ConfiguracoesPage from '../src/modules/noradocs/pages/ConfiguracoesPage';
 import HistoricoPage from '../src/modules/noradocs/pages/HistoricoPage';
 import ClientesPage from '../src/modules/noradocs/pages/ClientesPage';
+import DifalPage from '../src/modules/solucoes-contabeis/sistemas/difal/DifalPage';
 
-const TELAS = { inbox: InboxPage, configuracoes: ConfiguracoesPage, historico: HistoricoPage, clientes: ClientesPage };
+const TELAS = {
+  inbox: InboxPage, configuracoes: ConfiguracoesPage, historico: HistoricoPage,
+  clientes: ClientesPage, difal: DifalPage,
+};
 const Tela = TELAS[new URLSearchParams(location.search).get('tela')] || InboxPage;
 
 createRoot(document.getElementById('root')).render(
