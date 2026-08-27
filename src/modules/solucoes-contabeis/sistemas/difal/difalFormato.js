@@ -224,3 +224,95 @@ export function competenciaDoLote(notas) {
   if (!contagem.size) return null;
   return [...contagem.entries()].sort((a, b) => b[1] - a[1] || b[0].localeCompare(a[0]))[0][0];
 }
+
+// ── Tabelas do leiaute da NF-e ─────────────────────────────────────────────
+// Códigos que o XML traz crus. Sem isto a tela mostra "orig 3" e só quem
+// decorou o Manual de Orientação entende — e é justamente o conteúdo dessas
+// tabelas que decide o cálculo (a origem manda na alíquota interestadual, o
+// CST manda em ter ou não diferencial).
+
+export const ORIGEM_MERCADORIA = {
+  0: 'Nacional, exceto as dos códigos 3, 4, 5 e 8',
+  1: 'Estrangeira — importação direta, exceto a do código 6',
+  2: 'Estrangeira — adquirida no mercado interno, exceto a do código 7',
+  3: 'Nacional, conteúdo de importação acima de 40% e até 70%',
+  4: 'Nacional, produção conforme processos produtivos básicos',
+  5: 'Nacional, conteúdo de importação até 40%',
+  6: 'Estrangeira — importação direta, sem similar nacional (lista CAMEX)',
+  7: 'Estrangeira — adquirida no mercado interno, sem similar nacional (lista CAMEX)',
+  8: 'Nacional, conteúdo de importação acima de 70%',
+};
+
+export const CST_ICMS = {
+  '00': 'Tributada integralmente',
+  10: 'Tributada e com cobrança do ICMS por substituição tributária',
+  20: 'Com redução da base de cálculo',
+  30: 'Isenta ou não tributada e com cobrança do ICMS por substituição tributária',
+  40: 'Isenta',
+  41: 'Não tributada',
+  50: 'Suspensão',
+  51: 'Diferimento',
+  60: 'ICMS cobrado anteriormente por substituição tributária',
+  70: 'Com redução da base de cálculo e cobrança do ICMS por substituição tributária',
+  90: 'Outras',
+};
+
+export const CSOSN = {
+  101: 'Tributada pelo Simples Nacional com permissão de crédito',
+  102: 'Tributada pelo Simples Nacional sem permissão de crédito',
+  103: 'Isenção do ICMS no Simples Nacional para faixa de receita bruta',
+  201: 'Tributada com permissão de crédito e com cobrança do ICMS por substituição tributária',
+  202: 'Tributada sem permissão de crédito e com cobrança do ICMS por substituição tributária',
+  203: 'Isenção para faixa de receita bruta e com cobrança do ICMS por substituição tributária',
+  300: 'Imune',
+  400: 'Não tributada pelo Simples Nacional',
+  500: 'ICMS cobrado anteriormente por substituição tributária ou por antecipação',
+  900: 'Outros',
+};
+
+export const CRT_EMITENTE = {
+  1: 'Simples Nacional',
+  2: 'Simples Nacional — excesso de sublimite de receita bruta',
+  3: 'Regime normal',
+  4: 'Simples Nacional — MEI',
+};
+
+export const IND_IE_DESTINATARIO = {
+  1: 'Contribuinte do ICMS',
+  2: 'Contribuinte isento de inscrição',
+  9: 'Não contribuinte',
+};
+
+export const FINALIDADE_NFE = {
+  1: 'Normal', 2: 'Complementar', 3: 'Ajuste', 4: 'Devolução',
+};
+
+export const DESTINO_OPERACAO = {
+  1: 'Operação interna', 2: 'Operação interestadual', 3: 'Operação com o exterior',
+};
+
+/**
+ * '60 — ICMS cobrado anteriormente por substituição tributária'.
+ * Código sem correspondência aparece sozinho: inventar descrição para um
+ * código que não existe na tabela seria pior que mostrar o código cru.
+ */
+export function descreverCodigo(tabela, codigo) {
+  if (codigo == null || codigo === '') return '—';
+  const descricao = tabela[codigo] ?? tabela[Number(codigo)];
+  return descricao ? `${codigo} — ${descricao}` : String(codigo);
+}
+
+/** Como o item foi tributado na origem, em uma linha. */
+export function rotuloTributacaoIcms(icms) {
+  if (!icms) return '—';
+  if (icms.csosn) return `CSOSN ${descreverCodigo(CSOSN, icms.csosn)}`;
+  if (icms.cst) return `CST ${descreverCodigo(CST_ICMS, icms.cst)}`;
+  return icms.grupo || '—';
+}
+
+/** Quantidade com as casas que a nota trouxe, sem zeros à toa. */
+export function fmtQtd(valor) {
+  const n = Number(valor);
+  if (!Number.isFinite(n)) return '—';
+  return n.toLocaleString('pt-BR', { maximumFractionDigits: 4 });
+}

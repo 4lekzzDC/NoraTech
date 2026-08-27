@@ -269,3 +269,53 @@ export function lerNFe(xml) {
     })(),
   };
 }
+
+// ── Exibição do XML ────────────────────────────────────────────────────────
+// A tela precisa mostrar a nota para quem quiser conferir o arquivo. Em vez
+// de recortar o texto original — que vem em uma linha só, com o recuo que o
+// emissor quis —, a árvore é serializada de volta. O que aparece é o XML
+// COMO O MOTOR LEU: se o parser entendeu errado, o erro aparece na tela em
+// vez de ficar escondido atrás do arquivo original.
+
+const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;' };
+
+function escapar(texto) {
+  return String(texto).replace(/[&<>]/g, (c) => ESCAPES[c]);
+}
+
+function serializar(no, nivel) {
+  const recuo = '  '.repeat(nivel);
+  const atributos = Object.entries(no.atributos)
+    .map(([chave, valor]) => ` ${chave}="${escapar(valor).replace(/"/g, '&quot;')}"`)
+    .join('');
+
+  if (!no.filhos.length) {
+    const conteudo = no.texto.trim();
+    return conteudo
+      ? [`${recuo}<${no.nome}${atributos}>${escapar(conteudo)}</${no.nome}>`]
+      : [`${recuo}<${no.nome}${atributos}/>`];
+  }
+  return [
+    `${recuo}<${no.nome}${atributos}>`,
+    ...no.filhos.flatMap((f) => serializar(f, nivel + 1)),
+    `${recuo}</${no.nome}>`,
+  ];
+}
+
+/** XML identado, a partir do texto bruto ou de um nó já parseado. */
+export function identarXml(entrada) {
+  if (!entrada) return '';
+  const no = typeof entrada === 'string' ? parseXml(entrada) : entrada;
+  return no ? serializar(no, 0).join('\n') : '';
+}
+
+/** O bloco <det> de um item, identado. `null` quando o item não existe. */
+export function xmlDoItem(xml, nItem) {
+  const raiz = typeof xml === 'string' ? parseXml(xml) : xml;
+  if (!raiz) return null;
+  const nfe = raiz.nome === 'NFe' ? raiz : filho(raiz, 'NFe');
+  const infNFe = filho(nfe, 'infNFe');
+  const det = filhosPorNome(infNFe, 'det')
+    .find((d) => String(d.atributos.nItem) === String(nItem));
+  return det ? identarXml(det) : null;
+}

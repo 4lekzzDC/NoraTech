@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { caminho, filhosPorNome, lerNFe, numero, parseXml, texto } from './nfeXml.js';
+import {
+  caminho, filhosPorNome, identarXml, lerNFe, numero, parseXml, texto, xmlDoItem,
+} from './nfeXml.js';
 import { XML_NFE_EXEMPLO } from './fixtures/nfeExemplo.js';
 
 test('lê tags, atributos, texto e tag vazia', () => {
@@ -104,4 +106,40 @@ test('aceita NF-e sem protocolo e recusa XML que não é NF-e', () => {
   assert.ok(lerNFe('<NFe><infNFe Id="NFe9" versao="4.00"><ide><nNF>9</nNF></ide></infNFe></NFe>'));
   assert.throws(() => lerNFe('<html><body>erro 500</body></html>'), /não é uma NF-e/);
   assert.throws(() => lerNFe(''), /XML vazio/);
+});
+
+test('identarXml devolve o XML como o motor leu, com recuo', () => {
+  const identado = identarXml('<a versao="4.00"><b>1</b><c><d>2</d></c><e/></a>');
+  assert.equal(identado, [
+    '<a versao="4.00">',
+    '  <b>1</b>',
+    '  <c>',
+    '    <d>2</d>',
+    '  </c>',
+    '  <e/>',
+    '</a>',
+  ].join('\n'));
+});
+
+test('identarXml reescapa o que veio como entidade', () => {
+  const identado = identarXml('<a t="Alfa &amp; Cia"><b>1 &lt; 2</b></a>');
+  assert.equal(identado, '<a t="Alfa &amp; Cia">\n  <b>1 &lt; 2</b>\n</a>');
+});
+
+test('identarXml sobrevive a entrada vazia', () => {
+  assert.equal(identarXml(''), '');
+  assert.equal(identarXml(null), '');
+});
+
+test('xmlDoItem recorta o <det> pedido', () => {
+  const det = xmlDoItem(XML_NFE_EXEMPLO, 2);
+  assert.match(det, /^<det nItem="2">/);
+  assert.match(det, /<xProd>Desodorante aerosol<\/xProd>/);
+  assert.match(det, /^ {2}<prod>$/m, 'os filhos vêm recuados');
+  assert.ok(!det.includes('Perfume'), 'só o item pedido');
+});
+
+test('xmlDoItem devolve null para item inexistente', () => {
+  assert.equal(xmlDoItem(XML_NFE_EXEMPLO, 99), null);
+  assert.equal(xmlDoItem('', 1), null);
 });

@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  COLUNAS_EXPORTACAO, achatarItens, competenciaDoLote, explicarCalculo, fmtCnpj,
-  fmtData, fmtNcm, fmtPct, linhasExportacao, nomeArquivoExportacao,
-  rotuloOrigemAliquota, rotuloSituacao,
+  COLUNAS_EXPORTACAO, CST_ICMS, ORIGEM_MERCADORIA, achatarItens, competenciaDoLote,
+  descreverCodigo, explicarCalculo, fmtCnpj, fmtData, fmtNcm, fmtPct, fmtQtd,
+  linhasExportacao, nomeArquivoExportacao, rotuloOrigemAliquota, rotuloSituacao,
+  rotuloTributacaoIcms,
 } from './difalFormato.js';
 import { processarLote } from './difalPipeline.js';
 import { XML_NFE_EXEMPLO } from './fixtures/nfeExemplo.js';
@@ -128,4 +129,25 @@ test('competência do lote é o mês da maioria das notas', () => {
   assert.equal(competenciaDoLote(LOTE.notas), '2026-08');
   assert.equal(competenciaDoLote([]), null);
   assert.equal(competenciaDoLote([{ nota: { dataEmissao: null } }]), null);
+});
+
+test('códigos do leiaute viram texto, e o desconhecido aparece cru', () => {
+  assert.equal(descreverCodigo(CST_ICMS, '60'), '60 — ICMS cobrado anteriormente por substituição tributária');
+  assert.equal(descreverCodigo(CST_ICMS, '00'), '00 — Tributada integralmente');
+  assert.equal(descreverCodigo(ORIGEM_MERCADORIA, '1'), '1 — Estrangeira — importação direta, exceto a do código 6');
+  assert.equal(descreverCodigo(CST_ICMS, '77'), '77', 'código fora da tabela não ganha descrição inventada');
+  assert.equal(descreverCodigo(CST_ICMS, null), '—');
+});
+
+test('a tributação de origem sai em uma linha, com CST ou CSOSN', () => {
+  assert.match(rotuloTributacaoIcms({ cst: '00', csosn: null }), /^CST 00 — Tributada integralmente$/);
+  assert.match(rotuloTributacaoIcms({ cst: null, csosn: '102' }), /^CSOSN 102 — Tributada pelo Simples/);
+  assert.equal(rotuloTributacaoIcms({ cst: null, csosn: null, grupo: 'ICMSSN900' }), 'ICMSSN900');
+  assert.equal(rotuloTributacaoIcms(null), '—');
+});
+
+test('quantidade mostra as casas da nota, sem zeros à toa', () => {
+  assert.equal(fmtQtd(10), '10');
+  assert.equal(fmtQtd(1.5), '1,5');
+  assert.equal(fmtQtd('abc'), '—');
 });

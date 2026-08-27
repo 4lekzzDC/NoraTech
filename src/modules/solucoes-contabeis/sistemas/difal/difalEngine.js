@@ -174,8 +174,12 @@ export function aplicarAliquotas({ base, aliquotaInterna, aliquotaInter, fcp = 0
 
 // ── Item ──────────────────────────────────────────────────────────────────
 
+// `fonte` é o item exatamente como saiu do XML. Anda junto do resultado em
+// TODOS os caminhos — inclusive nos que não geram cálculo, que são
+// justamente os que alguém vai querer conferir contra a nota.
 function itemVazio(item, situacao, motivo, extra = {}) {
   return {
+    fonte: item,
     nItem: item.nItem,
     codigo: item.codigo,
     descricao: item.descricao,
@@ -251,6 +255,7 @@ export function calcularItem(item, contexto) {
   });
 
   return {
+    fonte: item,
     nItem: item.nItem,
     codigo: item.codigo,
     descricao: item.descricao,

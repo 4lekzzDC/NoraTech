@@ -64,12 +64,19 @@ export function processarNota(xml, opcoes = {}) {
     return { ok: false, processada: false, erro: erro.message, nota: null, itens: [], totais: totaisZerados(), alertas: [] };
   }
 
+  // Identificação completa, não só o que o cálculo usa: a tela mostra a nota
+  // inteira quando o contador quer conferir de onde o número saiu.
   const identificacao = {
     chave: nfe.chave,
+    versao: nfe.versao,
+    modelo: nfe.modelo,
     numero: nfe.numero,
     serie: nfe.serie,
     dataEmissao: nfe.dataEmissao,
+    dhEmi: nfe.dhEmi,
     naturezaOperacao: nfe.naturezaOperacao,
+    finNFe: nfe.finNFe,
+    idDest: nfe.idDest,
     emitente: nfe.emitente,
     destinatario: nfe.destinatario,
     totaisNota: nfe.totais,

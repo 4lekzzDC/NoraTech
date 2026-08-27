@@ -17,6 +17,7 @@ import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
 import { getCurrentTenantCompanyId } from '../../../../lib/subscriptions';
 import { getClientes } from '../../services/clients.service';
+import NotaDrawer from './NotaDrawer';
 import { processarLote } from './difalPipeline';
 import { getTabela } from './ncmRegras';
 import { exportarXlsx } from './difalExport';
@@ -68,6 +69,14 @@ function IChevron({ size = 14, aberto }) {
     </svg>
   );
 }
+function ILupa({ size = 15 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" />
+    </svg>
+  );
+}
+
 function ISearch({ size = 14 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -132,6 +141,25 @@ function Botao({ children, onClick, disabled, variante = 'primario', style = {} 
         transition: 'all 0.15s', ...style,
       }}
     >{children}</button>
+  );
+}
+
+// A lupa é o mesmo gesto em toda a tela: abre a nota de onde aquela linha
+// veio. Fica sempre na última coluna, para que o olho a encontre sem procurar.
+function BotaoLupa({ onClick, titulo }) {
+  const P = useP();
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      title={titulo}
+      aria-label={titulo}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 28, height: 28, borderRadius: 7, cursor: 'pointer',
+        border: `1px solid ${P.border}`, background: 'transparent', color: P.muted,
+        transition: 'all 0.15s',
+      }}
+    ><ILupa /></button>
   );
 }
 
@@ -404,7 +432,7 @@ const FILTROS = [
   { id: 'nao_aplicavel', label: 'Não aplicáveis' },
 ];
 
-function TabelaItens({ itens }) {
+function TabelaItens({ itens, onInspecionar }) {
   const P = useP();
   const [filtro, setFiltro] = useState('todos');
   const [busca, setBusca] = useState('');
@@ -482,6 +510,7 @@ function TabelaItens({ itens }) {
               <th style={{ ...th, textAlign: 'right' }}>Base</th>
               <th style={{ ...th, textAlign: 'right' }}>Interna × Inter.</th>
               <th style={{ ...th, textAlign: 'right' }}>Total</th>
+              <th style={{ ...th, width: 44 }} />
             </tr>
           </thead>
           <tbody>
@@ -526,10 +555,16 @@ function TabelaItens({ itens }) {
                     }}>
                       {item.valores.vTotal ? fmtBRL(item.valores.vTotal) : '—'}
                     </td>
+                    <td style={{ ...td, textAlign: 'right' }}>
+                      <BotaoLupa
+                        onClick={() => onInspecionar(item)}
+                        titulo={`Ver a nota ${item.numeroNota}, item ${item.nItem}`}
+                      />
+                    </td>
                   </tr>
                   {expandido && (
                     <tr>
-                      <td colSpan={10} style={{ padding: 0 }}><DetalheItem item={item} /></td>
+                      <td colSpan={11} style={{ padding: 0 }}><DetalheItem item={item} /></td>
                     </tr>
                   )}
                 </Fragment>
@@ -537,7 +572,7 @@ function TabelaItens({ itens }) {
             })}
             {!visiveis.length && (
               <tr>
-                <td colSpan={10} style={{ padding: '34px 12px', textAlign: 'center', color: P.muted, fontSize: 13 }}>
+                <td colSpan={11} style={{ padding: '34px 12px', textAlign: 'center', color: P.muted, fontSize: 13 }}>
                   Nenhum item com esse filtro.
                 </td>
               </tr>
@@ -604,26 +639,91 @@ function TabelaPorNcm({ porNcm }) {
   );
 }
 
-// ── Notas descartadas na triagem ──────────────────────────────────────────
-function NotasDescartadas({ notas }) {
+// ── Notas do lote ─────────────────────────────────────────────────────────
+// Todas as notas enviadas, inclusive as que o motor descartou na triagem e as
+// que nem conseguiu ler. Nota que some sem explicação vira desconfiança na
+// apuração inteira — aqui cada arquivo diz o que virou, e a lupa abre a nota.
+function TabelaNotas({ notas, onInspecionar }) {
   const P = useP();
-  const descartadas = notas.filter((n) => n.ok && !n.processada && n.situacao === 'nao_aplicavel');
-  if (!descartadas.length) return null;
+  if (!notas.length) return null;
+
+  const th = {
+    textAlign: 'left', padding: '10px 12px', fontSize: 10.5, fontWeight: 700,
+    color: P.muted2, textTransform: 'uppercase', letterSpacing: '0.06em',
+    borderBottom: `1px solid ${P.border}`, whiteSpace: 'nowrap',
+  };
+  const td = { padding: '11px 12px', fontSize: 12.5, borderBottom: `1px solid ${P.border}` };
 
   return (
-    <Card style={{ padding: 20, marginBottom: 20 }}>
-      <SectionTitle hint="Notas que o motor leu e descartou antes dos itens. Aparecem aqui para que o descarte seja visível — nota some sem explicação vira desconfiança.">
-        Notas fora da apuração ({descartadas.length})
-      </SectionTitle>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {descartadas.map((n, i) => (
-          <div key={i} style={{ fontSize: 12.5, lineHeight: 1.5 }}>
-            <span style={{ fontFamily: FONT_MONO, color: P.muted }}>
-              {n.nota?.numero ? `NF ${n.nota.numero}` : n.arquivo || '—'}
-            </span>
-            <span style={{ color: P.muted }}> — {n.motivo}</span>
-          </div>
-        ))}
+    <Card style={{ overflow: 'hidden', marginBottom: 20 }}>
+      <div style={{ padding: '18px 20px 4px' }}>
+        <SectionTitle hint="Cada arquivo enviado e o que ele virou. A lupa abre a nota: identificação, partes, totais e o XML como o motor leu.">
+          Notas do lote ({notas.length})
+        </SectionTitle>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
+          <thead>
+            <tr>
+              <th style={th}>Arquivo</th>
+              <th style={th}>Nota</th>
+              <th style={th}>Emitente</th>
+              <th style={th}>Rota</th>
+              <th style={th}>Situação</th>
+              <th style={{ ...th, textAlign: 'right' }}>Itens</th>
+              <th style={{ ...th, textAlign: 'right' }}>Total</th>
+              <th style={{ ...th, width: 44 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {notas.map((nota, i) => {
+              const dados = nota.nota;
+              const situacao = !nota.ok
+                ? { label: 'Ilegível', cor: 'muted', detalhe: nota.erro }
+                : nota.processada
+                  ? { label: 'Processada', cor: 'green', detalhe: null }
+                  : {
+                    label: nota.situacao === 'pendente' ? 'Pendente' : 'Fora da apuração',
+                    cor: nota.situacao === 'pendente' ? 'gold' : 'muted',
+                    detalhe: nota.motivo,
+                  };
+              return (
+                <tr key={`${nota.arquivo || 'nota'}-${i}`}>
+                  <td style={{ ...td, fontFamily: FONT_MONO, fontSize: 11.5, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {nota.arquivo || '—'}
+                  </td>
+                  <td style={{ ...td, fontFamily: FONT_MONO, whiteSpace: 'nowrap' }}>
+                    {dados?.numero ? `${dados.numero}/${dados.serie || '1'}` : '—'}
+                    <div style={{ fontSize: 11, color: P.muted2 }}>{fmtData(dados?.dataEmissao)}</div>
+                  </td>
+                  <td style={{ ...td, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {dados?.emitente?.nome || '—'}
+                  </td>
+                  <td style={{ ...td, fontFamily: FONT_MONO, whiteSpace: 'nowrap' }}>
+                    {dados?.emitente?.uf && dados?.destinatario?.uf
+                      ? `${dados.emitente.uf} → ${dados.destinatario.uf}`
+                      : '—'}
+                  </td>
+                  <td style={td}>
+                    <Badge cor={situacao.cor} title={situacao.detalhe || ''}>{situacao.label}</Badge>
+                  </td>
+                  <td style={{ ...td, textAlign: 'right', fontFamily: FONT_MONO }}>
+                    {nota.processada ? `${nota.totais.calculados}/${nota.totais.itens}` : '—'}
+                  </td>
+                  <td style={{ ...td, textAlign: 'right', fontFamily: FONT_MONO, fontWeight: nota.totais.vTotal ? 700 : 400 }}>
+                    {nota.totais.vTotal ? fmtBRL(nota.totais.vTotal) : '—'}
+                  </td>
+                  <td style={{ ...td, textAlign: 'right' }}>
+                    <BotaoLupa
+                      onClick={() => onInspecionar(nota)}
+                      titulo={dados?.numero ? `Ver a nota ${dados.numero}` : 'Ver o arquivo'}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </Card>
   );
@@ -678,6 +778,8 @@ export default function DifalPage() {
   // quando um parâmetro muda, sem pedir o arquivo de novo.
   const [entradas, setEntradas] = useState([]);
   const [lendo, setLendo] = useState(false);
+  // Nota (e, quando veio de uma linha de item, o item) aberta na lupa.
+  const [inspecao, setInspecao] = useState(null);
 
   const cliente = clientes.find((c) => String(c.id) === clienteId) || null;
 
@@ -732,6 +834,14 @@ export default function DifalPage() {
   });
 
   const exportar = () => exportarXlsx(resultado.notas, competenciaDoLote(resultado.notas));
+
+  // A linha achatada guarda de qual nota veio; a lupa precisa do resultado
+  // inteiro daquela nota para montar o painel.
+  const notaDoItem = (linha) => resultado.notas.find(
+    (n) => n.ok && n.processada && n.nota.chave === linha.chave && n.arquivo === linha.arquivo,
+  ) || null;
+
+  const xmlDaNota = (nota) => entradas.find((e) => e.nome === nota?.arquivo)?.xml || null;
 
   return (
     <PaletteCtx.Provider value={P}>
@@ -797,9 +907,15 @@ export default function DifalPage() {
                 <>
                   <Resumo resultado={resultado} onExportar={exportar} />
                   <Pendencias pendencias={resultado.pendencias} erros={resultado.erros} />
-                  <TabelaItens itens={itens} />
+                  <TabelaItens
+                    itens={itens}
+                    onInspecionar={(linha) => setInspecao({ nota: notaDoItem(linha), item: linha })}
+                  />
                   <TabelaPorNcm porNcm={resultado.porNcm} />
-                  <NotasDescartadas notas={resultado.notas} />
+                  <TabelaNotas
+                    notas={resultado.notas}
+                    onInspecionar={(nota) => setInspecao({ nota, item: null })}
+                  />
 
                   <div style={{ fontSize: 11.5, color: P.muted2, lineHeight: 1.6, marginTop: 4 }}>
                     <IBuilding size={12} /> As alíquotas internas vêm da tabela de regras cadastrada
@@ -812,6 +928,16 @@ export default function DifalPage() {
             </>
           )}
         </main>
+
+        {inspecao?.nota && (
+          <NotaDrawer
+            nota={inspecao.nota}
+            item={inspecao.item}
+            xml={xmlDaNota(inspecao.nota)}
+            onFechar={() => setInspecao(null)}
+            onSelecionarItem={(item) => setInspecao((atual) => ({ ...atual, item }))}
+          />
+        )}
       </div>
     </PaletteCtx.Provider>
   );

@@ -174,3 +174,31 @@ test('pendência de nota inteira também entra na lista do fiscal', () => {
   assert.equal(lote.pendencias[0].nItem, null);
   assert.match(lote.pendencias[0].motivo, /MG/);
 });
+
+test('cada item carrega o dado bruto do XML, para a tela mostrar a nota', () => {
+  const r = processarNota(XML_NFE_EXEMPLO);
+
+  const perfume = item(r, 1);
+  assert.equal(perfume.fonte.vProd, 1000);
+  assert.equal(perfume.fonte.quantidade, 10);
+  assert.equal(perfume.fonte.icms.grupo, 'ICMS00');
+  assert.equal(perfume.fonte.icms.vICMS, 132);
+
+  // Item sem cálculo é o que mais precisa ser conferido contra a nota.
+  const comSt = item(r, 4);
+  assert.equal(comSt.situacao, 'nao_aplicavel');
+  assert.equal(comSt.fonte.icms.cst, '60');
+  assert.equal(comSt.fonte.vProd, 100);
+});
+
+test('a identificação da nota traz o que a tela precisa além do cálculo', () => {
+  const { nota } = processarNota(XML_NFE_EXEMPLO);
+  assert.deepEqual(
+    { modelo: nota.modelo, versao: nota.versao, finNFe: nota.finNFe, idDest: nota.idDest, serie: nota.serie },
+    { modelo: '55', versao: '4.00', finNFe: '1', idDest: '2', serie: '1' },
+  );
+  assert.equal(nota.dhEmi, '2026-08-14T10:32:00-03:00');
+  assert.equal(nota.emitente.crt, '3');
+  assert.equal(nota.destinatario.indIEDest, '1');
+  assert.equal(nota.totaisNota.vNF, 5730);
+});
