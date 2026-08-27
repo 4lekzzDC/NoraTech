@@ -20,9 +20,10 @@ import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
 import {
   listarConfigsUf, salvarConfigUf, listarRegras, salvarRegra, excluirRegra, importarRegras,
 } from '../../services/regrasNcm.service';
-import { validarTabela, TIPOS_REGRA } from './ncmRegras';
+import { validarTabela, TIPOS_REGRA, digitosNcm } from './ncmRegras';
 import { montarTabelaUf } from './regrasNcmMerge';
 import { linhasDePlanilha, MODELO_CABECALHO } from './importarRegrasPlanilha';
+import { parseResultadoAliquota } from './econetParser';
 import { fmtNcm, fmtPct } from './difalFormato';
 
 const UFS = [
@@ -104,6 +105,9 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
   const [arquivoImport, setArquivoImport] = useState(null);
   const [previaImport, setPreviaImport] = useState(null);
   const [importando, setImportando] = useState(false);
+
+  const [htmlEconet, setHtmlEconet] = useState('');
+  const [resultadoEconet, setResultadoEconet] = useState(null); // undefined | null (inválido) | { registros, baseLegal, observacoes }
 
   async function recarregar() {
     setCarregando(true);
@@ -238,6 +242,28 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
       fundamento: linha.fundamento, vigenciaInicio: linha.vigencia_inicio || '',
       vigenciaFim: linha.vigencia_fim || '', fonte: linha.fonte,
     } : { ...REGRA_VAZIA });
+  }
+
+  function analisarEconet() {
+    setResultadoEconet(parseResultadoAliquota(htmlEconet));
+  }
+
+  function usarRegistroEconet(registro) {
+    const ncm = digitosNcm(registro.ncm);
+    const nivel = ncm.length;
+    const tipo = nivel === 2 ? 'capitulo' : nivel === 6 ? 'subposicao' : nivel === 8 ? 'item' : 'posicao';
+    const semAliquotaPropria = registro.aliquota == null;
+    const base = resultadoEconet?.baseLegal;
+    const fundamento = [base?.texto, base?.url].filter(Boolean).join(' — ');
+    setEditandoRegra({
+      ...REGRA_VAZIA,
+      ncm, tipo,
+      aliquota: semAliquotaPropria ? '' : String(registro.aliquota),
+      seguirGeral: semAliquotaPropria,
+      fcp: registro.fecp != null ? String(registro.fecp) : '',
+      fundamento,
+      fonte: 'econet',
+    });
   }
 
   async function lerArquivo(file) {
@@ -444,6 +470,82 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
             </tbody>
           </table>
         </div>
+      </Card>
+
+      {/* ── Importar da Econet ── */}
+      <Card P={P} style={{ padding: 20, marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: P.primary, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+          Importar da Econet
+        </div>
+        <div style={{ fontSize: 12, color: P.muted, lineHeight: 1.6, marginBottom: 12, maxWidth: 640 }}>
+          Consulte um NCM na ferramenta "Alíquotas Internas e Benefícios Fiscais"
+          da Econet, para a UF que você está editando aqui ({uf}). Depois, na
+          página do resultado, use Ctrl+U (ver código-fonte) e cole abaixo. Nada
+          é enviado para fora — a leitura acontece só no seu navegador, e nada
+          é gravado até você revisar e clicar em salvar.
+        </div>
+        <textarea
+          value={htmlEconet}
+          onChange={(e) => { setHtmlEconet(e.target.value); setResultadoEconet(undefined); }}
+          placeholder="Cole aqui o código-fonte da página de resultado da Econet…"
+          style={{ ...inputStyle(P), minHeight: 110, fontFamily: FONT_MONO, fontSize: 11.5, resize: 'vertical', marginBottom: 10 }}
+        />
+        <Botao P={P} onClick={analisarEconet} disabled={!htmlEconet.trim()}>Analisar</Botao>
+
+        {resultadoEconet === null && (
+          <div style={{ marginTop: 12, fontSize: 12, color: P.red }}>
+            Não reconheci uma tabela de resultado de alíquota nesse HTML.
+            Confirme que colou o código-fonte da página de resultado (depois de
+            consultar um NCM), não o de outra tela do site.
+          </div>
+        )}
+
+        {resultadoEconet && (
+          <div style={{ marginTop: 14 }}>
+            {resultadoEconet.registros.map((registro, i) => (
+              <div key={i} style={{ padding: '12px 14px', borderRadius: 10, border: `1px solid ${P.border}`, background: P.surface2, marginBottom: 10 }}>
+                <div style={{ fontSize: 12.5, color: P.text, marginBottom: 6 }}>
+                  <b style={{ fontFamily: FONT_MONO }}>{fmtNcm(registro.ncm)}</b>
+                  {registro.ex && <span style={{ color: P.muted2 }}> · EX {registro.ex}</span>}
+                  {' — '}
+                  {registro.aliquota == null ? 'sem alíquota própria na consulta (verifique se segue a geral)' : fmtPct(registro.aliquota)}
+                  {registro.fecp != null && ` + FCP ${fmtPct(registro.fecp)}`}
+                </div>
+                {registro.descricao && (
+                  <div style={{ fontSize: 11.5, color: P.muted, lineHeight: 1.5, marginBottom: 8 }}>{registro.descricao}</div>
+                )}
+                <Botao P={P} variante="secundario" onClick={() => usarRegistroEconet(registro)}>
+                  Usar esta linha no formulário →
+                </Botao>
+              </div>
+            ))}
+
+            {resultadoEconet.baseLegal && (
+              <div style={{ fontSize: 11.5, color: P.muted, marginBottom: 8 }}>
+                Base legal: {resultadoEconet.baseLegal.texto}
+                {resultadoEconet.baseLegal.url && (
+                  <> — <a href={resultadoEconet.baseLegal.url} target="_blank" rel="noreferrer" style={{ color: P.primaryText }}>fonte</a></>
+                )}
+              </div>
+            )}
+
+            {resultadoEconet.observacoes.length > 0 && (
+              <div style={{ fontSize: 11.5, color: P.muted, lineHeight: 1.6 }}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                  Observações da Econet (não são gravadas sozinhas — se apontarem
+                  um NCM diferente com alíquota própria, consulte aquele código
+                  separadamente e cole o resultado dele aqui também):
+                </div>
+                {resultadoEconet.observacoes.map((obs, i) => (
+                  <div key={i} style={{ marginBottom: 4 }}>
+                    • {obs.texto}
+                    {obs.links.map((l, j) => <span key={j}> (<a href={l.url} target="_blank" rel="noreferrer" style={{ color: P.primaryText }}>{l.texto}</a>)</span>)}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </Card>
 
       {/* ── Importar planilha ── */}
