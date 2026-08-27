@@ -34,6 +34,16 @@ export function fmtCnpj(valor) {
   return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
 }
 
+const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+// '2026-08' → 'ago/2026'. É como o contador chama o período: pelo mês, não
+// pela data ISO.
+export function competenciaLegivel(competencia) {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(competencia ?? ''));
+  if (!m) return competencia || '—';
+  return `${MESES[Number(m[2]) - 1] || m[2]}/${m[1]}`;
+}
+
 export function fmtData(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso ?? ''));
   return m ? `${m[3]}/${m[2]}/${m[1]}` : '—';

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   COLUNAS_EXPORTACAO, CST_ICMS, ORIGEM_MERCADORIA, achatarItens, competenciaDoLote,
+  competenciaLegivel,
   descreverCodigo, explicarCalculo, fmtCnpj, fmtData, fmtNcm, fmtPct, fmtQtd,
   linhasExportacao, nomeArquivoExportacao, rotuloOrigemAliquota, rotuloSituacao,
   rotuloTributacaoIcms,
@@ -150,4 +151,11 @@ test('quantidade mostra as casas da nota, sem zeros à toa', () => {
   assert.equal(fmtQtd(10), '10');
   assert.equal(fmtQtd(1.5), '1,5');
   assert.equal(fmtQtd('abc'), '—');
+});
+
+test('competência aparece pelo mês, como o contador chama o período', () => {
+  assert.equal(competenciaLegivel('2026-08'), 'ago/2026');
+  assert.equal(competenciaLegivel('2026-01'), 'jan/2026');
+  assert.equal(competenciaLegivel('lixo'), 'lixo');
+  assert.equal(competenciaLegivel(null), '—');
 });

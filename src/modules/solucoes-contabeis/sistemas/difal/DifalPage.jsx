@@ -10,7 +10,7 @@
 // política de revenda recalcula o lote inteiro na hora, sem novo upload —
 // e é isso que torna a conferência um diálogo, e não um formulário.
 
-import { Fragment, createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import SolucoesHeader from '../../components/SolucoesHeader';
 import AnimatedDropzone from '../../../../components/AnimatedDropzone';
 import { useTheme } from '../../../../contexts/ThemeContext';
@@ -18,13 +18,19 @@ import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
 import { getCurrentTenantCompanyId } from '../../../../lib/subscriptions';
 import { getClientes } from '../../services/clients.service';
 import NotaDrawer from './NotaDrawer';
-import { processarLote } from './difalPipeline';
+import HistoricoApuracoes from './HistoricoApuracoes';
+import { VERSAO_MOTOR, processarLote } from './difalPipeline';
+import { xmlPorArquivo } from './difalPersistencia';
+import {
+  carregarApuracao, excluirApuracao, fecharApuracao, listarApuracoes,
+  notasJaApuradas, salvarApuracao,
+} from '../../services/difal.service';
 import { getTabela } from './ncmRegras';
 import { exportarXlsx } from './difalExport';
 import {
-  ROTULO_FINALIDADE, ROTULO_METODO, achatarItens, competenciaDoLote, explicarCalculo,
-  fmtBRL, fmtCnpj, fmtData, fmtNcm, fmtPct, rotuloFonteInterestadual,
-  rotuloOrigemAliquota, rotuloSituacao,
+  ROTULO_FINALIDADE, ROTULO_METODO, achatarItens, competenciaDoLote,
+  competenciaLegivel, explicarCalculo, fmtBRL, fmtCnpj, fmtData, fmtNcm, fmtPct,
+  rotuloFonteInterestadual, rotuloOrigemAliquota, rotuloSituacao,
 } from './difalFormato';
 
 const PaletteCtx = createContext(null);
@@ -61,6 +67,15 @@ function IDownload({ size = 15 }) {
     </svg>
   );
 }
+function ISalvar({ size = 15 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
+      <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+    </svg>
+  );
+}
+
 function IChevron({ size = 14, aberto }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
@@ -193,7 +208,10 @@ function Select({ value, onChange, children }) {
 // Empresa é opcional de propósito: filtrar pelo CNPJ do destinatário evita
 // que uma nota de outro cliente entre na guia por engano, mas o contador
 // também usa a tela para conferir um XML avulso, sem cadastro nenhum.
-function ParametrosCard({ clientes, clienteId, setClienteId, metodoBase, setMetodoBase, politicaRevenda, setPoliticaRevenda, ufDestino }) {
+function ParametrosCard({
+  clientes, clienteId, setClienteId, metodoBase, setMetodoBase,
+  politicaRevenda, setPoliticaRevenda, ufDestino, competencia, setCompetencia,
+}) {
   const P = useP();
   const tabela = ufDestino ? getTabela(ufDestino) : null;
   const padraoMetodo = tabela ? ROTULO_METODO[tabela.metodoBase] : 'definido pela UF';
@@ -236,6 +254,22 @@ function ParametrosCard({ clientes, clienteId, setClienteId, metodoBase, setMeto
             <option value="antecipacao_parcial">Cobrar antecipação parcial</option>
           </Select>
         </Campo>
+
+        <Campo
+          label="Competência"
+          hint="Preenchida pelo mês da maioria das notas do lote. É por ela que a apuração é guardada e procurada depois."
+        >
+          <input
+            type="month"
+            value={competencia}
+            onChange={(e) => setCompetencia(e.target.value)}
+            style={{
+              width: '100%', padding: '9px 11px', borderRadius: 9, fontFamily: FONT_INTER,
+              fontSize: 13, background: P.inputBg, color: P.text,
+              border: `1px solid ${P.border2}`, outline: 'none',
+            }}
+          />
+        </Campo>
       </div>
 
       {ufDestino && !tabela && (
@@ -264,7 +298,7 @@ function Kpi({ label, valor, destaque, sub }) {
   );
 }
 
-function Resumo({ resultado, onExportar }) {
+function Resumo({ resultado, onExportar, onSalvar, salvando, podeSalvar, motivoSemSalvar }) {
   const P = useP();
   const { totais } = resultado;
   const notasProcessadas = resultado.notas.filter((n) => n.ok && n.processada).length;
@@ -281,11 +315,19 @@ function Resumo({ resultado, onExportar }) {
           sub={totais.pendentes ? 'precisam de decisão manual' : 'nada travado'} />
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
-        <Botao onClick={onExportar} disabled={!totais.itens}>
-          <IDownload /> Exportar planilha da apuração
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        <Botao onClick={onExportar} disabled={!totais.itens} variante="secundario">
+          <IDownload /> Exportar planilha
+        </Botao>
+        <Botao onClick={onSalvar} disabled={!podeSalvar || salvando} style={{ opacity: podeSalvar ? 1 : 0.5 }}>
+          <ISalvar /> {salvando ? 'Salvando…' : 'Salvar apuração'}
         </Botao>
       </div>
+      {motivoSemSalvar && (
+        <div style={{ fontSize: 11.5, color: P.muted2, textAlign: 'right', marginTop: -12, marginBottom: 18 }}>
+          {motivoSemSalvar}
+        </div>
+      )}
 
       {totais.itens > 0 && totais.calculados === 0 && (
         <Card style={{ padding: 16, marginBottom: 20, borderColor: P.primaryBorder }}>
@@ -729,6 +771,80 @@ function TabelaNotas({ notas, onInspecionar }) {
   );
 }
 
+// ── Nota já apurada antes ─────────────────────────────────────────────────
+// Pagar DIFAL duas vezes pela mesma nota é o erro clássico deste processo, e
+// acontece de um jeito banal: o mesmo XML volta no lote do mês seguinte. O
+// motor não tem como perceber (ele só vê o lote da vez) — quem sabe é o banco.
+function AvisoRepetidas({ repetidas, notas }) {
+  const P = useP();
+  const chaves = Object.keys(repetidas || {});
+  if (!chaves.length) return null;
+
+  const porChave = new Map(
+    notas.filter((n) => n.ok && n.nota?.chave).map((n) => [n.nota.chave, n]),
+  );
+
+  return (
+    <Card style={{ padding: 20, marginBottom: 20, borderColor: 'rgba(240,180,41,0.35)' }}>
+      <SectionTitle hint="Estas notas já entraram em uma apuração salva. Confira antes de recolher: a mesma nota em duas competências é DIFAL pago em dobro.">
+        <span style={{ color: P.gold, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <IAlert size={13} /> Notas já apuradas antes ({chaves.length})
+        </span>
+      </SectionTitle>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {chaves.map((chave) => {
+          const nota = porChave.get(chave);
+          const onde = repetidas[chave];
+          return (
+            <div key={chave} style={{ fontSize: 12.5, lineHeight: 1.5 }}>
+              <span style={{ fontFamily: FONT_MONO, color: P.gold }}>
+                {nota?.nota?.numero ? `NF ${nota.nota.numero}` : chave.slice(0, 12) + '…'}
+              </span>
+              <span style={{ color: P.muted }}>
+                {' '}— já consta na competência {competenciaLegivel(onde.competencia)}
+                {onde.status === 'fechada' ? ', que está fechada' : ''}.
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+// ── Apuração carregada do histórico ───────────────────────────────────────
+function FaixaApuracao({ apuracao, onSair }) {
+  const P = useP();
+  const fechada = apuracao.status === 'fechada';
+  return (
+    <Card style={{
+      padding: '14px 18px', marginBottom: 20,
+      borderColor: fechada ? P.border2 : P.primaryBorder,
+      background: fechada ? P.surface2 : P.primarySoft,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 260, fontSize: 12.5, lineHeight: 1.6, color: P.text }}>
+          <b>Apuração de {competenciaLegivel(apuracao.competencia)}</b>
+          {apuracao.cliente?.nome ? ` · ${apuracao.cliente.nome}` : ''}
+          {fechada ? (
+            <div style={{ color: P.muted, marginTop: 2 }}>
+              Fechada — os números são os que foram gravados, com o motor v{apuracao.versao_motor}
+              {apuracao.versao_tabela ? ` e a tabela ${apuracao.versao_tabela}` : ''}. Reabra no
+              histórico para reprocessar.
+            </div>
+          ) : (
+            <div style={{ color: P.muted, marginTop: 2 }}>
+              Aberta — as notas voltaram para a tela e estão sendo processadas com as regras de
+              hoje. Salvar de novo regrava esta competência.
+            </div>
+          )}
+        </div>
+        <Botao variante="secundario" onClick={onSair}>Começar uma apuração nova</Botao>
+      </div>
+    </Card>
+  );
+}
+
 // ── Estado vazio ──────────────────────────────────────────────────────────
 function ComoFunciona() {
   const P = useP();
@@ -781,20 +897,73 @@ export default function DifalPage() {
   // Nota (e, quando veio de uma linha de item, o item) aberta na lupa.
   const [inspecao, setInspecao] = useState(null);
 
-  const cliente = clientes.find((c) => String(c.id) === clienteId) || null;
+  // ── Persistência ────────────────────────────────────────────────────────
+  const [competencia, setCompetencia] = useState('');
+  // Apuração carregada do histórico. Quando ela está fechada, a tela mostra
+  // `resultadoSalvo` — os números como foram gravados — em vez de reprocessar
+  // com as regras de hoje: uma guia já recolhida não pode mudar sozinha
+  // porque a tabela de NCM foi corrigida depois.
+  const [apuracaoAberta, setApuracaoAberta] = useState(null);
+  const [resultadoSalvo, setResultadoSalvo] = useState(null);
+  const [xmlsSalvos, setXmlsSalvos] = useState({});
+  const [historico, setHistorico] = useState([]);
+  const [carregandoHistorico, setCarregandoHistorico] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erroPersistencia, setErroPersistencia] = useState(null);
+  const [repetidas, setRepetidas] = useState({});
 
-  const resultado = useMemo(() => processarLote(entradas, {
+  const cliente = clientes.find((c) => String(c.id) === clienteId) || null;
+  const fechada = apuracaoAberta?.status === 'fechada';
+
+  const aoVivo = useMemo(() => processarLote(entradas, {
     cnpjCliente: cliente?.cnpj || null,
     metodoBase: metodoBase || undefined,
     politicaRevenda: politicaRevenda || undefined,
   }), [entradas, cliente, metodoBase, politicaRevenda]);
 
+  const resultado = fechada && resultadoSalvo ? resultadoSalvo : aoVivo;
   const itens = useMemo(() => achatarItens(resultado.notas), [resultado]);
 
   // UF de destino observada no lote — quando ainda não há nota, cai no estado
   // cadastrado da empresa, que é o palpite honesto disponível.
   const ufDestino = resultado.notas.find((n) => n.ok && n.processada)?.operacao.ufDestino
     || cliente?.estado || '';
+
+  const recarregarHistorico = useCallback(async () => {
+    if (!companyId) { setHistorico([]); return; }
+    setCarregandoHistorico(true);
+    try {
+      setHistorico(await listarApuracoes(companyId));
+    } catch (erro) {
+      setErroPersistencia(erro.message);
+    } finally {
+      setCarregandoHistorico(false);
+    }
+  }, [companyId]);
+
+  useEffect(() => { recarregarHistorico(); }, [recarregarHistorico]);
+
+  // Competência sugerida pelo lote — só preenche o que está vazio, para não
+  // atropelar a escolha de quem já digitou.
+  const competenciaDoConteudo = competenciaDoLote(resultado.notas);
+  useEffect(() => {
+    if (competenciaDoConteudo) setCompetencia((atual) => atual || competenciaDoConteudo);
+  }, [competenciaDoConteudo]);
+
+  // Nota que já entrou em outra apuração da equipe.
+  const chavesDoLote = resultado.notas
+    .filter((n) => n.ok && n.nota?.chave)
+    .map((n) => n.nota.chave)
+    .join(',');
+  useEffect(() => {
+    let ativo = true;
+    const chaves = chavesDoLote ? chavesDoLote.split(',') : [];
+    if (!companyId || !chaves.length) { setRepetidas({}); return undefined; }
+    notasJaApuradas(companyId, chaves, { exceto: apuracaoAberta?.id || null })
+      .then((achadas) => { if (ativo) setRepetidas(achadas); })
+      .catch(() => { if (ativo) setRepetidas({}); });
+    return () => { ativo = false; };
+  }, [companyId, chavesDoLote, apuracaoAberta]);
 
   async function receberArquivos(files) {
     setLendo(true);
@@ -833,7 +1002,113 @@ export default function DifalPage() {
     };
   });
 
-  const exportar = () => exportarXlsx(resultado.notas, competenciaDoLote(resultado.notas));
+  const exportar = () => exportarXlsx(resultado.notas, competencia || competenciaDoLote(resultado.notas));
+
+  // ── Ações do histórico ──────────────────────────────────────────────────
+
+  // Só faz sentido salvar o que foi processado nesta sessão: uma apuração
+  // fechada aberta para consulta já está gravada, e regravá-la a partir do
+  // que está na tela seria escrever de volta o que acabou de ser lido.
+  const podeSalvar = Boolean(companyId) && !fechada && entradas.length > 0
+    && /^\d{4}-\d{2}$/.test(competencia);
+  const motivoSemSalvar = (() => {
+    if (fechada) return 'Apuração fechada — reabra no histórico para alterar.';
+    if (!entradas.length) return null;
+    if (!companyId) return 'Sem equipe ativa: não é possível gravar.';
+    if (!/^\d{4}-\d{2}$/.test(competencia)) return 'Informe a competência para salvar.';
+    return null;
+  })();
+
+  async function salvar() {
+    setSalvando(true);
+    setErroPersistencia(null);
+    try {
+      const id = await salvarApuracao(
+        resultado,
+        {
+          tenantCompanyId: companyId,
+          apuracaoId: apuracaoAberta?.id || null,
+          accountingCompanyId: cliente?.id || null,
+          competencia,
+          ufDestino,
+          metodoBase: resultado.notas.find((n) => n.processada)?.operacao.metodoBase || metodoBase || 'base_simples',
+          politicaRevenda: resultado.notas.find((n) => n.processada)?.operacao.politicaRevenda || politicaRevenda || 'nao_incide',
+          versaoMotor: VERSAO_MOTOR,
+          versaoTabela: getTabela(ufDestino)?.versao || null,
+          status: apuracaoAberta?.status || 'aberta',
+        },
+        xmlPorArquivo(entradas),
+      );
+      await recarregarHistorico();
+      setApuracaoAberta((atual) => ({
+        ...(atual || {}),
+        id,
+        competencia,
+        status: atual?.status || 'aberta',
+        cliente: cliente ? { id: cliente.id, nome: cliente.name, cnpj: cliente.cnpj } : null,
+      }));
+    } catch (erro) {
+      setErroPersistencia(erro.message);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  // Abrir uma apuração ABERTA devolve os XMLs para a tela: o motor reprocessa
+  // e a partir daí ela é editável como qualquer lote. Fechada fica como está
+  // gravada — sem XML de volta, sem reprocessamento.
+  async function abrirApuracao(linha) {
+    setErroPersistencia(null);
+    setInspecao(null);
+    try {
+      const { apuracao, resultado: salvo, xmls } = await carregarApuracao(linha.id);
+      setApuracaoAberta(apuracao);
+      setResultadoSalvo(salvo);
+      setXmlsSalvos(xmls);
+      setCompetencia(apuracao.competencia || '');
+      setClienteId(apuracao.accounting_company_id ? String(apuracao.accounting_company_id) : '');
+      setMetodoBase(apuracao.metodo_base || '');
+      setPoliticaRevenda(apuracao.politica_revenda || '');
+      setEntradas(apuracao.status === 'fechada'
+        ? []
+        : Object.entries(xmls).map(([nome, xml]) => ({ nome, xml, tamanho: xml.length })));
+    } catch (erro) {
+      setErroPersistencia(erro.message);
+    }
+  }
+
+  function sairDaApuracao() {
+    setApuracaoAberta(null);
+    setResultadoSalvo(null);
+    setXmlsSalvos({});
+    setEntradas([]);
+    setCompetencia('');
+    setInspecao(null);
+  }
+
+  async function alternarStatus(linha) {
+    setErroPersistencia(null);
+    try {
+      await fecharApuracao(linha.id, linha.status !== 'fechada');
+      await recarregarHistorico();
+      if (apuracaoAberta?.id === linha.id) await abrirApuracao(linha);
+    } catch (erro) {
+      setErroPersistencia(erro.message);
+    }
+  }
+
+  async function removerApuracao(linha) {
+    const rotulo = competenciaLegivel(linha.competencia);
+    if (!window.confirm(`Excluir a apuração de ${rotulo}? As notas e os XMLs guardados vão junto.`)) return;
+    setErroPersistencia(null);
+    try {
+      await excluirApuracao(linha.id);
+      if (apuracaoAberta?.id === linha.id) sairDaApuracao();
+      await recarregarHistorico();
+    } catch (erro) {
+      setErroPersistencia(erro.message);
+    }
+  }
 
   // A linha achatada guarda de qual nota veio; a lupa precisa do resultado
   // inteiro daquela nota para montar o painel.
@@ -841,7 +1116,12 @@ export default function DifalPage() {
     (n) => n.ok && n.processada && n.nota.chave === linha.chave && n.arquivo === linha.arquivo,
   ) || null;
 
-  const xmlDaNota = (nota) => entradas.find((e) => e.nome === nota?.arquivo)?.xml || null;
+  // O XML pode estar na sessão (upload agora) ou ter vindo guardado com a
+  // apuração — é por isso que ele é gravado: a lupa continua funcionando
+  // depois de recarregar a página.
+  const xmlDaNota = (nota) => entradas.find((e) => e.nome === nota?.arquivo)?.xml
+    || xmlsSalvos[nota?.arquivo]
+    || null;
 
   return (
     <PaletteCtx.Provider value={P}>
@@ -886,9 +1166,23 @@ export default function DifalPage() {
                 politicaRevenda={politicaRevenda}
                 setPoliticaRevenda={setPoliticaRevenda}
                 ufDestino={ufDestino}
+                competencia={competencia}
+                setCompetencia={setCompetencia}
               />
 
-              <div style={{ marginBottom: 22 }}>
+              {apuracaoAberta && (
+                <FaixaApuracao apuracao={apuracaoAberta} onSair={sairDaApuracao} />
+              )}
+
+              {erroPersistencia && (
+                <Card style={{ padding: '13px 16px', marginBottom: 20, borderColor: P.red }}>
+                  <div style={{ fontSize: 12.5, color: P.red, lineHeight: 1.5 }}>
+                    {erroPersistencia}
+                  </div>
+                </Card>
+              )}
+
+              <div style={{ marginBottom: 22, display: fechada ? 'none' : 'block' }}>
                 <AnimatedDropzone
                   items={itensUpload}
                   onFiles={receberArquivos}
@@ -901,11 +1195,19 @@ export default function DifalPage() {
                 />
               </div>
 
-              {!entradas.length ? (
+              {!entradas.length && !resultadoSalvo ? (
                 <ComoFunciona />
               ) : (
                 <>
-                  <Resumo resultado={resultado} onExportar={exportar} />
+                  <Resumo
+                    resultado={resultado}
+                    onExportar={exportar}
+                    onSalvar={salvar}
+                    salvando={salvando}
+                    podeSalvar={podeSalvar}
+                    motivoSemSalvar={motivoSemSalvar}
+                  />
+                  <AvisoRepetidas repetidas={repetidas} notas={resultado.notas} />
                   <Pendencias pendencias={resultado.pendencias} erros={resultado.erros} />
                   <TabelaItens
                     itens={itens}
@@ -917,7 +1219,7 @@ export default function DifalPage() {
                     onInspecionar={(nota) => setInspecao({ nota, item: null })}
                   />
 
-                  <div style={{ fontSize: 11.5, color: P.muted2, lineHeight: 1.6, marginTop: 4 }}>
+                  <div style={{ fontSize: 11.5, color: P.muted2, lineHeight: 1.6, margin: '4px 0 26px' }}>
                     <IBuilding size={12} /> As alíquotas internas vêm da tabela de regras cadastrada
                     para a UF de destino. Confira o fundamento de cada item antes de recolher —
                     o motor aplica o que está cadastrado, e o cadastro é responsabilidade da
@@ -925,6 +1227,19 @@ export default function DifalPage() {
                   </div>
                 </>
               )}
+
+              <div style={{ marginTop: 26 }}>
+                <HistoricoApuracoes
+                  P={P}
+                  FONT_MONO={FONT_MONO}
+                  apuracoes={historico}
+                  carregando={carregandoHistorico}
+                  abertaId={apuracaoAberta?.id || null}
+                  onAbrir={abrirApuracao}
+                  onAlternarStatus={alternarStatus}
+                  onExcluir={removerApuracao}
+                />
+              </div>
             </>
           )}
         </main>
