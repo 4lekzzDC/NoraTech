@@ -24,7 +24,7 @@ import { validarTabela, TIPOS_REGRA, digitosNcm } from './ncmRegras';
 import { montarTabelaUf } from './regrasNcmMerge';
 import { linhasDePlanilha, MODELO_CABECALHO } from './importarRegrasPlanilha';
 import { parseResultadosAliquota } from './econetParser';
-import { parseApiAliquotasEconetEmLote } from './econetApiParser';
+import { parseApiAliquotasEconetEmLote, linhasParaImportar } from './econetApiParser';
 import { parseAliquotasPortalSvrs, ufsDoPortalSvrs, siglaUf } from './svrsPortalParser';
 import { fmtNcm, fmtPct } from './difalFormato';
 
@@ -120,6 +120,8 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
   const [resultadoApiEconet, setResultadoApiEconet] = useState(null); // null | { registros, paginas }
   const [lendoApiEconet, setLendoApiEconet] = useState(false);
   const [buscaApiEconet, setBuscaApiEconet] = useState('');
+  const [importandoApiEconet, setImportandoApiEconet] = useState(false);
+  const [resultadoImportApiEconet, setResultadoImportApiEconet] = useState(null); // null | { gravadas, conflitos, erros }
 
   async function recarregar() {
     setCarregando(true);
@@ -190,6 +192,11 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
       r.descricao.toLowerCase().includes(termo) || r.ncm.toLowerCase().includes(termo)
     ));
   }, [resultadoApiEconet, buscaApiEconet]);
+
+  const importacaoApiEconet = useMemo(
+    () => linhasParaImportar(registrosApiEconetFiltrados, uf),
+    [registrosApiEconetFiltrados, uf],
+  );
 
   async function salvarConfig() {
     setErro(null);
@@ -338,6 +345,7 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
 
   async function lerArquivosApiEconet(files) {
     setLendoApiEconet(true);
+    setResultadoImportApiEconet(null);
     try {
       const textos = await Promise.all(files.map((f) => f.text()));
       setResultadoApiEconet(parseApiAliquotasEconetEmLote(textos));
@@ -371,6 +379,21 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
       vigenciaFim: dataIsoOuVazia(registro.vigenciaFim),
       fonte: 'econet',
     });
+  }
+
+  async function importarTodasApiEconet(sobrescrever) {
+    if (!importacaoApiEconet.linhas.length) return;
+    setImportandoApiEconet(true);
+    setErro(null);
+    try {
+      const resultado = await importarRegras(importacaoApiEconet.linhas, escopoAtual, { sobrescrever });
+      setResultadoImportApiEconet(resultado);
+      await recarregar();
+    } catch (e) {
+      setErro(e.message);
+    } finally {
+      setImportandoApiEconet(false);
+    }
   }
 
   async function lerArquivo(file) {
@@ -702,10 +725,59 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
             </div>
             <input
               value={buscaApiEconet}
-              onChange={(e) => setBuscaApiEconet(e.target.value)}
+              onChange={(e) => { setBuscaApiEconet(e.target.value); setResultadoImportApiEconet(null); }}
               placeholder="Buscar por descrição ou NCM…"
               style={{ ...inputStyle(P), marginBottom: 12 }}
             />
+
+            {importacaoApiEconet.linhas.length > 0 && (
+              <div style={{ padding: '12px 14px', borderRadius: 10, border: `1px solid ${P.primaryBorder}`, background: P.primarySoft, marginBottom: 14 }}>
+                {resultadoImportApiEconet ? (
+                  <div style={{ fontSize: 12.5, color: P.text }}>
+                    {resultadoImportApiEconet.gravadas} gravada(s)
+                    {resultadoImportApiEconet.conflitos.length > 0 && `, ${resultadoImportApiEconet.conflitos.length} em conflito`}
+                    {resultadoImportApiEconet.erros.length > 0 && `, ${resultadoImportApiEconet.erros.length} com erro`}.
+                    {resultadoImportApiEconet.conflitos.length > 0 && (
+                      <div style={{ marginTop: 8 }}>
+                        <Botao P={P} variante="perigo" onClick={() => importarTodasApiEconet(true)} disabled={importandoApiEconet}>
+                          Sobrescrever os {resultadoImportApiEconet.conflitos.length} em conflito
+                        </Botao>
+                      </div>
+                    )}
+                    {resultadoImportApiEconet.erros.length > 0 && (
+                      <div style={{ marginTop: 10, maxHeight: 200, overflowY: 'auto' }}>
+                        <div style={{ fontSize: 11.5, color: P.muted2, marginBottom: 6, lineHeight: 1.5 }}>
+                          Geralmente é a Econet listando o mesmo NCM mais de uma vez, para situações
+                          diferentes (nem sempre com a mesma alíquota) — cabe decidir manualmente
+                          qual vale, com "Usar esta linha" na linha certa.
+                        </div>
+                        {resultadoImportApiEconet.erros.slice(0, 30).map((e, i) => (
+                          <div key={i} style={{ fontSize: 11.5, color: P.muted, marginBottom: 3 }}>
+                            <span style={{ fontFamily: FONT_MONO }}>{fmtNcm(e.ncm)}</span>: {e.motivo}
+                          </div>
+                        ))}
+                        {resultadoImportApiEconet.erros.length > 30 && (
+                          <div style={{ fontSize: 11.5, color: P.muted2 }}>
+                            e mais {resultadoImportApiEconet.erros.length - 30}…
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 12, color: P.muted, marginBottom: 10, lineHeight: 1.5 }}>
+                      Grava direto no banco, sem passar linha por linha pelo formulário.
+                      {importacaoApiEconet.semNcm > 0 && ` ${importacaoApiEconet.semNcm} linha(s) sem NCM próprio ficam de fora — use "Usar esta linha" para essas, uma a uma.`}
+                    </div>
+                    <Botao P={P} onClick={() => importarTodasApiEconet(false)} disabled={importandoApiEconet}>
+                      {importandoApiEconet ? 'Importando…' : `Importar as ${importacaoApiEconet.linhas.length} linha(s) com NCM`}
+                    </Botao>
+                  </>
+                )}
+              </div>
+            )}
+
             {!registrosApiEconetFiltrados.length ? (
               <div style={{ fontSize: 12, color: P.muted }}>Nada encontrado com esse filtro.</div>
             ) : (

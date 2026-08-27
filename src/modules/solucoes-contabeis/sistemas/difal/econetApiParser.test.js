@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseApiAliquotasEconet, parseApiAliquotasEconetEmLote } from './econetApiParser.js';
+import { parseApiAliquotasEconet, parseApiAliquotasEconetEmLote, linhasParaImportar } from './econetApiParser.js';
 
 function respostaPagina({ page = 1, lastPage = 2, total = 150, data }) {
   return JSON.stringify({
@@ -77,4 +77,37 @@ test('parseApiAliquotasEconetEmLote ignora texto que não é uma página válida
   const resultado = parseApiAliquotasEconetEmLote([TEXTO_PAGINA_1, 'lixo']);
   assert.equal(resultado.registros.length, 2);
   assert.equal(resultado.paginas.length, 1);
+});
+
+test('linhasParaImportar só converte registros com NCM próprio, e conta os que ficaram de fora', () => {
+  const resultado = parseApiAliquotasEconet(TEXTO_PAGINA_1);
+  const { linhas, semNcm } = linhasParaImportar(resultado.registros, 'sp');
+  assert.equal(linhas.length, 1);
+  assert.equal(semNcm, 1);
+  assert.equal(linhas[0].uf, 'SP');
+  assert.equal(linhas[0].ncm, '40141000');
+  assert.equal(linhas[0].tipo, 'item');
+  assert.equal(linhas[0].aliquota, 7);
+  assert.equal(linhas[0].fcp, null);
+  assert.equal(linhas[0].fundamento, 'Artigo 53-A, I, RICMS/SP — https://x/1');
+});
+
+test('linhasParaImportar marca seguirGeral quando o registro não tem alíquota própria', () => {
+  const registro = { ncm: '3307.20.10', aliquota: null, fecp: null, descricao: 'Desodorantes', baseLegal: [], vigenciaInicio: null, vigenciaFim: null };
+  const { linhas } = linhasParaImportar([registro], 'SP');
+  assert.equal(linhas[0].seguirGeral, true);
+  assert.equal('aliquota' in linhas[0], false);
+});
+
+test('linhasParaImportar usa a descrição como fundamento quando não há base legal', () => {
+  const registro = { ncm: '3307', aliquota: 25, fecp: null, descricao: 'Perfumes', baseLegal: [], vigenciaInicio: null, vigenciaFim: null };
+  const { linhas } = linhasParaImportar([registro], 'SP');
+  assert.equal(linhas[0].fundamento, 'Perfumes');
+});
+
+test('linhasParaImportar mantém vigência só quando está em formato de data reconhecível', () => {
+  const registro = { ncm: '3307', aliquota: 25, fecp: null, descricao: 'x', baseLegal: [], vigenciaInicio: '2021-12-30T00:00:00.000Z', vigenciaFim: 'não é data' };
+  const { linhas } = linhasParaImportar([registro], 'SP');
+  assert.equal(linhas[0].vigenciaInicio, '2021-12-30');
+  assert.equal(linhas[0].vigenciaFim, undefined);
 });

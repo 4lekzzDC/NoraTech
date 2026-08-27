@@ -74,3 +74,42 @@ export function parseApiAliquotasEconetEmLote(textos) {
   }
   return { registros, paginas };
 }
+
+function dataIsoOuIndefinida(valor) {
+  return /^\d{4}-\d{2}-\d{2}/.test(String(valor || '')) ? String(valor).slice(0, 10) : undefined;
+}
+
+/**
+ * Converte registros já extraídos para a forma de "linha" que
+ * `regrasNcm.service.js#importarRegras` espera (a mesma da importação por
+ * planilha) — para gravar em lote em vez de um "Usar esta linha" por vez.
+ * Só entram registros com NCM próprio: os sem NCM são categoria de texto
+ * legal, cujo prefixo cabe a quem está importando decidir — não são
+ * chutados aqui. Devolve também `semNcm`, a contagem do que ficou de fora,
+ * para a tela avisar quantos precisam de decisão manual.
+ */
+export function linhasParaImportar(registros, uf) {
+  const ufMaiuscula = String(uf || '').toUpperCase();
+  const linhas = [];
+  let semNcm = 0;
+  for (const r of registros) {
+    const ncm = String(r.ncm || '').replace(/\D+/g, '');
+    if (![2, 4, 6, 8].includes(ncm.length)) { semNcm += 1; continue; }
+    const nivel = ncm.length;
+    const tipo = nivel === 2 ? 'capitulo' : nivel === 6 ? 'subposicao' : nivel === 8 ? 'item' : 'posicao';
+    const base = r.baseLegal[0];
+    const fundamento = [base?.texto, base?.url].filter(Boolean).join(' — ') || r.descricao || `NCM ${ncm}`;
+    linhas.push({
+      uf: ufMaiuscula,
+      ncm,
+      tipo,
+      ...(r.aliquota == null ? { seguirGeral: true } : { aliquota: r.aliquota }),
+      fcp: r.fecp,
+      fundamento,
+      vigenciaInicio: dataIsoOuIndefinida(r.vigenciaInicio),
+      vigenciaFim: dataIsoOuIndefinida(r.vigenciaFim),
+      fonte: 'econet',
+    });
+  }
+  return { linhas, semNcm };
+}
