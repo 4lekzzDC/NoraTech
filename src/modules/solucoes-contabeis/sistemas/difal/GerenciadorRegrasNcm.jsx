@@ -24,6 +24,7 @@ import { validarTabela, TIPOS_REGRA, digitosNcm } from './ncmRegras';
 import { montarTabelaUf } from './regrasNcmMerge';
 import { linhasDePlanilha, MODELO_CABECALHO } from './importarRegrasPlanilha';
 import { parseResultadosAliquota } from './econetParser';
+import { parseAliquotasPortalSvrs, ufsDoPortalSvrs, siglaUf } from './svrsPortalParser';
 import { fmtNcm, fmtPct } from './difalFormato';
 
 const UFS = [
@@ -109,6 +110,11 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
   const [htmlEconet, setHtmlEconet] = useState('');
   const [resultadosEconet, setResultadosEconet] = useState(undefined); // undefined | [] (nada reconhecido) | [{ registros, baseLegal, observacoes }, ...]
 
+  const [arquivoSvrs, setArquivoSvrs] = useState(null);
+  const [registrosSvrs, setRegistrosSvrs] = useState(null); // null | [] (nada reconhecido) | [{ uf, mercadoria, ncmSh, aliquotaInterna, fecp, observacao, dataAtualizacao }]
+  const [lendoSvrs, setLendoSvrs] = useState(false);
+  const [buscaSvrs, setBuscaSvrs] = useState('');
+
   async function recarregar() {
     setCarregando(true);
     setErro(null);
@@ -159,6 +165,16 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
   }), [uf, configGlobal, configTenant, regrasGlobais, regrasTenant]);
 
   const regrasDaAba = ehGlobal ? regrasGlobais : regrasTenant;
+
+  const registrosSvrsDaUf = useMemo(() => {
+    if (!registrosSvrs) return [];
+    const termo = buscaSvrs.trim().toLowerCase();
+    return registrosSvrs.filter((r) => {
+      if (siglaUf(r.uf) !== uf) return false;
+      if (!termo) return true;
+      return r.mercadoria.toLowerCase().includes(termo) || r.ncmSh.toLowerCase().includes(termo);
+    });
+  }, [registrosSvrs, uf, buscaSvrs]);
 
   async function salvarConfig() {
     setErro(null);
@@ -263,6 +279,45 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
       fcp: registro.fecp != null ? String(registro.fecp) : '',
       fundamento,
       fonte: 'econet',
+    });
+  }
+
+  async function lerArquivoSvrs(file) {
+    setArquivoSvrs(file);
+    setRegistrosSvrs(null);
+    setLendoSvrs(true);
+    try {
+      const html = await file.text();
+      setRegistrosSvrs(parseAliquotasPortalSvrs(html));
+    } catch {
+      setRegistrosSvrs([]);
+    } finally {
+      setLendoSvrs(false);
+    }
+  }
+
+  function usarComoRegraGeralSvrs(registro) {
+    setFormConfig({
+      ...CONFIG_VAZIA,
+      regraGeralAliquota: registro.aliquotaInterna != null ? String(registro.aliquotaInterna) : '',
+      regraGeralFcp: registro.fecp != null ? String(registro.fecp) : '0',
+      regraGeralFundamento: [registro.mercadoria, registro.observacao].filter(Boolean).join(' — '),
+    });
+  }
+
+  function usarComoExcecaoSvrs(registro) {
+    setEditandoRegra({
+      ...REGRA_VAZIA,
+      // O portal nem sempre dá um NCM específico (categorias legais, não
+      // código por código) — quem cadastra decide o prefixo, informado pela
+      // descrição da mercadoria.
+      ncm: /^\d{2,8}$/.test(digitosNcm(registro.ncmSh)) ? digitosNcm(registro.ncmSh) : '',
+      tipo: 'posicao',
+      aliquota: registro.aliquotaInterna != null ? String(registro.aliquotaInterna) : '',
+      seguirGeral: false,
+      fcp: registro.fecp != null ? String(registro.fecp) : '',
+      fundamento: [registro.mercadoria, registro.observacao].filter(Boolean).join(' — '),
+      fonte: 'svrs',
     });
   }
 
@@ -553,6 +608,77 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
                 )}
               </div>
             ))}
+          </div>
+        )}
+      </Card>
+
+      {/* ── Importar do Portal da DIFAL (SVRS) ── */}
+      <Card P={P} style={{ padding: 20, marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: P.primary, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+          Importar do Portal da DIFAL (SVRS)
+        </div>
+        <div style={{ fontSize: 12, color: P.muted, lineHeight: 1.6, marginBottom: 12, maxWidth: 640 }}>
+          Fonte pública oficial (Sefaz Virtual do RS) com as 27 UFs numa página
+          só, sem consulta protegida — dá pra baixar tudo de uma vez. Abra{' '}
+          <a href="https://dfe-portal.svrs.rs.gov.br/Difal/Aliquotas" target="_blank" rel="noreferrer" style={{ color: P.primaryText }}>
+            dfe-portal.svrs.rs.gov.br/Difal/Aliquotas
+          </a>{' '}
+          no seu navegador, Ctrl+U (ver código-fonte), salve como .html e envie
+          aqui. As categorias são descritas por texto legal — nem sempre um NCM
+          específico — então cada linha pede pra você confirmar o prefixo antes
+          de gravar.
+        </div>
+        <input type="file" accept=".html,.htm" onChange={(e) => e.target.files[0] && lerArquivoSvrs(e.target.files[0])} />
+
+        {lendoSvrs && <div style={{ marginTop: 12, fontSize: 12, color: P.muted }}>Lendo {arquivoSvrs?.name}…</div>}
+
+        {registrosSvrs?.length === 0 && !lendoSvrs && (
+          <div style={{ marginTop: 12, fontSize: 12, color: P.red }}>
+            Não reconheci a estrutura do Portal da DIFAL nesse arquivo. Confirme
+            que salvou a página de Alíquotas (não a de Benefícios) com Ctrl+U
+            ou "Salvar como → Página HTML completa".
+          </div>
+        )}
+
+        {registrosSvrs?.length > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 11.5, color: P.muted2, marginBottom: 10 }}>
+              {registrosSvrs.length} linha(s) em {ufsDoPortalSvrs(registrosSvrs).length} UF(s) reconhecidas no arquivo.
+              Mostrando {uf} — troque a UF lá em cima pra ver outro estado.
+            </div>
+            <input
+              value={buscaSvrs}
+              onChange={(e) => setBuscaSvrs(e.target.value)}
+              placeholder="Buscar por descrição ou NCM…"
+              style={{ ...inputStyle(P), marginBottom: 12 }}
+            />
+            {!registrosSvrsDaUf.length ? (
+              <div style={{ fontSize: 12, color: P.muted }}>Nada encontrado para {uf} com esse filtro.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 420, overflowY: 'auto' }}>
+                {registrosSvrsDaUf.map((r, i) => (
+                  <div key={i} style={{ padding: '10px 12px', borderRadius: 9, border: `1px solid ${P.border}`, background: P.surface2 }}>
+                    <div style={{ fontSize: 12.5, color: P.text, marginBottom: 4 }}>
+                      <b>{r.mercadoria}</b>
+                      {r.ncmSh && <span style={{ color: P.muted2, fontFamily: FONT_MONO }}> · NCM/SH: {r.ncmSh}</span>}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: P.muted, marginBottom: 8 }}>
+                      {r.aliquotaInterna != null ? fmtPct(r.aliquotaInterna) : '—'}
+                      {r.fecp != null && ` + FECP ${fmtPct(r.fecp)}`}
+                      {r.observacao && ` — ${r.observacao}`}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <Botao P={P} variante="secundario" onClick={() => usarComoRegraGeralSvrs(r)}>
+                        Usar como regra geral da UF
+                      </Botao>
+                      <Botao P={P} variante="secundario" onClick={() => usarComoExcecaoSvrs(r)}>
+                        Usar como exceção de NCM →
+                      </Botao>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </Card>
