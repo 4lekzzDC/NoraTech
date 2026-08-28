@@ -8,6 +8,7 @@ const NAV = [
   { to: '/admin', label: 'Visão geral', end: true, icon: '◎' },
   { to: '/admin/usuarios', label: 'Usuários', icon: '◳' },
   { to: '/admin/empresas', label: 'Empresas', icon: '▣' },
+  { to: '/admin/propostas', label: 'Propostas', icon: '▤' },
   { to: '/admin/sistemas', label: 'Sistemas', icon: '◆' },
   { to: '/admin/faturas', label: 'Faturas', icon: '◈' },
   { to: '/admin/suporte', label: 'Suporte', icon: '◐' },
@@ -223,6 +224,13 @@ export function StatusPill({ status }) {
     paid:      { label: 'Paga',     bg: 'rgba(0,212,138,0.12)',  fg: '#00d48a', bd: 'rgba(0,212,138,0.25)' },
     overdue:   { label: 'Vencida',  bg: 'rgba(255,107,107,0.12)',fg: '#ff6b6b', bd: 'rgba(255,107,107,0.25)' },
     refunded:  { label: 'Reembolso',bg: 'rgba(124,58,237,0.12)', fg: '#a78bfa', bd: 'rgba(124,58,237,0.25)' },
+    // Propostas
+    rascunho:   { label: 'Rascunho',   bg: 'rgba(255,255,255,0.05)', fg: '#bbb',    bd: 'rgba(255,255,255,0.12)' },
+    enviada:    { label: 'Enviada',    bg: 'rgba(37,99,235,0.12)',   fg: '#60a5fa', bd: 'rgba(37,99,235,0.25)' },
+    visualizada:{ label: 'Visualizada',bg: 'rgba(240,180,41,0.12)',  fg: '#f0b429', bd: 'rgba(240,180,41,0.25)' },
+    aceita:     { label: 'Aceita',     bg: 'rgba(0,212,138,0.12)',   fg: '#00d48a', bd: 'rgba(0,212,138,0.25)' },
+    recusada:   { label: 'Recusada',   bg: 'rgba(255,107,107,0.12)', fg: '#ff6b6b', bd: 'rgba(255,107,107,0.22)' },
+    expirada:   { label: 'Expirada',   bg: 'rgba(255,255,255,0.04)', fg: 'rgba(255,255,255,0.4)', bd: 'rgba(255,255,255,0.1)' },
   };
   const c = map[status] || { label: status || '—', bg: 'rgba(255,255,255,0.05)', fg: '#bbb', bd: 'rgba(255,255,255,0.12)' };
   return (

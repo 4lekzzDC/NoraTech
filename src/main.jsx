@@ -26,6 +26,9 @@ import AdminCompaniesPage from './pages/admin/AdminCompaniesPage.jsx'
 import AdminSystemsPage from './pages/admin/AdminSystemsPage.jsx'
 import AdminSystemEditorPage from './pages/admin/AdminSystemEditorPage.jsx'
 import AdminInvoicesPage from './pages/admin/AdminInvoicesPage.jsx'
+import AdminProposalsPage from './pages/admin/AdminProposalsPage.jsx'
+import AdminProposalEditorPage from './pages/admin/AdminProposalEditorPage.jsx'
+import PropostaPublicaPage from './pages/PropostaPublicaPage.jsx'
 import AdminSupportPage from './pages/admin/AdminSupportPage.jsx'
 import AdminDevPage from './pages/admin/AdminDevPage';
 import DevRoute from './components/DevRoute';
@@ -149,7 +152,12 @@ createRoot(document.getElementById('root')).render(
           <Route path="/admin/sistemas" element={<AdminRoute><AdminSystemsPage /></AdminRoute>} />
           <Route path="/admin/sistemas/:slug" element={<AdminRoute><AdminSystemEditorPage /></AdminRoute>} />
           <Route path="/admin/faturas" element={<AdminRoute><AdminInvoicesPage /></AdminRoute>} />
+          <Route path="/admin/propostas" element={<AdminRoute><AdminProposalsPage /></AdminRoute>} />
+          <Route path="/admin/propostas/novo" element={<AdminRoute><AdminProposalEditorPage /></AdminRoute>} />
+          <Route path="/admin/propostas/:id" element={<AdminRoute><AdminProposalEditorPage /></AdminRoute>} />
           <Route path="/admin/suporte" element={<AdminRoute><AdminSupportPage /></AdminRoute>} />
+          {/* Página pública da proposta — sem login, acessada pelo token no link */}
+          <Route path="/proposta/:token" element={<PropostaPublicaPage />} />
           <Route path="/admin/dev" element={<DevRoute><AdminDevPage /></DevRoute>} />
           {/* Hub da suite Soluções Contábeis */}
           <Route

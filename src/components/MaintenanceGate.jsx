@@ -13,7 +13,10 @@ import { estadoDeManutencao, useIsDeveloper } from '../lib/dev';
 // /login NUNCA é bloqueada, e não é detalhe: o bypass depende de estar logado
 // como developer. Bloquear a porta de entrada trancaria você do lado de fora do
 // próprio site, com o modo ligado e nenhum jeito de desligar pela interface.
-const LIVRES = ['/login', '/cadastro', '/redefinir-senha', '/recuperar-senha'];
+// /proposta também é livre: é a página pública que o cliente abre pelo
+// link da proposta, sem login — bloquear ela em manutenção derrubaria o
+// aceite de uma proposta que o cliente estava prestes a assinar.
+const LIVRES = ['/login', '/cadastro', '/redefinir-senha', '/recuperar-senha', '/proposta'];
 
 export default function MaintenanceGate({ children }) {
   const { pathname } = useLocation();
