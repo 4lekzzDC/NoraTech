@@ -36,6 +36,7 @@ export default defineConfig({
       { find: /.*\/services\/tenant$/, replacement: m('tenant.js') },
       { find: /.*\/services\/upload\.service$/, replacement: m('upload.service.js') },
       { find: /.*\/lib\/hubModuleCatalog$/, replacement: m('hubModuleCatalog.js') },
+      { find: /.*\/lib\/proposals$/, replacement: m('proposals.js') },
     ],
   },
 });

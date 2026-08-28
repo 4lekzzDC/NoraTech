@@ -13,14 +13,19 @@ import ContabilPage from '../src/modules/solucoes-contabeis/sistemas/contabil/Co
 import PessoalPage from '../src/modules/solucoes-contabeis/sistemas/pessoal/PessoalPage';
 import AdminSystemEditorPage from '../src/pages/admin/AdminSystemEditorPage';
 import AjusteFiscalPage from '../src/modules/solucoes-contabeis/sistemas/difal/AjusteFiscalPage';
+import AdminProposalsPage from '../src/pages/admin/AdminProposalsPage';
+import AdminProposalEditorPage from '../src/pages/admin/AdminProposalEditorPage';
+import PropostaPublicaPage from '../src/pages/PropostaPublicaPage';
 
 // A maioria das telas é montada direto, sem depender de parâmetro de rota.
-// AdminSystemEditorPage é a exceção — usa useParams() pra pegar o :slug —
-// por isso ela sozinha precisa de um <Routes> de verdade por baixo.
+// AdminSystemEditorPage/AdminProposalEditorPage/PropostaPublicaPage são a
+// exceção — usam useParams() — por isso elas sozinhas precisam de um
+// <Routes> de verdade por baixo.
 const TELAS = {
   inbox: InboxPage, configuracoes: ConfiguracoesPage, historico: HistoricoPage,
   clientes: ClientesPage, difal: DifalPage, fiscal: FiscalPage,
   contabil: ContabilPage, pessoal: PessoalPage, ajusteFiscal: AjusteFiscalPage,
+  propostas: AdminProposalsPage,
 };
 const params = new URLSearchParams(location.search);
 const nomeTela = params.get('tela');
@@ -35,6 +40,19 @@ const conteudo = nomeTela === 'sistemaEditor' ? (
   <MemoryRouter initialEntries={[params.get('rota') || '/admin/sistemas/solucoes-contabeis']}>
     <Routes>
       <Route path="/admin/sistemas/:slug" element={<AdminSystemEditorPage />} />
+    </Routes>
+  </MemoryRouter>
+) : nomeTela === 'propostaEditor' ? (
+  <MemoryRouter initialEntries={[params.get('rota') || '/admin/propostas/novo']}>
+    <Routes>
+      <Route path="/admin/propostas/novo" element={<AdminProposalEditorPage />} />
+      <Route path="/admin/propostas/:id" element={<AdminProposalEditorPage />} />
+    </Routes>
+  </MemoryRouter>
+) : nomeTela === 'propostaPublica' ? (
+  <MemoryRouter initialEntries={[params.get('rota') || '/proposta/seed-token-0001']}>
+    <Routes>
+      <Route path="/proposta/:token" element={<PropostaPublicaPage />} />
     </Routes>
   </MemoryRouter>
 ) : (
