@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '../src/contexts/AuthContext';
 import { ThemeProvider } from '../src/contexts/ThemeContext';
 import InboxPage from '../src/modules/noradocs/pages/InboxPage';
@@ -9,27 +9,45 @@ import HistoricoPage from '../src/modules/noradocs/pages/HistoricoPage';
 import ClientesPage from '../src/modules/noradocs/pages/ClientesPage';
 import DifalPage from '../src/modules/solucoes-contabeis/sistemas/difal/DifalPage';
 import FiscalPage from '../src/modules/solucoes-contabeis/sistemas/fiscal/FiscalPage';
-import AdminDifalRegrasPage from '../src/pages/admin/AdminDifalRegrasPage';
+import ContabilPage from '../src/modules/solucoes-contabeis/sistemas/contabil/ContabilPage';
+import PessoalPage from '../src/modules/solucoes-contabeis/sistemas/pessoal/PessoalPage';
+import AdminSystemEditorPage from '../src/pages/admin/AdminSystemEditorPage';
 import AjusteFiscalPage from '../src/modules/solucoes-contabeis/sistemas/difal/AjusteFiscalPage';
 
+// A maioria das telas é montada direto, sem depender de parâmetro de rota.
+// AdminSystemEditorPage é a exceção — usa useParams() pra pegar o :slug —
+// por isso ela sozinha precisa de um <Routes> de verdade por baixo.
 const TELAS = {
   inbox: InboxPage, configuracoes: ConfiguracoesPage, historico: HistoricoPage,
   clientes: ClientesPage, difal: DifalPage, fiscal: FiscalPage,
-  regrasGlobais: AdminDifalRegrasPage, ajusteFiscal: AjusteFiscalPage,
+  contabil: ContabilPage, pessoal: PessoalPage, ajusteFiscal: AjusteFiscalPage,
 };
 const params = new URLSearchParams(location.search);
-const Tela = TELAS[params.get('tela')] || InboxPage;
+const nomeTela = params.get('tela');
 // Caminho opcional (?rota=/solucoes-contabeis/x) — só para checar o
 // breadcrumb do SolucoesHeader, que lê a pathname de verdade.
 const rota = params.get('rota') ? [params.get('rota')] : ['/'];
+
+// Sem componente próprio (this é um entry point, não um módulo de
+// componente) — react-refresh reprova um arquivo sem export que define um —
+// então o conteúdo é montado como uma expressão só, calculada na hora.
+const conteudo = nomeTela === 'sistemaEditor' ? (
+  <MemoryRouter initialEntries={[params.get('rota') || '/admin/sistemas/solucoes-contabeis']}>
+    <Routes>
+      <Route path="/admin/sistemas/:slug" element={<AdminSystemEditorPage />} />
+    </Routes>
+  </MemoryRouter>
+) : (
+  <MemoryRouter initialEntries={rota}>
+    {(() => { const Tela = TELAS[nomeTela] || InboxPage; return <Tela />; })()}
+  </MemoryRouter>
+);
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AuthProvider>
       <ThemeProvider>
-        <MemoryRouter initialEntries={rota}>
-          <Tela />
-        </MemoryRouter>
+        {conteudo}
       </ThemeProvider>
     </AuthProvider>
   </StrictMode>,

@@ -12,6 +12,7 @@ import {
   SOLUCOES_CONTABEIS_SLUG, SOLUCOES_CONTABEIS_LEGACY_SLUGS,
 } from '../../constants';
 import { getStats, logAccess, seedDemoIfEmpty } from '../../hubAnalytics';
+import { carregarCategoriaComSubcategorias } from '../../../../lib/hubModuleCatalog';
 
 Chart.register(...registerables);
 
@@ -175,7 +176,38 @@ function IBarChart2({ size = 26 }) {
     </svg>
   );
 }
+// Ícone genérico pra quando a aba/ferramenta vem do banco (emoji, não um
+// componente SVG desenhado à mão como os de cima) — mesmo `size` prop que
+// os ícones acima, pra caber nos mesmos lugares (aba, banner, ghost, card)
+// sem precisar mudar RightPanel/SystemCard.
+function IEmoji({ char, size = 24 }) {
+  return <span style={{ fontSize: size, lineHeight: 1, display: 'inline-flex' }}>{char || '🧩'}</span>;
+}
+
+// Converte o que `carregarCategoriaComSubcategorias` devolve (categoria +
+// sub-categorias, cada uma com suas ferramentas) pro mesmo formato que
+// SUBCATS já tem — assim RightPanel nem sabe se os dados vieram do banco
+// ou do array fixo abaixo.
+function subcatsDoBanco(dados) {
+  return dados.subcategorias.map((s) => ({
+    id: s.categoria.slug,
+    label: s.categoria.name,
+    TabIcon: (props) => <IEmoji char={s.categoria.icon} {...props} />,
+    desc: s.categoria.description,
+    items: s.ferramentas.map((f) => ({
+      name: f.name,
+      CardIcon: (props) => <IEmoji char={f.icon} {...props} />,
+      accent: f.color || '#7C3AED',
+      slug: f.slug,
+      desc: f.description,
+      soon: f.status === 'soon',
+    })),
+  }));
+}
+
 // ── Catalogue ─────────────────────────────────────────────────────────────────
+// Rede de segurança para quando o banco não tem nada cadastrado ainda —
+// mesmo padrão de fallback que FiscalPage.jsx/PessoalPage.jsx usam.
 const SUBCATS = [
   {
     id: 'extrato', label: 'Extrato', TabIcon: IBank,
@@ -571,7 +603,7 @@ function CompactSystemCard({ item, P, isDark, onNavigate, blocked }) {
 }
 
 // ── Right panel ────────────────────────────────────────────────────────────────
-function RightPanel({ P, isDark, active, activeId, onSelect, onNavigate, isBlocked }) {
+function RightPanel({ P, isDark, subcats, active, activeId, onSelect, onNavigate, isBlocked }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
 
@@ -581,7 +613,7 @@ function RightPanel({ P, isDark, active, activeId, onSelect, onNavigate, isBlock
         background: P.surface, border: `1px solid ${P.border}`,
         borderRadius: 14, padding: 5, boxShadow: P.shadow,
       }}>
-        {SUBCATS.map((sc) => {
+        {subcats.map((sc) => {
           const on = sc.id === activeId;
           return (
             <button
@@ -748,9 +780,22 @@ export default function ContabilPage() {
     return !isModuleEnabled(modAccess.enabledModules, slug);
   };
 
-  const initial  = params.get('sub') || SUBCATS[0].id;
-  const [activeId, setActiveId] = useState(SUBCATS.some((s) => s.id === initial) ? initial : SUBCATS[0].id);
-  const active   = useMemo(() => SUBCATS.find((s) => s.id === activeId) || SUBCATS[0], [activeId]);
+  // As 4 abas (e o que está dentro delas) vêm do catálogo editável em
+  // Admin/Sistemas/NoraHub/Estrutura — o SUBCATS fixo acima só entra se o
+  // banco não tiver nada cadastrado ainda.
+  const [subcatsDB, setSubcatsDB] = useState(null);
+  useEffect(() => {
+    let ativo = true;
+    carregarCategoriaComSubcategorias(SOLUCOES_CONTABEIS_SLUG, 'contabil')
+      .then((r) => { if (ativo && r?.subcategorias?.length) setSubcatsDB(subcatsDoBanco(r)); })
+      .catch(() => {});
+    return () => { ativo = false; };
+  }, []);
+  const subcatsAtual = subcatsDB || SUBCATS;
+
+  const initial  = params.get('sub') || subcatsAtual[0].id;
+  const [activeId, setActiveId] = useState(subcatsAtual.some((s) => s.id === initial) ? initial : subcatsAtual[0].id);
+  const active   = useMemo(() => subcatsAtual.find((s) => s.id === activeId) || subcatsAtual[0], [activeId, subcatsAtual]);
 
   const handleSelect = (id) => {
     setActiveId(id);
@@ -791,6 +836,7 @@ export default function ContabilPage() {
           <LeftSidebar P={P} isDark={isDark} stats={stats} user={user} />
           <RightPanel
             P={P} isDark={isDark}
+            subcats={subcatsAtual}
             active={active} activeId={activeId}
             onSelect={handleSelect}
             onNavigate={handleNavigate}

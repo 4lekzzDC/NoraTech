@@ -1,21 +1,42 @@
 // Catálogo editável de categorias e ferramentas do hub (Admin/Sistemas →
-// [sistema] → Módulos). Cada categoria pertence a um sistema (`system_slug`,
-// FK para `systems`), e cada ferramenta pertence a uma categoria — os dois
-// níveis que a tela de admin em 3 passos (sistema → módulo → ferramenta)
-// percorre.
+// [sistema] → Estrutura). Uma categoria pertence a um sistema (`system_slug`)
+// e, opcionalmente, a uma categoria-pai (`parent_categoria_id`, auto-
+// referenciada) — é assim que os módulos internos de uma categoria (ex.:
+// as abas Extrato/Fornecedores/Demonstrações/Fechamento, dentro de
+// Contábil) viram sub-categorias de verdade, editáveis e não só um array
+// fixo na página. Cada ferramenta pertence a uma categoria (de topo ou
+// sub-categoria — para o motor de dados as duas são a mesma tabela).
 //
-// Só a categoria "Fiscal" e a ferramenta "Calculadora de DIFAL" estão
-// ligadas a uma página real no cliente (FiscalPage.jsx lê daqui). As demais
-// categorias do hub continuam hardcoded nas próprias páginas — cadastrar
-// aqui sem ligar o cliente correspondente criaria edição sem efeito.
+// Categorias ligadas a uma página real no cliente hoje: Fiscal
+// (FiscalPage.jsx), Contábil e suas 4 sub-categorias (ContabilPage.jsx) e
+// Pessoal (PessoalPage.jsx). Financeiro e Gestão ainda não têm ferramenta
+// nem página própria — existem só como categoria reservada.
 
 import { supabase } from './supabase';
 
-export async function listarCategorias(systemSlug) {
-  const { data, error } = await supabase
+/**
+ * @param {string} systemSlug
+ * @param {{ apenasRaiz?: boolean }} [opcoes] apenasRaiz=true devolve só as
+ *   categorias de topo (parent_categoria_id nulo) — o que a árvore do
+ *   admin usa como primeiro nível.
+ */
+export async function listarCategorias(systemSlug, { apenasRaiz = false } = {}) {
+  let query = supabase
     .from('hub_module_categorias')
     .select('*')
     .eq('system_slug', systemSlug)
+    .order('sort_order', { ascending: true });
+  if (apenasRaiz) query = query.is('parent_categoria_id', null);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+export async function listarSubcategorias(parentCategoriaId) {
+  const { data, error } = await supabase
+    .from('hub_module_categorias')
+    .select('*')
+    .eq('parent_categoria_id', parentCategoriaId)
     .order('sort_order', { ascending: true });
   if (error) throw new Error(error.message);
   return data || [];
@@ -42,6 +63,7 @@ export async function salvarCategoria(categoria, id = null) {
     status: categoria.status || 'available',
     active: categoria.active !== false,
     sort_order: Number(categoria.sortOrder) || 0,
+    parent_categoria_id: categoria.parentCategoriaId || null,
   };
   const query = id
     ? supabase.from('hub_module_categorias').update(payload).eq('id', id)
@@ -103,14 +125,55 @@ export async function excluirFerramenta(id) {
 }
 
 /**
- * Categorias + ferramentas ativas de um sistema, prontas para o hub
- * renderizar — só o que está `active` em ambos os níveis. Usada pelas
- * páginas de categoria do cliente (ex.: FiscalPage.jsx) para não depender
- * mais de uma lista hardcoded.
+ * Grava só categoria e posição de uma ferramenta — o que o arrastar-e-
+ * soltar da árvore precisa (reordenar uma lista, ou mover pra outra
+ * categoria), sem reenviar nome/ícone/descrição que o chamador não tem à
+ * mão nesse momento.
+ */
+export async function moverFerramenta(id, { categoriaId, sortOrder }) {
+  const { error } = await supabase
+    .from('hub_module_ferramentas')
+    .update({ categoria_id: categoriaId, sort_order: sortOrder })
+    .eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Categoria + ferramentas ativas, prontas para uma página de categoria
+ * simples (sem sub-categorias) renderizar — ex.: FiscalPage.jsx,
+ * PessoalPage.jsx. Devolve null se a categoria não existe ou está oculta.
  */
 export async function carregarCategoriaComFerramentas(systemSlug, categoriaSlug) {
   const categoria = await buscarCategoria(systemSlug, categoriaSlug);
   if (!categoria || !categoria.active) return null;
   const ferramentas = await listarFerramentas(categoria.id);
   return { categoria, ferramentas: ferramentas.filter((f) => f.active) };
+}
+
+/**
+ * Categoria de topo + suas sub-categorias, cada uma já com suas
+ * ferramentas ativas — o que uma página com abas internas (ex.:
+ * ContabilPage.jsx) precisa pra montar essas abas a partir do banco em
+ * vez de um array fixo. Devolve null se a categoria não existe ou está
+ * oculta; sub-categorias ocultas são filtradas, categorias sem nenhuma
+ * sub-categoria ativa devolvem `subcategorias: []`.
+ */
+export async function carregarCategoriaComSubcategorias(systemSlug, categoriaSlug) {
+  const categoria = await buscarCategoria(systemSlug, categoriaSlug);
+  if (!categoria || !categoria.active) return null;
+  const [ferramentasDiretas, subs] = await Promise.all([
+    listarFerramentas(categoria.id),
+    listarSubcategorias(categoria.id),
+  ]);
+  const subcategorias = await Promise.all(
+    subs.filter((s) => s.active).map(async (sub) => ({
+      categoria: sub,
+      ferramentas: (await listarFerramentas(sub.id)).filter((f) => f.active),
+    })),
+  );
+  return {
+    categoria,
+    ferramentasDiretas: ferramentasDiretas.filter((f) => f.active),
+    subcategorias,
+  };
 }

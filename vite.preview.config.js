@@ -35,6 +35,7 @@ export default defineConfig({
       { find: /.*\/services\/googleDrive\.service$/, replacement: m('googleDrive.service.js') },
       { find: /.*\/services\/tenant$/, replacement: m('tenant.js') },
       { find: /.*\/services\/upload\.service$/, replacement: m('upload.service.js') },
+      { find: /.*\/lib\/hubModuleCatalog$/, replacement: m('hubModuleCatalog.js') },
     ],
   },
 });

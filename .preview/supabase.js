@@ -32,12 +32,25 @@ const NOTIFICACOES = [
     link: '/area-do-cliente?tab=cobranca', metadata: {}, read_at: ha(2880), created_at: ha(2900), company_id: 'c1' },
 ];
 
-const TABELAS = { notifications: NOTIFICACOES };
+// Sistema de mentira para as telas de Admin/Sistemas — só o suficiente pra
+// AdminSystemEditorPage carregar (ela consulta `systems` direto, sem passar
+// por um dublê de serviço próprio).
+const SISTEMAS = [
+  {
+    slug: 'solucoes-contabeis', name: 'NoraHub',
+    description: 'Suíte completa para escritórios contábeis.', icon: '📊', logo_url: null,
+    color: '#7C3AED', default_amount: 0, url: '/solucoes-contabeis', internal: true,
+    aliases: ['acompanhamento-contabil'], active: true, sort_order: 2, video_url: null,
+  },
+];
+
+const TABELAS = { notifications: NOTIFICACOES, systems: SISTEMAS };
 
 function consulta(tabela) {
   let linhas = () => (TABELAS[tabela] || []).slice();
   let contando = false;
   let somenteNaoLidas = false;
+  let modoUnico = null; // null | 'maybe' | 'single'
 
   const q = {
     select: (_cols, opcoes) => { contando = Boolean(opcoes?.count); return q; },
@@ -47,12 +60,14 @@ function consulta(tabela) {
     eq: () => q, neq: () => q, in: () => q, gte: () => q, lte: () => q,
     order: () => q, limit: () => q, range: () => q,
     update: () => q, insert: () => q, upsert: () => q, delete: () => q,
-    maybeSingle: () => q, single: () => q,
+    maybeSingle: () => { modoUnico = 'maybe'; return q; },
+    single: () => { modoUnico = 'single'; return q; },
     then: (resolve, reject) => {
       const dados = somenteNaoLidas ? linhas().filter((l) => !l.read_at) : linhas();
-      const resultado = contando
-        ? { data: null, count: dados.length, error: null }
-        : { data: dados, error: null };
+      let resultado;
+      if (contando) resultado = { data: null, count: dados.length, error: null };
+      else if (modoUnico) resultado = { data: dados[0] || null, error: null };
+      else resultado = { data: dados, error: null };
       return Promise.resolve(resultado).then(resolve, reject);
     },
   };
