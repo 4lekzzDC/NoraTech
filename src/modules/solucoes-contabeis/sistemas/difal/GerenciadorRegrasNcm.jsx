@@ -19,9 +19,11 @@ import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER, FONT_MONO } from '../../theme';
 import {
   listarConfigsUf, salvarConfigUf, listarRegras, salvarRegra, excluirRegra, importarRegras,
+  carregarTabelaUf,
 } from '../../services/regrasNcm.service';
 import { validarTabela, TIPOS_REGRA, digitosNcm } from './ncmRegras';
 import { montarTabelaUf } from './regrasNcmMerge';
+import { buscarAliquotaInterna, explicarOrigem } from './ncmBusca';
 import { linhasDePlanilha, MODELO_CABECALHO } from './importarRegrasPlanilha';
 import { parseResultadosAliquota } from './econetParser';
 import { parseApiAliquotasEconetEmLote, linhasParaImportar } from './econetApiParser';
@@ -76,6 +78,74 @@ function Botao({ children, onClick, disabled, variante = 'primario', P, style = 
   );
 }
 
+// Situação de vigência de uma linha, pra hoje — cosmético (pill na tabela),
+// não é validação: quem decide se uma regra pode existir é `validarTabela`.
+function statusVigencia(linha, tema) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const verde = tema === 'dark' ? '#00d48a' : '#16a34a';
+  if (linha.vigencia_inicio && hoje < linha.vigencia_inicio) {
+    return { label: 'Agendada', fg: '#f0b429', bg: 'rgba(240,180,41,0.14)' };
+  }
+  if (linha.vigencia_fim && hoje > linha.vigencia_fim) {
+    return { label: 'Expirada', fg: tema === 'dark' ? 'rgba(255,255,255,0.45)' : 'rgba(15,17,21,0.5)', bg: 'rgba(128,128,128,0.14)' };
+  }
+  return { label: 'Vigente', fg: verde, bg: tema === 'dark' ? 'rgba(0,212,138,0.14)' : 'rgba(22,163,74,0.12)' };
+}
+function Pill({ children, fg, bg, P }) {
+  return (
+    <span style={{
+      display: 'inline-block', padding: '2px 8px', borderRadius: 999, fontSize: 10.5, fontWeight: 700,
+      letterSpacing: '0.03em', textTransform: 'uppercase', color: fg, background: bg, border: `1px solid ${P.border}`,
+    }}
+    >
+      {children}
+    </span>
+  );
+}
+
+// Painel lateral pra editar/criar uma regra — antes era um bloco fixo entre
+// o cabeçalho da tabela e as linhas, empurrando tudo pra baixo a cada
+// edição. Como drawer, a tabela fica parada no lugar.
+function Drawer({ aberto, onFechar, titulo, children, P, largura = 440 }) {
+  return (
+    <>
+      <div
+        onClick={onFechar}
+        className="genjutsu-drawer-backdrop"
+        style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200,
+          opacity: aberto ? 1 : 0, pointerEvents: aberto ? 'auto' : 'none',
+          transition: 'opacity 0.2s ease-out',
+        }}
+      />
+      <div
+        role="dialog" aria-modal="true" aria-label={titulo}
+        className="genjutsu-drawer-panel"
+        style={{
+          position: 'fixed', top: 0, right: 0, bottom: 0, width: `min(${largura}px, 100vw)`, zIndex: 201,
+          background: P.surfaceSolid, borderLeft: `1px solid ${P.border}`, boxShadow: '-20px 0 50px rgba(0,0,0,0.35)',
+          display: 'flex', flexDirection: 'column',
+          transform: aberto ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 0.22s cubic-bezier(0.2,0,0,1)',
+        }}
+      >
+        <div style={{ padding: '18px 20px', borderBottom: `1px solid ${P.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{titulo}</div>
+          <button
+            onClick={onFechar} aria-label="Fechar"
+            style={{ background: 'none', border: 'none', color: P.muted, fontSize: 20, cursor: 'pointer', lineHeight: 1, padding: 2 }}
+          >
+            ×
+          </button>
+        </div>
+        <div style={{ padding: '18px 20px', overflowY: 'auto', flex: 1 }}>
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
+
 const CONFIG_VAZIA = {
   versao: '', metodoBase: 'base_simples', politicaRevenda: 'nao_incide',
   regraGeralAliquota: '', regraGeralFcp: '0', regraGeralFundamento: '',
@@ -103,6 +173,21 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
   const [formConfig, setFormConfig] = useState(CONFIG_VAZIA);
   const [editandoRegra, setEditandoRegra] = useState(null); // null | REGRA_VAZIA | linha existente
   const [salvandoRegra, setSalvandoRegra] = useState(false);
+  const drawerAberto = editandoRegra !== null;
+
+  // ── Exceções por NCM: busca, filtros e paginação ──────────────────────
+  const [buscaRegra, setBuscaRegra] = useState('');
+  const [filtroTipo, setFiltroTipo] = useState('todos');
+  const [filtroVigencia, setFiltroVigencia] = useState('todas');
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 15;
+
+  // ── Testar regra ───────────────────────────────────────────────────────
+  const [testeNcm, setTesteNcm] = useState('');
+  const [testeUf, setTesteUf] = useState('SP');
+  const [testeData, setTesteData] = useState('');
+  const [testando, setTestando] = useState(false);
+  const [resultadoTeste, setResultadoTeste] = useState(null); // null | { erro } | { resultado, explicacao }
 
   const [arquivoImport, setArquivoImport] = useState(null);
   const [previaImport, setPreviaImport] = useState(null);
@@ -174,6 +259,82 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
 
   const regrasDaAba = ehGlobal ? regrasGlobais : regrasTenant;
 
+  const regrasFiltradas = useMemo(() => {
+    const termo = buscaRegra.trim().toLowerCase();
+    const termoDigitos = digitosNcm(buscaRegra);
+    const hoje = new Date().toISOString().slice(0, 10);
+    return regrasDaAba.filter((r) => {
+      if (filtroTipo !== 'todos' && r.tipo !== filtroTipo) return false;
+      if (filtroVigencia === 'vigentes') {
+        if (r.vigencia_inicio && hoje < r.vigencia_inicio) return false;
+        if (r.vigencia_fim && hoje > r.vigencia_fim) return false;
+      } else if (filtroVigencia === 'futuras') {
+        if (!(r.vigencia_inicio && hoje < r.vigencia_inicio)) return false;
+      } else if (filtroVigencia === 'expiradas') {
+        if (!(r.vigencia_fim && hoje > r.vigencia_fim)) return false;
+      }
+      if (!termo) return true;
+      return r.ncm_prefixo.includes(termoDigitos) || (r.fundamento || '').toLowerCase().includes(termo);
+    });
+  }, [regrasDaAba, buscaRegra, filtroTipo, filtroVigencia]);
+
+  const totalPaginas = Math.max(1, Math.ceil(regrasFiltradas.length / POR_PAGINA));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const regrasPaginadas = useMemo(
+    () => regrasFiltradas.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA),
+    [regrasFiltradas, paginaAtual],
+  );
+
+  // Busca/filtro mudou de baixo de uma página que não existe mais → volta
+  // pra primeira, em vez de mostrar uma tabela vazia com "página 3 de 1".
+  useEffect(() => { setPagina(1); }, [buscaRegra, filtroTipo, filtroVigencia, uf, escopo]);
+
+  // Confere duplicidade/conflito de vigência ENQUANTO edita, sem esperar o
+  // round-trip pro banco — a mesma checagem que `salvarRegra` faz no
+  // servidor (`validarTabela`), rodando aqui contra o que já está
+  // carregado. Erro de outro campo (alíquota fora de faixa, etc.) fica pro
+  // submit — aqui o foco é só "essa regra bate com outra que já existe".
+  const conflitosRegraAtual = useMemo(() => {
+    if (!editandoRegra || !editandoRegra.ncm || !editandoRegra.fundamento) return [];
+    const outras = regrasDaAba
+      .filter((e) => e.id !== editandoRegra.id)
+      .map((e) => ({
+        ncm: e.ncm_prefixo, tipo: e.tipo, aliquota: e.aliquota, seguirGeral: e.segue_geral,
+        fcp: e.fcp, excecaoDe: e.excecao_de, fundamento: e.fundamento,
+        vigenciaInicio: e.vigencia_inicio, vigenciaFim: e.vigencia_fim,
+      }));
+    const atual = {
+      ncm: digitosNcm(editandoRegra.ncm), tipo: editandoRegra.tipo,
+      ...(editandoRegra.seguirGeral ? { seguirGeral: true } : { aliquota: Number(editandoRegra.aliquota) || 0 }),
+      fcp: editandoRegra.fcp === '' ? null : Number(editandoRegra.fcp),
+      excecaoDe: editandoRegra.excecaoDe || undefined,
+      fundamento: editandoRegra.fundamento,
+      vigenciaInicio: editandoRegra.vigenciaInicio || undefined,
+      vigenciaFim: editandoRegra.vigenciaFim || undefined,
+    };
+    return validarTabela({
+      uf, regraGeral: { aliquota: 18, fcp: 0, fundamento: 'x' }, regras: [...outras, atual],
+    }).filter((e) => e.includes(`NCM ${atual.ncm}`));
+  }, [editandoRegra, regrasDaAba, uf]);
+
+  async function testarRegra() {
+    setTestando(true);
+    setResultadoTeste(null);
+    try {
+      const tabela = await carregarTabelaUf(testeUf, escopoAtual.tenantCompanyId);
+      if (!tabela) {
+        setResultadoTeste({ erro: `A UF ${testeUf} ainda não tem regra geral cadastrada — nada pra resolver.` });
+        return;
+      }
+      const resultado = buscarAliquotaInterna(testeNcm, tabela, { data: testeData || null });
+      setResultadoTeste({ resultado, explicacao: explicarOrigem(resultado) });
+    } catch (e) {
+      setResultadoTeste({ erro: e.message });
+    } finally {
+      setTestando(false);
+    }
+  }
+
   const registrosSvrsDaUf = useMemo(() => {
     if (!registrosSvrs) return [];
     const termo = buscaSvrs.trim().toLowerCase();
@@ -236,6 +397,14 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
     }
     if (!r.fundamento?.trim()) {
       setErro('Preencha o fundamento legal.');
+      return;
+    }
+    if (r.vigenciaInicio && r.vigenciaFim && r.vigenciaInicio > r.vigenciaFim) {
+      setErro('A vigência início não pode ser depois do fim.');
+      return;
+    }
+    if (conflitosRegraAtual.length > 0) {
+      setErro(conflitosRegraAtual[0]);
       return;
     }
     setSalvandoRegra(true);
@@ -437,6 +606,11 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
 
   return (
     <div style={{ fontFamily: FONT_INTER, color: P.text }}>
+      <style>{`
+        @media (prefers-reduced-motion: reduce) {
+          .genjutsu-drawer-panel, .genjutsu-drawer-backdrop { transition: none !important; }
+        }
+      `}</style>
       <div style={{ marginBottom: 18 }}>
         <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{titulo}</div>
         <div style={{ fontSize: 12.5, color: P.muted, lineHeight: 1.6, maxWidth: 720 }}>{descricao}</div>
@@ -509,66 +683,40 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
       <Card P={P} style={{ overflow: 'hidden', marginBottom: 20 }}>
         <div style={{ padding: '16px 18px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: P.primary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            Exceções por NCM ({regrasDaAba.length})
+            Exceções por NCM ({regrasFiltradas.length}{regrasFiltradas.length !== regrasDaAba.length ? ` de ${regrasDaAba.length}` : ''})
           </div>
           <Botao P={P} onClick={() => abrirEdicao(null)}>+ Nova regra</Botao>
         </div>
 
-        {editandoRegra && (
-          <div style={{ padding: '14px 18px', background: P.surface2, borderTop: `1px solid ${P.border}`, borderBottom: `1px solid ${P.border}` }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 12 }}>
-              <Campo label="NCM (prefixo)" P={P}>
-                <input style={inputStyle(P)} placeholder="3307 ou 33072010" value={editandoRegra.ncm}
-                  onChange={(e) => setEditandoRegra((r) => ({ ...r, ncm: e.target.value }))} disabled={Boolean(editandoRegra.id)} />
-              </Campo>
-              <Campo label="Tipo" P={P}>
-                <select style={inputStyle(P)} value={editandoRegra.tipo}
-                  onChange={(e) => setEditandoRegra((r) => ({ ...r, tipo: e.target.value }))}>
-                  {TIPOS_REGRA.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </Campo>
-              <Campo label="Alíquota (%)" P={P}>
-                <input type="number" step="0.01" style={inputStyle(P)} value={editandoRegra.aliquota}
-                  disabled={editandoRegra.seguirGeral}
-                  onChange={(e) => setEditandoRegra((r) => ({ ...r, aliquota: e.target.value }))} />
-              </Campo>
-              <Campo label="FCP (%)" P={P}>
-                <input type="number" step="0.01" style={inputStyle(P)} value={editandoRegra.fcp}
-                  onChange={(e) => setEditandoRegra((r) => ({ ...r, fcp: e.target.value }))} />
-              </Campo>
-              <Campo label="Exceção de (NCM pai)" P={P}>
-                <input style={inputStyle(P)} value={editandoRegra.excecaoDe}
-                  onChange={(e) => setEditandoRegra((r) => ({ ...r, excecaoDe: e.target.value }))} />
-              </Campo>
-              <Campo label="Vigência início" P={P}>
-                <input type="date" style={inputStyle(P)} value={editandoRegra.vigenciaInicio}
-                  onChange={(e) => setEditandoRegra((r) => ({ ...r, vigenciaInicio: e.target.value }))} />
-              </Campo>
-              <Campo label="Vigência fim" P={P}>
-                <input type="date" style={inputStyle(P)} value={editandoRegra.vigenciaFim}
-                  onChange={(e) => setEditandoRegra((r) => ({ ...r, vigenciaFim: e.target.value }))} />
-              </Campo>
-            </div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: P.text, marginBottom: 12 }}>
-              <input type="checkbox" checked={editandoRegra.seguirGeral}
-                onChange={(e) => setEditandoRegra((r) => ({ ...r, seguirGeral: e.target.checked, aliquota: e.target.checked ? '' : r.aliquota }))} />
-              É exceção que cai na regra geral (sem alíquota própria)
-            </label>
-            <Campo label="Fundamento legal" P={P}>
-              <input style={inputStyle(P)} value={editandoRegra.fundamento}
-                onChange={(e) => setEditandoRegra((r) => ({ ...r, fundamento: e.target.value }))} />
-            </Campo>
-            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-              <Botao P={P} onClick={salvarRegraAtual} disabled={salvandoRegra}>
-                {salvandoRegra ? 'Salvando…' : 'Salvar regra'}
-              </Botao>
-              <Botao P={P} variante="secundario" onClick={() => setEditandoRegra(null)}>Cancelar</Botao>
-            </div>
-          </div>
-        )}
+        <div style={{ padding: '0 18px 14px', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input
+            value={buscaRegra}
+            onChange={(e) => setBuscaRegra(e.target.value)}
+            placeholder="Buscar por NCM ou fundamento…"
+            style={{ ...inputStyle(P), width: 220 }}
+          />
+          <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} style={{ ...inputStyle(P), width: 150, cursor: 'pointer' }}>
+            <option value="todos">Todos os tipos</option>
+            {TIPOS_REGRA.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <select value={filtroVigencia} onChange={(e) => setFiltroVigencia(e.target.value)} style={{ ...inputStyle(P), width: 150, cursor: 'pointer' }}>
+            <option value="todas">Qualquer vigência</option>
+            <option value="vigentes">Vigentes hoje</option>
+            <option value="futuras">Agendadas</option>
+            <option value="expiradas">Expiradas</option>
+          </select>
+          {(buscaRegra || filtroTipo !== 'todos' || filtroVigencia !== 'todas') && (
+            <button
+              onClick={() => { setBuscaRegra(''); setFiltroTipo('todos'); setFiltroVigencia('todas'); }}
+              style={{ border: 'none', background: 'none', color: P.muted, cursor: 'pointer', fontSize: 11.5, textDecoration: 'underline' }}
+            >
+              Limpar filtros
+            </button>
+          )}
+        </div>
 
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
             <thead>
               <tr>
                 <th style={th}>NCM</th><th style={th}>Tipo</th><th style={th}>Alíquota</th>
@@ -581,25 +729,112 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
                 <tr><td colSpan={7} style={{ ...td, textAlign: 'center', color: P.muted }}>Carregando…</td></tr>
               ) : !regrasDaAba.length ? (
                 <tr><td colSpan={7} style={{ ...td, textAlign: 'center', color: P.muted }}>Nenhuma regra cadastrada para {uf}.</td></tr>
-              ) : regrasDaAba.map((r) => (
-                <tr key={r.id}>
-                  <td style={{ ...td, fontFamily: FONT_MONO }}>{fmtNcm(r.ncm_prefixo)}</td>
-                  <td style={td}>{r.tipo}</td>
-                  <td style={td}>{r.segue_geral ? 'segue geral' : fmtPct(r.aliquota)}</td>
-                  <td style={td}>{r.fcp ? fmtPct(r.fcp) : '—'}</td>
-                  <td style={{ ...td, maxWidth: 260 }}>{r.fundamento}</td>
-                  <td style={{ ...td, fontSize: 11, color: P.muted }}>
-                    {r.vigencia_inicio || '—'} → {r.vigencia_fim || '—'}
-                  </td>
-                  <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                    <button onClick={() => abrirEdicao(r)} style={{ border: 'none', background: 'none', color: P.primaryText, cursor: 'pointer', fontSize: 12, marginRight: 10 }}>Editar</button>
-                    <button onClick={() => removerRegra(r)} style={{ border: 'none', background: 'none', color: P.red, cursor: 'pointer', fontSize: 12 }}>Excluir</button>
-                  </td>
-                </tr>
-              ))}
+              ) : !regrasFiltradas.length ? (
+                <tr><td colSpan={7} style={{ ...td, textAlign: 'center', color: P.muted }}>Nada encontrado com esse filtro.</td></tr>
+              ) : regrasPaginadas.map((r) => {
+                const status = statusVigencia(r, theme);
+                return (
+                  <tr key={r.id}>
+                    <td style={{ ...td, fontFamily: FONT_MONO }}>{fmtNcm(r.ncm_prefixo)}</td>
+                    <td style={td}>{r.tipo}</td>
+                    <td style={td}>{r.segue_geral ? 'segue geral' : fmtPct(r.aliquota)}</td>
+                    <td style={td}>{r.fcp ? fmtPct(r.fcp) : '—'}</td>
+                    <td style={{ ...td, maxWidth: 260 }}>{r.fundamento}</td>
+                    <td style={{ ...td, fontSize: 11, color: P.muted }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Pill fg={status.fg} bg={status.bg} P={P}>{status.label}</Pill>
+                        <span>{r.vigencia_inicio || '—'} → {r.vigencia_fim || '—'}</span>
+                      </div>
+                    </td>
+                    <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                      <button onClick={() => abrirEdicao(r)} style={{ border: 'none', background: 'none', color: P.primaryText, cursor: 'pointer', fontSize: 12, marginRight: 10 }}>Editar</button>
+                      <button onClick={() => removerRegra(r)} style={{ border: 'none', background: 'none', color: P.red, cursor: 'pointer', fontSize: 12 }}>Excluir</button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+
+        {totalPaginas > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '12px 18px', borderTop: `1px solid ${P.border}` }}>
+            <button
+              onClick={() => setPagina((p) => Math.max(1, p - 1))} disabled={paginaAtual <= 1}
+              style={{ border: 'none', background: 'none', color: paginaAtual <= 1 ? P.muted2 : P.primaryText, cursor: paginaAtual <= 1 ? 'default' : 'pointer', fontSize: 12.5, fontWeight: 600 }}
+            >
+              ← Anterior
+            </button>
+            <span style={{ fontSize: 11.5, color: P.muted }}>Página {paginaAtual} de {totalPaginas}</span>
+            <button
+              onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))} disabled={paginaAtual >= totalPaginas}
+              style={{ border: 'none', background: 'none', color: paginaAtual >= totalPaginas ? P.muted2 : P.primaryText, cursor: paginaAtual >= totalPaginas ? 'default' : 'pointer', fontSize: 12.5, fontWeight: 600 }}
+            >
+              Próxima →
+            </button>
+          </div>
+        )}
+      </Card>
+
+      {/* ── Testar regra ── */}
+      <Card P={P} style={{ padding: 20, marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: P.primary, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+          Testar regra
+        </div>
+        <div style={{ fontSize: 12, color: P.muted, lineHeight: 1.6, marginBottom: 14, maxWidth: 640 }}>
+          Informe um NCM e uma UF pra ver, sem precisar processar uma nota de
+          verdade, qual regra o motor vai aplicar hoje — a faixa própria, a
+          exceção que cai na regra geral, ou a regra geral pura, com o
+          fundamento de cada uma.
+        </div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 14 }}>
+          <Campo label="NCM" P={P}>
+            <input
+              style={{ ...inputStyle(P), width: 160, fontFamily: FONT_MONO }}
+              placeholder="33072010" value={testeNcm}
+              onChange={(e) => { setTesteNcm(e.target.value); setResultadoTeste(null); }}
+            />
+          </Campo>
+          <Campo label="UF" P={P}>
+            <select value={testeUf} onChange={(e) => { setTesteUf(e.target.value); setResultadoTeste(null); }} style={{ ...inputStyle(P), width: 90, cursor: 'pointer' }}>
+              {UFS.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </Campo>
+          <Campo label="Data de referência" hint="Opcional — filtra por vigência." P={P}>
+            <input type="date" style={{ ...inputStyle(P), width: 160 }} value={testeData}
+              onChange={(e) => { setTesteData(e.target.value); setResultadoTeste(null); }} />
+          </Campo>
+          <Botao P={P} onClick={testarRegra} disabled={!testeNcm.trim() || testando}>
+            {testando ? 'Testando…' : 'Testar'}
+          </Botao>
+        </div>
+
+        {resultadoTeste?.erro && (
+          <div style={{ padding: '12px 14px', borderRadius: 10, border: `1px solid ${P.red}`, background: P.surface2 }}>
+            <div style={{ fontSize: 12.5, color: P.red }}>{resultadoTeste.erro}</div>
+          </div>
+        )}
+
+        {resultadoTeste?.resultado && (
+          <div style={{ padding: '14px 16px', borderRadius: 10, border: `1px solid ${resultadoTeste.resultado.encontrada ? P.primaryBorder : P.red}`, background: resultadoTeste.resultado.encontrada ? P.primarySoft : P.surface2 }}>
+            {resultadoTeste.resultado.encontrada ? (
+              <>
+                <div style={{ fontSize: 18, fontWeight: 700, color: P.text, marginBottom: 4 }}>
+                  {fmtPct(resultadoTeste.resultado.aliquota)}
+                  {resultadoTeste.resultado.fcp > 0 && (
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: P.muted }}> + FCP {fmtPct(resultadoTeste.resultado.fcp)}</span>
+                  )}
+                </div>
+                <div style={{ fontSize: 12.5, color: P.text, marginBottom: 6 }}>{resultadoTeste.explicacao}</div>
+                {resultadoTeste.resultado.fundamento && (
+                  <div style={{ fontSize: 11.5, color: P.muted }}>Fundamento: {resultadoTeste.resultado.fundamento}</div>
+                )}
+              </>
+            ) : (
+              <div style={{ fontSize: 12.5, color: P.red }}>{resultadoTeste.resultado.motivo}</div>
+            )}
+          </div>
+        )}
       </Card>
 
       {/* ── Importar da Econet ── */}
@@ -958,6 +1193,106 @@ export default function GerenciadorRegrasNcm({ escopo, tenantCompanyId, titulo, 
           })()}
         </Card>
       )}
+
+      <Drawer
+        aberto={drawerAberto}
+        onFechar={() => setEditandoRegra(null)}
+        titulo={editandoRegra?.id ? `Editar regra — NCM ${fmtNcm(editandoRegra.ncm)}` : 'Nova regra'}
+        P={P}
+      >
+        {editandoRegra && (
+          <>
+            <Campo label="NCM (prefixo)" hint="2, 4, 6 ou 8 dígitos — capítulo, posição, subposição ou item." P={P}>
+              <input style={inputStyle(P)} placeholder="3307 ou 33072010" value={editandoRegra.ncm}
+                onChange={(e) => setEditandoRegra((r) => ({ ...r, ncm: e.target.value }))} disabled={Boolean(editandoRegra.id)} />
+            </Campo>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+              <Campo label="Tipo" P={P}>
+                <select style={inputStyle(P)} value={editandoRegra.tipo}
+                  onChange={(e) => setEditandoRegra((r) => ({ ...r, tipo: e.target.value }))}>
+                  {TIPOS_REGRA.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </Campo>
+              <Campo label="Exceção de (NCM pai)" P={P}>
+                <input style={inputStyle(P)} value={editandoRegra.excecaoDe}
+                  onChange={(e) => setEditandoRegra((r) => ({ ...r, excecaoDe: e.target.value }))} />
+              </Campo>
+              <Campo label="Alíquota (%)" P={P}>
+                <input type="number" step="0.01" style={inputStyle(P)} value={editandoRegra.aliquota}
+                  disabled={editandoRegra.seguirGeral}
+                  onChange={(e) => setEditandoRegra((r) => ({ ...r, aliquota: e.target.value }))} />
+              </Campo>
+              <Campo label="FCP (%)" P={P}>
+                <input type="number" step="0.01" style={inputStyle(P)} value={editandoRegra.fcp}
+                  onChange={(e) => setEditandoRegra((r) => ({ ...r, fcp: e.target.value }))} />
+              </Campo>
+            </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: P.text, margin: '14px 0' }}>
+              <input type="checkbox" checked={editandoRegra.seguirGeral}
+                onChange={(e) => setEditandoRegra((r) => ({ ...r, seguirGeral: e.target.checked, aliquota: e.target.checked ? '' : r.aliquota }))} />
+              É exceção que cai na regra geral (sem alíquota própria)
+            </label>
+
+            <Campo label="Fundamento legal" P={P}>
+              <input style={inputStyle(P)} value={editandoRegra.fundamento}
+                onChange={(e) => setEditandoRegra((r) => ({ ...r, fundamento: e.target.value }))} />
+            </Campo>
+
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${P.border}` }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: P.muted2, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+                Vigência
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 8 }}>
+                <Campo label="Início" hint="Vazio = vale desde sempre." P={P}>
+                  <input type="date" style={inputStyle(P)} value={editandoRegra.vigenciaInicio}
+                    onChange={(e) => setEditandoRegra((r) => ({ ...r, vigenciaInicio: e.target.value }))} />
+                </Campo>
+                <Campo label="Fim" hint="Vazio = vale até revogação." P={P}>
+                  <input type="date" style={inputStyle(P)} value={editandoRegra.vigenciaFim}
+                    onChange={(e) => setEditandoRegra((r) => ({ ...r, vigenciaFim: e.target.value }))} />
+                </Campo>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Botao P={P} variante="secundario" style={{ padding: '5px 10px', fontSize: 11.5 }}
+                  onClick={() => setEditandoRegra((r) => ({ ...r, vigenciaInicio: new Date().toISOString().slice(0, 10) }))}
+                >
+                  Começa hoje
+                </Botao>
+                <Botao P={P} variante="secundario" style={{ padding: '5px 10px', fontSize: 11.5 }}
+                  onClick={() => setEditandoRegra((r) => ({ ...r, vigenciaInicio: '', vigenciaFim: '' }))}
+                >
+                  Sem vigência (vale sempre)
+                </Botao>
+              </div>
+              {editandoRegra.vigenciaInicio && editandoRegra.vigenciaFim && editandoRegra.vigenciaInicio > editandoRegra.vigenciaFim && (
+                <div style={{ marginTop: 10, fontSize: 11.5, color: P.red }}>
+                  O início não pode ser depois do fim.
+                </div>
+              )}
+            </div>
+
+            {conflitosRegraAtual.length > 0 && (
+              <div style={{ marginTop: 16, padding: '11px 13px', borderRadius: 10, border: `1px solid ${P.red}`, background: P.surface2 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: P.red, marginBottom: 4 }}>Conflito com outra regra</div>
+                {conflitosRegraAtual.map((e, i) => <div key={i} style={{ fontSize: 11.5, color: P.red }}>{e}</div>)}
+              </div>
+            )}
+
+            {erro && (
+              <div style={{ marginTop: 16, fontSize: 12, color: P.red }}>{erro}</div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+              <Botao P={P} onClick={salvarRegraAtual} disabled={salvandoRegra || conflitosRegraAtual.length > 0}>
+                {salvandoRegra ? 'Salvando…' : 'Salvar regra'}
+              </Botao>
+              <Botao P={P} variante="secundario" onClick={() => setEditandoRegra(null)}>Cancelar</Botao>
+            </div>
+          </>
+        )}
+      </Drawer>
     </div>
   );
 }

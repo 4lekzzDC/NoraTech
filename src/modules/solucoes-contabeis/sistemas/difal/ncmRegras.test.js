@@ -59,3 +59,15 @@ test('reprova alíquota implausível, FCP implausível e falta de fundamento', (
   const erros = validarTabela(base([{ ncm: '3307', aliquota: 250, fcp: 90 }]));
   assert.equal(erros.length, 3);
 });
+
+test('reprova vigência com início depois do fim, aceita início antes do fim', () => {
+  const erros = validarTabela(base([
+    { ncm: '3307', aliquota: 25, fundamento: 'x', vigenciaInicio: '2026-06-01', vigenciaFim: '2026-01-01' },
+  ]));
+  assert.match(erros[0], /início \(2026-06-01\) é depois do fim \(2026-01-01\)/);
+
+  const ok = validarTabela(base([
+    { ncm: '3307', aliquota: 25, fundamento: 'x', vigenciaInicio: '2026-01-01', vigenciaFim: '2026-06-01' },
+  ]));
+  assert.deepEqual(ok, []);
+});

@@ -217,6 +217,9 @@ export function validarTabela(tabela) {
         erros.push(`${rotulo}: ${campo} '${data}' não está em AAAA-MM-DD.`);
       }
     }
+    if (regra.vigenciaInicio && regra.vigenciaFim && regra.vigenciaInicio > regra.vigenciaFim) {
+      erros.push(`${rotulo}: vigência início (${regra.vigenciaInicio}) é depois do fim (${regra.vigenciaFim}).`);
+    }
 
     const anteriores = vistos.get(ncm) || [];
     for (const anterior of anteriores) {
