@@ -7,7 +7,7 @@
 // ganha uma aba extra dentro do próprio painel — é onde as regras de DIFAL
 // moram agora, dentro de Fiscal → Calculadora de DIFAL.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import AdminLayout, { Card, Modal, Spinner, EmptyState, StatusPill } from '../../components/AdminLayout';
 import { ToastHost } from '../../components/Toast';
@@ -54,35 +54,163 @@ function IArrastar() {
   );
 }
 
+// Realça a parte do texto que bateu com a busca — só cosmético, não muda o
+// texto real (o rascunho de edição continua usando o nome original).
+function Realce({ texto, termo }) {
+  if (!termo) return texto;
+  const idx = String(texto || '').toLowerCase().indexOf(termo);
+  if (idx === -1) return texto;
+  return (
+    <>
+      {texto.slice(0, idx)}
+      <mark style={{ background: 'rgba(124,58,237,0.4)', color: 'inherit', borderRadius: 3, padding: '0 1px' }}>
+        {texto.slice(idx, idx + termo.length)}
+      </mark>
+      {texto.slice(idx + termo.length)}
+    </>
+  );
+}
+
+// Menu de ações "⋯" por linha da árvore — substitui os botões fixos de
+// adicionar/excluir que antes ficavam sempre visíveis (poluindo a árvore) e
+// concentra adicionar/renomear/excluir num só lugar por nó.
+function MenuAcoes({ itens }) {
+  const [aberto, setAberto] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!aberto) return undefined;
+    function aoClicarFora(e) { if (ref.current && !ref.current.contains(e.target)) setAberto(false); }
+    function aoTeclarEsc(e) { if (e.key === 'Escape') setAberto(false); }
+    document.addEventListener('mousedown', aoClicarFora);
+    document.addEventListener('keydown', aoTeclarEsc);
+    return () => {
+      document.removeEventListener('mousedown', aoClicarFora);
+      document.removeEventListener('keydown', aoTeclarEsc);
+    };
+  }, [aberto]);
+
+  return (
+    <div ref={ref} className="adm-genjutsu" style={{ position: 'relative', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={() => setAberto((v) => !v)}
+        aria-label="Mais ações" aria-haspopup="menu" aria-expanded={aberto}
+        style={{
+          width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: aberto ? 'rgba(255,255,255,0.1)' : 'transparent', border: 'none', borderRadius: 6,
+          color: 'rgba(255,255,255,0.45)', cursor: 'pointer', fontSize: '0.95rem', lineHeight: 1,
+          transition: 'background 0.12s ease-out, color 0.12s ease-out',
+        }}
+      >
+        ⋯
+      </button>
+      {aberto && (
+        <div
+          role="menu"
+          style={{
+            position: 'absolute', right: 0, top: '100%', marginTop: 4, minWidth: 172, zIndex: 30,
+            background: '#16161c', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10,
+            boxShadow: '0 14px 34px rgba(0,0,0,0.55)', padding: 4,
+            animation: 'admMenuIn 0.12s cubic-bezier(0.2,0,0,1) both',
+          }}
+        >
+          {itens.map((it, i) => (it.divisor ? (
+            <div key={`div-${i}`} style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '4px 2px' }} />
+          ) : (
+            <button
+              key={it.label}
+              role="menuitem"
+              onClick={() => { setAberto(false); it.onClick(); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+                padding: '7px 9px', background: 'none', border: 'none', borderRadius: 7, cursor: 'pointer',
+                fontSize: '0.78rem', fontWeight: 600, fontFamily: 'inherit',
+                color: it.perigo ? '#ff6b6b' : '#eeede9',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = it.perigo ? 'rgba(255,107,107,0.1)' : 'rgba(255,255,255,0.07)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+            >
+              {it.label}
+            </button>
+          )))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Metade de cima ou de baixo da linha, a partir do Y do cursor — decide se
+// soltar aqui insere ANTES ou DEPOIS deste item, em vez de sempre antes.
+function metadeDaLinha(e) {
+  const r = e.currentTarget.getBoundingClientRect();
+  return e.clientY < r.top + r.height / 2 ? 'antes' : 'depois';
+}
+
 // Uma ferramenta na árvore — arrastável (reordena dentro da lista ou muda
-// de categoria/subcategoria ao soltar em outro pai). `alvoArraste` só pinta
-// uma borda antes do item sob o cursor; a posição real só muda ao soltar.
-function NoFerramenta({ f, categoriaId, selecionado, arrastando, alvoArraste, onSelecionar, onDragStart, onDragEnd, onDragOverRow, onDrop }) {
+// de categoria/subcategoria ao soltar em outro pai). `alvoArraste` pinta uma
+// linha de inserção antes OU depois do item sob o cursor, conforme a metade
+// da linha em que o ponteiro está — não só "sempre antes".
+function NoFerramenta({
+  f, categoriaId, selecionado, arrastando, alvoArraste, renomeando, termoBusca,
+  onSelecionar, onDragStart, onDragEnd, onDragOverRow, onDrop,
+  onIniciarRenomeio, onRenomeioMudar, onRenomeioConfirmar, onRenomeioCancelar, onExcluir,
+}) {
   const ativaSel = selecionado?.tipo === 'ferramenta' && selecionado.id === f.id;
   const sendoArrastada = arrastando?.id === f.id;
-  const alvo = alvoArraste?.categoriaId === categoriaId && alvoArraste?.antesDeId === f.id;
+  const alvoNestaLinha = alvoArraste?.categoriaId === categoriaId && alvoArraste?.itemId === f.id;
+  const renomeandoEsta = renomeando?.tipo === 'ferramenta' && renomeando.id === f.id;
+
   return (
     <div
-      draggable
+      draggable={!renomeandoEsta}
       onDragStart={(e) => { e.stopPropagation(); onDragStart(); }}
       onDragEnd={onDragEnd}
-      onDragOver={(e) => { if (arrastando) { e.preventDefault(); e.stopPropagation(); onDragOverRow(); } }}
-      onDrop={(e) => { if (arrastando) { e.preventDefault(); e.stopPropagation(); onDrop(); } }}
-      onClick={() => onSelecionar(f, categoriaId)}
+      onDragOver={(e) => { if (arrastando) { e.preventDefault(); e.stopPropagation(); onDragOverRow(metadeDaLinha(e)); } }}
+      onDrop={(e) => { if (arrastando) { e.preventDefault(); e.stopPropagation(); onDrop(metadeDaLinha(e)); } }}
+      onClick={() => !renomeandoEsta && onSelecionar(f, categoriaId)}
+      className="adm-genjutsu"
       style={{
         display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 8,
-        cursor: 'pointer', background: ativaSel ? 'rgba(124,58,237,0.14)' : 'transparent',
-        opacity: sendoArrastada ? 0.4 : 1,
-        borderTop: alvo ? '2px solid #7C3AED' : '2px solid transparent',
+        cursor: renomeandoEsta ? 'default' : 'pointer', background: ativaSel ? 'rgba(124,58,237,0.14)' : 'transparent',
+        opacity: sendoArrastada ? 0.35 : 1,
+        outline: sendoArrastada ? '1px dashed rgba(124,58,237,0.5)' : 'none', outlineOffset: -1,
+        borderTop: alvoNestaLinha && alvoArraste.posicao === 'antes' ? '2px solid #7C3AED' : '2px solid transparent',
+        borderBottom: alvoNestaLinha && alvoArraste.posicao === 'depois' ? '2px solid #7C3AED' : '2px solid transparent',
+        transition: 'background 0.12s ease-out, opacity 0.15s ease-out, border-color 0.1s ease-out',
       }}
     >
       <IArrastar />
       <span style={{ fontSize: '0.85rem' }}>{f.icon || '🧩'}</span>
-      <span style={{ fontSize: '0.8rem', fontWeight: 600, color: ativaSel ? '#eeede9' : 'rgba(255,255,255,0.75)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {f.name}
-      </span>
-      {f.status === 'soon' && <span style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.35)' }}>em breve</span>}
-      {!f.active && <span style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.3)' }}>oculta</span>}
+      {renomeandoEsta ? (
+        <input
+          autoFocus
+          className="admin-input"
+          value={renomeando.valor}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => onRenomeioMudar(e.target.value)}
+          onFocus={(e) => e.target.select()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); onRenomeioConfirmar(); }
+            if (e.key === 'Escape') { e.preventDefault(); onRenomeioCancelar(); }
+          }}
+          onBlur={onRenomeioConfirmar}
+          style={{ flex: 1, minWidth: 0, padding: '3px 7px', fontSize: '0.8rem', height: 26 }}
+        />
+      ) : (
+        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: ativaSel ? '#eeede9' : 'rgba(255,255,255,0.75)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <Realce texto={f.name} termo={termoBusca} />
+        </span>
+      )}
+      {f.status === 'soon' && <span style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.35)', flexShrink: 0 }}>em breve</span>}
+      {!f.active && <span style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.3)', flexShrink: 0 }}>oculta</span>}
+      {!renomeandoEsta && (
+        <MenuAcoes itens={[
+          { label: 'Renomear', onClick: () => onIniciarRenomeio(f) },
+          { divisor: true },
+          { label: 'Excluir', perigo: true, onClick: onExcluir },
+        ]}
+        />
+      )}
     </div>
   );
 }
@@ -157,6 +285,9 @@ export default function AdminSystemEditorPage() {
   const [salvandoNo, setSalvandoNo] = useState(false);
   const [excluindoNo, setExcluindoNo] = useState(null);
   const [abaPainel, setAbaPainel] = useState('visualizacao');
+  const [busca, setBusca] = useState('');
+  const [renomeando, setRenomeando] = useState(null); // { tipo, id, valor } | null
+  const renomeioConfirmadoRef = useRef(false);
 
   // ── Empresas ─────────────────────────────────────────────────────────
   const [empresas, setEmpresas] = useState(null);
@@ -222,6 +353,82 @@ export default function AdminSystemEditorPage() {
   useEffect(() => {
     if (abaTopo === 'empresas' && empresas === null) carregarEmpresas();
   }, [abaTopo]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Busca na árvore: acha quais nós (por id) batem com o termo e quais
+  // categorias precisam abrir à força pra revelar o resultado — sem isso, um
+  // resultado dentro de uma sub-categoria fechada fica invisível mesmo tendo
+  // "achado". `null` quando não há busca ativa = usa `expandidas` normal.
+  const termoBusca = busca.trim().toLowerCase();
+  const resultadoBusca = useMemo(() => {
+    if (!termoBusca) return null;
+    const bate = (nome) => String(nome || '').toLowerCase().includes(termoBusca);
+    const visiveis = new Set();
+    const abrirForcado = new Set();
+    for (const c of categorias) {
+      const ferramentasBatem = c.ferramentas.filter((f) => bate(f.name));
+      ferramentasBatem.forEach((f) => visiveis.add(f.id));
+      let algumaSubBateu = false;
+      for (const s of c.subcategorias) {
+        const ferramentasSubBatem = s.ferramentas.filter((f) => bate(f.name));
+        ferramentasSubBatem.forEach((f) => visiveis.add(f.id));
+        if (bate(s.name) || ferramentasSubBatem.length) {
+          visiveis.add(s.id);
+          algumaSubBateu = true;
+          if (ferramentasSubBatem.length) abrirForcado.add(s.id);
+        }
+      }
+      if (bate(c.name) || ferramentasBatem.length || algumaSubBateu) {
+        visiveis.add(c.id);
+        abrirForcado.add(c.id);
+      }
+    }
+    return { visiveis, abrirForcado };
+  }, [categorias, termoBusca]);
+
+  function categoriaVisivel(id) { return !resultadoBusca || resultadoBusca.visiveis.has(id); }
+  function categoriaAberta(id) { return resultadoBusca ? resultadoBusca.abrirForcado.has(id) : expandidas.has(id); }
+
+  // ── Estrutura: renomear rápido pelo menu "⋯" (só o nome — o resto do
+  // cadastro fica como está; para editar mais campos, clique no nó) ──────
+  function iniciarRenomeio(tipo, no) {
+    renomeioConfirmadoRef.current = false;
+    setRenomeando({ tipo, id: no.id, valor: no.name });
+  }
+
+  function cancelarRenomeio() {
+    renomeioConfirmadoRef.current = true;
+    setRenomeando(null);
+  }
+
+  async function confirmarRenomeio() {
+    if (!renomeando || renomeioConfirmadoRef.current) return;
+    renomeioConfirmadoRef.current = true;
+    const { tipo, id, valor } = renomeando;
+    const nome = valor.trim();
+    setRenomeando(null);
+    if (nome.length < 2) return;
+    try {
+      if (tipo === 'categoria') {
+        const no = nosFlat(categorias).find((c) => c.id === id);
+        if (!no || no.name === nome) return;
+        await salvarCategoria({
+          systemSlug: slug, slug: no.slug, name: nome, icon: no.icon, description: no.description,
+          status: no.status, active: no.active, sortOrder: no.sort_order, parentCategoriaId: no.parent_categoria_id || null,
+        }, id);
+      } else {
+        const no = nosFlat(categorias).flatMap((n) => n.ferramentas).find((f) => f.id === id);
+        if (!no || no.name === nome) return;
+        await salvarFerramenta({
+          categoriaId: no.categoria_id, slug: no.slug, name: nome, icon: no.icon, color: no.color,
+          description: no.description, status: no.status, active: no.active, sortOrder: no.sort_order,
+        }, id);
+      }
+      await carregarEstrutura();
+      showToast('Nome atualizado.');
+    } catch (e) {
+      setError(e.message);
+    }
+  }
 
   // ── Visão geral: salvar ──────────────────────────────────────────────
   const salvarVisaoGeral = async (e) => {
@@ -376,13 +583,31 @@ export default function AdminSystemEditorPage() {
 
   // ── Estrutura: arrastar e soltar ferramentas ─────────────────────────
   const [arrastando, setArrastando] = useState(null); // { id, categoriaId } | null
-  const [alvoArraste, setAlvoArraste] = useState(null); // { categoriaId, antesDeId } | null — só visual
+  const [alvoArraste, setAlvoArraste] = useState(null); // { categoriaId, itemId, posicao } | null — só visual
 
-  async function soltarFerramenta(categoriaId, antesDeId) {
+  // Desfaz o último arrastar — devolve cada ferramenta tocada pra
+  // categoria/posição exata que tinha antes, sem precisar recalcular nada:
+  // o snapshot já é a lista pronta pra reaplicar.
+  async function desfazerMovimento(snapshotAntes) {
+    setError('');
+    try {
+      await Promise.all(snapshotAntes.map((s) => moverFerramenta(s.id, { categoriaId: s.categoriaId, sortOrder: s.sortOrder })));
+      await carregarEstrutura();
+      showToast('Movimento desfeito.');
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  // `alvo` é { itemId, posicao: 'antes'|'depois' } quando soltou em cima de
+  // outra ferramenta, ou `null` quando soltou no cabeçalho da categoria (vai
+  // pro fim da lista).
+  async function soltarFerramenta(categoriaId, alvo) {
     const origem = arrastando;
     setArrastando(null);
     setAlvoArraste(null);
-    if (!origem || origem.id === antesDeId) return;
+    if (!origem) return;
+    if (alvo && alvo.itemId === origem.id) return; // soltou em cima de si mesma
 
     const todos = nosFlat(categorias);
     const noOrigem = todos.find((n) => n.id === origem.categoriaId);
@@ -392,9 +617,21 @@ export default function AdminSystemEditorPage() {
     if (!item) return;
 
     const mesmaLista = origem.categoriaId === categoriaId;
+
+    // Antes de mexer em qualquer coisa, guarda onde cada ferramenta tocada
+    // estava — é o que "Desfazer" no toast restaura.
+    const snapshotAntes = [
+      ...noOrigem.ferramentas.map((f) => ({ id: f.id, categoriaId: origem.categoriaId, sortOrder: f.sort_order })),
+      ...(mesmaLista ? [] : noDestino.ferramentas.map((f) => ({ id: f.id, categoriaId, sortOrder: f.sort_order }))),
+    ];
+
     const listaDestino = noDestino.ferramentas.filter((f) => f.id !== origem.id);
-    const indice = antesDeId ? listaDestino.findIndex((f) => f.id === antesDeId) : -1;
-    listaDestino.splice(indice === -1 ? listaDestino.length : indice, 0, item);
+    let indice = listaDestino.length; // padrão: soltou no cabeçalho → fim da lista
+    if (alvo) {
+      const posAlvo = listaDestino.findIndex((f) => f.id === alvo.itemId);
+      if (posAlvo !== -1) indice = alvo.posicao === 'depois' ? posAlvo + 1 : posAlvo;
+    }
+    listaDestino.splice(indice, 0, item);
 
     setError('');
     try {
@@ -409,6 +646,10 @@ export default function AdminSystemEditorPage() {
         setSelecionado({ tipo: 'ferramenta', id: origem.id, categoriaId });
         setRascunho((r) => (r ? { ...r, categoriaId } : r));
       }
+      showToast(mesmaLista ? 'Ordem atualizada.' : `"${item.name}" movida.`, 'success', {
+        label: 'Desfazer',
+        onClick: () => desfazerMovimento(snapshotAntes),
+      });
     } catch (e) {
       setError(e.message);
     }
@@ -546,128 +787,230 @@ export default function AdminSystemEditorPage() {
       {/* ── Estrutura: árvore + painel ── */}
       {abaTopo === 'estrutura' && (
         <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}>
-          <Card style={{ width: 300, flexShrink: 0, padding: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 4px 10px' }}>
+          <style>{`
+            @keyframes admMenuIn { from { opacity: 0; transform: translateY(-4px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+            @media (prefers-reduced-motion: reduce) {
+              .adm-genjutsu, .adm-genjutsu * { transition: none !important; animation: none !important; }
+            }
+          `}</style>
+          <Card
+            className="adm-genjutsu"
+            style={{
+              width: 300, flexShrink: 0, padding: 12, display: 'flex', flexDirection: 'column',
+              position: 'sticky', top: 20, maxHeight: 'calc(100vh - 40px)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 4px 10px', flexShrink: 0 }}>
               <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase' }}>Módulos</span>
               <button className="admin-btn" style={{ padding: '4px 9px', fontSize: '0.75rem' }} onClick={novaCategoria}>+ Categoria</button>
             </div>
 
-            {carregandoEstrutura ? <Spinner /> : categorias.length === 0 ? (
-              <div style={{ padding: '16px 6px', fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)' }}>Nenhuma categoria ainda.</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {categorias.map((c) => {
-                  const aberta = expandidas.has(c.id);
-                  const ativaSel = selecionado?.tipo === 'categoria' && selecionado.id === c.id;
-                  return (
-                    <div key={c.id}>
-                      <div
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 6, padding: '8px 8px', borderRadius: 8,
-                          cursor: 'pointer', background: ativaSel ? 'rgba(124,58,237,0.14)' : 'transparent',
-                        }}
-                        onClick={() => selecionarCategoria(c)}
-                        onDragOver={(e) => { if (arrastando) e.preventDefault(); }}
-                        onDrop={(e) => { if (arrastando) { e.preventDefault(); e.stopPropagation(); soltarFerramenta(c.id, null); } }}
-                      >
-                        <button
-                          onClick={(e) => { e.stopPropagation(); toggleExpandida(c.id); }}
+            <div style={{ position: 'relative', marginBottom: 10, flexShrink: 0 }}>
+              <input
+                className="admin-input"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar módulo ou ferramenta…"
+                style={{ padding: '7px 26px 7px 26px', fontSize: '0.8rem', height: 32 }}
+              />
+              <span style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }}>⌕</span>
+              {busca && (
+                <button
+                  onClick={() => setBusca('')}
+                  aria-label="Limpar busca"
+                  style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '0.85rem', padding: 5, lineHeight: 1 }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+              {carregandoEstrutura ? <Spinner /> : categorias.length === 0 ? (
+                <div style={{ padding: '16px 6px', fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)' }}>Nenhuma categoria ainda.</div>
+              ) : resultadoBusca && resultadoBusca.visiveis.size === 0 ? (
+                <div style={{ padding: '16px 6px', fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)' }}>Nada encontrado para "{busca.trim()}".</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {categorias.filter((c) => categoriaVisivel(c.id)).map((c) => {
+                    const aberta = categoriaAberta(c.id);
+                    const ativaSel = selecionado?.tipo === 'categoria' && selecionado.id === c.id;
+                    const renomeandoEsta = renomeando?.tipo === 'categoria' && renomeando.id === c.id;
+                    const alvoCabecalho = arrastando && alvoArraste?.categoriaId === c.id && !alvoArraste?.itemId;
+                    return (
+                      <div key={c.id}>
+                        <div
+                          className="adm-genjutsu"
                           style={{
-                            width: 18, height: 18, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer',
-                            color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            transform: aberta ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', fontSize: '0.65rem',
+                            display: 'flex', alignItems: 'center', gap: 7, padding: '7px 8px', borderRadius: 9,
+                            cursor: renomeandoEsta ? 'default' : 'pointer',
+                            background: ativaSel ? 'rgba(124,58,237,0.16)' : alvoCabecalho ? 'rgba(124,58,237,0.08)' : 'transparent',
+                            outline: alvoCabecalho ? '1px dashed rgba(124,58,237,0.5)' : 'none', outlineOffset: -1,
+                            transition: 'background 0.12s ease-out',
                           }}
+                          onClick={() => !renomeandoEsta && selecionarCategoria(c)}
+                          onDragOver={(e) => { if (arrastando) { e.preventDefault(); setAlvoArraste({ categoriaId: c.id, itemId: null, posicao: null }); } }}
+                          onDrop={(e) => { if (arrastando) { e.preventDefault(); e.stopPropagation(); soltarFerramenta(c.id, null); } }}
                         >
-                          ▶
-                        </button>
-                        <span style={{ fontSize: '0.95rem' }}>{c.icon || '🧩'}</span>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: ativaSel ? '#eeede9' : 'rgba(255,255,255,0.85)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {c.name}
-                        </span>
-                        {!c.active && <span style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.3)' }}>oculta</span>}
-                      </div>
-
-                      {aberta && (
-                        <div style={{ paddingLeft: 24, display: 'flex', flexDirection: 'column', gap: 1, marginTop: 1 }}>
-                          {c.ferramentas.map((f) => (
-                            <NoFerramenta
-                              key={f.id} f={f} categoriaId={c.id}
-                              selecionado={selecionado} arrastando={arrastando} alvoArraste={alvoArraste}
-                              onSelecionar={selecionarFerramenta}
-                              onDragStart={() => setArrastando({ id: f.id, categoriaId: c.id })}
-                              onDragEnd={() => { setArrastando(null); setAlvoArraste(null); }}
-                              onDragOverRow={() => setAlvoArraste({ categoriaId: c.id, antesDeId: f.id })}
-                              onDrop={() => soltarFerramenta(c.id, f.id)}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleExpandida(c.id); }}
+                            style={{
+                              width: 18, height: 18, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer',
+                              color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              transform: aberta ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s ease-out', fontSize: '0.65rem',
+                            }}
+                          >
+                            ▶
+                          </button>
+                          <span style={{
+                            width: 24, height: 24, flexShrink: 0, borderRadius: 7, background: 'rgba(255,255,255,0.06)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.92rem',
+                          }}
+                          >
+                            {c.icon || '🧩'}
+                          </span>
+                          {renomeandoEsta ? (
+                            <input
+                              autoFocus className="admin-input" value={renomeando.valor}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => setRenomeando((r) => ({ ...r, valor: e.target.value }))}
+                              onFocus={(e) => e.target.select()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') { e.preventDefault(); confirmarRenomeio(); }
+                                if (e.key === 'Escape') { e.preventDefault(); cancelarRenomeio(); }
+                              }}
+                              onBlur={confirmarRenomeio}
+                              style={{ flex: 1, minWidth: 0, padding: '3px 7px', fontSize: '0.85rem', height: 28 }}
                             />
-                          ))}
-                          <div style={{ display: 'flex', gap: 6, margin: '2px 8px 6px' }}>
-                            <button className="admin-btn" style={{ padding: '4px 9px', fontSize: '0.72rem' }} onClick={() => novaFerramenta(c.id)}>+ Ferramenta</button>
-                            <button className="admin-btn" style={{ padding: '4px 9px', fontSize: '0.72rem' }} onClick={() => novaSubcategoria(c.id)}>+ Subcategoria</button>
-                          </div>
-
-                          {c.subcategorias.map((s) => {
-                            const subAberta = expandidas.has(s.id);
-                            const subAtivaSel = selecionado?.tipo === 'categoria' && selecionado.id === s.id;
-                            return (
-                              <div key={s.id}>
-                                <div
-                                  style={{
-                                    display: 'flex', alignItems: 'center', gap: 6, padding: '7px 8px', borderRadius: 8,
-                                    cursor: 'pointer', background: subAtivaSel ? 'rgba(124,58,237,0.14)' : 'transparent',
-                                  }}
-                                  onClick={() => selecionarCategoria(s)}
-                                  onDragOver={(e) => { if (arrastando) e.preventDefault(); }}
-                                  onDrop={(e) => { if (arrastando) { e.preventDefault(); e.stopPropagation(); soltarFerramenta(s.id, null); } }}
-                                >
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); toggleExpandida(s.id); }}
-                                    style={{
-                                      width: 16, height: 16, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer',
-                                      color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                      transform: subAberta ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', fontSize: '0.6rem',
-                                    }}
-                                  >
-                                    ▶
-                                  </button>
-                                  <span style={{ fontSize: '0.85rem' }}>{s.icon || '🧩'}</span>
-                                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: subAtivaSel ? '#eeede9' : 'rgba(255,255,255,0.8)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {s.name}
-                                  </span>
-                                  {!s.active && <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)' }}>oculta</span>}
-                                </div>
-
-                                {subAberta && (
-                                  <div style={{ paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 1, marginTop: 1 }}>
-                                    {s.ferramentas.map((f) => (
-                                      <NoFerramenta
-                                        key={f.id} f={f} categoriaId={s.id}
-                                        selecionado={selecionado} arrastando={arrastando} alvoArraste={alvoArraste}
-                                        onSelecionar={selecionarFerramenta}
-                                        onDragStart={() => setArrastando({ id: f.id, categoriaId: s.id })}
-                                        onDragEnd={() => { setArrastando(null); setAlvoArraste(null); }}
-                                        onDragOverRow={() => setAlvoArraste({ categoriaId: s.id, antesDeId: f.id })}
-                                        onDrop={() => soltarFerramenta(s.id, f.id)}
-                                      />
-                                    ))}
-                                    <button
-                                      className="admin-btn"
-                                      style={{ margin: '2px 8px 6px', padding: '4px 9px', fontSize: '0.72rem', alignSelf: 'flex-start' }}
-                                      onClick={() => novaFerramenta(s.id)}
-                                    >
-                                      + Ferramenta
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
+                          ) : (
+                            <span style={{ fontSize: '0.86rem', fontWeight: 700, color: ativaSel ? '#eeede9' : 'rgba(255,255,255,0.92)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <Realce texto={c.name} termo={termoBusca} />
+                            </span>
+                          )}
+                          {!c.active && <span style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.3)', flexShrink: 0 }}>oculta</span>}
+                          {!renomeandoEsta && (
+                            <MenuAcoes itens={[
+                              { label: 'Renomear', onClick: () => iniciarRenomeio('categoria', c) },
+                              { label: 'Nova ferramenta', onClick: () => novaFerramenta(c.id) },
+                              { label: 'Nova subcategoria', onClick: () => novaSubcategoria(c.id) },
+                              { divisor: true },
+                              { label: 'Excluir', perigo: true, onClick: () => setExcluindoNo({ tipo: 'categoria', id: c.id, name: c.name }) },
+                            ]}
+                            />
+                          )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+
+                        {aberta && (c.ferramentas.length > 0 || c.subcategorias.length > 0) && (
+                          <div style={{ marginLeft: 20, paddingLeft: 10, borderLeft: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', gap: 1, marginTop: 2, marginBottom: 2 }}>
+                            {c.ferramentas.filter((f) => categoriaVisivel(f.id)).map((f) => (
+                              <NoFerramenta
+                                key={f.id} f={f} categoriaId={c.id} termoBusca={termoBusca}
+                                selecionado={selecionado} arrastando={arrastando} alvoArraste={alvoArraste} renomeando={renomeando}
+                                onSelecionar={selecionarFerramenta}
+                                onDragStart={() => setArrastando({ id: f.id, categoriaId: c.id })}
+                                onDragEnd={() => { setArrastando(null); setAlvoArraste(null); }}
+                                onDragOverRow={(pos) => setAlvoArraste({ categoriaId: c.id, itemId: f.id, posicao: pos })}
+                                onDrop={(pos) => soltarFerramenta(c.id, { itemId: f.id, posicao: pos })}
+                                onIniciarRenomeio={(no) => iniciarRenomeio('ferramenta', no)}
+                                onRenomeioMudar={(valor) => setRenomeando((r) => ({ ...r, valor }))}
+                                onRenomeioConfirmar={confirmarRenomeio}
+                                onRenomeioCancelar={cancelarRenomeio}
+                                onExcluir={() => setExcluindoNo({ tipo: 'ferramenta', id: f.id, name: f.name })}
+                              />
+                            ))}
+
+                            {c.subcategorias.filter((s) => categoriaVisivel(s.id)).map((s) => {
+                              const subAberta = categoriaAberta(s.id);
+                              const subAtivaSel = selecionado?.tipo === 'categoria' && selecionado.id === s.id;
+                              const renomeandoSub = renomeando?.tipo === 'categoria' && renomeando.id === s.id;
+                              const alvoCabecalhoSub = arrastando && alvoArraste?.categoriaId === s.id && !alvoArraste?.itemId;
+                              return (
+                                <div key={s.id}>
+                                  <div
+                                    className="adm-genjutsu"
+                                    style={{
+                                      display: 'flex', alignItems: 'center', gap: 6, padding: '6px 7px', borderRadius: 8,
+                                      cursor: renomeandoSub ? 'default' : 'pointer',
+                                      background: subAtivaSel ? 'rgba(124,58,237,0.14)' : alvoCabecalhoSub ? 'rgba(124,58,237,0.08)' : 'transparent',
+                                      outline: alvoCabecalhoSub ? '1px dashed rgba(124,58,237,0.5)' : 'none', outlineOffset: -1,
+                                      transition: 'background 0.12s ease-out',
+                                    }}
+                                    onClick={() => !renomeandoSub && selecionarCategoria(s)}
+                                    onDragOver={(e) => { if (arrastando) { e.preventDefault(); setAlvoArraste({ categoriaId: s.id, itemId: null, posicao: null }); } }}
+                                    onDrop={(e) => { if (arrastando) { e.preventDefault(); e.stopPropagation(); soltarFerramenta(s.id, null); } }}
+                                  >
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); toggleExpandida(s.id); }}
+                                      style={{
+                                        width: 16, height: 16, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer',
+                                        color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        transform: subAberta ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s ease-out', fontSize: '0.6rem',
+                                      }}
+                                    >
+                                      ▶
+                                    </button>
+                                    <span style={{ fontSize: '0.82rem' }}>{s.icon || '🧩'}</span>
+                                    {renomeandoSub ? (
+                                      <input
+                                        autoFocus className="admin-input" value={renomeando.valor}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onChange={(e) => setRenomeando((r) => ({ ...r, valor: e.target.value }))}
+                                        onFocus={(e) => e.target.select()}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') { e.preventDefault(); confirmarRenomeio(); }
+                                          if (e.key === 'Escape') { e.preventDefault(); cancelarRenomeio(); }
+                                        }}
+                                        onBlur={confirmarRenomeio}
+                                        style={{ flex: 1, minWidth: 0, padding: '3px 7px', fontSize: '0.8rem', height: 26 }}
+                                      />
+                                    ) : (
+                                      <span style={{ fontSize: '0.78rem', fontWeight: 600, color: subAtivaSel ? '#eeede9' : 'rgba(255,255,255,0.78)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        <Realce texto={s.name} termo={termoBusca} />
+                                      </span>
+                                    )}
+                                    {!s.active && <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)', flexShrink: 0 }}>oculta</span>}
+                                    {!renomeandoSub && (
+                                      <MenuAcoes itens={[
+                                        { label: 'Renomear', onClick: () => iniciarRenomeio('categoria', s) },
+                                        { label: 'Nova ferramenta', onClick: () => novaFerramenta(s.id) },
+                                        { divisor: true },
+                                        { label: 'Excluir', perigo: true, onClick: () => setExcluindoNo({ tipo: 'categoria', id: s.id, name: s.name }) },
+                                      ]}
+                                      />
+                                    )}
+                                  </div>
+
+                                  {subAberta && (
+                                    <div style={{ marginLeft: 18, paddingLeft: 10, borderLeft: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: 1, marginTop: 1, marginBottom: 1 }}>
+                                      {s.ferramentas.filter((f) => categoriaVisivel(f.id)).map((f) => (
+                                        <NoFerramenta
+                                          key={f.id} f={f} categoriaId={s.id} termoBusca={termoBusca}
+                                          selecionado={selecionado} arrastando={arrastando} alvoArraste={alvoArraste} renomeando={renomeando}
+                                          onSelecionar={selecionarFerramenta}
+                                          onDragStart={() => setArrastando({ id: f.id, categoriaId: s.id })}
+                                          onDragEnd={() => { setArrastando(null); setAlvoArraste(null); }}
+                                          onDragOverRow={(pos) => setAlvoArraste({ categoriaId: s.id, itemId: f.id, posicao: pos })}
+                                          onDrop={(pos) => soltarFerramenta(s.id, { itemId: f.id, posicao: pos })}
+                                          onIniciarRenomeio={(no) => iniciarRenomeio('ferramenta', no)}
+                                          onRenomeioMudar={(valor) => setRenomeando((r) => ({ ...r, valor }))}
+                                          onRenomeioConfirmar={confirmarRenomeio}
+                                          onRenomeioCancelar={cancelarRenomeio}
+                                          onExcluir={() => setExcluindoNo({ tipo: 'ferramenta', id: f.id, name: f.name })}
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </Card>
 
           <Card style={{ flex: 1, minWidth: 0, padding: 22 }}>
