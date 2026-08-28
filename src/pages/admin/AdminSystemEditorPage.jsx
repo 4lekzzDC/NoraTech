@@ -15,8 +15,8 @@ import { useToasts } from '../../lib/useToasts';
 import { supabase } from '../../lib/supabase';
 import { SYSTEM_LOGOS_BUCKET } from '../../lib/systems';
 import {
-  listarCategorias, listarFerramentas, salvarCategoria, excluirCategoria,
-  salvarFerramenta, excluirFerramenta,
+  listarCategorias, listarSubcategorias, listarFerramentas, salvarCategoria, excluirCategoria,
+  salvarFerramenta, excluirFerramenta, moverFerramenta,
 } from '../../lib/hubModuleCatalog';
 import { SystemLogo, Field } from './adminFormHelpers';
 import { slugify, validateLogoFile } from './adminFormUtils';
@@ -29,8 +29,63 @@ const ABAS_TOPO = [
   { id: 'configuracoes', label: 'Configurações' },
 ];
 
-const RASCUNHO_CATEGORIA = { name: '', slug: '', icon: '', description: '', status: 'available', active: true, sortOrder: 0 };
-const RASCUNHO_FERRAMENTA = { name: '', slug: '', icon: '', color: '#7C3AED', description: '', status: 'available', active: true, sortOrder: 0 };
+const RASCUNHO_CATEGORIA = { name: '', slug: '', icon: '', description: '', status: 'available', active: true, sortOrder: 0, parentCategoriaId: null };
+const RASCUNHO_FERRAMENTA = { name: '', slug: '', icon: '', color: '#7C3AED', description: '', status: 'available', active: true };
+
+// Achata a árvore (categorias de topo + suas sub-categorias) numa lista só
+// — usada pra achar um nó por id (drag-and-drop, cálculo de posição) e pra
+// montar o select "Exibir em" sem duplicar a travessia em vários lugares.
+function nosFlat(categorias) {
+  const flat = [];
+  for (const c of categorias) {
+    flat.push(c);
+    for (const s of c.subcategorias || []) flat.push(s);
+  }
+  return flat;
+}
+
+// Ícone de arraste — só um afago visual (⠿), a linha inteira já é
+// arrastável, não precisa acertar o pixel exato do ícone.
+function IArrastar() {
+  return (
+    <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.28)', cursor: 'grab', flexShrink: 0, userSelect: 'none' }} title="Arraste para reordenar ou mover">
+      ⠿
+    </span>
+  );
+}
+
+// Uma ferramenta na árvore — arrastável (reordena dentro da lista ou muda
+// de categoria/subcategoria ao soltar em outro pai). `alvoArraste` só pinta
+// uma borda antes do item sob o cursor; a posição real só muda ao soltar.
+function NoFerramenta({ f, categoriaId, selecionado, arrastando, alvoArraste, onSelecionar, onDragStart, onDragEnd, onDragOverRow, onDrop }) {
+  const ativaSel = selecionado?.tipo === 'ferramenta' && selecionado.id === f.id;
+  const sendoArrastada = arrastando?.id === f.id;
+  const alvo = alvoArraste?.categoriaId === categoriaId && alvoArraste?.antesDeId === f.id;
+  return (
+    <div
+      draggable
+      onDragStart={(e) => { e.stopPropagation(); onDragStart(); }}
+      onDragEnd={onDragEnd}
+      onDragOver={(e) => { if (arrastando) { e.preventDefault(); e.stopPropagation(); onDragOverRow(); } }}
+      onDrop={(e) => { if (arrastando) { e.preventDefault(); e.stopPropagation(); onDrop(); } }}
+      onClick={() => onSelecionar(f, categoriaId)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 8,
+        cursor: 'pointer', background: ativaSel ? 'rgba(124,58,237,0.14)' : 'transparent',
+        opacity: sendoArrastada ? 0.4 : 1,
+        borderTop: alvo ? '2px solid #7C3AED' : '2px solid transparent',
+      }}
+    >
+      <IArrastar />
+      <span style={{ fontSize: '0.85rem' }}>{f.icon || '🧩'}</span>
+      <span style={{ fontSize: '0.8rem', fontWeight: 600, color: ativaSel ? '#eeede9' : 'rgba(255,255,255,0.75)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {f.name}
+      </span>
+      {f.status === 'soon' && <span style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.35)' }}>em breve</span>}
+      {!f.active && <span style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.3)' }}>oculta</span>}
+    </div>
+  );
+}
 
 function TopTabs({ aba, setAba }) {
   return (
@@ -120,11 +175,18 @@ export default function AdminSystemEditorPage() {
   const carregarEstrutura = async () => {
     setCarregandoEstrutura(true);
     try {
-      const cats = await listarCategorias(slug);
-      const comFerramentas = await Promise.all(
-        cats.map(async (c) => ({ ...c, ferramentas: await listarFerramentas(c.id) })),
-      );
-      setCategorias(comFerramentas);
+      const raizes = await listarCategorias(slug, { apenasRaiz: true });
+      const completo = await Promise.all(raizes.map(async (c) => {
+        const [ferramentas, subs] = await Promise.all([
+          listarFerramentas(c.id),
+          listarSubcategorias(c.id),
+        ]);
+        const subcategorias = await Promise.all(
+          subs.map(async (s) => ({ ...s, ferramentas: await listarFerramentas(s.id) })),
+        );
+        return { ...c, ferramentas, subcategorias };
+      }));
+      setCategorias(completo);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -226,6 +288,7 @@ export default function AdminSystemEditorPage() {
     setRascunho({
       name: c.name, slug: c.slug, icon: c.icon || '', description: c.description || '',
       status: c.status, active: c.active, sortOrder: c.sort_order,
+      parentCategoriaId: c.parent_categoria_id || null,
     });
     setAbaPainel('visualizacao');
   }
@@ -234,7 +297,7 @@ export default function AdminSystemEditorPage() {
     setSelecionado({ tipo: 'ferramenta', id: f.id, categoriaId });
     setRascunho({
       name: f.name, slug: f.slug, icon: f.icon || '', color: f.color || '#7C3AED',
-      description: f.description || '', status: f.status, active: f.active, sortOrder: f.sort_order,
+      description: f.description || '', status: f.status, active: f.active,
       categoriaId,
     });
     setAbaPainel('visualizacao');
@@ -244,6 +307,13 @@ export default function AdminSystemEditorPage() {
     setSelecionado({ tipo: 'categoria', id: null, isNew: true });
     setRascunho({ ...RASCUNHO_CATEGORIA });
     setAbaPainel('visualizacao');
+  }
+
+  function novaSubcategoria(parentCategoriaId) {
+    setSelecionado({ tipo: 'categoria', id: null, isNew: true });
+    setRascunho({ ...RASCUNHO_CATEGORIA, parentCategoriaId });
+    setAbaPainel('visualizacao');
+    setExpandidas((atual) => new Set(atual).add(parentCategoriaId));
   }
 
   function novaFerramenta(categoriaId) {
@@ -269,14 +339,26 @@ export default function AdminSystemEditorPage() {
         const salva = await salvarCategoria({
           systemSlug: slug, slug: noSlug, name, icon: rascunho.icon, description: rascunho.description,
           status: rascunho.status, active: rascunho.active, sortOrder: rascunho.sortOrder,
+          parentCategoriaId: rascunho.parentCategoriaId || null,
         }, selecionado.isNew ? null : selecionado.id);
         await carregarEstrutura();
         setSelecionado({ tipo: 'categoria', id: salva.id });
         showToast('Categoria salva.');
       } else {
+        // A ordem não vem mais de um campo digitado — o formulário não mexe
+        // nela: se a ferramenta ficou na mesma categoria, mantém a posição
+        // que já tinha; se é nova ou mudou de categoria, entra no fim da
+        // lista de destino (dali, arrastar reordena).
+        const destino = nosFlat(categorias).find((n) => n.id === rascunho.categoriaId);
+        const original = !selecionado.isNew
+          ? nosFlat(categorias).flatMap((n) => n.ferramentas).find((f) => f.id === selecionado.id)
+          : null;
+        const categoriaMudou = selecionado.isNew || original?.categoria_id !== rascunho.categoriaId;
+        const sortOrder = categoriaMudou ? (destino?.ferramentas.length || 0) : original.sort_order;
+
         const salva = await salvarFerramenta({
           categoriaId: rascunho.categoriaId, slug: noSlug, name, icon: rascunho.icon, color: rascunho.color,
-          description: rascunho.description, status: rascunho.status, active: rascunho.active, sortOrder: rascunho.sortOrder,
+          description: rascunho.description, status: rascunho.status, active: rascunho.active, sortOrder,
         }, selecionado.isNew ? null : selecionado.id);
         await carregarEstrutura();
         // Se a ferramenta mudou de categoria, mostra onde ela caiu — abre a
@@ -289,6 +371,46 @@ export default function AdminSystemEditorPage() {
       setError(e.message);
     } finally {
       setSalvandoNo(false);
+    }
+  }
+
+  // ── Estrutura: arrastar e soltar ferramentas ─────────────────────────
+  const [arrastando, setArrastando] = useState(null); // { id, categoriaId } | null
+  const [alvoArraste, setAlvoArraste] = useState(null); // { categoriaId, antesDeId } | null — só visual
+
+  async function soltarFerramenta(categoriaId, antesDeId) {
+    const origem = arrastando;
+    setArrastando(null);
+    setAlvoArraste(null);
+    if (!origem || origem.id === antesDeId) return;
+
+    const todos = nosFlat(categorias);
+    const noOrigem = todos.find((n) => n.id === origem.categoriaId);
+    const noDestino = todos.find((n) => n.id === categoriaId);
+    if (!noOrigem || !noDestino) return;
+    const item = noOrigem.ferramentas.find((f) => f.id === origem.id);
+    if (!item) return;
+
+    const mesmaLista = origem.categoriaId === categoriaId;
+    const listaDestino = noDestino.ferramentas.filter((f) => f.id !== origem.id);
+    const indice = antesDeId ? listaDestino.findIndex((f) => f.id === antesDeId) : -1;
+    listaDestino.splice(indice === -1 ? listaDestino.length : indice, 0, item);
+
+    setError('');
+    try {
+      await Promise.all(listaDestino.map((f, i) => moverFerramenta(f.id, { categoriaId, sortOrder: i })));
+      if (!mesmaLista) {
+        const listaOrigem = noOrigem.ferramentas.filter((f) => f.id !== origem.id);
+        await Promise.all(listaOrigem.map((f, i) => moverFerramenta(f.id, { categoriaId: origem.categoriaId, sortOrder: i })));
+        setExpandidas((atual) => new Set(atual).add(categoriaId));
+      }
+      await carregarEstrutura();
+      if (selecionado?.tipo === 'ferramenta' && selecionado.id === origem.id) {
+        setSelecionado({ tipo: 'ferramenta', id: origem.id, categoriaId });
+        setRascunho((r) => (r ? { ...r, categoriaId } : r));
+      }
+    } catch (e) {
+      setError(e.message);
     }
   }
 
@@ -322,7 +444,7 @@ export default function AdminSystemEditorPage() {
   }
 
   const categoriaSelecionada = selecionado
-    ? categorias.find((c) => c.id === (selecionado.tipo === 'categoria' ? selecionado.id : selecionado.categoriaId))
+    ? nosFlat(categorias).find((c) => c.id === (selecionado.tipo === 'categoria' ? selecionado.id : selecionado.categoriaId))
     : null;
   const ferramentaSelecionada = selecionado?.tipo === 'ferramenta' && !selecionado.isNew
     ? categoriaSelecionada?.ferramentas.find((f) => f.id === selecionado.id)
@@ -424,7 +546,7 @@ export default function AdminSystemEditorPage() {
       {/* ── Estrutura: árvore + painel ── */}
       {abaTopo === 'estrutura' && (
         <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}>
-          <Card style={{ width: 280, flexShrink: 0, padding: 12 }}>
+          <Card style={{ width: 300, flexShrink: 0, padding: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 4px 10px' }}>
               <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase' }}>Módulos</span>
               <button className="admin-btn" style={{ padding: '4px 9px', fontSize: '0.75rem' }} onClick={novaCategoria}>+ Categoria</button>
@@ -445,6 +567,8 @@ export default function AdminSystemEditorPage() {
                           cursor: 'pointer', background: ativaSel ? 'rgba(124,58,237,0.14)' : 'transparent',
                         }}
                         onClick={() => selecionarCategoria(c)}
+                        onDragOver={(e) => { if (arrastando) e.preventDefault(); }}
+                        onDrop={(e) => { if (arrastando) { e.preventDefault(); e.stopPropagation(); soltarFerramenta(c.id, null); } }}
                       >
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleExpandida(c.id); }}
@@ -464,33 +588,79 @@ export default function AdminSystemEditorPage() {
                       </div>
 
                       {aberta && (
-                        <div style={{ paddingLeft: 30, display: 'flex', flexDirection: 'column', gap: 1, marginTop: 1 }}>
-                          {c.ferramentas.map((f) => {
-                            const ativaFerr = selecionado?.tipo === 'ferramenta' && selecionado.id === f.id;
+                        <div style={{ paddingLeft: 24, display: 'flex', flexDirection: 'column', gap: 1, marginTop: 1 }}>
+                          {c.ferramentas.map((f) => (
+                            <NoFerramenta
+                              key={f.id} f={f} categoriaId={c.id}
+                              selecionado={selecionado} arrastando={arrastando} alvoArraste={alvoArraste}
+                              onSelecionar={selecionarFerramenta}
+                              onDragStart={() => setArrastando({ id: f.id, categoriaId: c.id })}
+                              onDragEnd={() => { setArrastando(null); setAlvoArraste(null); }}
+                              onDragOverRow={() => setAlvoArraste({ categoriaId: c.id, antesDeId: f.id })}
+                              onDrop={() => soltarFerramenta(c.id, f.id)}
+                            />
+                          ))}
+                          <div style={{ display: 'flex', gap: 6, margin: '2px 8px 6px' }}>
+                            <button className="admin-btn" style={{ padding: '4px 9px', fontSize: '0.72rem' }} onClick={() => novaFerramenta(c.id)}>+ Ferramenta</button>
+                            <button className="admin-btn" style={{ padding: '4px 9px', fontSize: '0.72rem' }} onClick={() => novaSubcategoria(c.id)}>+ Subcategoria</button>
+                          </div>
+
+                          {c.subcategorias.map((s) => {
+                            const subAberta = expandidas.has(s.id);
+                            const subAtivaSel = selecionado?.tipo === 'categoria' && selecionado.id === s.id;
                             return (
-                              <div
-                                key={f.id}
-                                onClick={() => selecionarFerramenta(f, c.id)}
-                                style={{
-                                  display: 'flex', alignItems: 'center', gap: 6, padding: '7px 8px', borderRadius: 8,
-                                  cursor: 'pointer', background: ativaFerr ? 'rgba(124,58,237,0.14)' : 'transparent',
-                                }}
-                              >
-                                <span style={{ fontSize: '0.85rem' }}>{f.icon || '🧩'}</span>
-                                <span style={{ fontSize: '0.8rem', color: ativaFerr ? '#eeede9' : 'rgba(255,255,255,0.7)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {f.name}
-                                </span>
-                                {!f.active && <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)' }}>oculta</span>}
+                              <div key={s.id}>
+                                <div
+                                  style={{
+                                    display: 'flex', alignItems: 'center', gap: 6, padding: '7px 8px', borderRadius: 8,
+                                    cursor: 'pointer', background: subAtivaSel ? 'rgba(124,58,237,0.14)' : 'transparent',
+                                  }}
+                                  onClick={() => selecionarCategoria(s)}
+                                  onDragOver={(e) => { if (arrastando) e.preventDefault(); }}
+                                  onDrop={(e) => { if (arrastando) { e.preventDefault(); e.stopPropagation(); soltarFerramenta(s.id, null); } }}
+                                >
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); toggleExpandida(s.id); }}
+                                    style={{
+                                      width: 16, height: 16, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer',
+                                      color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      transform: subAberta ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', fontSize: '0.6rem',
+                                    }}
+                                  >
+                                    ▶
+                                  </button>
+                                  <span style={{ fontSize: '0.85rem' }}>{s.icon || '🧩'}</span>
+                                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: subAtivaSel ? '#eeede9' : 'rgba(255,255,255,0.8)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {s.name}
+                                  </span>
+                                  {!s.active && <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)' }}>oculta</span>}
+                                </div>
+
+                                {subAberta && (
+                                  <div style={{ paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 1, marginTop: 1 }}>
+                                    {s.ferramentas.map((f) => (
+                                      <NoFerramenta
+                                        key={f.id} f={f} categoriaId={s.id}
+                                        selecionado={selecionado} arrastando={arrastando} alvoArraste={alvoArraste}
+                                        onSelecionar={selecionarFerramenta}
+                                        onDragStart={() => setArrastando({ id: f.id, categoriaId: s.id })}
+                                        onDragEnd={() => { setArrastando(null); setAlvoArraste(null); }}
+                                        onDragOverRow={() => setAlvoArraste({ categoriaId: s.id, antesDeId: f.id })}
+                                        onDrop={() => soltarFerramenta(s.id, f.id)}
+                                      />
+                                    ))}
+                                    <button
+                                      className="admin-btn"
+                                      style={{ margin: '2px 8px 6px', padding: '4px 9px', fontSize: '0.72rem', alignSelf: 'flex-start' }}
+                                      onClick={() => novaFerramenta(s.id)}
+                                    >
+                                      + Ferramenta
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
-                          <button
-                            className="admin-btn"
-                            style={{ margin: '2px 8px 6px', padding: '4px 9px', fontSize: '0.72rem', alignSelf: 'flex-start' }}
-                            onClick={() => novaFerramenta(c.id)}
-                          >
-                            + Ferramenta
-                          </button>
                         </div>
                       )}
                     </div>
@@ -537,18 +707,20 @@ export default function AdminSystemEditorPage() {
                         <Field label="Cor de destaque">
                           <input className="admin-input" type="color" value={rascunho.color || '#7C3AED'} onChange={(e) => setRascunho({ ...rascunho, color: e.target.value })} style={{ padding: 4, height: 38, cursor: 'pointer' }} />
                         </Field>
-                        <Field label="Exibir em" full hint="Categoria/módulo do hub onde esta ferramenta aparece. Mudar aqui move o card para lá.">
+                        <Field label="Exibir em" full hint="Categoria/módulo do hub onde esta ferramenta aparece. Mudar aqui move o card para lá — a mesma coisa que arrastar na árvore.">
                           <select className="admin-select" value={rascunho.categoriaId || ''} onChange={(e) => setRascunho({ ...rascunho, categoriaId: e.target.value })} required>
-                            {categorias.map((c) => (
-                              <option key={c.id} value={c.id}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>
+                            {nosFlat(categorias).map((c) => (
+                              <option key={c.id} value={c.id}>{c.parent_categoria_id ? '— ' : ''}{c.icon ? `${c.icon} ` : ''}{c.name}</option>
                             ))}
                           </select>
                         </Field>
                       </>
                     )}
-                    <Field label="Ordem de exibição">
-                      <input className="admin-input" type="number" value={rascunho.sortOrder ?? 0} onChange={(e) => setRascunho({ ...rascunho, sortOrder: e.target.value })} />
-                    </Field>
+                    {selecionado.tipo === 'categoria' && (
+                      <Field label="Ordem de exibição" hint="Sub-categorias e ferramentas agora se reordenam arrastando na árvore.">
+                        <input className="admin-input" type="number" value={rascunho.sortOrder ?? 0} onChange={(e) => setRascunho({ ...rascunho, sortOrder: e.target.value })} />
+                      </Field>
+                    )}
                     <Field label="Descrição" full>
                       <textarea className="admin-input" rows={2} style={{ resize: 'vertical', fontFamily: 'inherit' }} value={rascunho.description || ''} onChange={(e) => setRascunho({ ...rascunho, description: e.target.value })} />
                     </Field>
