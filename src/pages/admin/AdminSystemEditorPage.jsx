@@ -16,7 +16,7 @@ import { supabase } from '../../lib/supabase';
 import { SYSTEM_LOGOS_BUCKET } from '../../lib/systems';
 import {
   listarCategorias, listarSubcategorias, listarFerramentas, salvarCategoria, excluirCategoria,
-  salvarFerramenta, excluirFerramenta, moverFerramenta,
+  salvarFerramenta, excluirFerramenta, moverFerramenta, moverCategoria,
 } from '../../lib/hubModuleCatalog';
 import { SystemLogo, Field } from './adminFormHelpers';
 import { slugify, validateLogoFile } from './adminFormUtils';
@@ -29,7 +29,7 @@ const ABAS_TOPO = [
   { id: 'configuracoes', label: 'Configurações' },
 ];
 
-const RASCUNHO_CATEGORIA = { name: '', slug: '', icon: '', description: '', status: 'available', active: true, sortOrder: 0, parentCategoriaId: null };
+const RASCUNHO_CATEGORIA = { name: '', slug: '', icon: '', description: '', status: 'available', active: true, parentCategoriaId: null };
 const RASCUNHO_FERRAMENTA = { name: '', slug: '', icon: '', color: '#7C3AED', description: '', status: 'available', active: true };
 
 // Achata a árvore (categorias de topo + suas sub-categorias) numa lista só
@@ -197,7 +197,7 @@ function NoFerramenta({
           style={{ flex: 1, minWidth: 0, padding: '3px 7px', fontSize: '0.8rem', height: 26 }}
         />
       ) : (
-        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: ativaSel ? '#eeede9' : 'rgba(255,255,255,0.75)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span title={f.name} style={{ fontSize: '0.8rem', fontWeight: 600, color: ativaSel ? '#eeede9' : 'rgba(255,255,255,0.75)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           <Realce texto={f.name} termo={termoBusca} />
         </span>
       )}
@@ -288,6 +288,38 @@ export default function AdminSystemEditorPage() {
   const [busca, setBusca] = useState('');
   const [renomeando, setRenomeando] = useState(null); // { tipo, id, valor } | null
   const renomeioConfirmadoRef = useRef(false);
+
+  // Largura da árvore, redimensionável arrastando a borda direita —
+  // lembrada entre sessões (preferência do admin, não do sistema aberto).
+  const arvoreRef = useRef(null);
+  const [larguraArvore, setLarguraArvore] = useState(() => {
+    const salva = Number(localStorage.getItem('admin-estrutura-largura'));
+    return Number.isFinite(salva) && salva >= 220 && salva <= 560 ? salva : 300;
+  });
+  const [redimensionando, setRedimensionando] = useState(false);
+
+  useEffect(() => {
+    if (!redimensionando) return undefined;
+    function aoMover(e) {
+      if (!arvoreRef.current) return;
+      const rect = arvoreRef.current.getBoundingClientRect();
+      setLarguraArvore(Math.min(560, Math.max(220, e.clientX - rect.left)));
+    }
+    function aoSoltar() {
+      setRedimensionando(false);
+      setLarguraArvore((atual) => { localStorage.setItem('admin-estrutura-largura', String(atual)); return atual; });
+    }
+    document.addEventListener('mousemove', aoMover);
+    document.addEventListener('mouseup', aoSoltar);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    return () => {
+      document.removeEventListener('mousemove', aoMover);
+      document.removeEventListener('mouseup', aoSoltar);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [redimensionando]);
 
   // ── Empresas ─────────────────────────────────────────────────────────
   const [empresas, setEmpresas] = useState(null);
@@ -494,7 +526,7 @@ export default function AdminSystemEditorPage() {
     setSelecionado({ tipo: 'categoria', id: c.id });
     setRascunho({
       name: c.name, slug: c.slug, icon: c.icon || '', description: c.description || '',
-      status: c.status, active: c.active, sortOrder: c.sort_order,
+      status: c.status, active: c.active,
       parentCategoriaId: c.parent_categoria_id || null,
     });
     setAbaPainel('visualizacao');
@@ -543,10 +575,18 @@ export default function AdminSystemEditorPage() {
     setError('');
     try {
       if (selecionado.tipo === 'categoria') {
+        // A ordem não é mais digitada — segue o mesmo padrão da ferramenta:
+        // categoria existente mantém a posição que já tinha (a árvore é que
+        // muda isso, arrastando); categoria nova entra no fim da lista onde
+        // vai aparecer (topo, ou sub-categorias do pai escolhido).
+        const paiId = rascunho.parentCategoriaId || null;
+        const sortOrder = selecionado.isNew
+          ? (paiId ? (categorias.find((c) => c.id === paiId)?.subcategorias.length || 0) : categorias.length)
+          : nosFlat(categorias).find((c) => c.id === selecionado.id)?.sort_order ?? 0;
         const salva = await salvarCategoria({
           systemSlug: slug, slug: noSlug, name, icon: rascunho.icon, description: rascunho.description,
-          status: rascunho.status, active: rascunho.active, sortOrder: rascunho.sortOrder,
-          parentCategoriaId: rascunho.parentCategoriaId || null,
+          status: rascunho.status, active: rascunho.active, sortOrder,
+          parentCategoriaId: paiId,
         }, selecionado.isNew ? null : selecionado.id);
         await carregarEstrutura();
         setSelecionado({ tipo: 'categoria', id: salva.id });
@@ -650,6 +690,58 @@ export default function AdminSystemEditorPage() {
         label: 'Desfazer',
         onClick: () => desfazerMovimento(snapshotAntes),
       });
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  // ── Estrutura: arrastar e soltar categorias/sub-categorias (reordenar só
+  // dentro do mesmo pai — não é o que move uma categoria pra outro nível) ──
+  const [arrastandoNo, setArrastandoNo] = useState(null); // { id, parentId } | null
+  const [alvoArrasteNo, setAlvoArrasteNo] = useState(null); // { parentId, itemId, posicao } | null
+
+  async function desfazerOrdemNo(snapshotAntes) {
+    setError('');
+    try {
+      await Promise.all(snapshotAntes.map((s) => moverCategoria(s.id, s.sortOrder)));
+      await carregarEstrutura();
+      showToast('Ordem desfeita.');
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  // `parentId` null = módulos de topo; um id = sub-categorias daquele módulo.
+  // `alvo` é { itemId, posicao } quando soltou em cima de outra categoria da
+  // mesma lista, ou `null` quando soltou no fim (cabeçalho do próprio pai).
+  async function soltarNo(parentId, alvo) {
+    const origem = arrastandoNo;
+    setArrastandoNo(null);
+    setAlvoArrasteNo(null);
+    if (!origem || origem.parentId !== parentId) return; // não muda de nível arrastando
+    if (alvo && alvo.itemId === origem.id) return;
+
+    const lista = parentId ? categorias.find((c) => c.id === parentId)?.subcategorias : categorias;
+    if (!lista) return;
+    const item = lista.find((n) => n.id === origem.id);
+    if (!item) return;
+
+    const snapshotAntes = lista.map((n) => ({ id: n.id, sortOrder: n.sort_order }));
+
+    const listaSemOrigem = lista.filter((n) => n.id !== origem.id);
+    let indice = listaSemOrigem.length;
+    if (alvo) {
+      const posAlvo = listaSemOrigem.findIndex((n) => n.id === alvo.itemId);
+      if (posAlvo !== -1) indice = alvo.posicao === 'depois' ? posAlvo + 1 : posAlvo;
+    }
+    listaSemOrigem.splice(indice, 0, item);
+    if (listaSemOrigem.every((n, i) => n.id === lista[i]?.id)) return; // soltou no mesmo lugar
+
+    setError('');
+    try {
+      await Promise.all(listaSemOrigem.map((n, i) => moverCategoria(n.id, i)));
+      await carregarEstrutura();
+      showToast('Ordem atualizada.', 'success', { label: 'Desfazer', onClick: () => desfazerOrdemNo(snapshotAntes) });
     } catch (e) {
       setError(e.message);
     }
@@ -792,12 +884,16 @@ export default function AdminSystemEditorPage() {
             @media (prefers-reduced-motion: reduce) {
               .adm-genjutsu, .adm-genjutsu * { transition: none !important; animation: none !important; }
             }
+            .adm-resize-handle { background: transparent; transition: background 0.15s ease-out; }
+            .adm-resize-handle:hover, .adm-resize-handle.ativo { background: rgba(124,58,237,0.4); }
           `}</style>
-          <Card
+          <div
+            ref={arvoreRef}
             className="adm-genjutsu"
             style={{
-              width: 300, flexShrink: 0, padding: 12, display: 'flex', flexDirection: 'column',
+              width: larguraArvore, flexShrink: 0, padding: 12, display: 'flex', flexDirection: 'column',
               position: 'sticky', top: 20, maxHeight: 'calc(100vh - 40px)',
+              background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14,
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 4px 10px', flexShrink: 0 }}>
@@ -837,21 +933,42 @@ export default function AdminSystemEditorPage() {
                     const ativaSel = selecionado?.tipo === 'categoria' && selecionado.id === c.id;
                     const renomeandoEsta = renomeando?.tipo === 'categoria' && renomeando.id === c.id;
                     const alvoCabecalho = arrastando && alvoArraste?.categoriaId === c.id && !alvoArraste?.itemId;
+                    const sendoArrastadaNo = arrastandoNo?.id === c.id;
+                    const alvoNoAqui = alvoArrasteNo?.parentId === null && alvoArrasteNo?.itemId === c.id;
                     return (
                       <div key={c.id}>
                         <div
                           className="adm-genjutsu"
+                          draggable={!renomeandoEsta}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 7, padding: '7px 8px', borderRadius: 9,
                             cursor: renomeandoEsta ? 'default' : 'pointer',
                             background: ativaSel ? 'rgba(124,58,237,0.16)' : alvoCabecalho ? 'rgba(124,58,237,0.08)' : 'transparent',
                             outline: alvoCabecalho ? '1px dashed rgba(124,58,237,0.5)' : 'none', outlineOffset: -1,
-                            transition: 'background 0.12s ease-out',
+                            opacity: sendoArrastadaNo ? 0.35 : 1,
+                            borderTop: alvoNoAqui && alvoArrasteNo.posicao === 'antes' ? '2px solid #7C3AED' : '2px solid transparent',
+                            borderBottom: alvoNoAqui && alvoArrasteNo.posicao === 'depois' ? '2px solid #7C3AED' : '2px solid transparent',
+                            transition: 'background 0.12s ease-out, opacity 0.15s ease-out, border-color 0.1s ease-out',
                           }}
                           onClick={() => !renomeandoEsta && selecionarCategoria(c)}
-                          onDragOver={(e) => { if (arrastando) { e.preventDefault(); setAlvoArraste({ categoriaId: c.id, itemId: null, posicao: null }); } }}
-                          onDrop={(e) => { if (arrastando) { e.preventDefault(); e.stopPropagation(); soltarFerramenta(c.id, null); } }}
+                          onDragStart={(e) => { e.stopPropagation(); setArrastandoNo({ id: c.id, parentId: null }); }}
+                          onDragEnd={() => { setArrastandoNo(null); setAlvoArrasteNo(null); }}
+                          onDragOver={(e) => {
+                            if (arrastando) { e.preventDefault(); setAlvoArraste({ categoriaId: c.id, itemId: null, posicao: null }); }
+                            else if (arrastandoNo && arrastandoNo.parentId === null && arrastandoNo.id !== c.id) {
+                              e.preventDefault(); e.stopPropagation();
+                              setAlvoArrasteNo({ parentId: null, itemId: c.id, posicao: metadeDaLinha(e) });
+                            }
+                          }}
+                          onDrop={(e) => {
+                            if (arrastando) { e.preventDefault(); e.stopPropagation(); soltarFerramenta(c.id, null); }
+                            else if (arrastandoNo && arrastandoNo.parentId === null) {
+                              e.preventDefault(); e.stopPropagation();
+                              soltarNo(null, { itemId: c.id, posicao: metadeDaLinha(e) });
+                            }
+                          }}
                         >
+                          <IArrastar />
                           <button
                             onClick={(e) => { e.stopPropagation(); toggleExpandida(c.id); }}
                             style={{
@@ -883,7 +1000,7 @@ export default function AdminSystemEditorPage() {
                               style={{ flex: 1, minWidth: 0, padding: '3px 7px', fontSize: '0.85rem', height: 28 }}
                             />
                           ) : (
-                            <span style={{ fontSize: '0.86rem', fontWeight: 700, color: ativaSel ? '#eeede9' : 'rgba(255,255,255,0.92)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <span title={c.name} style={{ fontSize: '0.86rem', fontWeight: 700, color: ativaSel ? '#eeede9' : 'rgba(255,255,255,0.92)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               <Realce texto={c.name} termo={termoBusca} />
                             </span>
                           )}
@@ -924,21 +1041,42 @@ export default function AdminSystemEditorPage() {
                               const subAtivaSel = selecionado?.tipo === 'categoria' && selecionado.id === s.id;
                               const renomeandoSub = renomeando?.tipo === 'categoria' && renomeando.id === s.id;
                               const alvoCabecalhoSub = arrastando && alvoArraste?.categoriaId === s.id && !alvoArraste?.itemId;
+                              const sendoArrastadaNoSub = arrastandoNo?.id === s.id;
+                              const alvoNoAquiSub = alvoArrasteNo?.parentId === c.id && alvoArrasteNo?.itemId === s.id;
                               return (
                                 <div key={s.id}>
                                   <div
                                     className="adm-genjutsu"
+                                    draggable={!renomeandoSub}
                                     style={{
                                       display: 'flex', alignItems: 'center', gap: 6, padding: '6px 7px', borderRadius: 8,
                                       cursor: renomeandoSub ? 'default' : 'pointer',
                                       background: subAtivaSel ? 'rgba(124,58,237,0.14)' : alvoCabecalhoSub ? 'rgba(124,58,237,0.08)' : 'transparent',
                                       outline: alvoCabecalhoSub ? '1px dashed rgba(124,58,237,0.5)' : 'none', outlineOffset: -1,
-                                      transition: 'background 0.12s ease-out',
+                                      opacity: sendoArrastadaNoSub ? 0.35 : 1,
+                                      borderTop: alvoNoAquiSub && alvoArrasteNo.posicao === 'antes' ? '2px solid #7C3AED' : '2px solid transparent',
+                                      borderBottom: alvoNoAquiSub && alvoArrasteNo.posicao === 'depois' ? '2px solid #7C3AED' : '2px solid transparent',
+                                      transition: 'background 0.12s ease-out, opacity 0.15s ease-out, border-color 0.1s ease-out',
                                     }}
                                     onClick={() => !renomeandoSub && selecionarCategoria(s)}
-                                    onDragOver={(e) => { if (arrastando) { e.preventDefault(); setAlvoArraste({ categoriaId: s.id, itemId: null, posicao: null }); } }}
-                                    onDrop={(e) => { if (arrastando) { e.preventDefault(); e.stopPropagation(); soltarFerramenta(s.id, null); } }}
+                                    onDragStart={(e) => { e.stopPropagation(); setArrastandoNo({ id: s.id, parentId: c.id }); }}
+                                    onDragEnd={() => { setArrastandoNo(null); setAlvoArrasteNo(null); }}
+                                    onDragOver={(e) => {
+                                      if (arrastando) { e.preventDefault(); setAlvoArraste({ categoriaId: s.id, itemId: null, posicao: null }); }
+                                      else if (arrastandoNo && arrastandoNo.parentId === c.id && arrastandoNo.id !== s.id) {
+                                        e.preventDefault(); e.stopPropagation();
+                                        setAlvoArrasteNo({ parentId: c.id, itemId: s.id, posicao: metadeDaLinha(e) });
+                                      }
+                                    }}
+                                    onDrop={(e) => {
+                                      if (arrastando) { e.preventDefault(); e.stopPropagation(); soltarFerramenta(s.id, null); }
+                                      else if (arrastandoNo && arrastandoNo.parentId === c.id) {
+                                        e.preventDefault(); e.stopPropagation();
+                                        soltarNo(c.id, { itemId: s.id, posicao: metadeDaLinha(e) });
+                                      }
+                                    }}
                                   >
+                                    <IArrastar />
                                     <button
                                       onClick={(e) => { e.stopPropagation(); toggleExpandida(s.id); }}
                                       style={{
@@ -964,7 +1102,7 @@ export default function AdminSystemEditorPage() {
                                         style={{ flex: 1, minWidth: 0, padding: '3px 7px', fontSize: '0.8rem', height: 26 }}
                                       />
                                     ) : (
-                                      <span style={{ fontSize: '0.78rem', fontWeight: 600, color: subAtivaSel ? '#eeede9' : 'rgba(255,255,255,0.78)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      <span title={s.name} style={{ fontSize: '0.78rem', fontWeight: 600, color: subAtivaSel ? '#eeede9' : 'rgba(255,255,255,0.78)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         <Realce texto={s.name} termo={termoBusca} />
                                       </span>
                                     )}
@@ -1011,7 +1149,14 @@ export default function AdminSystemEditorPage() {
                 </div>
               )}
             </div>
-          </Card>
+
+            <div
+              className={`adm-resize-handle${redimensionando ? ' ativo' : ''}`}
+              onMouseDown={(e) => { e.preventDefault(); setRedimensionando(true); }}
+              title="Arraste para redimensionar a árvore"
+              style={{ position: 'absolute', top: 0, right: -4, bottom: 0, width: 8, cursor: 'col-resize', zIndex: 5 }}
+            />
+          </div>
 
           <Card style={{ flex: 1, minWidth: 0, padding: 22 }}>
             {!selecionado ? (
@@ -1058,11 +1203,6 @@ export default function AdminSystemEditorPage() {
                           </select>
                         </Field>
                       </>
-                    )}
-                    {selecionado.tipo === 'categoria' && (
-                      <Field label="Ordem de exibição" hint="Sub-categorias e ferramentas agora se reordenam arrastando na árvore.">
-                        <input className="admin-input" type="number" value={rascunho.sortOrder ?? 0} onChange={(e) => setRascunho({ ...rascunho, sortOrder: e.target.value })} />
-                      </Field>
                     )}
                     <Field label="Descrição" full>
                       <textarea className="admin-input" rows={2} style={{ resize: 'vertical', fontFamily: 'inherit' }} value={rascunho.description || ''} onChange={(e) => setRascunho({ ...rascunho, description: e.target.value })} />

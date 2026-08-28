@@ -139,6 +139,21 @@ export async function moverFerramenta(id, { categoriaId, sortOrder }) {
 }
 
 /**
+ * Grava só a posição de uma categoria/sub-categoria — o mesmo tipo de
+ * atualização enxuta que `moverFerramenta` faz, agora para o arrastar-e-
+ * soltar que reordena módulos de topo entre si (ou sub-categorias dentro do
+ * mesmo módulo). Não muda de pai: essa árvore não arrasta uma categoria pra
+ * dentro de outra, só reordena onde ela já está.
+ */
+export async function moverCategoria(id, sortOrder) {
+  const { error } = await supabase
+    .from('hub_module_categorias')
+    .update({ sort_order: sortOrder })
+    .eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+/**
  * Categoria + ferramentas ativas, prontas para uma página de categoria
  * simples (sem sub-categorias) renderizar — ex.: FiscalPage.jsx,
  * PessoalPage.jsx. Devolve null se a categoria não existe ou está oculta.

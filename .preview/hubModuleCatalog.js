@@ -124,6 +124,11 @@ export async function moverFerramenta(id, { categoriaId, sortOrder }) {
   if (f) { f.categoria_id = categoriaId; f.sort_order = sortOrder; }
 }
 
+export async function moverCategoria(id, sortOrder) {
+  const c = categorias.find((x) => x.id === id);
+  if (c) c.sort_order = sortOrder;
+}
+
 export async function carregarCategoriaComFerramentas(systemSlug, categoriaSlug) {
   const categoria = await buscarCategoria(systemSlug, categoriaSlug);
   if (!categoria || !categoria.active) return null;
