@@ -24,9 +24,7 @@ import AdminOverviewPage from './pages/admin/AdminOverviewPage.jsx'
 import AdminUsersPage from './pages/admin/AdminUsersPage.jsx'
 import AdminCompaniesPage from './pages/admin/AdminCompaniesPage.jsx'
 import AdminSystemsPage from './pages/admin/AdminSystemsPage.jsx'
-import AdminSystemDetailPage from './pages/admin/AdminSystemDetailPage.jsx'
-import AdminSystemModulePage from './pages/admin/AdminSystemModulePage.jsx'
-import AdminSystemFerramentaPage from './pages/admin/AdminSystemFerramentaPage.jsx'
+import AdminSystemEditorPage from './pages/admin/AdminSystemEditorPage.jsx'
 import AdminInvoicesPage from './pages/admin/AdminInvoicesPage.jsx'
 import AdminSupportPage from './pages/admin/AdminSupportPage.jsx'
 import AdminDevPage from './pages/admin/AdminDevPage';
@@ -149,9 +147,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/admin/usuarios" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
           <Route path="/admin/empresas" element={<AdminRoute><AdminCompaniesPage /></AdminRoute>} />
           <Route path="/admin/sistemas" element={<AdminRoute><AdminSystemsPage /></AdminRoute>} />
-          <Route path="/admin/sistemas/:slug" element={<AdminRoute><AdminSystemDetailPage /></AdminRoute>} />
-          <Route path="/admin/sistemas/:slug/modulos/:categoriaSlug" element={<AdminRoute><AdminSystemModulePage /></AdminRoute>} />
-          <Route path="/admin/sistemas/:slug/modulos/:categoriaSlug/:ferramentaSlug" element={<AdminRoute><AdminSystemFerramentaPage /></AdminRoute>} />
+          <Route path="/admin/sistemas/:slug" element={<AdminRoute><AdminSystemEditorPage /></AdminRoute>} />
           <Route path="/admin/faturas" element={<AdminRoute><AdminInvoicesPage /></AdminRoute>} />
           <Route path="/admin/suporte" element={<AdminRoute><AdminSupportPage /></AdminRoute>} />
           <Route path="/admin/dev" element={<DevRoute><AdminDevPage /></DevRoute>} />
