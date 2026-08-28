@@ -235,6 +235,7 @@ export default function AdminSystemEditorPage() {
     setRascunho({
       name: f.name, slug: f.slug, icon: f.icon || '', color: f.color || '#7C3AED',
       description: f.description || '', status: f.status, active: f.active, sortOrder: f.sort_order,
+      categoriaId,
     });
     setAbaPainel('visualizacao');
   }
@@ -247,7 +248,7 @@ export default function AdminSystemEditorPage() {
 
   function novaFerramenta(categoriaId) {
     setSelecionado({ tipo: 'ferramenta', id: null, categoriaId, isNew: true });
-    setRascunho({ ...RASCUNHO_FERRAMENTA });
+    setRascunho({ ...RASCUNHO_FERRAMENTA, categoriaId });
     setAbaPainel('visualizacao');
     setExpandidas((atual) => new Set(atual).add(categoriaId));
   }
@@ -259,6 +260,7 @@ export default function AdminSystemEditorPage() {
     if (name.length < 2) { setError(`Nome ${selecionado.tipo === 'categoria' ? 'da categoria' : 'da ferramenta'} muito curto.`); return; }
     const noSlug = selecionado.isNew ? (rascunho.slug || slugify(name)) : rascunho.slug;
     if (!noSlug) { setError('Não foi possível gerar um identificador.'); return; }
+    if (selecionado.tipo === 'ferramenta' && !rascunho.categoriaId) { setError('Selecione em qual categoria a ferramenta aparece.'); return; }
 
     setSalvandoNo(true);
     setError('');
@@ -273,11 +275,14 @@ export default function AdminSystemEditorPage() {
         showToast('Categoria salva.');
       } else {
         const salva = await salvarFerramenta({
-          categoriaId: selecionado.categoriaId, slug: noSlug, name, icon: rascunho.icon, color: rascunho.color,
+          categoriaId: rascunho.categoriaId, slug: noSlug, name, icon: rascunho.icon, color: rascunho.color,
           description: rascunho.description, status: rascunho.status, active: rascunho.active, sortOrder: rascunho.sortOrder,
         }, selecionado.isNew ? null : selecionado.id);
         await carregarEstrutura();
-        setSelecionado({ tipo: 'ferramenta', id: salva.id, categoriaId: selecionado.categoriaId });
+        // Se a ferramenta mudou de categoria, mostra onde ela caiu — abre a
+        // categoria de destino na árvore em vez de deixar a seleção "órfã".
+        setExpandidas((atual) => new Set(atual).add(rascunho.categoriaId));
+        setSelecionado({ tipo: 'ferramenta', id: salva.id, categoriaId: rascunho.categoriaId });
         showToast('Ferramenta salva.');
       }
     } catch (e) {
@@ -528,9 +533,18 @@ export default function AdminSystemEditorPage() {
                       <input className="admin-input" value={rascunho.icon || ''} onChange={(e) => setRascunho({ ...rascunho, icon: e.target.value })} maxLength={4} placeholder="🧾" />
                     </Field>
                     {selecionado.tipo === 'ferramenta' && (
-                      <Field label="Cor de destaque">
-                        <input className="admin-input" type="color" value={rascunho.color || '#7C3AED'} onChange={(e) => setRascunho({ ...rascunho, color: e.target.value })} style={{ padding: 4, height: 38, cursor: 'pointer' }} />
-                      </Field>
+                      <>
+                        <Field label="Cor de destaque">
+                          <input className="admin-input" type="color" value={rascunho.color || '#7C3AED'} onChange={(e) => setRascunho({ ...rascunho, color: e.target.value })} style={{ padding: 4, height: 38, cursor: 'pointer' }} />
+                        </Field>
+                        <Field label="Exibir em" full hint="Categoria/módulo do hub onde esta ferramenta aparece. Mudar aqui move o card para lá.">
+                          <select className="admin-select" value={rascunho.categoriaId || ''} onChange={(e) => setRascunho({ ...rascunho, categoriaId: e.target.value })} required>
+                            {categorias.map((c) => (
+                              <option key={c.id} value={c.id}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>
+                            ))}
+                          </select>
+                        </Field>
+                      </>
                     )}
                     <Field label="Ordem de exibição">
                       <input className="admin-input" type="number" value={rascunho.sortOrder ?? 0} onChange={(e) => setRascunho({ ...rascunho, sortOrder: e.target.value })} />
