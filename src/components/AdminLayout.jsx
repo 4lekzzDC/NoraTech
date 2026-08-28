@@ -9,7 +9,6 @@ const NAV = [
   { to: '/admin/usuarios', label: 'Usuários', icon: '◳' },
   { to: '/admin/empresas', label: 'Empresas', icon: '▣' },
   { to: '/admin/sistemas', label: 'Sistemas', icon: '◆' },
-  { to: '/admin/difal-regras', label: 'Regras de DIFAL', icon: '§' },
   { to: '/admin/faturas', label: 'Faturas', icon: '◈' },
   { to: '/admin/suporte', label: 'Suporte', icon: '◐' },
 ];

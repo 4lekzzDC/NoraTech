@@ -9,7 +9,7 @@
 
 export const SOLUCOES_CONTABEIS_SLUG = 'solucoes-contabeis';
 export const SOLUCOES_CONTABEIS_LEGACY_SLUGS = ['acompanhamento-contabil'];
-export const SOLUCOES_CONTABEIS_NAME = 'Soluções Contábeis';
+export const SOLUCOES_CONTABEIS_NAME = 'NoraHub';
 export const SOLUCOES_CONTABEIS_ROUTE = '/solucoes-contabeis';
 
 // Rota antiga (pré-suite) que ia direto para o Acompanhamento Contábil.

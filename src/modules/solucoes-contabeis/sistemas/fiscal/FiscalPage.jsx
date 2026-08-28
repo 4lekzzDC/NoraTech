@@ -3,12 +3,18 @@
 // Contábil (abas, estatísticas, gráfico): com um módulo só, uma grade simples
 // já entrega a navegação, e cresce para o padrão de abas quando a segunda
 // ferramenta fiscal chegar.
+//
+// Categoria e ferramentas vêm de `hub_module_categorias`/`hub_module_
+// ferramentas` (editáveis em Admin/Sistemas/NoraHub/Módulos/Fiscal) — o
+// catálogo hardcoded abaixo só entra se o banco não tiver nada cadastrado
+// ainda (mesmo padrão de fallback que `getTabela` usa no DIFAL).
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import SolucoesHeader from '../../components/SolucoesHeader';
 import { useIsAdmin } from '../../../../lib/admin';
 import { hasActiveSubscription, isModuleEnabled } from '../../../../lib/subscriptions';
+import { carregarCategoriaComFerramentas } from '../../../../lib/hubModuleCatalog';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER } from '../../theme';
 import {
@@ -32,15 +38,18 @@ function IChevronRight({ size = 14 }) {
   );
 }
 
-// Catálogo dos módulos fiscais. Um item hoje; a forma já é a de uma lista,
-// para que o segundo módulo (ICMS-ST, apuração do Simples, o que vier) seja
-// só mais uma linha aqui — não uma página nova.
-const ITEMS = [
-  {
-    name: 'Calculadora de DIFAL', slug: 'calculadora-difal', accent: '#7C3AED', CardIcon: IReceipt,
-    desc: 'Diferencial de alíquota do Simples Nacional, produto a produto, a partir do XML da NF-e.',
-  },
-];
+// Rede de segurança para quando o banco não tem nada cadastrado ainda (ex.:
+// ambiente novo, antes da migration rodar) — mesma forma que
+// carregarCategoriaComFerramentas devolveria.
+const CATEGORIA_PADRAO = {
+  categoria: { name: 'Fiscal', description: 'Apuração de tributos e obrigações fiscais.', icon: '🧾' },
+  ferramentas: [
+    {
+      slug: 'calculadora-difal', name: 'Calculadora de DIFAL', icon: '🧾', color: '#7C3AED',
+      description: 'Diferencial de alíquota do Simples Nacional, produto a produto, a partir do XML da NF-e.',
+    },
+  ],
+};
 
 function FiscalCard({ item, P, isDark, onNavigate, blocked }) {
   const [hov, setHov] = useState(false);
@@ -54,10 +63,10 @@ function FiscalCard({ item, P, isDark, onNavigate, blocked }) {
       style={{
         display: 'flex', flexDirection: 'column', position: 'relative',
         background: canHov ? (isDark ? 'rgba(255,255,255,0.03)' : '#fafafd') : P.surface,
-        border: `1px solid ${canHov ? item.accent + '55' : P.border}`,
+        border: `1px solid ${canHov ? item.color + '55' : P.border}`,
         borderRadius: 14, padding: '22px 20px 18px',
         cursor: blocked ? 'default' : 'pointer', textAlign: 'left', fontFamily: FONT_INTER,
-        color: P.text, boxShadow: canHov ? `0 4px 20px ${item.accent}18` : P.shadow,
+        color: P.text, boxShadow: canHov ? `0 4px 20px ${item.color}18` : P.shadow,
         transition: 'all 0.18s ease', transform: canHov ? 'translateY(-2px)' : 'translateY(0)',
         opacity: blocked ? 0.72 : 1,
       }}
@@ -74,25 +83,25 @@ function FiscalCard({ item, P, isDark, onNavigate, blocked }) {
       )}
       <div style={{
         width: 54, height: 54, borderRadius: 14, marginBottom: 16,
-        background: item.accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: '#fff', boxShadow: `0 4px 14px ${item.accent}42`,
+        background: item.color, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: '#fff', boxShadow: `0 4px 14px ${item.color}42`, fontSize: 24,
       }}>
-        <item.CardIcon size={24} />
+        {item.icon || <IReceipt size={24} />}
       </div>
       <div style={{ fontSize: 15, fontWeight: 700, color: P.text, marginBottom: 8, letterSpacing: -0.2, lineHeight: 1.3 }}>
         {item.name}
       </div>
       <div style={{ fontSize: 13, color: P.muted, lineHeight: 1.6, flex: 1, marginBottom: 18 }}>
-        {item.desc}
+        {item.description}
       </div>
       {!blocked && (
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <div style={{
             width: 32, height: 32, borderRadius: 9,
-            background: canHov ? item.accent : (isDark ? P.surface2 : '#f5f4fb'),
-            border: `1px solid ${canHov ? item.accent : P.border}`,
+            background: canHov ? item.color : (isDark ? P.surface2 : '#f5f4fb'),
+            border: `1px solid ${canHov ? item.color : P.border}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: canHov ? '#fff' : item.accent, transition: 'all 0.18s',
+            color: canHov ? '#fff' : item.color, transition: 'all 0.18s',
           }}>
             <IChevronRight size={14} />
           </div>
@@ -126,6 +135,19 @@ export default function FiscalPage() {
     return !isModuleEnabled(modAccess.enabledModules, slug);
   };
 
+  // Categoria e ferramentas vêm do catálogo editável em Admin/Sistemas —
+  // cai no catálogo hardcoded só se o banco não tiver nada (ambiente novo
+  // ou falha de rede), pro hub nunca ficar em branco.
+  const [dados, setDados] = useState(null);
+  useEffect(() => {
+    let ativo = true;
+    carregarCategoriaComFerramentas(SOLUCOES_CONTABEIS_SLUG, 'fiscal')
+      .then((r) => { if (ativo) setDados(r?.ferramentas?.length ? r : CATEGORIA_PADRAO); })
+      .catch(() => { if (ativo) setDados(CATEGORIA_PADRAO); });
+    return () => { ativo = false; };
+  }, []);
+  const { categoria, ferramentas } = dados || CATEGORIA_PADRAO;
+
   return (
     <div style={{ minHeight: '100vh', background: P.bg, color: P.text, fontFamily: FONT_INTER }}>
       <style>{`
@@ -158,21 +180,22 @@ export default function FiscalPage() {
             width: 62, height: 62, borderRadius: 16, flexShrink: 0,
             background: P.primarySoft, border: `1px solid ${P.primaryBorder}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center', color: P.primaryText,
+            fontSize: 26,
           }}>
-            <IReceipt size={26} />
+            {categoria.icon || <IReceipt size={26} />}
           </div>
           <div>
             <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5, color: P.text, marginBottom: 6, lineHeight: 1.1 }}>
-              Fiscal
+              {categoria.name}
             </div>
             <div style={{ fontSize: 13, color: P.muted, lineHeight: 1.55, maxWidth: 460 }}>
-              Apuração de tributos e obrigações fiscais.
+              {categoria.description}
             </div>
           </div>
         </div>
 
         <div className="fiscal-grid">
-          {ITEMS.map((item) => (
+          {ferramentas.map((item) => (
             <FiscalCard
               key={item.slug}
               item={item}
