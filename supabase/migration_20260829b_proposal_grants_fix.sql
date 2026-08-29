@@ -24,3 +24,9 @@
 
 revoke execute on function public.svc_record_proposal_send(uuid, uuid, boolean, text) from anon, authenticated;
 revoke execute on function public._apply_proposal_acceptance(uuid) from anon, authenticated;
+
+-- admin_save_proposal e admin_set_proposal_status já checam is_admin() por
+-- dentro, então anon nunca conseguia fazer nada com o grant sobrando — mas
+-- não custa fechar mesmo assim, pra não depender só da checagem interna.
+revoke execute on function public.admin_save_proposal(uuid, uuid, text, date, text, numeric, numeric, text, jsonb) from anon;
+revoke execute on function public.admin_set_proposal_status(uuid, text, text) from anon;
