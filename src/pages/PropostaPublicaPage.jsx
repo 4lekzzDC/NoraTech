@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { formatBRL, formatDate, formatDateTime } from '../lib/admin';
 import { buscarPropostaPorToken, aceitarPropostaPorToken, recusarPropostaPorToken } from '../lib/proposals';
+import { getProposalSystemContent } from '../lib/proposalSystemContent';
 
 const ROXO = '#7C3AED';
 
@@ -27,6 +28,8 @@ export default function PropostaPublicaPage() {
   const [erroAcao, setErroAcao] = useState('');
   const [mostrarRecusa, setMostrarRecusa] = useState(false);
   const [motivoRecusa, setMotivoRecusa] = useState('');
+
+  const [itemDetalhe, setItemDetalhe] = useState(null); // item da proposta com "Ver detalhes" aberto, ou null
 
   useEffect(() => {
     let ativo = true;
@@ -101,16 +104,19 @@ export default function PropostaPublicaPage() {
             setMotivoRecusa={setMotivoRecusa}
             onAceitar={handleAceitar}
             onRecusar={handleRecusar}
+            onVerDetalhes={setItemDetalhe}
           />
         )}
       </main>
 
       <Rodape />
+
+      {itemDetalhe && <SistemaDetalheModal item={itemDetalhe} onClose={() => setItemDetalhe(null)} />}
     </div>
   );
 }
 
-function Conteudo({ proposta, acao, erroAcao, mostrarRecusa, setMostrarRecusa, motivoRecusa, setMotivoRecusa, onAceitar, onRecusar }) {
+function Conteudo({ proposta, acao, erroAcao, mostrarRecusa, setMostrarRecusa, motivoRecusa, setMotivoRecusa, onAceitar, onRecusar, onVerDetalhes }) {
   const decidivel = proposta.status === 'enviada' || proposta.status === 'visualizada';
   const temDesconto = proposta.discount_type && Number(proposta.discount_amount) > 0;
   const temImplantacao = Number(proposta.setup_fee) > 0;
@@ -133,16 +139,29 @@ function Conteudo({ proposta, acao, erroAcao, mostrarRecusa, setMostrarRecusa, m
       </div>
 
       <div style={{ padding: '28px 44px 8px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {(proposta.items || []).map((item) => (
-          <div key={item.system_slug} style={estilos.itemLinha}>
-            <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>{item.icon || '🧩'}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: '0.98rem', color: '#16151c' }}>{item.name}</div>
-              {item.description && <div style={{ fontSize: '0.85rem', color: '#6b6878', marginTop: 3, lineHeight: 1.5 }}>{item.description}</div>}
+        {(proposta.items || []).map((item) => {
+          const temDetalhes = !!getProposalSystemContent(item.system_slug);
+          return (
+            <div key={item.system_slug} style={estilos.itemLinha}>
+              <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>{item.icon || '🧩'}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.98rem', color: '#16151c' }}>{item.name}</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.98rem', color: '#16151c', whiteSpace: 'nowrap' }}>
+                    {formatBRL(item.amount)}
+                    <span style={{ fontWeight: 500, fontSize: '0.72rem', color: '#a6a3b0' }}> /mês</span>
+                  </div>
+                </div>
+                {item.description && <div style={{ fontSize: '0.85rem', color: '#6b6878', marginTop: 3, lineHeight: 1.5 }}>{item.description}</div>}
+                {temDetalhes && (
+                  <button type="button" className="np-btn-detalhes no-print" onClick={() => onVerDetalhes(item)}>
+                    Ver detalhes <span aria-hidden="true">›</span>
+                  </button>
+                )}
+              </div>
             </div>
-            <div style={{ fontWeight: 700, fontSize: '0.98rem', color: '#16151c', whiteSpace: 'nowrap' }}>{formatBRL(item.amount)}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div style={{ padding: '20px 44px', margin: '20px 44px 0', background: '#f7f6fb', borderRadius: 14 }}>
@@ -218,6 +237,147 @@ function Conteudo({ proposta, acao, erroAcao, mostrarRecusa, setMostrarRecusa, m
   );
 }
 
+const ABAS_DETALHE = [
+  { slug: 'geral', label: 'Visão geral' },
+  { slug: 'funcionalidades', label: 'Funcionalidades' },
+  { slug: 'modulos', label: 'Módulos incluídos' },
+  { slug: 'demo', label: 'Demonstração' },
+];
+
+/**
+ * "Ver detalhes" de um sistema da proposta — visão comercial (não é o app
+ * de verdade): conteúdo estático de src/lib/proposalSystemContent.js, preço
+ * vem do ITEM da proposta (o valor negociado, não o preço de catálogo). Só
+ * abre se `getProposalSystemContent(item.system_slug)` existir — o botão
+ * "Ver detalhes" já nem aparece nos sistemas sem conteúdo cadastrado.
+ */
+function SistemaDetalheModal({ item, onClose }) {
+  const conteudo = getProposalSystemContent(item.system_slug);
+  const abasDisponiveis = ABAS_DETALHE.filter((a) => a.slug !== 'demo' || conteudo?.video);
+  const [aba, setAba] = useState('geral');
+
+  useEffect(() => {
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const aoTeclar = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', aoTeclar);
+    return () => {
+      document.body.style.overflow = overflowAnterior;
+      window.removeEventListener('keydown', aoTeclar);
+    };
+  }, [onClose]);
+
+  if (!conteudo) return null;
+
+  return (
+    <div className="no-print np-modal-overlay" onClick={onClose}>
+      <div className="np-reveal-modal" style={estilos.modalCaixa} onClick={(e) => e.stopPropagation()}>
+        <div style={{ padding: '26px 30px 0', display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+          <span style={{
+            width: 48, height: 48, borderRadius: 14, flexShrink: 0, fontSize: '1.5rem',
+            background: `${item.color || ROXO}1a`, color: item.color || ROXO,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {item.icon || '🧩'}
+          </span>
+          <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 800, letterSpacing: -0.4, margin: 0, color: '#16151c' }}>{item.name}</h2>
+            {conteudo.tagline && <p style={{ fontSize: '0.88rem', color: '#6b6878', margin: '4px 0 0' }}>{conteudo.tagline}</p>}
+          </div>
+          <button type="button" onClick={onClose} aria-label="Fechar" className="np-modal-close">×</button>
+        </div>
+
+        <div style={{ padding: '18px 30px 0', display: 'flex', gap: 4, borderBottom: '1px solid #eeecf3', flexWrap: 'wrap' }}>
+          {abasDisponiveis.map((a) => (
+            <button
+              key={a.slug} type="button" onClick={() => setAba(a.slug)}
+              className={`np-tab ${aba === a.slug ? 'ativa' : ''}`}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ padding: '24px 30px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
+          {aba === 'geral' && (
+            <>
+              <p style={{ fontSize: '0.92rem', color: '#3a3844', lineHeight: 1.7, margin: '0 0 22px' }}>{conteudo.overview}</p>
+              {conteudo.previewImage && (
+                <img src={conteudo.previewImage} alt={`Prévia de ${item.name}`} style={{ width: '100%', borderRadius: 12, marginBottom: 22, display: 'block' }} />
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 }}>
+                {(conteudo.highlights || []).map((h) => (
+                  <div key={h.title} style={{ padding: '16px 14px', borderRadius: 12, background: '#faf9fc', textAlign: 'center' }}>
+                    <div style={{
+                      width: 38, height: 38, borderRadius: '50%', margin: '0 auto 10px',
+                      background: `${item.color || ROXO}1a`, color: item.color || ROXO, fontSize: '1.05rem',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {h.icon}
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#16151c', marginBottom: 4 }}>{h.title}</div>
+                    <div style={{ fontSize: '0.78rem', color: '#6b6878', lineHeight: 1.5 }}>{h.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {aba === 'funcionalidades' && <ListaChecklist itens={conteudo.features} cor={item.color} />}
+          {aba === 'modulos' && <ListaChecklist itens={conteudo.modules} cor={item.color} />}
+
+          {aba === 'demo' && conteudo.video && (
+            <a
+              href={conteudo.video.url} target="_blank" rel="noreferrer"
+              style={{ display: 'block', position: 'relative', borderRadius: 14, overflow: 'hidden', background: '#16151c', aspectRatio: '16/9' }}
+            >
+              {conteudo.video.thumbnail && (
+                <img src={conteudo.video.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.75 }} />
+              )}
+              <span style={{
+                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <span style={{
+                  width: 56, height: 56, borderRadius: '50%', background: ROXO, color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem',
+                }}>
+                  ▶
+                </span>
+              </span>
+            </a>
+          )}
+        </div>
+
+        <div style={{ padding: '18px 30px', borderTop: '1px solid #eeecf3', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 0.6, color: '#a6a3b0', textTransform: 'uppercase' }}>Incluso na sua proposta</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: ROXO }}>
+              {formatBRL(item.amount)}<span style={{ fontWeight: 600, fontSize: '0.78rem', color: '#6b6878' }}> /mês</span>
+            </div>
+          </div>
+          <button type="button" className="np-btn-texto" style={{ textDecoration: 'none', border: '1px solid #e2e0e8', borderRadius: 12, padding: '11px 22px' }} onClick={onClose}>
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ListaChecklist({ itens, cor }) {
+  if (!itens?.length) return <p style={{ fontSize: '0.88rem', color: '#6b6878' }}>Nada cadastrado por enquanto.</p>;
+  return (
+    <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {itens.map((texto) => (
+        <li key={texto} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: '0.9rem', color: '#3a3844', lineHeight: 1.5 }}>
+          <span style={{ color: cor || ROXO, fontWeight: 800, flexShrink: 0, marginTop: 1 }}>✓</span>
+          {texto}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function LinhaValor({ label, valor }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', color: '#3a3844', padding: '4px 0' }}>
@@ -281,6 +441,10 @@ const estilos = {
   main: { flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '10px 6vw 40px' },
   card: { width: '100%', maxWidth: 720, background: '#ffffff', borderRadius: 20, boxShadow: '0 1px 2px rgba(22,21,28,0.04), 0 20px 50px -20px rgba(22,21,28,0.15)', overflow: 'hidden' },
   itemLinha: { display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 16px', borderRadius: 12, background: '#faf9fc' },
+  modalCaixa: {
+    width: '100%', maxWidth: 640, maxHeight: 'calc(100vh - 48px)', background: '#ffffff', borderRadius: 20,
+    boxShadow: '0 24px 60px -20px rgba(22,21,28,0.35)', overflow: 'hidden', display: 'flex', flexDirection: 'column',
+  },
 };
 
 function EstilosGlobais() {
@@ -325,6 +489,39 @@ function EstilosGlobais() {
         transition: border-color 0.15s ease-out;
       }
       .np-textarea:focus { border-color: ${ROXO}; }
+
+      .np-btn-detalhes {
+        margin-top: 8px; padding: 0; border: none; background: none; color: ${ROXO};
+        font-size: 0.82rem; font-weight: 700; font-family: inherit; cursor: pointer;
+        display: inline-flex; align-items: center; gap: 3px;
+        transition: gap 0.15s ease-out;
+      }
+      .np-btn-detalhes:hover { gap: 6px; }
+
+      @keyframes np-reveal-modal { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+      .np-reveal-modal { animation: np-reveal-modal 0.22s cubic-bezier(0.2,0,0,1) both; }
+      @media (prefers-reduced-motion: reduce) { .np-reveal-modal { animation: none; } }
+
+      .np-modal-overlay {
+        position: fixed; inset: 0; background: rgba(22,21,28,0.55); backdrop-filter: blur(2px);
+        display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 200;
+      }
+
+      .np-modal-close {
+        border: none; background: none; color: #a6a3b0; font-size: 1.5rem; line-height: 1;
+        cursor: pointer; padding: 4px; margin: -4px; border-radius: 8px; flex-shrink: 0;
+        transition: background 0.15s ease-out, color 0.15s ease-out;
+      }
+      .np-modal-close:hover { background: #f4f4f6; color: #16151c; }
+
+      .np-tab {
+        padding: 10px 4px; margin-right: 22px; border: none; background: none; cursor: pointer;
+        font-size: 0.85rem; font-weight: 600; font-family: inherit; color: #a6a3b0;
+        border-bottom: 2px solid transparent; margin-bottom: -1px;
+        transition: color 0.15s ease-out, border-color 0.15s ease-out;
+      }
+      .np-tab:hover { color: #6b6878; }
+      .np-tab.ativa { color: ${ROXO}; border-bottom-color: ${ROXO}; }
 
       @media print {
         .no-print { display: none !important; }
