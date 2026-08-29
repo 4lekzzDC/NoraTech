@@ -8,11 +8,18 @@
 // tudo. WIDGET_CATALOG/DEFAULT_LAYOUT/PERIODOS são reexportados do módulo
 // real — são só dados estáticos, não tem por que duplicar.
 
-import { WIDGET_CATALOG, DEFAULT_LAYOUT, PERIODOS } from '../src/lib/adminDashboard.js';
+import {
+  WIDGET_CATALOG, DEFAULT_LAYOUT, PERIODOS, TAMANHOS, SPAN_POR_TAMANHO, resumoDoWidget,
+} from '../src/lib/adminDashboard.js';
 
-export { WIDGET_CATALOG, DEFAULT_LAYOUT, PERIODOS };
+export { WIDGET_CATALOG, DEFAULT_LAYOUT, PERIODOS, TAMANHOS, SPAN_POR_TAMANHO, resumoDoWidget };
 
 let layoutSalvo = null; // null = ainda não personalizou, usa o padrão
+
+// ?dados=vazio na preview devolve uma conta recém-criada (sem histórico) —
+// é o único jeito de olhar os estados compactos dos gráficos, que na conta
+// cheia nunca aparecem.
+const VAZIO = new URLSearchParams(location.search).get('dados') === 'vazio';
 
 function ultimosNDias(n) {
   const dias = [];
@@ -27,6 +34,28 @@ function ultimosNDias(n) {
 // (acessos, tendências) — o resto do dublê fica fixo, é o bastante pra
 // exercitar o seletor de período sem duplicar toda a lógica real.
 export async function fetchDashboardData(periodoDias = 30) {
+  if (VAZIO) {
+    return {
+      kpis: {
+        mrr: 0, trendMrr: null,
+        assinaturasAtivas: 0, trendAssinaturas: null,
+        propostasAbertas: 0, propostasCriadasPeriodo: 0,
+        faturasPendentes: 0, faturasPendentesValor: 0,
+        acessosPeriodo: 2, trendAcessos: null,
+      },
+      receitaMensal: [
+        { label: 'mar/26', valor: 0 }, { label: 'abr/26', valor: 0 }, { label: 'mai/26', valor: 0 },
+        { label: 'jun/26', valor: 0 }, { label: 'jul/26', valor: 0 }, { label: 'ago/26', valor: 890 },
+      ],
+      propostasPorStatus: {},
+      sistemasVendidos: [],
+      acessosPorDia: ultimosNDias(periodoDias).map((d) => ({ ...d, valor: 0 })),
+      faturasPendentes: [],
+      atividades: [],
+      acessosRecentes: [],
+      usuariosRecentes: [],
+    };
+  }
   return {
     kpis: {
       mrr: 4287.4, trendMrr: 12.4,
@@ -57,11 +86,11 @@ export async function fetchDashboardData(periodoDias = 30) {
       { id: 'fp-4', description: 'Mensalidade NoraHub — Setembro/2026', amount: 499.9, due_date: '2026-09-30', profiles: { name: 'Grupo Aurora Contabilidade' } },
     ],
     atividades: [
-      { id: 'at-1', created_at: new Date(Date.now() - 30 * 60000).toISOString(), icone: '✓', cor: '#00d48a', titulo: 'Proposta aprovada', detalhe: '"Proposta NoraHub + NoraChat"' },
-      { id: 'at-2', created_at: new Date(Date.now() - 3 * 3600000).toISOString(), icone: '✓', cor: '#00d48a', titulo: 'Fatura paga', detalhe: '"Mensalidade NoraChat — Julho/2026"' },
-      { id: 'at-3', created_at: new Date(Date.now() - 8 * 3600000).toISOString(), icone: '🔌', cor: '#00d48a', titulo: 'Assinatura ativada', detalhe: 'NoraDocs' },
-      { id: 'at-4', created_at: new Date(Date.now() - 26 * 3600000).toISOString(), icone: '✉', cor: '#60a5fa', titulo: 'Proposta enviada', detalhe: '"Proposta NoraDocs"' },
-      { id: 'at-5', created_at: new Date(Date.now() - 50 * 3600000).toISOString(), icone: '👁', cor: '#f0b429', titulo: 'Proposta visualizada', detalhe: '"Proposta NoraHub + NoraChat"' },
+      { id: 'at-1', created_at: new Date(Date.now() - 30 * 60000).toISOString(), icone: 'check', cor: '#00d48a', titulo: 'Proposta aprovada', detalhe: '"Proposta NoraHub + NoraChat"' },
+      { id: 'at-2', created_at: new Date(Date.now() - 3 * 3600000).toISOString(), icone: 'check', cor: '#00d48a', titulo: 'Fatura paga', detalhe: '"Mensalidade NoraChat — Julho/2026"' },
+      { id: 'at-3', created_at: new Date(Date.now() - 8 * 3600000).toISOString(), icone: 'zap', cor: '#00d48a', titulo: 'Assinatura ativada', detalhe: 'NoraDocs' },
+      { id: 'at-4', created_at: new Date(Date.now() - 26 * 3600000).toISOString(), icone: 'send', cor: '#60a5fa', titulo: 'Proposta enviada', detalhe: '"Proposta NoraDocs"' },
+      { id: 'at-5', created_at: new Date(Date.now() - 50 * 3600000).toISOString(), icone: 'eye', cor: '#f0b429', titulo: 'Proposta visualizada', detalhe: '"Proposta NoraHub + NoraChat"' },
     ],
     acessosRecentes: [
       { id: 'ac-1', action: 'login', device: 'Chrome · macOS', status: 'success', created_at: new Date(Date.now() - 15 * 60000).toISOString(), profiles: { name: 'Admin NoraTech' } },
