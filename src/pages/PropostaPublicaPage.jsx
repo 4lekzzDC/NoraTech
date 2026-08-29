@@ -253,7 +253,6 @@ const ABAS_DETALHE = [
  */
 function SistemaDetalheModal({ item, onClose }) {
   const conteudo = getProposalSystemContent(item.system_slug);
-  const abasDisponiveis = ABAS_DETALHE.filter((a) => a.slug !== 'demo' || conteudo?.video);
   const [aba, setAba] = useState('geral');
 
   useEffect(() => {
@@ -288,7 +287,7 @@ function SistemaDetalheModal({ item, onClose }) {
         </div>
 
         <div style={{ padding: '18px 30px 0', display: 'flex', gap: 4, borderBottom: '1px solid #eeecf3', flexWrap: 'wrap' }}>
-          {abasDisponiveis.map((a) => (
+          {ABAS_DETALHE.map((a) => (
             <button
               key={a.slug} type="button" onClick={() => setAba(a.slug)}
               className={`np-tab ${aba === a.slug ? 'ativa' : ''}`}
@@ -332,12 +331,10 @@ function SistemaDetalheModal({ item, onClose }) {
               </div>
 
               <div>
-                {conteudo.video && (
-                  <div style={{ marginBottom: 24 }}>
-                    <div style={estilos.tituloColuna}>Demonstração do sistema</div>
-                    <DemoVideo video={conteudo.video} nome={item.name} />
-                  </div>
-                )}
+                <div style={{ marginBottom: 24 }}>
+                  <div style={estilos.tituloColuna}>Demonstração do sistema</div>
+                  <DemoVideo video={conteudo.video} nome={item.name} cor={item.color} icone={item.icon} />
+                </div>
                 {(conteudo.modules?.length > 0) && (
                   <div>
                     <div style={estilos.tituloColuna}>Módulos incluídos</div>
@@ -350,7 +347,7 @@ function SistemaDetalheModal({ item, onClose }) {
 
           {aba === 'funcionalidades' && <ListaChecklist itens={conteudo.features} cor={item.color} />}
           {aba === 'modulos' && <ListaChecklist itens={conteudo.modules} cor={item.color} />}
-          {aba === 'demo' && conteudo.video && <DemoVideo video={conteudo.video} nome={item.name} />}
+          {aba === 'demo' && <DemoVideo video={conteudo.video} nome={item.name} cor={item.color} icone={item.icon} />}
         </div>
 
         <div style={{ padding: '18px 30px', borderTop: '1px solid #eeecf3', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -370,7 +367,40 @@ function SistemaDetalheModal({ item, onClose }) {
 }
 
 /** Usado tanto na coluna direita de "Visão geral" quanto na aba "Demonstração" — mesmo componente, ocupa a largura disponível. */
-function DemoVideo({ video, nome }) {
+/**
+ * Sem `video` cadastrado ainda: mostra uma prévia de marca (não finge ser
+ * um player de verdade — sem link, sem duração, com a etiqueta "Em
+ * produção") em vez de esconder o espaço. Assim que existir um vídeo de
+ * verdade, é só preencher `video` no conteúdo do sistema e este mesmo
+ * componente vira o player clicável.
+ */
+function DemoVideo({ video, nome, cor, icone }) {
+  const corBase = cor || ROXO;
+
+  if (!video) {
+    return (
+      <div style={{
+        position: 'relative', borderRadius: 14, overflow: 'hidden', aspectRatio: '16/9',
+        background: `linear-gradient(135deg, ${corBase}22, ${corBase}08)`,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10,
+      }}>
+        <span style={{
+          position: 'absolute', left: 12, top: 12, padding: '3px 10px', borderRadius: 100,
+          background: '#ffffff', color: corBase, fontSize: '0.62rem', fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
+        }}>
+          Em produção
+        </span>
+        <span style={{
+          width: 52, height: 52, borderRadius: '50%', background: '#ffffff', color: corBase, fontSize: '1.25rem',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 20px -8px rgba(22,21,28,0.3)',
+        }}>
+          {icone || '▶'}
+        </span>
+        <span style={{ fontSize: '0.76rem', fontWeight: 600, color: '#6b6878' }}>Vídeo de demonstração em breve</span>
+      </div>
+    );
+  }
+
   return (
     <a
       href={video.url} target="_blank" rel="noreferrer"
