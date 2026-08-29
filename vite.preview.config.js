@@ -37,6 +37,7 @@ export default defineConfig({
       { find: /.*\/services\/upload\.service$/, replacement: m('upload.service.js') },
       { find: /.*\/lib\/hubModuleCatalog$/, replacement: m('hubModuleCatalog.js') },
       { find: /.*\/lib\/proposals$/, replacement: m('proposals.js') },
+      { find: /.*\/lib\/adminDashboard$/, replacement: m('adminDashboard.js') },
     ],
   },
 });

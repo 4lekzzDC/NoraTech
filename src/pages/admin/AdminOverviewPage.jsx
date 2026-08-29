@@ -1,10 +1,23 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import AdminLayout, { Card, Spinner, StatusPill } from '../../components/AdminLayout';
-import { supabase } from '../../lib/supabase';
-import { formatBRL, formatDate } from '../../lib/admin';
+// Visão geral do Admin — dashboard gerencial modular. 5 KPIs fixos no topo
+// (MRR, assinaturas ativas, propostas em aberto, faturas pendentes,
+// acessos) e, abaixo, uma grade de widgets que o admin escolhe, reordena
+// (arrastar pelo ⠿) e redimensiona (P/M/G) no modo "Personalizar
+// dashboard" — persistido em profiles.dashboard_layout por usuário (ver
+// src/lib/adminDashboard.js). Os dados de TODOS os widgets vêm de uma
+// leva só (fetchDashboardData) — não tem loading por widget, só o
+// Spinner da tela inteira até essa leva voltar.
 
-function StatCard({ label, value, hint, accent = '#7C3AED' }) {
+import { useEffect, useRef, useState } from 'react';
+import AdminLayout, { Card, EmptyState, Spinner } from '../../components/AdminLayout';
+import { WidgetShell, WidgetConteudo } from '../../components/AdminDashboardWidgets';
+import { useAuth } from '../../contexts/AuthContext';
+import { formatBRL } from '../../lib/admin';
+import { WIDGET_CATALOG, DEFAULT_LAYOUT, carregarLayout, salvarLayout, fetchDashboardData } from '../../lib/adminDashboard';
+
+const ROXO = '#7C3AED';
+const SPAN = { sm: 4, md: 6, lg: 12 };
+
+function StatCard({ label, value, hint, accent = ROXO }) {
   return (
     <Card style={{ padding: '22px 24px' }}>
       <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: 1.5, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase' }}>
@@ -16,140 +29,217 @@ function StatCard({ label, value, hint, accent = '#7C3AED' }) {
   );
 }
 
-export default function AdminOverviewPage() {
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    users: 0,
-    activeSubs: 0,
-    mrr: 0,
-    pendingInvoices: 0,
-    pendingAmount: 0,
-    overdueInvoices: 0,
-  });
-  const [recentInvoices, setRecentInvoices] = useState([]);
-  const [recentUsers, setRecentUsers] = useState([]);
+function MenuAdicionarWidget({ disponiveis, onEscolher }) {
+  const [aberto, setAberto] = useState(false);
+  const ref = useRef(null);
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      setLoading(true);
-      const [usersRes, subsRes, invoicesRes, recentInvRes, recentUsersRes] = await Promise.all([
-        supabase.from('profiles').select('id', { count: 'exact', head: true }),
-        supabase.from('subscriptions').select('amount, billing_cycle, status').eq('status', 'active'),
-        supabase.from('invoices').select('amount, status'),
-        supabase.from('invoices').select('id, description, amount, status, due_date, user_id, profiles:user_id(name, role)').order('created_at', { ascending: false }).limit(5),
-        supabase.from('profiles').select('id, name, role, updated_at').order('updated_at', { ascending: false }).limit(5),
-      ]);
+    if (!aberto) return undefined;
+    const aoClicarFora = (e) => { if (ref.current && !ref.current.contains(e.target)) setAberto(false); };
+    document.addEventListener('mousedown', aoClicarFora);
+    return () => document.removeEventListener('mousedown', aoClicarFora);
+  }, [aberto]);
 
-      if (!active) return;
-
-      const subs = subsRes.data || [];
-      const mrr = subs.reduce((acc, s) => {
-        const amount = Number(s.amount) || 0;
-        if (s.billing_cycle === 'yearly') return acc + amount / 12;
-        if (s.billing_cycle === 'one_time') return acc;
-        return acc + amount;
-      }, 0);
-
-      const invoices = invoicesRes.data || [];
-      const pending = invoices.filter((i) => i.status === 'pending');
-      const overdue = invoices.filter((i) => i.status === 'overdue');
-      const pendingAmount = [...pending, ...overdue].reduce((acc, i) => acc + (Number(i.amount) || 0), 0);
-
-      setStats({
-        users: usersRes.count || 0,
-        activeSubs: subs.length,
-        mrr,
-        pendingInvoices: pending.length,
-        pendingAmount,
-        overdueInvoices: overdue.length,
-      });
-      setRecentInvoices(recentInvRes.data || []);
-      setRecentUsers(recentUsersRes.data || []);
-      setLoading(false);
-    })();
-    return () => { active = false; };
-  }, []);
+  if (disponiveis.length === 0) return null;
 
   return (
-    <AdminLayout title="Visão geral" subtitle="Resumo da operação: clientes, receita recorrente e cobranças.">
-      {loading ? <Spinner /> : (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button className="admin-btn" type="button" onClick={() => setAberto((v) => !v)}>+ Adicionar bloco</button>
+      {aberto && (
+        <div style={{
+          position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 20, width: 270,
+          background: '#15151a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: 6,
+          boxShadow: '0 16px 36px -10px rgba(0,0,0,0.55)',
+        }}
+        >
+          {disponiveis.map((id) => (
+            <button
+              key={id} type="button" onClick={() => { onEscolher(id); setAberto(false); }}
+              className="admin-dashboard-add-item"
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, width: '100%', textAlign: 'left',
+                padding: '9px 11px', borderRadius: 8, border: 'none', background: 'none', color: '#eeede9', cursor: 'pointer',
+              }}
+            >
+              <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{WIDGET_CATALOG[id].icon} {WIDGET_CATALOG[id].title}</span>
+              <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)' }}>{WIDGET_CATALOG[id].desc}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function AdminOverviewPage() {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState('');
+  const [dados, setDados] = useState(null);
+
+  const [layout, setLayout] = useState(DEFAULT_LAYOUT);
+  const [layoutSalvo, setLayoutSalvo] = useState(DEFAULT_LAYOUT);
+  const [editando, setEditando] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [arrastandoId, setArrastandoId] = useState(null);
+
+  // Os KPIs/widgets não dependem do usuário (RLS já resolve isso pela sessão
+  // do client, não pelo objeto `user` do React) — só o layout salvo
+  // depende, então só ele fica atrás do `user ? ... : DEFAULT_LAYOUT`. Isso
+  // evita a tela travar num spinner infinito se `user` demorar a resolver.
+  useEffect(() => {
+    let ativo = true;
+    (async () => {
+      setLoading(true);
+      setErro('');
+      try {
+        const [dadosRes, layoutRes] = await Promise.all([
+          fetchDashboardData(),
+          user ? carregarLayout(user.id) : Promise.resolve(DEFAULT_LAYOUT),
+        ]);
+        if (!ativo) return;
+        setDados(dadosRes);
+        setLayout(layoutRes);
+        setLayoutSalvo(layoutRes);
+      } catch (e) {
+        if (ativo) setErro(e.message);
+      } finally {
+        if (ativo) setLoading(false);
+      }
+    })();
+    return () => { ativo = false; };
+  }, [user]);
+
+  function handleTamanho(id, size) {
+    setLayout((atual) => atual.map((w) => (w.id === id ? { ...w, size } : w)));
+  }
+  function handleRemover(id) {
+    setLayout((atual) => atual.filter((w) => w.id !== id));
+  }
+  function handleAdicionar(id) {
+    setLayout((atual) => [...atual, { id, size: WIDGET_CATALOG[id].defaultSize }]);
+  }
+  function handleDragStart(id) {
+    return (e) => { e.dataTransfer.effectAllowed = 'move'; setArrastandoId(id); };
+  }
+  function handleDragEnd() { setArrastandoId(null); }
+  function handleContainerDragOver(targetId) {
+    return (e) => {
+      e.preventDefault();
+      if (!arrastandoId || arrastandoId === targetId) return;
+      setLayout((atual) => {
+        const origem = atual.findIndex((w) => w.id === arrastandoId);
+        const destino = atual.findIndex((w) => w.id === targetId);
+        if (origem === -1 || destino === -1 || origem === destino) return atual;
+        const copia = [...atual];
+        const [item] = copia.splice(origem, 1);
+        copia.splice(destino, 0, item);
+        return copia;
+      });
+    };
+  }
+  function handleContainerDrop(e) { e.preventDefault(); }
+
+  async function handleSalvarLayout() {
+    if (!user) { setErro('Sessão ainda carregando — aguarde um instante e tente salvar de novo.'); return; }
+    setSalvando(true);
+    setErro('');
+    try {
+      await salvarLayout(user.id, layout);
+      setLayoutSalvo(layout);
+      setEditando(false);
+    } catch (e) {
+      setErro(e.message);
+    } finally {
+      setSalvando(false);
+    }
+  }
+  function handleCancelar() {
+    setLayout(layoutSalvo);
+    setEditando(false);
+  }
+
+  const idsPresentes = new Set(layout.map((w) => w.id));
+  const disponiveisParaAdicionar = Object.keys(WIDGET_CATALOG).filter((id) => !idsPresentes.has(id));
+
+  return (
+    <AdminLayout
+      title="Visão geral"
+      subtitle="Resumo da operação — personalize os blocos abaixo do jeito que faz sentido pra você."
+      actions={!loading && (
+        editando ? (
+          <>
+            <MenuAdicionarWidget disponiveis={disponiveisParaAdicionar} onEscolher={handleAdicionar} />
+            <button className="admin-btn" type="button" onClick={() => setLayout(DEFAULT_LAYOUT)}>Restaurar padrão</button>
+            <button className="admin-btn" type="button" onClick={handleCancelar} disabled={salvando}>Cancelar</button>
+            <button className="admin-btn primary" type="button" onClick={handleSalvarLayout} disabled={salvando}>
+              {salvando ? 'Salvando...' : 'Salvar layout'}
+            </button>
+          </>
+        ) : (
+          <button className="admin-btn" type="button" onClick={() => setEditando(true)}>✎ Personalizar dashboard</button>
+        )
+      )}
+    >
+      {erro && (
+        <div style={{ padding: '12px 16px', background: 'rgba(255,107,107,0.08)', border: '1px solid rgba(255,107,107,0.25)', borderRadius: 10, marginBottom: 16, color: '#ff6b6b', fontSize: '0.85rem' }}>
+          {erro}
+        </div>
+      )}
+
+      {loading || !dados ? <Spinner /> : (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 28 }}>
-            <StatCard label="Usuários" value={stats.users} hint="Total cadastrados" />
-            <StatCard label="Assinaturas ativas" value={stats.activeSubs} accent="#00d48a" />
-            <StatCard label="MRR" value={formatBRL(stats.mrr)} hint="Receita mensal recorrente" accent="#7C3AED" />
-            <StatCard label="Faturas pendentes" value={stats.pendingInvoices} hint={formatBRL(stats.pendingAmount)} accent="#ff8a3d" />
-            <StatCard label="Faturas vencidas" value={stats.overdueInvoices} accent="#ff6b6b" />
+            <StatCard label="MRR" value={formatBRL(dados.kpis.mrr)} hint="Receita mensal recorrente" accent={ROXO} />
+            <StatCard label="Assinaturas ativas" value={dados.kpis.assinaturasAtivas} accent="#00d48a" />
+            <StatCard label="Propostas em aberto" value={dados.kpis.propostasAbertas} accent="#60a5fa" />
+            <StatCard label="Faturas pendentes" value={dados.kpis.faturasPendentes} accent="#ff8a3d" />
+            <StatCard label="Acessos" value={dados.kpis.acessos7d} hint="Logins nos últimos 7 dias" accent="#a78bfa" />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 16 }}>
-            <Card style={{ padding: 0 }}>
-              <div style={{ padding: '18px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Faturas recentes</h3>
-                <Link to="/admin/faturas" style={{ fontSize: '0.78rem', color: '#7C3AED', textDecoration: 'none', fontWeight: 600 }}>Ver todas →</Link>
-              </div>
-              <div style={{ overflowX: 'auto' }}>
-                {recentInvoices.length === 0 ? (
-                  <div style={{ padding: 28, textAlign: 'center', color: 'rgba(255,255,255,0.45)', fontSize: '0.88rem' }}>Sem faturas registradas.</div>
-                ) : (
-                  <table className="admin-table">
-                    <thead>
-                      <tr><th>Cliente</th><th>Descrição</th><th>Valor</th><th>Status</th><th>Vence</th></tr>
-                    </thead>
-                    <tbody>
-                      {recentInvoices.map((i) => (
-                        <tr key={i.id}>
-                          <td>{i.profiles?.name || '—'}</td>
-                          <td>{i.description}</td>
-                          <td>{formatBRL(i.amount)}</td>
-                          <td><StatusPill status={i.status} /></td>
-                          <td>{formatDate(i.due_date)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </Card>
+          {editando && (
+            <div style={{ padding: '10px 14px', background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.25)', borderRadius: 10, marginBottom: 18, color: '#a78bfa', fontSize: '0.82rem' }}>
+              Modo personalização: arraste pelo ⠿ pra reordenar, escolha o tamanho (P/M/G) ou remova um bloco com ×. As mudanças só ficam pra valer depois de "Salvar layout".
+            </div>
+          )}
 
-            <Card style={{ padding: 0 }}>
-              <div style={{ padding: '18px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Usuários recentes</h3>
-                <Link to="/admin/usuarios" style={{ fontSize: '0.78rem', color: '#7C3AED', textDecoration: 'none', fontWeight: 600 }}>Ver todos →</Link>
-              </div>
-              <div style={{ overflowX: 'auto' }}>
-                {recentUsers.length === 0 ? (
-                  <div style={{ padding: 28, textAlign: 'center', color: 'rgba(255,255,255,0.45)', fontSize: '0.88rem' }}>Sem usuários ainda.</div>
-                ) : (
-                  <table className="admin-table">
-                    <thead>
-                      <tr><th>Nome</th><th>Role</th><th>Atualizado</th></tr>
-                    </thead>
-                    <tbody>
-                      {recentUsers.map((u) => (
-                        <tr key={u.id}>
-                          <td>{u.name || '—'}</td>
-                          <td>
-                            <span className="admin-pill" style={{
-                              background: u.role === 'admin' ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.05)',
-                              color: u.role === 'admin' ? '#a78bfa' : '#bbb',
-                              borderColor: u.role === 'admin' ? 'rgba(124,58,237,0.3)' : 'rgba(255,255,255,0.1)',
-                            }}>
-                              {u.role || 'user'}
-                            </span>
-                          </td>
-                          <td>{formatDate(u.updated_at)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </Card>
-          </div>
+          {layout.length === 0 ? (
+            <EmptyState>
+              Nenhum bloco no dashboard.{' '}
+              {editando ? 'Adicione um pelo botão "+ Adicionar bloco" acima.' : 'Clique em "Personalizar dashboard" para adicionar.'}
+            </EmptyState>
+          ) : (
+            <div className="admin-dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16 }}>
+              {layout.map((w) => {
+                if (!WIDGET_CATALOG[w.id]) return null;
+                return (
+                  <div key={w.id} style={{ gridColumn: `span ${SPAN[w.size] || 6}`, minWidth: 0 }}>
+                    <WidgetShell
+                      tipo={w.id} tamanho={w.size} editando={editando} arrastando={arrastandoId === w.id}
+                      onTamanho={(size) => handleTamanho(w.id, size)}
+                      onRemover={() => handleRemover(w.id)}
+                      onHandleDragStart={handleDragStart(w.id)}
+                      onHandleDragEnd={handleDragEnd}
+                      onContainerDragOver={handleContainerDragOver(w.id)}
+                      onContainerDrop={handleContainerDrop}
+                    >
+                      <WidgetConteudo tipo={w.id} dados={dados} />
+                    </WidgetShell>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </>
       )}
+
+      <style>{`
+        @media (max-width: 860px) {
+          .admin-dashboard-grid > * { grid-column: span 12 !important; }
+        }
+        .admin-dashboard-add-item:hover { background: rgba(255,255,255,0.05) !important; }
+      `}
+      </style>
     </AdminLayout>
   );
 }

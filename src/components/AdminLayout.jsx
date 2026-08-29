@@ -243,7 +243,7 @@ export function StatusPill({ status }) {
   );
 }
 
-export function Card({ children, style = {} }) {
+export function Card({ children, style = {}, ...rest }) {
   return (
     <div
       style={{
@@ -252,6 +252,7 @@ export function Card({ children, style = {} }) {
         borderRadius: 14,
         ...style,
       }}
+      {...rest}
     >
       {children}
     </div>

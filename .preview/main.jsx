@@ -16,6 +16,7 @@ import AjusteFiscalPage from '../src/modules/solucoes-contabeis/sistemas/difal/A
 import AdminProposalsPage from '../src/pages/admin/AdminProposalsPage';
 import AdminProposalEditorPage from '../src/pages/admin/AdminProposalEditorPage';
 import PropostaPublicaPage from '../src/pages/PropostaPublicaPage';
+import AdminOverviewPage from '../src/pages/admin/AdminOverviewPage';
 
 // A maioria das telas é montada direto, sem depender de parâmetro de rota.
 // AdminSystemEditorPage/AdminProposalEditorPage/PropostaPublicaPage são a
@@ -25,7 +26,7 @@ const TELAS = {
   inbox: InboxPage, configuracoes: ConfiguracoesPage, historico: HistoricoPage,
   clientes: ClientesPage, difal: DifalPage, fiscal: FiscalPage,
   contabil: ContabilPage, pessoal: PessoalPage, ajusteFiscal: AjusteFiscalPage,
-  propostas: AdminProposalsPage,
+  propostas: AdminProposalsPage, visaoGeral: AdminOverviewPage,
 };
 const params = new URLSearchParams(location.search);
 const nomeTela = params.get('tela');
