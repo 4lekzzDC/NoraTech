@@ -300,52 +300,57 @@ function SistemaDetalheModal({ item, onClose }) {
 
         <div style={{ padding: '24px 30px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
           {aba === 'geral' && (
-            <>
-              <p style={{ fontSize: '0.92rem', color: '#3a3844', lineHeight: 1.7, margin: '0 0 22px' }}>{conteudo.overview}</p>
-              {conteudo.previewImage && (
-                <img src={conteudo.previewImage} alt={`Prévia de ${item.name}`} style={{ width: '100%', borderRadius: 12, marginBottom: 22, display: 'block' }} />
-              )}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 }}>
-                {(conteudo.highlights || []).map((h) => (
-                  <div key={h.title} style={{ padding: '16px 14px', borderRadius: 12, background: '#faf9fc', textAlign: 'center' }}>
-                    <div style={{
-                      width: 38, height: 38, borderRadius: '50%', margin: '0 auto 10px',
-                      background: `${item.color || ROXO}1a`, color: item.color || ROXO, fontSize: '1.05rem',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      {h.icon}
-                    </div>
-                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#16151c', marginBottom: 4 }}>{h.title}</div>
-                    <div style={{ fontSize: '0.78rem', color: '#6b6878', lineHeight: 1.5 }}>{h.desc}</div>
+            <div className="np-detalhe-grid">
+              <div>
+                <p style={{ fontSize: '0.9rem', color: '#3a3844', lineHeight: 1.7, margin: '0 0 20px' }}>{conteudo.overview}</p>
+                {conteudo.previewImage && (
+                  <img src={conteudo.previewImage} alt={`Prévia de ${item.name}`} style={{ width: '100%', borderRadius: 12, marginBottom: 20, display: 'block' }} />
+                )}
+                {(conteudo.highlights?.length > 0) && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))', gap: 10, marginBottom: 24 }}>
+                    {conteudo.highlights.map((h) => (
+                      <div key={h.title} style={{ padding: '12px 8px', borderRadius: 12, background: '#faf9fc', textAlign: 'center' }}>
+                        <div style={{
+                          width: 32, height: 32, borderRadius: '50%', margin: '0 auto 8px',
+                          background: `${item.color || ROXO}1a`, color: item.color || ROXO, fontSize: '0.92rem',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          {h.icon}
+                        </div>
+                        <div style={{ fontWeight: 700, fontSize: '0.76rem', color: '#16151c', marginBottom: 3 }}>{h.title}</div>
+                        <div style={{ fontSize: '0.7rem', color: '#6b6878', lineHeight: 1.45 }}>{h.desc}</div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
+                {(conteudo.features?.length > 0) && (
+                  <div>
+                    <div style={estilos.tituloColuna}>Principais benefícios</div>
+                    <ListaChecklist itens={conteudo.features} cor={item.color} />
+                  </div>
+                )}
               </div>
-            </>
+
+              <div>
+                {conteudo.video && (
+                  <div style={{ marginBottom: 24 }}>
+                    <div style={estilos.tituloColuna}>Demonstração do sistema</div>
+                    <DemoVideo video={conteudo.video} nome={item.name} />
+                  </div>
+                )}
+                {(conteudo.modules?.length > 0) && (
+                  <div>
+                    <div style={estilos.tituloColuna}>Módulos incluídos</div>
+                    <ListaChecklist itens={conteudo.modules} cor={item.color} />
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           {aba === 'funcionalidades' && <ListaChecklist itens={conteudo.features} cor={item.color} />}
           {aba === 'modulos' && <ListaChecklist itens={conteudo.modules} cor={item.color} />}
-
-          {aba === 'demo' && conteudo.video && (
-            <a
-              href={conteudo.video.url} target="_blank" rel="noreferrer"
-              style={{ display: 'block', position: 'relative', borderRadius: 14, overflow: 'hidden', background: '#16151c', aspectRatio: '16/9' }}
-            >
-              {conteudo.video.thumbnail && (
-                <img src={conteudo.video.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.75 }} />
-              )}
-              <span style={{
-                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <span style={{
-                  width: 56, height: 56, borderRadius: '50%', background: ROXO, color: '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem',
-                }}>
-                  ▶
-                </span>
-              </span>
-            </a>
-          )}
+          {aba === 'demo' && conteudo.video && <DemoVideo video={conteudo.video} nome={item.name} />}
         </div>
 
         <div style={{ padding: '18px 30px', borderTop: '1px solid #eeecf3', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -361,6 +366,36 @@ function SistemaDetalheModal({ item, onClose }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/** Usado tanto na coluna direita de "Visão geral" quanto na aba "Demonstração" — mesmo componente, ocupa a largura disponível. */
+function DemoVideo({ video, nome }) {
+  return (
+    <a
+      href={video.url} target="_blank" rel="noreferrer"
+      style={{ display: 'block', position: 'relative', borderRadius: 14, overflow: 'hidden', background: '#16151c', aspectRatio: '16/9' }}
+    >
+      {video.thumbnail && (
+        <img src={video.thumbnail} alt={`Demonstração de ${nome}`} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.75 }} />
+      )}
+      <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{
+          width: 52, height: 52, borderRadius: '50%', background: ROXO, color: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem',
+        }}>
+          ▶
+        </span>
+      </span>
+      {video.duration && (
+        <span style={{
+          position: 'absolute', right: 10, bottom: 10, padding: '2px 8px', borderRadius: 6,
+          background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: '0.68rem', fontWeight: 600,
+        }}>
+          {video.duration}
+        </span>
+      )}
+    </a>
   );
 }
 
@@ -442,9 +477,10 @@ const estilos = {
   card: { width: '100%', maxWidth: 720, background: '#ffffff', borderRadius: 20, boxShadow: '0 1px 2px rgba(22,21,28,0.04), 0 20px 50px -20px rgba(22,21,28,0.15)', overflow: 'hidden' },
   itemLinha: { display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 16px', borderRadius: 12, background: '#faf9fc' },
   modalCaixa: {
-    width: '100%', maxWidth: 640, maxHeight: 'calc(100vh - 48px)', background: '#ffffff', borderRadius: 20,
+    width: '100%', maxWidth: 800, maxHeight: 'calc(100vh - 48px)', background: '#ffffff', borderRadius: 20,
     boxShadow: '0 24px 60px -20px rgba(22,21,28,0.35)', overflow: 'hidden', display: 'flex', flexDirection: 'column',
   },
+  tituloColuna: { fontSize: '0.78rem', fontWeight: 700, color: '#16151c', marginBottom: 12 },
 };
 
 function EstilosGlobais() {
@@ -522,6 +558,9 @@ function EstilosGlobais() {
       }
       .np-tab:hover { color: #6b6878; }
       .np-tab.ativa { color: ${ROXO}; border-bottom-color: ${ROXO}; }
+
+      .np-detalhe-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 30px; align-items: start; }
+      @media (max-width: 620px) { .np-detalhe-grid { grid-template-columns: 1fr; gap: 24px; } }
 
       @media print {
         .no-print { display: none !important; }
