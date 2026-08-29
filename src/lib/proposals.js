@@ -130,10 +130,27 @@ export async function salvarProposta(payload) {
   return data;
 }
 
+/**
+ * Envia a proposta por e-mail de verdade (Resend), via Edge Function —
+ * não é mais um RPC direto: o status só vira 'enviada' DEPOIS do Resend
+ * confirmar o envio, então essa chamada demora um pouco mais que as outras.
+ * Se o Resend falhar, a proposta continua em rascunho e o erro sobe daqui
+ * pra UI mostrar (a falha já fica registrada no histórico pelo backend).
+ */
 export async function enviarProposta(id) {
-  const { data, error } = await supabase.rpc('admin_send_proposal', { p_id: id });
-  if (error) throw new Error(translate(error));
-  return data;
+  const { data, error } = await supabase.functions.invoke('send-proposal-email', {
+    body: { proposal_id: id },
+  });
+  if (error) {
+    let message = error.message;
+    try {
+      const body = await error.context?.json?.();
+      if (body?.error) message = body.error;
+    } catch { /* mantém a mensagem genérica */ }
+    throw new Error(translate({ message }));
+  }
+  if (data?.error) throw new Error(translate({ message: data.error }));
+  return data?.proposal;
 }
 
 /** Decisão manual do admin (negociação fechada fora do link) — só aceita/recusada. */

@@ -33,6 +33,7 @@ const EVENT_META = {
   aceita:      { label: 'Aceita',             color: '#00d48a' },
   recusada:    { label: 'Recusada',           color: '#ff6b6b' },
   expirada:    { label: 'Expirou',            color: 'rgba(255,255,255,0.55)' },
+  envio_falhou: { label: 'Falha ao enviar e-mail', color: '#ff6b6b' },
 };
 
 function origemEvento(ev) {
@@ -191,7 +192,7 @@ export default function AdminProposalEditorPage() {
     try {
       const atualizada = await enviarProposta(proposta.id);
       setProposta(atualizada);
-      showToast('Proposta enviada — o link já pode ser compartilhado.');
+      showToast('E-mail enviado — a proposta já pode ser acompanhada pelo cliente.');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -411,7 +412,7 @@ export default function AdminProposalEditorPage() {
                       </button>
                       {proposta?.status === 'rascunho' && (
                         <button type="button" className="admin-btn" onClick={handleEnviar} disabled={sending}>
-                          {sending ? 'Enviando...' : 'Enviar'}
+                          {sending ? 'Enviando e-mail...' : 'Enviar por e-mail'}
                         </button>
                       )}
                     </div>
