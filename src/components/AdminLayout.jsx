@@ -20,7 +20,7 @@ const NAV = [
 // a um redirecionamento é pior que não mostrar.
 const NAV_DEV = { to: '/admin/dev', label: 'DEV', icon: '⌘' };
 
-export default function AdminLayout({ title, subtitle, actions, children }) {
+export default function AdminLayout({ title, subtitle, actions, breadcrumb, children }) {
   const { user, logout } = useAuth();
   const { isDeveloper } = useIsDeveloper();
   const navigate = useNavigate();
@@ -196,9 +196,12 @@ export default function AdminLayout({ title, subtitle, actions, children }) {
               ☰
             </button>
             <div style={{ minWidth: 0 }}>
+              {breadcrumb && (
+                <div style={{ marginBottom: 6 }}>{breadcrumb}</div>
+              )}
               <h1 style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: -0.6, margin: 0 }}>{title}</h1>
               {subtitle && (
-                <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', margin: '4px 0 0' }}>{subtitle}</p>
+                <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', margin: '4px 0 0' }}>{subtitle}</div>
               )}
             </div>
           </div>
