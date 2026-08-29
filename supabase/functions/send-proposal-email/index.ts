@@ -7,7 +7,17 @@ import { checkRateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
 // em rascunho e a falha vai pro histórico via svc_record_proposal_send (evento
 // 'envio_falhou'), pra dar pra debugar sem perder o rascunho.
 // Ver supabase/migration_20260829_proposal_email.sql.
+//
+// Reenvio (proposta que já saiu de rascunho): mesma função, mesma validação
+// de admin — só muda o que acontece depois do Resend confirmar: não mexe em
+// status/sent_at (svc_record_proposal_send recebe p_is_resend=true e só
+// registra o evento 'reenviada'). Ver migration_20260829c_proposal_resend.sql.
+//
+// `email`: opcional no corpo da requisição — o admin escolhe o destinatário
+// no modal antes de cada envio/reenvio. Sem isso, cai no e-mail de login do
+// dono da empresa (comportamento original).
 const LIMITE_ENVIO = { bucket: 'send_proposal_email', limit: 20, windowSeconds: 300 };
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const ROXO = '#7C3AED';
 
@@ -114,6 +124,10 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const proposalId: string | undefined = body?.proposal_id;
     if (!proposalId) return json({ error: 'proposal_id é obrigatório' }, 400);
+    const emailInformado: string | undefined = typeof body?.email === 'string' ? body.email.trim() : undefined;
+    if (emailInformado && !EMAIL_RE.test(emailInformado)) {
+      return json({ error: 'E-mail inválido.' }, 400);
+    }
 
     const { data: proposta, error: propostaErr } = await adminClient
       .from('proposals')
@@ -122,9 +136,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (propostaErr) throw propostaErr;
     if (!proposta) return json({ error: 'Proposta não encontrada' }, 404);
-    if (proposta.status !== 'rascunho') {
-      return json({ error: 'Só é possível enviar uma proposta em rascunho.' }, 409);
-    }
+    const isResend = proposta.status !== 'rascunho';
 
     const { data: itens, error: itensErr } = await adminClient
       .from('proposal_items')
@@ -140,13 +152,17 @@ Deno.serve(async (req) => {
       .eq('id', proposta.company_id)
       .maybeSingle();
     if (companyErr) throw companyErr;
-    if (!company?.owner_id) {
-      return json({ error: 'Empresa sem responsável cadastrado — não há para quem enviar.' }, 422);
-    }
 
-    const { data: { user: owner }, error: ownerErr } = await adminClient.auth.admin.getUserById(company.owner_id);
-    if (ownerErr || !owner?.email) {
-      return json({ error: 'O responsável pela empresa não tem e-mail cadastrado.' }, 422);
+    let destinatario = emailInformado;
+    if (!destinatario) {
+      if (!company?.owner_id) {
+        return json({ error: 'Empresa sem responsável cadastrado — informe um e-mail de destino.' }, 422);
+      }
+      const { data: { user: owner }, error: ownerErr } = await adminClient.auth.admin.getUserById(company.owner_id);
+      if (ownerErr || !owner?.email) {
+        return json({ error: 'O responsável pela empresa não tem e-mail cadastrado — informe um e-mail de destino.' }, 422);
+      }
+      destinatario = owner.email;
     }
 
     if (!resendKey) {
@@ -160,7 +176,7 @@ Deno.serve(async (req) => {
     const link = `${origin}/proposta/${proposta.public_token}`;
 
     const html = montarEmailHtml({
-      companyName: company.name,
+      companyName: company?.name || 'sua empresa',
       items: itens,
       subtotal: proposta.subtotal,
       discountAmount: proposta.discount_amount,
@@ -178,8 +194,8 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: 'NoraTech Propostas <propostas@noratech.com.br>',
-        to: [owner.email],
-        subject: `Proposta comercial NoraTech — ${proposta.title}`,
+        to: [destinatario],
+        subject: `${isResend ? 'Reenvio: ' : ''}Proposta comercial NoraTech — ${proposta.title}`,
         html,
       }),
     });
@@ -194,6 +210,7 @@ Deno.serve(async (req) => {
         p_actor_id: caller.id,
         p_success: false,
         p_detail: String(motivo).slice(0, 500),
+        p_is_resend: isResend,
       });
       return json({ error: `Falha ao enviar e-mail: ${motivo}` }, 502);
     }
@@ -202,7 +219,8 @@ Deno.serve(async (req) => {
       p_id: proposalId,
       p_actor_id: caller.id,
       p_success: true,
-      p_detail: `Enviado para ${owner.email} (Resend: ${resendBody?.id ?? '—'})`,
+      p_detail: `${isResend ? 'Reenviado' : 'Enviado'} para ${destinatario} (Resend: ${resendBody?.id ?? '—'})`,
+      p_is_resend: isResend,
     });
     if (rpcErr) throw rpcErr;
 

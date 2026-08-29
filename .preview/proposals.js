@@ -15,6 +15,7 @@ const proximoId = () => `prop-${++seq}`;
 
 const companyById = new Map(COMPANIES.map((c) => [c.id, c]));
 const systemBySlug = new Map(SISTEMAS.map((s) => [s.slug, s]));
+const EMAIL_POR_OWNER = { u1: 'contato@studiofenix.com.br' }; // espelha auth.users.email — só pro dublê de admin_company_contact_email
 
 const proposals = [];
 const items = []; // { id, proposal_id, system_slug, name, description, unit_amount, amount, sort_order }
@@ -169,14 +170,27 @@ export async function salvarProposta(payload) {
   return comEmpresa(alvo);
 }
 
-export async function enviarProposta(id) {
+export async function enviarProposta(id, email) {
   const p = proposals.find((x) => x.id === id);
   if (!p) throw new Error('Proposta não encontrada');
-  if (p.status !== 'rascunho') throw new Error('Só é possível enviar uma proposta em rascunho');
-  p.status = 'enviada';
-  p.sent_at = new Date().toISOString();
-  registrarEvento(id, 'enviada', { statusBefore: 'rascunho', statusAfter: 'enviada' });
+  const isResend = p.status !== 'rascunho';
+  const empresa = companyById.get(p.company_id);
+  const destinatario = email || EMAIL_POR_OWNER[empresa?.owner_id] || 'contato@empresa.com.br';
+
+  if (!isResend) {
+    p.status = 'enviada';
+    p.sent_at = new Date().toISOString();
+    registrarEvento(id, 'enviada', { statusBefore: 'rascunho', statusAfter: 'enviada', notes: `Enviado para ${destinatario}` });
+  } else {
+    registrarEvento(id, 'reenviada', { statusBefore: p.status, statusAfter: p.status, notes: `Reenviado para ${destinatario}` });
+  }
   return comEmpresa(p);
+}
+
+/** Dublê de admin_company_contact_email — pode voltar null, igual à RPC real. */
+export async function buscarEmailContatoEmpresa(companyId) {
+  const empresa = companyById.get(companyId);
+  return EMAIL_POR_OWNER[empresa?.owner_id] || null;
 }
 
 function aplicarAceitacao() {

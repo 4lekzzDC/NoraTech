@@ -17,7 +17,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import AdminLayout, { Card, Spinner, StatusPill } from '../../components/AdminLayout';
+import AdminLayout, { Card, Modal, Spinner, StatusPill } from '../../components/AdminLayout';
 import { Dropdown, DropdownStyles } from '../../components/AdminDropdown';
 import { ToastHost } from '../../components/Toast';
 import { useToasts } from '../../lib/useToasts';
@@ -26,7 +26,7 @@ import { formatBRL, formatDate, formatDateTime } from '../../lib/admin';
 import { fetchSystems } from '../../lib/systems';
 import {
   buscarProposta, listarItens, listarEventos, listarVersoes, salvarProposta,
-  enviarProposta, definirStatusProposta, linkPublico, PROPOSAL_STATUS_LABEL,
+  enviarProposta, buscarEmailContatoEmpresa, definirStatusProposta, linkPublico, PROPOSAL_STATUS_LABEL,
 } from '../../lib/proposals';
 import { calcularTotais } from '../../lib/proposalCalc';
 import { Field } from './adminFormHelpers';
@@ -41,6 +41,7 @@ const EVENT_META = {
   recusada:    { label: 'Recusada',           color: '#ff6b6b' },
   expirada:    { label: 'Expirou',            color: 'rgba(255,255,255,0.55)' },
   envio_falhou: { label: 'Falha ao enviar e-mail', color: '#ff6b6b' },
+  reenviada:   { label: 'E-mail reenviado',   color: '#60a5fa' },
 };
 
 function origemEvento(ev) {
@@ -82,6 +83,11 @@ export default function AdminProposalEditorPage() {
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [decidindo, setDecidindo] = useState(false);
+
+  const [envioModalOpen, setEnvioModalOpen] = useState(false);
+  const [envioEmail, setEnvioEmail] = useState('');
+  const [envioEmailCarregando, setEnvioEmailCarregando] = useState(false);
+  const [envioError, setEnvioError] = useState('');
 
   const [companies, setCompanies] = useState([]);
   const [systems, setSystems] = useState([]);
@@ -218,17 +224,38 @@ export default function AdminProposalEditorPage() {
     }
   }
 
-  async function handleEnviar() {
+  /**
+   * Abre o modal de envio/reenvio e tenta pré-popular com o e-mail do dono
+   * da empresa — falha nisso não impede nada, o campo só fica vazio e o
+   * admin digita na mão.
+   */
+  function abrirModalEnvio() {
     if (!proposta) return;
+    setEnvioError('');
+    setEnvioEmail('');
+    setEnvioModalOpen(true);
+    setEnvioEmailCarregando(true);
+    buscarEmailContatoEmpresa(proposta.company_id)
+      .then((email) => { if (email) setEnvioEmail(email); })
+      .catch(() => {})
+      .finally(() => setEnvioEmailCarregando(false));
+  }
+
+  async function handleEnviar(e) {
+    e?.preventDefault();
+    if (!proposta) return;
+    if (!envioEmail.trim()) { setEnvioError('Informe o e-mail de destino.'); return; }
+    const eraReenvio = proposta.status !== 'rascunho';
     setSending(true);
-    setError('');
+    setEnvioError('');
     try {
-      const atualizada = await enviarProposta(proposta.id);
+      const atualizada = await enviarProposta(proposta.id, envioEmail.trim());
       setProposta(atualizada);
       carregarHistorico(atualizada);
-      showToast('E-mail enviado — a proposta já pode ser acompanhada pelo cliente.');
+      setEnvioModalOpen(false);
+      showToast(eraReenvio ? 'E-mail reenviado.' : 'E-mail enviado — a proposta já pode ser acompanhada pelo cliente.');
     } catch (err) {
-      setError(err.message);
+      setEnvioError(err.message);
     } finally {
       setSending(false);
     }
@@ -307,11 +334,12 @@ export default function AdminProposalEditorPage() {
             <>
               <a className="admin-btn" href={linkPublico(proposta.public_token)} target="_blank" rel="noreferrer">👁 Visualizar</a>
               <a className="admin-btn" href={`${linkPublico(proposta.public_token)}?imprimir=1`} target="_blank" rel="noreferrer">📄 Baixar PDF</a>
+              <button type="button" className="admin-btn" onClick={abrirModalEnvio}>↻ Reenviar proposta</button>
             </>
           )}
           {podeEnviar && (
-            <button type="button" className="admin-btn primary" onClick={handleEnviar} disabled={sending}>
-              {sending ? 'Enviando...' : '✉ Enviar proposta'}
+            <button type="button" className="admin-btn primary" onClick={abrirModalEnvio}>
+              ✉ Enviar proposta
             </button>
           )}
         </>
@@ -545,6 +573,36 @@ export default function AdminProposalEditorPage() {
           </form>
         </>
       )}
+
+      <Modal
+        open={envioModalOpen}
+        onClose={() => !sending && setEnvioModalOpen(false)}
+        title={podeEnviar ? 'Enviar proposta por e-mail' : 'Reenviar proposta por e-mail'}
+        footer={
+          <>
+            <button className="admin-btn" onClick={() => setEnvioModalOpen(false)} disabled={sending}>Cancelar</button>
+            <button className="admin-btn primary" type="submit" form="envio-form" disabled={sending}>
+              {sending ? 'Enviando...' : podeEnviar ? 'Enviar' : 'Reenviar'}
+            </button>
+          </>
+        }
+      >
+        <form id="envio-form" onSubmit={handleEnviar} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Field label="Enviar para" hint="A proposta é enviada por e-mail para este endereço — você pode trocar antes de confirmar.">
+            <input
+              className="admin-input" type="email" required autoFocus
+              value={envioEmail} onChange={(e) => setEnvioEmail(e.target.value)}
+              placeholder={envioEmailCarregando ? 'Buscando e-mail cadastrado...' : 'contato@empresa.com.br'}
+              disabled={sending}
+            />
+          </Field>
+          {envioError && (
+            <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255,107,107,0.08)', border: '1px solid rgba(255,107,107,0.25)', color: '#ff6b6b', fontSize: '0.82rem' }}>
+              {envioError}
+            </div>
+          )}
+        </form>
+      </Modal>
 
       <ToastHost toasts={toasts} onDismiss={dismissToast} />
       <DropdownStyles />

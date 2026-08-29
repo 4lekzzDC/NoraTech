@@ -131,15 +131,19 @@ export async function salvarProposta(payload) {
 }
 
 /**
- * Envia a proposta por e-mail de verdade (Resend), via Edge Function —
- * não é mais um RPC direto: o status só vira 'enviada' DEPOIS do Resend
- * confirmar o envio, então essa chamada demora um pouco mais que as outras.
- * Se o Resend falhar, a proposta continua em rascunho e o erro sobe daqui
- * pra UI mostrar (a falha já fica registrada no histórico pelo backend).
+ * Envia (ou reenvia) a proposta por e-mail de verdade (Resend), via Edge
+ * Function — não é mais um RPC direto. Numa proposta em rascunho isso é o
+ * primeiro envio (o status só vira 'enviada' DEPOIS do Resend confirmar);
+ * numa proposta que já saiu de rascunho, a Edge Function detecta sozinha
+ * que é reenvio e não mexe no status — só registra o evento. Se o Resend
+ * falhar, nada muda de status e o erro sobe daqui pra UI mostrar (a falha
+ * já fica registrada no histórico pelo backend).
+ * `email`: opcional — endereço escolhido pelo admin no modal de envio. Sem
+ * isso, a Edge Function cai no e-mail de login do dono da empresa.
  */
-export async function enviarProposta(id) {
+export async function enviarProposta(id, email) {
   const { data, error } = await supabase.functions.invoke('send-proposal-email', {
-    body: { proposal_id: id },
+    body: { proposal_id: id, email: email || undefined },
   });
   if (error) {
     let message = error.message;
@@ -151,6 +155,13 @@ export async function enviarProposta(id) {
   }
   if (data?.error) throw new Error(translate({ message: data.error }));
   return data?.proposal;
+}
+
+/** E-mail de login do dono da empresa, pra pré-popular o campo "enviar para" no modal — pode voltar null. */
+export async function buscarEmailContatoEmpresa(companyId) {
+  const { data, error } = await supabase.rpc('admin_company_contact_email', { p_company_id: companyId });
+  if (error) throw new Error(translate(error));
+  return data;
 }
 
 /** Decisão manual do admin (negociação fechada fora do link) — só aceita/recusada. */
