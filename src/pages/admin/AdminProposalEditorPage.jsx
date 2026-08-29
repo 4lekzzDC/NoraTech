@@ -99,6 +99,7 @@ export default function AdminProposalEditorPage() {
   const [eventos, setEventos] = useState([]);
   const [versoes, setVersoes] = useState([]);
   const [historicoLoading, setHistoricoLoading] = useState(false);
+  const [linkCopiado, setLinkCopiado] = useState(false);
 
   useEffect(() => {
     let ativo = true;
@@ -257,7 +258,9 @@ export default function AdminProposalEditorPage() {
     if (!proposta?.public_token) return;
     try {
       await navigator.clipboard.writeText(linkPublico(proposta.public_token));
+      setLinkCopiado(true);
       showToast('Link copiado.');
+      setTimeout(() => setLinkCopiado(false), 1800);
     } catch {
       setError('Não foi possível copiar o link automaticamente — copie manualmente pelo campo ao lado.');
     }
@@ -297,7 +300,7 @@ export default function AdminProposalEditorPage() {
       ) : 'Escolha a empresa e monte os sistemas incluídos.'}
       actions={!loading && (
         <>
-          <button className={`admin-btn ${podeEnviar ? '' : 'primary'}`} type="submit" form="proposta-form" disabled={saving}>
+          <button className={`admin-btn ${proposta ? '' : 'primary'}`} type="submit" form="proposta-form" disabled={saving}>
             {botaoSalvarLabel}
           </button>
           {temPaginaPublica && (
@@ -323,7 +326,7 @@ export default function AdminProposalEditorPage() {
       {loading ? <Spinner /> : (
         <>
           {proposta && proposta.status !== 'rascunho' && (
-            <div style={{ padding: '12px 16px', background: 'rgba(240,180,41,0.08)', border: '1px solid rgba(240,180,41,0.25)', borderRadius: 10, marginBottom: 18, color: '#f0b429', fontSize: '0.85rem', lineHeight: 1.5 }}>
+            <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.025)', borderLeft: '3px solid rgba(240,180,41,0.4)', borderRadius: 8, marginBottom: 18, color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem', lineHeight: 1.5 }}>
               Esta proposta já foi {PROPOSAL_STATUS_LABEL[proposta.status]?.toLowerCase()}.
               Qualquer alteração salva aqui cria a versão v{proposta.version + 1} — o link público continua o mesmo, passando a mostrar a versão nova.
             </div>
@@ -410,16 +413,18 @@ export default function AdminProposalEditorPage() {
                               value={it.description} onChange={(e) => atualizarItem(it.systemSlug, 'description', e.target.value)}
                               placeholder="Descrição que aparece na proposta"
                             />
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                              <span style={{ ...LABEL, fontSize: '0.66rem' }}>Mensalidade</span>
-                              <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.82rem' }}>R$</span>
-                              <input
-                                className="proposal-ghost-input" type="number" step="0.01" min="0" style={{ width: 110, fontWeight: 700 }}
-                                value={it.amount} onChange={(e) => atualizarItem(it.systemSlug, 'amount', e.target.value)}
-                              />
-                              {Number(it.amount) !== Number(it.unitAmount) && (
-                                <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)' }}>catálogo: {formatBRL(it.unitAmount)}</span>
-                              )}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginTop: 2 }}>
+                              <span style={{ ...LABEL, fontSize: '0.64rem' }}>Mensalidade</span>
+                              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                                {Number(it.amount) !== Number(it.unitAmount) && (
+                                  <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)' }}>catálogo: {formatBRL(it.unitAmount)}</span>
+                                )}
+                                <span style={{ color: '#a78bfa', fontSize: '0.9rem', fontWeight: 700 }}>R$</span>
+                                <input
+                                  className="proposal-ghost-input proposal-price-input" type="number" step="0.01" min="0" style={{ width: 100, fontWeight: 800, fontSize: '1.2rem', color: '#a78bfa', textAlign: 'right' }}
+                                  value={it.amount} onChange={(e) => atualizarItem(it.systemSlug, 'amount', e.target.value)}
+                                />
+                              </div>
                             </div>
                           </div>
 
@@ -453,9 +458,19 @@ export default function AdminProposalEditorPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <LinhaResumo label="Subtotal" valor={totais.subtotal} />
                   {discountType && <LinhaResumo label="Desconto" valor={-totais.discountAmount} />}
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 4, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>Mensal</span>
+                    <span style={{ fontWeight: 700, fontSize: '1.05rem', color: '#eeede9' }}>{formatBRL(totais.subtotal - totais.discountAmount)}</span>
+                  </div>
+
                   {Number(setupFee) > 0 && <LinhaResumo label="Implantação" valor={Number(setupFee)} />}
+
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 6, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Total</span>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>Inicial</div>
+                      {Number(setupFee) > 0 && <div style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.4)' }}>1ª cobrança, com implantação</div>}
+                    </div>
                     <span style={{ fontWeight: 800, fontSize: '1.4rem', color: '#a78bfa' }}>{formatBRL(totais.total)}</span>
                   </div>
                 </div>
@@ -490,7 +505,12 @@ export default function AdminProposalEditorPage() {
                   <SectionHeading icon="🌐">Página pública</SectionHeading>
                   <input className="admin-input" readOnly value={linkPublico(proposta.public_token)} onFocus={(e) => e.target.select()} style={{ marginBottom: 10, fontFamily: 'monospace', fontSize: '0.78rem' }} />
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button type="button" className="admin-btn" onClick={handleCopiarLink}>Copiar link</button>
+                    <button
+                      type="button" className="admin-btn" onClick={handleCopiarLink}
+                      style={linkCopiado ? { color: '#00d48a', borderColor: 'rgba(0,212,138,0.3)' } : undefined}
+                    >
+                      {linkCopiado ? '✓ Copiado' : 'Copiar link'}
+                    </button>
                     <a className="admin-btn" href={linkPublico(proposta.public_token)} target="_blank" rel="noreferrer">Abrir página</a>
                   </div>
                 </Card>
