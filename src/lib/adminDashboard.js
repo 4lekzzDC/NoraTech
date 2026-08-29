@@ -1,5 +1,5 @@
 // Dashboard "Visão geral" do Admin — catálogo de widgets, layout padrão e
-// a única leva de dados que alimenta os 5 KPIs fixos do topo + os 7 tipos
+// a única leva de dados que alimenta os 5 KPIs fixos do topo + os 8 tipos
 // de widget configuráveis. Tudo buscado de uma vez em `fetchDashboardData`
 // (um Promise.all só) porque os widgets não têm loading próprio — a tela
 // mostra um Spinner só até essa leva inteira voltar, depois tudo já está
@@ -9,6 +9,17 @@
 // persistido em `profiles.dashboard_layout` (migration_20260829d) — RLS já
 // deixa cada usuário escrever a própria linha, então é update direto,
 // sem RPC.
+//
+// Tendência dos KPIs ("↗ 12% vs. período anterior"): só existe pra quem dá
+// pra reconstruir honestamente do schema atual — assinaturas ativas e MRR
+// usam `started_at`/`canceled_at` das subscriptions pra saber quem estava
+// ativo no início do período (mesma amount de hoje, já que não existe
+// histórico de preço); acessos é contagem direta de `access_logs`. Propostas
+// em aberto e faturas pendentes são fotos do AGORA (status atual, sem log de
+// transição point-in-time pra propostas/faturas replayável de forma
+// confiável) — em vez de inventar uma % contra um "antes" que não dá pra
+// saber de verdade, mostram um número de fluxo do período (criadas/
+// emitidas) como pista secundária.
 
 import { supabase } from './supabase';
 import { fetchSystems } from './systems';
@@ -17,8 +28,9 @@ export const WIDGET_CATALOG = {
   'receita-mensal': { title: 'Receita mensal', icon: '📈', defaultSize: 'lg', desc: 'Faturas pagas, mês a mês.' },
   'propostas-status': { title: 'Propostas por status', icon: '📄', defaultSize: 'md', desc: 'Quantas propostas em cada etapa.' },
   'sistemas-vendidos': { title: 'Sistemas mais vendidos', icon: '🧩', defaultSize: 'md', desc: 'Assinaturas ativas por sistema.' },
+  'acessos-por-dia': { title: 'Acessos por dia', icon: '📶', defaultSize: 'lg', desc: 'Logins no período, dia a dia.' },
   'faturas-pendentes': { title: 'Faturas pendentes', icon: '💸', defaultSize: 'lg', desc: 'Aguardando pagamento, por vencimento.' },
-  'atividades-recentes': { title: 'Atividades recentes', icon: '🕐', defaultSize: 'md', desc: 'Últimos eventos de propostas e faturas.' },
+  'atividades-recentes': { title: 'Atividades recentes', icon: '🕐', defaultSize: 'md', desc: 'Últimos eventos de propostas, faturas e assinaturas.' },
   'acessos-recentes': { title: 'Acessos recentes', icon: '🔐', defaultSize: 'md', desc: 'Últimos logins e ações no Admin.' },
   'usuarios-recentes': { title: 'Usuários recentes', icon: '👥', defaultSize: 'md', desc: 'Últimos cadastros na plataforma.' },
 };
@@ -27,10 +39,17 @@ export const DEFAULT_LAYOUT = [
   { id: 'receita-mensal', size: 'lg' },
   { id: 'propostas-status', size: 'md' },
   { id: 'sistemas-vendidos', size: 'md' },
-  { id: 'faturas-pendentes', size: 'lg' },
+  { id: 'acessos-por-dia', size: 'lg' },
   { id: 'atividades-recentes', size: 'md' },
+  { id: 'faturas-pendentes', size: 'md' },
   { id: 'acessos-recentes', size: 'md' },
   { id: 'usuarios-recentes', size: 'md' },
+];
+
+export const PERIODOS = [
+  { dias: 7, label: 'Últimos 7 dias' },
+  { dias: 30, label: 'Últimos 30 dias' },
+  { dias: 90, label: 'Últimos 90 dias' },
 ];
 
 export async function carregarLayout(userId) {
@@ -57,44 +76,75 @@ function ultimosNMeses(n) {
   return meses;
 }
 
-export async function fetchDashboardData() {
-  const seteDiasAtras = new Date(Date.now() - 7 * 86400000).toISOString();
-  const seisMesesAtras = new Date(Date.now() - 6 * 30 * 86400000).toISOString();
+function ultimosNDias(n) {
+  const dias = [];
+  for (let i = n - 1; i >= 0; i -= 1) {
+    const d = new Date(Date.now() - i * 86400000);
+    dias.push({ chave: d.toISOString().slice(0, 10), label: `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}` });
+  }
+  return dias;
+}
 
-  const [
-    subsRes, proposalsRes, invoicesPendentesRes, loginsRes,
-    invoicesPagasRes, acessosRecentesRes, usuariosRecentesRes,
-    proposalEventsRes, invoiceEventsRes, systemsList,
-  ] = await Promise.all([
-    supabase.from('subscriptions').select('amount, billing_cycle, status, system_slug').eq('status', 'active'),
-    supabase.from('proposals').select('status').is('superseded_by', null),
-    supabase.from('invoices').select('id, description, amount, due_date, user_id, profiles:user_id(name)').eq('status', 'pending').order('due_date', { ascending: true }).limit(8),
-    supabase.from('access_logs').select('id', { count: 'exact', head: true }).eq('action', 'login').gte('created_at', seteDiasAtras),
-    supabase.from('invoices').select('amount, paid_at').eq('status', 'paid').gte('paid_at', seisMesesAtras),
-    supabase.from('access_logs').select('id, action, device, status, created_at, profiles:user_id(name)').order('created_at', { ascending: false }).limit(8),
-    supabase.from('profiles').select('id, name, role, created_at').order('created_at', { ascending: false }).limit(8),
-    supabase.from('proposal_events').select('id, event_type, created_at, proposals:proposal_id(title)').order('created_at', { ascending: false }).limit(8),
-    supabase.from('invoice_events').select('id, event_type, created_at, invoices:invoice_id(description)').order('created_at', { ascending: false }).limit(8),
-    fetchSystems().catch(() => []),
-  ]);
-
-  const subs = subsRes.data || [];
-  const mrr = subs.reduce((acc, s) => {
+function mrrDoConjunto(lista) {
+  return lista.reduce((acc, s) => {
     const amount = Number(s.amount) || 0;
     if (s.billing_cycle === 'yearly') return acc + amount / 12;
     if (s.billing_cycle === 'one_time') return acc;
     return acc + amount;
   }, 0);
+}
+
+/** Quem estava ativo numa data passada, reconstruído de started_at/canceled_at — não existe histórico de status, então isso é o mais preciso que dá pra saber. */
+function ativosEmData(subs, data) {
+  return subs.filter((s) => new Date(s.started_at) <= data && (!s.canceled_at || new Date(s.canceled_at) > data));
+}
+
+function variacaoPct(atual, anterior) {
+  if (!anterior) return null;
+  return ((atual - anterior) / anterior) * 100;
+}
+
+export async function fetchDashboardData(periodoDias = 30) {
+  const agora = new Date();
+  const inicioAtual = new Date(agora.getTime() - periodoDias * 86400000);
+  const inicioAnterior = new Date(agora.getTime() - 2 * periodoDias * 86400000);
+  const seisMesesAtras = new Date(Date.now() - 6 * 30 * 86400000).toISOString();
+
+  const [
+    subsRes, proposalsRes, invoicesPendentesRes, loginsPeriodoRes,
+    invoicesPagasRes, acessosRecentesRes, usuariosRecentesRes,
+    proposalEventsRes, invoiceEventsRes, systemsList,
+  ] = await Promise.all([
+    supabase.from('subscriptions').select('amount, billing_cycle, status, system_slug, started_at, canceled_at'),
+    supabase.from('proposals').select('status, created_at').is('superseded_by', null),
+    supabase.from('invoices').select('id, description, amount, due_date, user_id, profiles:user_id(name)').eq('status', 'pending').order('due_date', { ascending: true }).limit(8),
+    supabase.from('access_logs').select('created_at').eq('action', 'login').gte('created_at', inicioAnterior.toISOString()),
+    supabase.from('invoices').select('amount, paid_at').eq('status', 'paid').gte('paid_at', seisMesesAtras),
+    supabase.from('access_logs').select('id, action, device, status, created_at, profiles:user_id(name)').order('created_at', { ascending: false }).limit(8),
+    supabase.from('profiles').select('id, name, role, created_at').order('created_at', { ascending: false }).limit(8),
+    supabase.from('proposal_events').select('id, event_type, created_at, proposals:proposal_id(title)').order('created_at', { ascending: false }).limit(12),
+    supabase.from('invoice_events').select('id, event_type, created_at, invoices:invoice_id(description)').order('created_at', { ascending: false }).limit(12),
+    fetchSystems().catch(() => []),
+  ]);
+
+  const subsTodas = subsRes.data || [];
+  const subsAtivas = subsTodas.filter((s) => s.status === 'active');
+  const mrr = mrrDoConjunto(subsAtivas);
+
+  const ativasInicioAtual = ativosEmData(subsTodas, inicioAtual);
+  const trendAssinaturas = variacaoPct(subsAtivas.length, ativasInicioAtual.length);
+  const trendMrr = variacaoPct(mrr, mrrDoConjunto(ativasInicioAtual));
 
   const proposals = proposalsRes.data || [];
   const propostasAbertas = proposals.filter((p) => !['aceita', 'recusada', 'expirada'].includes(p.status)).length;
+  const propostasCriadasPeriodo = proposals.filter((p) => new Date(p.created_at) >= inicioAtual).length;
   const propostasPorStatus = proposals.reduce((acc, p) => {
     acc[p.status] = (acc[p.status] || 0) + 1;
     return acc;
   }, {});
 
   const sistemaPorSlug = Object.fromEntries((systemsList || []).map((s) => [s.slug, s]));
-  const sistemasContagem = subs.reduce((acc, s) => {
+  const sistemasContagem = subsAtivas.reduce((acc, s) => {
     if (!s.system_slug) return acc;
     acc[s.system_slug] = (acc[s.system_slug] || 0) + 1;
     return acc;
@@ -113,39 +163,81 @@ export async function fetchDashboardData() {
   });
   const receitaMensal = meses.map((m) => ({ label: m.label, valor: receitaPorMes[m.chave] }));
 
-  const PROPOSTA_EVENTO_LABEL = {
-    criada: 'criou', editada: 'editou', nova_versao: 'criou nova versão de',
-    enviada: 'enviou', visualizada: 'cliente visualizou', aceita: 'aceitou',
-    recusada: 'recusou', expirada: 'expirou', envio_falhou: 'falhou ao enviar', reenviada: 'reenviou',
+  const logins = loginsPeriodoRes.data || [];
+  const loginsAtual = logins.filter((l) => new Date(l.created_at) >= inicioAtual).length;
+  const loginsAnterior = logins.filter((l) => new Date(l.created_at) < inicioAtual).length;
+  const trendAcessos = variacaoPct(loginsAtual, loginsAnterior);
+
+  const dias = ultimosNDias(periodoDias);
+  const loginsPorDia = Object.fromEntries(dias.map((d) => [d.chave, 0]));
+  logins.forEach((l) => {
+    const chave = new Date(l.created_at).toISOString().slice(0, 10);
+    if (chave in loginsPorDia) loginsPorDia[chave] += 1;
+  });
+  const acessosPorDia = dias.map((d) => ({ label: d.label, valor: loginsPorDia[d.chave] }));
+
+  const PROPOSTA_EVENTO = {
+    criada: { label: 'Nova proposta criada', icone: '📄', cor: '#a78bfa' },
+    editada: { label: 'Proposta editada', icone: '✎', cor: 'rgba(255,255,255,0.5)' },
+    nova_versao: { label: 'Nova versão de proposta', icone: '🔄', cor: '#a78bfa' },
+    enviada: { label: 'Proposta enviada', icone: '✉', cor: '#60a5fa' },
+    visualizada: { label: 'Proposta visualizada', icone: '👁', cor: '#f0b429' },
+    aceita: { label: 'Proposta aprovada', icone: '✓', cor: '#00d48a' },
+    recusada: { label: 'Proposta recusada', icone: '✕', cor: '#ff6b6b' },
+    expirada: { label: 'Proposta expirada', icone: '⏰', cor: 'rgba(255,255,255,0.5)' },
+    envio_falhou: { label: 'Falha no envio', icone: '⚠', cor: '#ff6b6b' },
+    reenviada: { label: 'Proposta reenviada', icone: '🔁', cor: '#60a5fa' },
   };
-  const FATURA_EVENTO_LABEL = {
-    created_system: 'gerou automaticamente', created_manual: 'criou manualmente', recobranca: 'reenviou cobrança de',
-    desconto: 'aplicou desconto em', juros: 'aplicou juros em', ajuste_valor: 'ajustou valor de',
-    baixa_manual: 'deu baixa manual em', marcado_pago: 'marcou como paga', nota: 'anotou em',
+  const FATURA_EVENTO = {
+    created_system: { label: 'Fatura emitida', icone: '💸', cor: '#a78bfa' },
+    created_manual: { label: 'Fatura criada', icone: '💸', cor: '#a78bfa' },
+    recobranca: { label: 'Cobrança reenviada', icone: '🔁', cor: '#60a5fa' },
+    desconto: { label: 'Desconto aplicado', icone: '💱', cor: '#f0b429' },
+    juros: { label: 'Juros aplicados', icone: '💱', cor: '#ff8a3d' },
+    ajuste_valor: { label: 'Valor ajustado', icone: '💱', cor: '#f0b429' },
+    baixa_manual: { label: 'Baixa manual', icone: '✓', cor: '#00d48a' },
+    marcado_pago: { label: 'Fatura paga', icone: '✓', cor: '#00d48a' },
+    nota: { label: 'Nota adicionada', icone: '📝', cor: 'rgba(255,255,255,0.5)' },
   };
 
   const atividades = [
-    ...(proposalEventsRes.data || []).map((ev) => ({
-      id: `proposta-${ev.id}`, created_at: ev.created_at,
-      texto: `${PROPOSTA_EVENTO_LABEL[ev.event_type] || ev.event_type} a proposta "${ev.proposals?.title || 'sem título'}"`,
+    ...(proposalEventsRes.data || []).map((ev) => {
+      const meta = PROPOSTA_EVENTO[ev.event_type] || { label: ev.event_type, icone: '📄', cor: '#a78bfa' };
+      return {
+        id: `proposta-${ev.id}`, created_at: ev.created_at, icone: meta.icone, cor: meta.cor,
+        titulo: meta.label, detalhe: `"${ev.proposals?.title || 'sem título'}"`,
+      };
+    }),
+    ...(invoiceEventsRes.data || []).map((ev) => {
+      const meta = FATURA_EVENTO[ev.event_type] || { label: ev.event_type, icone: '💸', cor: '#a78bfa' };
+      return {
+        id: `fatura-${ev.id}`, created_at: ev.created_at, icone: meta.icone, cor: meta.cor,
+        titulo: meta.label, detalhe: `"${ev.invoices?.description || 'sem descrição'}"`,
+      };
+    }),
+    ...subsTodas.filter((s) => s.started_at && new Date(s.started_at) >= inicioAnterior).map((s, i) => ({
+      id: `assinatura-${s.system_slug}-${s.started_at}-${i}`, created_at: s.started_at, icone: '🔌', cor: '#00d48a',
+      titulo: 'Assinatura ativada', detalhe: sistemaPorSlug[s.system_slug]?.name || s.system_slug || '—',
     })),
-    ...(invoiceEventsRes.data || []).map((ev) => ({
-      id: `fatura-${ev.id}`, created_at: ev.created_at,
-      texto: `${FATURA_EVENTO_LABEL[ev.event_type] || ev.event_type} a fatura "${ev.invoices?.description || 'sem descrição'}"`,
+    ...(usuariosRecentesRes.data || []).filter((u) => new Date(u.created_at) >= inicioAnterior).map((u) => ({
+      id: `usuario-${u.id}`, created_at: u.created_at, icone: '👤', cor: '#60a5fa',
+      titulo: 'Novo usuário cadastrado', detalhe: u.name || '—',
     })),
   ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 8);
 
   return {
     kpis: {
-      mrr,
-      assinaturasAtivas: subs.length,
-      propostasAbertas,
+      mrr, trendMrr,
+      assinaturasAtivas: subsAtivas.length, trendAssinaturas,
+      propostasAbertas, propostasCriadasPeriodo,
       faturasPendentes: (invoicesPendentesRes.data || []).length,
-      acessos7d: loginsRes.count || 0,
+      faturasPendentesValor: (invoicesPendentesRes.data || []).reduce((acc, f) => acc + (Number(f.amount) || 0), 0),
+      acessosPeriodo: loginsAtual, trendAcessos,
     },
     receitaMensal,
     propostasPorStatus,
     sistemasVendidos,
+    acessosPorDia,
     faturasPendentes: invoicesPendentesRes.data || [],
     atividades,
     acessosRecentes: acessosRecentesRes.data || [],

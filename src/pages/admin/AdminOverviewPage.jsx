@@ -1,30 +1,58 @@
 // Visão geral do Admin — dashboard gerencial modular. 5 KPIs fixos no topo
 // (MRR, assinaturas ativas, propostas em aberto, faturas pendentes,
-// acessos) e, abaixo, uma grade de widgets que o admin escolhe, reordena
-// (arrastar pelo ⠿) e redimensiona (P/M/G) no modo "Personalizar
-// dashboard" — persistido em profiles.dashboard_layout por usuário (ver
-// src/lib/adminDashboard.js). Os dados de TODOS os widgets vêm de uma
-// leva só (fetchDashboardData) — não tem loading por widget, só o
-// Spinner da tela inteira até essa leva voltar.
+// acessos), com tendência vs. o período anterior onde dá pra calcular
+// honestamente (ver lib/adminDashboard.js) — e, abaixo, uma grade de
+// widgets que o admin escolhe, reordena (arrastar pelo ⠿), redimensiona
+// (P/M/G) e remove no modo "Personalizar dashboard", com uma barra
+// flutuante pra concluir/cancelar a edição. Layout persistido em
+// profiles.dashboard_layout por usuário. Os dados de TODOS os widgets vêm
+// de uma leva só (fetchDashboardData) — não tem loading por widget, só o
+// Spinner da tela inteira no primeiro carregamento; trocar o período
+// depois disso atualiza em segundo plano, sem esconder o que já está na
+// tela (pra não interromper uma edição de layout em andamento).
 
 import { useEffect, useRef, useState } from 'react';
 import AdminLayout, { Card, EmptyState, Spinner } from '../../components/AdminLayout';
 import { WidgetShell, WidgetConteudo } from '../../components/AdminDashboardWidgets';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatBRL } from '../../lib/admin';
-import { WIDGET_CATALOG, DEFAULT_LAYOUT, carregarLayout, salvarLayout, fetchDashboardData } from '../../lib/adminDashboard';
+import {
+  WIDGET_CATALOG, DEFAULT_LAYOUT, PERIODOS, carregarLayout, salvarLayout, fetchDashboardData,
+} from '../../lib/adminDashboard';
 
-const ROXO = '#7C3AED';
 const SPAN = { sm: 4, md: 6, lg: 12 };
 
-function StatCard({ label, value, hint, accent = ROXO }) {
+function Tendencia({ pct }) {
+  if (pct === null || pct === undefined || !Number.isFinite(pct)) return null;
+  const positivo = pct >= 0;
   return (
-    <Card style={{ padding: '22px 24px' }}>
-      <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: 1.5, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase' }}>
-        {label}
-      </span>
-      <div style={{ fontSize: '1.9rem', fontWeight: 800, letterSpacing: -1, marginTop: 8, color: accent }}>{value}</div>
-      {hint && <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', marginTop: 6 }}>{hint}</div>}
+    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: positivo ? '#00d48a' : '#ff6b6b' }}>
+      {positivo ? '↗' : '↘'} {Math.abs(pct).toFixed(1)}%
+      <span style={{ fontWeight: 500, color: 'rgba(255,255,255,0.4)', marginLeft: 5 }}>vs. período anterior</span>
+    </span>
+  );
+}
+
+function KpiCard({ label, value, icon, accent, trendPct, secondaryHint }) {
+  return (
+    <Card style={{ padding: '20px 22px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+        <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase' }}>{label}</span>
+        <span style={{
+          width: 34, height: 34, borderRadius: '50%', flexShrink: 0, fontSize: '0.95rem',
+          background: `${accent}22`, color: accent,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+        >
+          {icon}
+        </span>
+      </div>
+      <div style={{ fontSize: '1.7rem', fontWeight: 800, letterSpacing: -1, marginTop: 10, color: '#eeede9' }}>{value}</div>
+      <div style={{ marginTop: 8, minHeight: 18 }}>
+        {trendPct !== undefined ? <Tendencia pct={trendPct} /> : (
+          secondaryHint && <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.45)' }}>{secondaryHint}</span>
+        )}
+      </div>
     </Card>
   );
 }
@@ -44,7 +72,7 @@ function MenuAdicionarWidget({ disponiveis, onEscolher }) {
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
-      <button className="admin-btn" type="button" onClick={() => setAberto((v) => !v)}>+ Adicionar bloco</button>
+      <button className="admin-btn" type="button" onClick={() => setAberto((v) => !v)}>+ Adicionar widget</button>
       {aberto && (
         <div style={{
           position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 20, width: 270,
@@ -76,6 +104,8 @@ export default function AdminOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [dados, setDados] = useState(null);
+  const [periodo, setPeriodo] = useState(30);
+  const primeiraCargaRef = useRef(true);
 
   const [layout, setLayout] = useState(DEFAULT_LAYOUT);
   const [layoutSalvo, setLayoutSalvo] = useState(DEFAULT_LAYOUT);
@@ -83,32 +113,44 @@ export default function AdminOverviewPage() {
   const [salvando, setSalvando] = useState(false);
   const [arrastandoId, setArrastandoId] = useState(null);
 
-  // Os KPIs/widgets não dependem do usuário (RLS já resolve isso pela sessão
-  // do client, não pelo objeto `user` do React) — só o layout salvo
-  // depende, então só ele fica atrás do `user ? ... : DEFAULT_LAYOUT`. Isso
-  // evita a tela travar num spinner infinito se `user` demorar a resolver.
+  // Layout só depende do usuário — nunca recarrega ao trocar o período, pra
+  // não pisar numa edição de layout em andamento com o que está salvo.
   useEffect(() => {
+    if (!user) return undefined;
     let ativo = true;
     (async () => {
-      setLoading(true);
-      setErro('');
       try {
-        const [dadosRes, layoutRes] = await Promise.all([
-          fetchDashboardData(),
-          user ? carregarLayout(user.id) : Promise.resolve(DEFAULT_LAYOUT),
-        ]);
+        const layoutRes = await carregarLayout(user.id);
         if (!ativo) return;
-        setDados(dadosRes);
         setLayout(layoutRes);
         setLayoutSalvo(layoutRes);
       } catch (e) {
         if (ativo) setErro(e.message);
-      } finally {
-        if (ativo) setLoading(false);
       }
     })();
     return () => { ativo = false; };
   }, [user]);
+
+  // Dados dos KPIs/widgets — recarrega ao trocar o período. Só mostra o
+  // Spinner de tela cheia na primeira vez; depois disso atualiza "quieto",
+  // mantendo o dashboard já carregado visível até os novos dados chegarem.
+  useEffect(() => {
+    let ativo = true;
+    (async () => {
+      setLoading(primeiraCargaRef.current);
+      setErro('');
+      try {
+        const dadosRes = await fetchDashboardData(periodo);
+        if (!ativo) return;
+        setDados(dadosRes);
+      } catch (e) {
+        if (ativo) setErro(e.message);
+      } finally {
+        if (ativo) { setLoading(false); primeiraCargaRef.current = false; }
+      }
+    })();
+    return () => { ativo = false; };
+  }, [periodo]);
 
   function handleTamanho(id, size) {
     setLayout((atual) => atual.map((w) => (w.id === id ? { ...w, size } : w)));
@@ -118,6 +160,7 @@ export default function AdminOverviewPage() {
   }
   function handleAdicionar(id) {
     setLayout((atual) => [...atual, { id, size: WIDGET_CATALOG[id].defaultSize }]);
+    setEditando(true);
   }
   function handleDragStart(id) {
     return (e) => { e.dataTransfer.effectAllowed = 'move'; setArrastandoId(id); };
@@ -165,20 +208,20 @@ export default function AdminOverviewPage() {
   return (
     <AdminLayout
       title="Visão geral"
-      subtitle="Resumo da operação — personalize os blocos abaixo do jeito que faz sentido pra você."
+      subtitle="Acompanhe os principais indicadores e o desempenho da operação."
       actions={!loading && (
-        editando ? (
-          <>
-            <MenuAdicionarWidget disponiveis={disponiveisParaAdicionar} onEscolher={handleAdicionar} />
-            <button className="admin-btn" type="button" onClick={() => setLayout(DEFAULT_LAYOUT)}>Restaurar padrão</button>
-            <button className="admin-btn" type="button" onClick={handleCancelar} disabled={salvando}>Cancelar</button>
-            <button className="admin-btn primary" type="button" onClick={handleSalvarLayout} disabled={salvando}>
-              {salvando ? 'Salvando...' : 'Salvar layout'}
-            </button>
-          </>
-        ) : (
-          <button className="admin-btn" type="button" onClick={() => setEditando(true)}>✎ Personalizar dashboard</button>
-        )
+        <>
+          <select
+            className="admin-select" style={{ width: 168 }} value={periodo}
+            onChange={(e) => setPeriodo(Number(e.target.value))}
+          >
+            {PERIODOS.map((p) => <option key={p.dias} value={p.dias}>{p.label}</option>)}
+          </select>
+          <MenuAdicionarWidget disponiveis={disponiveisParaAdicionar} onEscolher={handleAdicionar} />
+          {!editando && (
+            <button className="admin-btn primary" type="button" onClick={() => setEditando(true)}>⚙ Personalizar dashboard</button>
+          )}
+        </>
       )}
     >
       {erro && (
@@ -190,26 +233,20 @@ export default function AdminOverviewPage() {
       {loading || !dados ? <Spinner /> : (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 28 }}>
-            <StatCard label="MRR" value={formatBRL(dados.kpis.mrr)} hint="Receita mensal recorrente" accent={ROXO} />
-            <StatCard label="Assinaturas ativas" value={dados.kpis.assinaturasAtivas} accent="#00d48a" />
-            <StatCard label="Propostas em aberto" value={dados.kpis.propostasAbertas} accent="#60a5fa" />
-            <StatCard label="Faturas pendentes" value={dados.kpis.faturasPendentes} accent="#ff8a3d" />
-            <StatCard label="Acessos" value={dados.kpis.acessos7d} hint="Logins nos últimos 7 dias" accent="#a78bfa" />
+            <KpiCard label="MRR" value={formatBRL(dados.kpis.mrr)} icon="💲" accent="#00d48a" trendPct={dados.kpis.trendMrr} />
+            <KpiCard label="Assinaturas ativas" value={dados.kpis.assinaturasAtivas} icon="👥" accent="#60a5fa" trendPct={dados.kpis.trendAssinaturas} />
+            <KpiCard label="Propostas em aberto" value={dados.kpis.propostasAbertas} icon="📄" accent="#a78bfa" secondaryHint={`${dados.kpis.propostasCriadasPeriodo} criadas no período`} />
+            <KpiCard label="Faturas pendentes" value={dados.kpis.faturasPendentes} icon="💸" accent="#ff8a3d" secondaryHint={`${formatBRL(dados.kpis.faturasPendentesValor)} em aberto`} />
+            <KpiCard label="Acessos" value={dados.kpis.acessosPeriodo} icon="📈" accent="#f472b6" trendPct={dados.kpis.trendAcessos} />
           </div>
-
-          {editando && (
-            <div style={{ padding: '10px 14px', background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.25)', borderRadius: 10, marginBottom: 18, color: '#a78bfa', fontSize: '0.82rem' }}>
-              Modo personalização: arraste pelo ⠿ pra reordenar, escolha o tamanho (P/M/G) ou remova um bloco com ×. As mudanças só ficam pra valer depois de "Salvar layout".
-            </div>
-          )}
 
           {layout.length === 0 ? (
             <EmptyState>
               Nenhum bloco no dashboard.{' '}
-              {editando ? 'Adicione um pelo botão "+ Adicionar bloco" acima.' : 'Clique em "Personalizar dashboard" para adicionar.'}
+              {editando ? 'Adicione um pelo botão "+ Adicionar widget" acima.' : 'Clique em "Personalizar dashboard" para adicionar.'}
             </EmptyState>
           ) : (
-            <div className="admin-dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16 }}>
+            <div className="admin-dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16, paddingBottom: editando ? 90 : 0 }}>
               {layout.map((w) => {
                 if (!WIDGET_CATALOG[w.id]) return null;
                 return (
@@ -231,6 +268,37 @@ export default function AdminOverviewPage() {
             </div>
           )}
         </>
+      )}
+
+      {editando && (
+        <div style={{
+          position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)', zIndex: 50,
+          display: 'flex', alignItems: 'center', gap: 16,
+          background: '#15151a', border: '1px solid rgba(124,58,237,0.3)', borderRadius: 16,
+          padding: '12px 16px 12px 16px', boxShadow: '0 16px 40px -12px rgba(0,0,0,0.6)',
+        }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{
+              width: 34, height: 34, borderRadius: 10, background: 'rgba(124,58,237,0.18)', color: '#a78bfa',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', flexShrink: 0,
+            }}
+            >
+              ⠿
+            </span>
+            <div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 700 }}>Modo de edição ativo</div>
+              <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.45)' }}>Arraste os widgets para reorganizar</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="admin-btn" type="button" onClick={() => setLayout(DEFAULT_LAYOUT)}>Restaurar padrão</button>
+            <button className="admin-btn" type="button" onClick={handleCancelar} disabled={salvando}>Cancelar</button>
+            <button className="admin-btn primary" type="button" onClick={handleSalvarLayout} disabled={salvando}>
+              {salvando ? 'Salvando...' : 'Concluir edição'}
+            </button>
+          </div>
+        </div>
       )}
 
       <style>{`
