@@ -95,6 +95,22 @@ export default function AdminLayout({ title, subtitle, actions, breadcrumb, chil
           border: 1px solid transparent;
         }
         .admin-back-link:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.75) !important; }
+
+        /* A sidebar é item de um container flex: sem altura própria ela
+           ESTICA até a altura do conteúdo. Como o rodapé (usuário, tema,
+           Sair) fica preso embaixo com margin-top:auto, numa tela longa —
+           Visão geral, DEV, listas grandes — ele ia parar centenas de px
+           abaixo da dobra e sumia. Presa em 100vh com rolagem própria, ela
+           acompanha a página e o rodapé fica sempre à vista.
+           Vem ANTES do @media de propósito: no mobile a regra abaixo troca
+           para position:fixed (gaveta) e precisa vencer esta. */
+        .admin-sidebar {
+          position: sticky; top: 0; align-self: flex-start;
+          /* box-sizing explícito: sem ele os 22px de padding entram POR FORA
+             do 100vh e o rodapé volta a passar da dobra por ~44px. */
+          box-sizing: border-box; height: 100vh;
+          overflow-y: auto; overscroll-behavior: contain;
+        }
         @media (max-width: 920px) {
           .admin-sidebar { position: fixed; inset: 0 auto 0 0; transform: translateX(-100%); z-index: 50; }
           .admin-sidebar.open { transform: translateX(0); }
