@@ -1,9 +1,15 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+// Categoria "Pessoal" do hub. Ferramentas vêm de `hub_module_categorias`/
+// `hub_module_ferramentas` (editáveis em Admin/Sistemas/NoraHub/Estrutura)
+// — o catálogo hardcoded abaixo só entra se o banco não tiver nada
+// cadastrado ainda (mesmo padrão de fallback que FiscalPage.jsx usa).
+
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import SolucoesHeader from '../../components/SolucoesHeader';
+import { carregarCategoriaComFerramentas } from '../../../../lib/hubModuleCatalog';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getPalette, FONT_INTER } from '../../theme';
-import { SOLUCOES_CONTABEIS_ROUTE } from '../../constants';
+import { SOLUCOES_CONTABEIS_ROUTE, SOLUCOES_CONTABEIS_SLUG, moduleRoute } from '../../constants';
 
 function IUserCheck({ size = 24 }) {
   return (
@@ -15,22 +21,29 @@ function IUserCheck({ size = 24 }) {
   );
 }
 
-const ITEMS = [
-  { name: 'Controle dos funcionários', accent: '#7C3AED', soon: true, desc: 'Gerencie admissões, demissões, férias e obrigações trabalhistas dos funcionários.' },
-];
+const CATEGORIA_PADRAO = {
+  categoria: { name: 'Pessoal', description: 'Gestão de pessoas e processos de RH.', icon: '' },
+  ferramentas: [
+    {
+      slug: 'controle-funcionarios', name: 'Controle dos funcionários', icon: '', color: '#7C3AED', status: 'soon',
+      description: 'Gerencie admissões, demissões, férias e obrigações trabalhistas dos funcionários.',
+    },
+  ],
+};
 
-function PersonCard({ item, P, isDark }) {
+function PersonCard({ item, P, isDark, onNavigate }) {
   const [hov, setHov] = useState(false);
-  const soon = !!item.soon;
+  const soon = item.status === 'soon';
   const canHov = hov && !soon;
   return (
     <button
+      onClick={soon ? undefined : onNavigate}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
         display: 'flex', flexDirection: 'column', position: 'relative',
         background: canHov ? (isDark ? 'rgba(255,255,255,0.03)' : '#fafafd') : P.surface,
-        border: `1px solid ${canHov ? item.accent + '55' : P.border}`,
+        border: `1px solid ${canHov ? item.color + '55' : P.border}`,
         borderRadius: 14, padding: '22px 20px 18px',
         cursor: soon ? 'default' : 'pointer', textAlign: 'left', fontFamily: FONT_INTER,
         color: P.text, boxShadow: P.shadow, transition: 'all 0.18s ease',
@@ -48,25 +61,36 @@ function PersonCard({ item, P, isDark }) {
       )}
       <div style={{
         width: 54, height: 54, borderRadius: 14, marginBottom: 16,
-        background: item.accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: '#fff', boxShadow: `0 4px 14px ${item.accent}42`,
+        background: item.color, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: '#fff', boxShadow: `0 4px 14px ${item.color}42`, fontSize: 24,
       }}>
-        <IUserCheck size={24} />
+        {item.icon || <IUserCheck size={24} />}
       </div>
       <div style={{ fontSize: 15, fontWeight: 700, color: P.text, marginBottom: 8, letterSpacing: -0.2, lineHeight: 1.3 }}>
         {item.name}
       </div>
       <div style={{ fontSize: 13, color: P.muted, lineHeight: 1.6 }}>
-        {item.desc}
+        {item.description}
       </div>
     </button>
   );
 }
 
 export default function PessoalPage() {
+  const navigate = useNavigate();
   const { theme } = useTheme();
   const P = getPalette(theme);
   const isDark = theme === 'dark';
+
+  const [dados, setDados] = useState(null);
+  useEffect(() => {
+    let ativo = true;
+    carregarCategoriaComFerramentas(SOLUCOES_CONTABEIS_SLUG, 'pessoal')
+      .then((r) => { if (ativo) setDados(r?.ferramentas?.length ? r : CATEGORIA_PADRAO); })
+      .catch(() => { if (ativo) setDados(CATEGORIA_PADRAO); });
+    return () => { ativo = false; };
+  }, []);
+  const { categoria, ferramentas } = dados || CATEGORIA_PADRAO;
 
   return (
     <div style={{ minHeight: '100vh', background: P.bg, color: P.text, fontFamily: FONT_INTER }}>
@@ -101,22 +125,23 @@ export default function PessoalPage() {
             width: 62, height: 62, borderRadius: 16, flexShrink: 0,
             background: P.primarySoft, border: `1px solid ${P.primaryBorder}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center', color: P.primaryText,
+            fontSize: 26,
           }}>
-            <IUserCheck size={26} />
+            {categoria.icon || <IUserCheck size={26} />}
           </div>
           <div>
             <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5, color: P.text, marginBottom: 6, lineHeight: 1.1 }}>
-              Pessoal
+              {categoria.name}
             </div>
             <div style={{ fontSize: 13, color: P.muted, lineHeight: 1.55, maxWidth: 460 }}>
-              Gestão de pessoas e processos de RH.
+              {categoria.description}
             </div>
           </div>
         </div>
 
         <div className="pessoal-grid">
-          {ITEMS.map((item) => (
-            <PersonCard key={item.name} item={item} P={P} isDark={isDark} />
+          {ferramentas.map((item) => (
+            <PersonCard key={item.slug} item={item} P={P} isDark={isDark} onNavigate={() => navigate(moduleRoute(item.slug))} />
           ))}
         </div>
       </main>

@@ -20,3 +20,6 @@ export const listarEventos = async () => [
     payload: {}, created_at: '2026-08-23T09:12:00Z',
   },
 ];
+
+// A trilha de eventos não é gravada na preview — some sem quebrar a tela.
+export const registrarEvento = async () => {};

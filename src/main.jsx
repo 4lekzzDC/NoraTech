@@ -24,7 +24,11 @@ import AdminOverviewPage from './pages/admin/AdminOverviewPage.jsx'
 import AdminUsersPage from './pages/admin/AdminUsersPage.jsx'
 import AdminCompaniesPage from './pages/admin/AdminCompaniesPage.jsx'
 import AdminSystemsPage from './pages/admin/AdminSystemsPage.jsx'
+import AdminSystemEditorPage from './pages/admin/AdminSystemEditorPage.jsx'
 import AdminInvoicesPage from './pages/admin/AdminInvoicesPage.jsx'
+import AdminProposalsPage from './pages/admin/AdminProposalsPage.jsx'
+import AdminProposalEditorPage from './pages/admin/AdminProposalEditorPage.jsx'
+import PropostaPublicaPage from './pages/PropostaPublicaPage.jsx'
 import AdminSupportPage from './pages/admin/AdminSupportPage.jsx'
 import AdminDevPage from './pages/admin/AdminDevPage';
 import DevRoute from './components/DevRoute';
@@ -54,9 +58,12 @@ import ConciliadorExtratosPage from './modules/solucoes-contabeis/sistemas/conci
 import ConciliadorFornecedoresPage from './modules/solucoes-contabeis/sistemas/conciliador-fornecedores/ConciliadorFornecedoresPage.jsx'
 import GestaoClientesPage from './modules/solucoes-contabeis/sistemas/gestao-clientes/GestaoClientesPage.jsx'
 import PrazosPage from './modules/solucoes-contabeis/sistemas/prazos/PrazosPage.jsx'
+import FiscalPage from './modules/solucoes-contabeis/sistemas/fiscal/FiscalPage.jsx'
 import AnaliseDemonstracoesPage from './modules/solucoes-contabeis/sistemas/analise-demonstracoes/AnaliseDemonstracoesPage.jsx'
 import TransformadorExtratoPage from './modules/solucoes-contabeis/sistemas/transformador-extrato/TransformadorExtratoPage.jsx'
 import CalculadoraIrpjCsllPage from './modules/solucoes-contabeis/sistemas/calculadora-irpj-csll/CalculadoraIrpjCsllPage.jsx'
+import DifalPage from './modules/solucoes-contabeis/sistemas/difal/DifalPage.jsx'
+import AjusteFiscalPage from './modules/solucoes-contabeis/sistemas/difal/AjusteFiscalPage.jsx'
 import AdminRoute from './components/AdminRoute.jsx'
 import SubscriptionRoute from './components/SubscriptionRoute.jsx'
 import OrgManagerRoute from './components/OrgManagerRoute.jsx'
@@ -143,8 +150,14 @@ createRoot(document.getElementById('root')).render(
           <Route path="/admin/usuarios" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
           <Route path="/admin/empresas" element={<AdminRoute><AdminCompaniesPage /></AdminRoute>} />
           <Route path="/admin/sistemas" element={<AdminRoute><AdminSystemsPage /></AdminRoute>} />
+          <Route path="/admin/sistemas/:slug" element={<AdminRoute><AdminSystemEditorPage /></AdminRoute>} />
           <Route path="/admin/faturas" element={<AdminRoute><AdminInvoicesPage /></AdminRoute>} />
+          <Route path="/admin/propostas" element={<AdminRoute><AdminProposalsPage /></AdminRoute>} />
+          <Route path="/admin/propostas/novo" element={<AdminRoute><AdminProposalEditorPage /></AdminRoute>} />
+          <Route path="/admin/propostas/:id" element={<AdminRoute><AdminProposalEditorPage /></AdminRoute>} />
           <Route path="/admin/suporte" element={<AdminRoute><AdminSupportPage /></AdminRoute>} />
+          {/* Página pública da proposta — sem login, acessada pelo token no link */}
+          <Route path="/proposta/:token" element={<PropostaPublicaPage />} />
           <Route path="/admin/dev" element={<DevRoute><AdminDevPage /></DevRoute>} />
           {/* Hub da suite Soluções Contábeis */}
           <Route
@@ -165,6 +178,11 @@ createRoot(document.getElementById('root')).render(
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/pessoal`}
             element={<SolucoesContabeisRoute><PessoalPage /></SolucoesContabeisRoute>}
+          />
+          {/* Categoria "Fiscal" — grade dos módulos fiscais */}
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/fiscal`}
+            element={<SolucoesContabeisRoute><FiscalPage /></SolucoesContabeisRoute>}
           />
           {/* Placeholders dos módulos do Autonomy em migração */}
           <Route
@@ -198,6 +216,14 @@ createRoot(document.getElementById('root')).render(
           <Route
             path={`${SOLUCOES_CONTABEIS_ROUTE}/calculadora-irpj-csll`}
             element={<SolucoesContabeisRoute moduleSlug="calculadora-irpj-csll"><CalculadoraIrpjCsllPage /></SolucoesContabeisRoute>}
+          />
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/calculadora-difal`}
+            element={<SolucoesContabeisRoute moduleSlug="calculadora-difal"><DifalPage /></SolucoesContabeisRoute>}
+          />
+          <Route
+            path={`${SOLUCOES_CONTABEIS_ROUTE}/calculadora-difal/ajuste-fiscal`}
+            element={<SolucoesContabeisRoute moduleSlug="calculadora-difal"><OrgManagerRoute><AjusteFiscalPage /></OrgManagerRoute></SolucoesContabeisRoute>}
           />
           {/* NoraDocs — organização automática de documentos no Google Drive */}
           <Route path={NORADOCS_ROUTE} element={<NoraDocsRoute><NoraDocsInboxPage /></NoraDocsRoute>} />

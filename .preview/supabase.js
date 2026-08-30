@@ -32,12 +32,49 @@ const NOTIFICACOES = [
     link: '/area-do-cliente?tab=cobranca', metadata: {}, read_at: ha(2880), created_at: ha(2900), company_id: 'c1' },
 ];
 
-const TABELAS = { notifications: NOTIFICACOES };
+// Sistema de mentira para as telas de Admin/Sistemas — só o suficiente pra
+// AdminSystemEditorPage carregar (ela consulta `systems` direto, sem passar
+// por um dublê de serviço próprio). As 3 linhas espelham o catálogo real
+// (produção só tem esses 3 top-level — os demais são módulos internos do
+// NoraHub, não "sistemas" vendáveis à parte), pro seletor de sistemas da
+// proposta ter mais de uma opção pra testar.
+export const SISTEMAS = [
+  {
+    slug: 'solucoes-contabeis', name: 'NoraHub',
+    description: 'Suíte completa para escritórios contábeis.', icon: '📊', logo_url: null,
+    color: '#7C3AED', default_amount: 499.9, url: '/solucoes-contabeis', internal: true,
+    aliases: ['acompanhamento-contabil'], active: true, sort_order: 2, video_url: null,
+  },
+  {
+    slug: 'whatsapp-bot', name: 'NoraChat',
+    description: 'Atendimento automatizado, triagem por intenção e transferência fluida para humanos.', icon: '💬', logo_url: null,
+    color: '#25D366', default_amount: 299, url: 'https://falahub.noratech.com.br', internal: false,
+    aliases: [], active: true, sort_order: 0, video_url: null,
+  },
+  {
+    slug: 'noradocs', name: 'NoraDocs',
+    description: 'Recebimento e organização automática de documentos no Google Drive do escritório.', icon: '🗂️', logo_url: null,
+    color: '#7C3AED', default_amount: 0, url: '/noradocs', internal: true,
+    aliases: [], active: true, sort_order: 1, video_url: null,
+  },
+];
+
+// Empresas de mentira — a mesma dupla que .preview/proposals.js usa
+// (mesmos ids), pra AdminProposalEditorPage (que consulta `companies`
+// direto pro seletor) e o dublê de propostas concordarem sobre quem é
+// quem.
+export const COMPANIES = [
+  { id: '11111111-1111-1111-1111-111111111111', name: 'Studio Fenix', code: 'FENIX01', owner_id: 'u1', created_at: ha(60 * 24 * 30), updated_at: ha(60 * 24 * 30) },
+  { id: '22222222-2222-2222-2222-222222222222', name: 'Grupo Aurora Contabilidade', code: 'AURORA02', owner_id: 'u1', created_at: ha(60 * 24 * 10), updated_at: ha(60 * 24 * 10) },
+];
+
+const TABELAS = { notifications: NOTIFICACOES, systems: SISTEMAS, companies: COMPANIES };
 
 function consulta(tabela) {
   let linhas = () => (TABELAS[tabela] || []).slice();
   let contando = false;
   let somenteNaoLidas = false;
+  let modoUnico = null; // null | 'maybe' | 'single'
 
   const q = {
     select: (_cols, opcoes) => { contando = Boolean(opcoes?.count); return q; },
@@ -47,12 +84,14 @@ function consulta(tabela) {
     eq: () => q, neq: () => q, in: () => q, gte: () => q, lte: () => q,
     order: () => q, limit: () => q, range: () => q,
     update: () => q, insert: () => q, upsert: () => q, delete: () => q,
-    maybeSingle: () => q, single: () => q,
+    maybeSingle: () => { modoUnico = 'maybe'; return q; },
+    single: () => { modoUnico = 'single'; return q; },
     then: (resolve, reject) => {
       const dados = somenteNaoLidas ? linhas().filter((l) => !l.read_at) : linhas();
-      const resultado = contando
-        ? { data: null, count: dados.length, error: null }
-        : { data: dados, error: null };
+      let resultado;
+      if (contando) resultado = { data: null, count: dados.length, error: null };
+      else if (modoUnico) resultado = { data: dados[0] || null, error: null };
+      else resultado = { data: dados, error: null };
       return Promise.resolve(resultado).then(resolve, reject);
     },
   };

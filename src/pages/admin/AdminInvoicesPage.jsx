@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AdminLayout, { Card, Modal, Spinner, EmptyState, StatusPill } from '../../components/AdminLayout';
 import { Dropdown, DropdownStyles } from '../../components/AdminDropdown';
 import { supabase } from '../../lib/supabase';
@@ -50,7 +51,9 @@ export default function AdminInvoicesPage() {
   const [subs, setSubs] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState({});
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  // Inicial vindo da URL: a Visão geral linka pra cá já filtrado (?status=pending / paid).
+  const [searchParams] = useSearchParams();
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || '');
   const [editing, setEditing] = useState(null);
   const [activeTab, setActiveTab] = useState('detalhes');
   const [saving, setSaving] = useState(false);

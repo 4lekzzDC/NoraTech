@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AdminLayout, { Card, Modal, Spinner, EmptyState } from '../../components/AdminLayout';
 import { DropdownStyles } from '../../components/AdminDropdown';
 import { ToastHost } from '../../components/Toast';
@@ -6,6 +7,8 @@ import { useToasts } from '../../lib/useToasts';
 import { supabase } from '../../lib/supabase';
 import { formatBRL } from '../../lib/admin';
 import { SYSTEM_LOGOS_BUCKET } from '../../lib/systems';
+import { SystemLogo, Field } from './adminFormHelpers';
+import { slugify, validateLogoFile } from './adminFormUtils';
 
 const EMPTY = {
   slug: '',
@@ -21,45 +24,8 @@ const EMPTY = {
   sort_order: 0,
 };
 
-function slugify(value) {
-  return (value || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-function validateLogoFile(file) {
-  if (!file) return 'Selecione uma imagem.';
-  if (!['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml', 'image/webp'].includes(file.type))
-    return 'Use PNG, JPG, SVG ou WebP.';
-  if (file.size > 3 * 1024 * 1024) return 'Imagem acima de 3 MB.';
-  return null;
-}
-
-function SystemLogo({ system, size = 38 }) {
-  if (system.logo_url) {
-    return (
-      <img
-        src={system.logo_url}
-        alt=""
-        style={{ width: size, height: size, borderRadius: 10, objectFit: 'cover', flexShrink: 0, background: 'rgba(255,255,255,0.04)' }}
-      />
-    );
-  }
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: 10, flexShrink: 0,
-      background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.25)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.45,
-    }}>
-      {system.icon || '🧩'}
-    </div>
-  );
-}
-
 export default function AdminSystemsPage() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [systems, setSystems] = useState([]);
   const [companyCounts, setCompanyCounts] = useState({});
@@ -263,8 +229,8 @@ export default function AdminSystemsPage() {
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: 8 }}>
-                          <button className="admin-btn" onClick={() => setEditing({ ...s, default_amount: s.default_amount ?? '', isNew: false })}>
-                            Editar
+                          <button className="admin-btn" onClick={() => navigate(`/admin/sistemas/${s.slug}`)}>
+                            Gerenciar
                           </button>
                           <button
                             className="admin-btn danger"
@@ -289,11 +255,12 @@ export default function AdminSystemsPage() {
         )}
       </Card>
 
-      {/* ── Modal: criar / editar sistema ── */}
+      {/* ── Modal: criar sistema. Editar um já existente agora é uma tela
+           própria (/admin/sistemas/:slug — botão "Gerenciar" na tabela). ── */}
       <Modal
         open={!!editing}
         onClose={() => !saving && setEditing(null)}
-        title={editing?.isNew ? 'Novo sistema' : 'Editar sistema'}
+        title="Novo sistema"
         width={580}
         footer={
           <>
@@ -474,14 +441,5 @@ export default function AdminSystemsPage() {
       <DropdownStyles />
       <ToastHost toasts={toasts} onDismiss={dismissToast} />
     </AdminLayout>
-  );
-}
-
-function Field({ label, children, full }) {
-  return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 6, gridColumn: full ? '1 / -1' : 'auto' }}>
-      <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' }}>{label}</span>
-      {children}
-    </label>
   );
 }

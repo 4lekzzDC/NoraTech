@@ -8,6 +8,7 @@ const NAV = [
   { to: '/admin', label: 'Visão geral', end: true, icon: '◎' },
   { to: '/admin/usuarios', label: 'Usuários', icon: '◳' },
   { to: '/admin/empresas', label: 'Empresas', icon: '▣' },
+  { to: '/admin/propostas', label: 'Propostas', icon: '▤' },
   { to: '/admin/sistemas', label: 'Sistemas', icon: '◆' },
   { to: '/admin/faturas', label: 'Faturas', icon: '◈' },
   { to: '/admin/suporte', label: 'Suporte', icon: '◐' },
@@ -19,7 +20,7 @@ const NAV = [
 // a um redirecionamento é pior que não mostrar.
 const NAV_DEV = { to: '/admin/dev', label: 'DEV', icon: '⌘' };
 
-export default function AdminLayout({ title, subtitle, actions, children }) {
+export default function AdminLayout({ title, subtitle, actions, breadcrumb, children }) {
   const { user, logout } = useAuth();
   const { isDeveloper } = useIsDeveloper();
   const navigate = useNavigate();
@@ -94,6 +95,22 @@ export default function AdminLayout({ title, subtitle, actions, children }) {
           border: 1px solid transparent;
         }
         .admin-back-link:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.75) !important; }
+
+        /* A sidebar é item de um container flex: sem altura própria ela
+           ESTICA até a altura do conteúdo. Como o rodapé (usuário, tema,
+           Sair) fica preso embaixo com margin-top:auto, numa tela longa —
+           Visão geral, DEV, listas grandes — ele ia parar centenas de px
+           abaixo da dobra e sumia. Presa em 100vh com rolagem própria, ela
+           acompanha a página e o rodapé fica sempre à vista.
+           Vem ANTES do @media de propósito: no mobile a regra abaixo troca
+           para position:fixed (gaveta) e precisa vencer esta. */
+        .admin-sidebar {
+          position: sticky; top: 0; align-self: flex-start;
+          /* box-sizing explícito: sem ele os 22px de padding entram POR FORA
+             do 100vh e o rodapé volta a passar da dobra por ~44px. */
+          box-sizing: border-box; height: 100vh;
+          overflow-y: auto; overscroll-behavior: contain;
+        }
         @media (max-width: 920px) {
           .admin-sidebar { position: fixed; inset: 0 auto 0 0; transform: translateX(-100%); z-index: 50; }
           .admin-sidebar.open { transform: translateX(0); }
@@ -195,9 +212,12 @@ export default function AdminLayout({ title, subtitle, actions, children }) {
               ☰
             </button>
             <div style={{ minWidth: 0 }}>
+              {breadcrumb && (
+                <div style={{ marginBottom: 6 }}>{breadcrumb}</div>
+              )}
               <h1 style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: -0.6, margin: 0 }}>{title}</h1>
               {subtitle && (
-                <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', margin: '4px 0 0' }}>{subtitle}</p>
+                <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', margin: '4px 0 0' }}>{subtitle}</div>
               )}
             </div>
           </div>
@@ -223,6 +243,13 @@ export function StatusPill({ status }) {
     paid:      { label: 'Paga',     bg: 'rgba(0,212,138,0.12)',  fg: '#00d48a', bd: 'rgba(0,212,138,0.25)' },
     overdue:   { label: 'Vencida',  bg: 'rgba(255,107,107,0.12)',fg: '#ff6b6b', bd: 'rgba(255,107,107,0.25)' },
     refunded:  { label: 'Reembolso',bg: 'rgba(124,58,237,0.12)', fg: '#a78bfa', bd: 'rgba(124,58,237,0.25)' },
+    // Propostas
+    rascunho:   { label: 'Rascunho',   bg: 'rgba(255,255,255,0.05)', fg: '#bbb',    bd: 'rgba(255,255,255,0.12)' },
+    enviada:    { label: 'Enviada',    bg: 'rgba(37,99,235,0.12)',   fg: '#60a5fa', bd: 'rgba(37,99,235,0.25)' },
+    visualizada:{ label: 'Visualizada',bg: 'rgba(240,180,41,0.12)',  fg: '#f0b429', bd: 'rgba(240,180,41,0.25)' },
+    aceita:     { label: 'Aceita',     bg: 'rgba(0,212,138,0.12)',   fg: '#00d48a', bd: 'rgba(0,212,138,0.25)' },
+    recusada:   { label: 'Recusada',   bg: 'rgba(255,107,107,0.12)', fg: '#ff6b6b', bd: 'rgba(255,107,107,0.22)' },
+    expirada:   { label: 'Expirada',   bg: 'rgba(255,255,255,0.04)', fg: 'rgba(255,255,255,0.4)', bd: 'rgba(255,255,255,0.1)' },
   };
   const c = map[status] || { label: status || '—', bg: 'rgba(255,255,255,0.05)', fg: '#bbb', bd: 'rgba(255,255,255,0.12)' };
   return (
@@ -232,7 +259,7 @@ export function StatusPill({ status }) {
   );
 }
 
-export function Card({ children, style = {} }) {
+export function Card({ children, style = {}, ...rest }) {
   return (
     <div
       style={{
@@ -241,6 +268,7 @@ export function Card({ children, style = {} }) {
         borderRadius: 14,
         ...style,
       }}
+      {...rest}
     >
       {children}
     </div>

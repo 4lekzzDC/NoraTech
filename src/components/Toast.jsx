@@ -35,6 +35,11 @@ export function ToastHost({ toasts, onDismiss }) {
         }
         .admin-toast-close { background: none; border: none; color: rgba(255,255,255,0.35); cursor: pointer; padding: 2px; border-radius: 6px; display: inline-flex; flex-shrink: 0; transition: color 0.15s, background 0.15s; }
         .admin-toast-close:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.06); }
+        .admin-toast-action { background: none; border: none; color: #a78bfa; cursor: pointer; padding: 0; font: inherit; font-weight: 700; font-size: 0.8rem; text-decoration: underline; text-underline-offset: 2px; flex-shrink: 0; transition: color 0.15s; }
+        .admin-toast-action:hover { color: #c4b5fd; }
+        @media (prefers-reduced-motion: reduce) {
+          [role="status"] { animation: none !important; }
+        }
       `}</style>
       {toasts.map((t) => {
         const c = KIND[t.type] || KIND.success;
@@ -71,6 +76,17 @@ export function ToastHost({ toasts, onDismiss }) {
             <span style={{ flex: 1, minWidth: 0, color: '#eeede9', fontSize: '0.84rem', fontWeight: 600, lineHeight: 1.45, paddingTop: 2 }}>
               {t.message}
             </span>
+
+            {t.action && (
+              <button
+                type="button"
+                className="admin-toast-action"
+                style={{ marginTop: 2 }}
+                onClick={() => { t.action.onClick(); onDismiss?.(t.id); }}
+              >
+                {t.action.label}
+              </button>
+            )}
 
             {onDismiss && (
               <button

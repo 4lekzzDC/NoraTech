@@ -9,7 +9,7 @@
 
 export const SOLUCOES_CONTABEIS_SLUG = 'solucoes-contabeis';
 export const SOLUCOES_CONTABEIS_LEGACY_SLUGS = ['acompanhamento-contabil'];
-export const SOLUCOES_CONTABEIS_NAME = 'Soluções Contábeis';
+export const SOLUCOES_CONTABEIS_NAME = 'NoraHub';
 export const SOLUCOES_CONTABEIS_ROUTE = '/solucoes-contabeis';
 
 // Rota antiga (pré-suite) que ia direto para o Acompanhamento Contábil.
@@ -47,7 +47,7 @@ export const HUB_MODULES = [
   { slug: 'contabil', name: 'Contábil', icon: '📒', section: 'categorias',
     status: 'available', description: 'Grade dos módulos contábeis.' },
   { slug: 'fiscal', name: 'Fiscal', icon: '🧾', section: 'categorias',
-    status: 'soon', description: 'Grade dos módulos fiscais.' },
+    status: 'available', description: 'Grade dos módulos fiscais.' },
   { slug: 'financeiro', name: 'Financeiro', icon: '💸', section: 'categorias',
     status: 'soon', description: 'Grade dos módulos financeiros.' },
   { slug: 'gestao', name: 'Gestão', icon: '🗂️', section: 'categorias',
@@ -83,6 +83,9 @@ export const HUB_MODULES = [
   { slug: 'calculadora-irpj-csll', name: 'Calculadora de IRPJ e CSLL', icon: '🧮',
     section: 'ferramentas', status: 'available',
     description: 'Apuração trimestral no Lucro Presumido e no Lucro Real.' },
+  { slug: 'calculadora-difal', name: 'Calculadora de DIFAL', icon: '🧾',
+    section: 'ferramentas', status: 'available',
+    description: 'Diferencial de alíquota do Simples Nacional, produto a produto, a partir do XML da NF-e.' },
 
   // Permissões
   { slug: 'permissoes-equipe', name: 'Permissões da Equipe', icon: '🔐',
