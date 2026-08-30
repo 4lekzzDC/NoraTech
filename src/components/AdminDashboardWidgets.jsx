@@ -26,15 +26,44 @@ const MUTED = 'rgba(255,255,255,0.42)';
 const ALTURA_GRAFICO = 130;
 const ALTURA_GRAFICO_DESTAQUE = 190;
 
-/** Estado vazio de uma linha — não reserva a altura do gráfico que substitui. */
-function VazioCompacto({ children }) {
+/**
+ * Estado vazio de uma linha — não reserva a altura do gráfico que
+ * substitui. `acao` vira um CTA discreto (link de texto, não botão) pra
+ * quem chegou num bloco vazio ter o próximo passo à mão.
+ */
+function VazioCompacto({ children, acao }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0 2px', color: MUTED, fontSize: '0.8rem' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0 2px', color: MUTED, fontSize: '0.8rem', flexWrap: 'wrap' }}>
       <Icon name="inbox" size={15} />
-      {children}
+      <span>{children}</span>
+      {acao && (
+        <Link to={acao.to} className="admin-widget-link" style={{ marginTop: 0, marginLeft: 2 }} onClick={(e) => e.stopPropagation()}>
+          {acao.label}
+          <Icon name="arrowRight" size={12} />
+        </Link>
+      )}
     </div>
   );
 }
+
+// Tooltip escuro compartilhado — o padrão do Chart.js é claro e destoa do
+// painel. `intersect: false` + `mode: index` deixa o valor aparecer ao
+// passar perto do ponto, não só exatamente em cima dele.
+const TOOLTIP = {
+  enabled: true,
+  backgroundColor: 'rgba(16,16,22,0.96)',
+  borderColor: 'rgba(255,255,255,0.12)',
+  borderWidth: 1,
+  titleColor: '#eeede9',
+  bodyColor: 'rgba(255,255,255,0.78)',
+  padding: 10,
+  cornerRadius: 8,
+  displayColors: false,
+  titleFont: { size: 12, weight: '700' },
+  bodyFont: { size: 12 },
+};
+
+const INTERACAO_EIXO = { mode: 'index', intersect: false };
 
 function MenuOpcoesWidget({ titulo, tamanho, onTamanho, onRemover }) {
   const [aberto, setAberto] = useState(false);
@@ -79,7 +108,7 @@ function MenuOpcoesWidget({ titulo, tamanho, onTamanho, onRemover }) {
             ))}
           </div>
           <button type="button" onClick={() => { onRemover(); setAberto(false); }} className="admin-widget-remove-btn">
-            Remover bloco
+            Ocultar widget
           </button>
         </div>
       )}
@@ -88,24 +117,38 @@ function MenuOpcoesWidget({ titulo, tamanho, onTamanho, onRemover }) {
 }
 
 export function WidgetShell({
-  tipo, tamanho, editando, arrastando, resumo, onTamanho, onRemover,
+  tipo, tamanho, editando, arrastando, resumo, onTamanho, onRemover, onAbrir,
   onHandleDragStart, onHandleDragEnd, onContainerDragOver, onContainerDrop, children,
 }) {
   const meta = WIDGET_CATALOG[tipo];
   if (!meta) return null;
   const destaque = meta.tone === 'primary';
+  // Clicável só fora da edição: durante a edição o card é alvo de arraste, e
+  // um clique ali é pra pegar o bloco, não pra sair da tela.
+  const navegavel = !editando && !!meta.destino;
+
+  const classes = ['admin-widget'];
+  if (editando) classes.push('admin-widget-editando');
+  if (arrastando) classes.push('admin-widget-arrastando');
+  if (navegavel) classes.push('admin-widget-navegavel');
 
   return (
     <Card
       onDragOver={editando ? onContainerDragOver : undefined}
       onDrop={editando ? onContainerDrop : undefined}
-      className={editando ? 'admin-widget admin-widget-editando' : 'admin-widget'}
+      className={classes.join(' ')}
+      role={navegavel ? 'link' : undefined}
+      tabIndex={navegavel ? 0 : undefined}
+      aria-label={navegavel ? `${meta.title} — abrir área correspondente` : undefined}
+      onClick={navegavel ? onAbrir : undefined}
+      onKeyDown={navegavel ? (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(); }
+      } : undefined}
       style={{
         padding: destaque ? '18px 20px 16px' : '15px 17px 14px',
         display: 'flex', flexDirection: 'column',
         background: destaque ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.02)',
         border: `1px solid ${editando ? 'rgba(124,58,237,0.28)' : 'transparent'}`,
-        opacity: arrastando ? 0.35 : 1,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: destaque ? 14 : 11 }}>
@@ -169,7 +212,11 @@ export function ReceitaMensalWidget({ dados }) {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => formatBRL(ctx.parsed.y) } } },
+      interaction: INTERACAO_EIXO,
+      plugins: {
+        legend: { display: false },
+        tooltip: { ...TOOLTIP, callbacks: { label: (ctx) => `Recebido: ${formatBRL(ctx.parsed.y)}` } },
+      },
       scales: {
         x: { grid: { display: false }, border: { display: false }, ticks: { color: MUTED, font: { size: 10 } } },
         y: { grid: { color: GRADE }, border: { display: false }, ticks: { color: MUTED, font: { size: 10 }, maxTicksLimit: 5, callback: (v) => formatBRL(v) } },
@@ -177,7 +224,7 @@ export function ReceitaMensalWidget({ dados }) {
     },
   });
   // Um mês só não é histórico — vira número, não gráfico de uma barra.
-  if (comValor === 0) return <VazioCompacto>Nenhuma fatura paga nos últimos 6 meses.</VazioCompacto>;
+  if (comValor === 0) return <VazioCompacto acao={{ to: '/admin/faturas', label: 'Ver faturas' }}>Nenhuma fatura paga nos últimos 6 meses.</VazioCompacto>;
   if (comValor === 1) {
     const unico = meses.find((d) => d.valor > 0);
     return (
@@ -202,9 +249,23 @@ export function PropostasStatusWidget({ dados }) {
       labels: entradas.map(([s]) => STATUS_LABEL[s] || s),
       datasets: [{ data: entradas.map(([, v]) => v), backgroundColor: entradas.map(([s]) => STATUS_COR[s] || ROXO), borderWidth: 0, hoverOffset: 3 }],
     },
-    options: { responsive: true, maintainAspectRatio: false, cutout: '72%', plugins: { legend: { display: false } } },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '72%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...TOOLTIP,
+          callbacks: {
+            label: (ctx) => {
+              const soma = ctx.dataset.data.reduce((a, b) => a + b, 0);
+              return `${ctx.parsed} proposta${ctx.parsed === 1 ? '' : 's'} (${Math.round((ctx.parsed / soma) * 100)}%)`;
+            },
+          },
+        },
+      },
+    },
   });
-  if (entradas.length === 0) return <VazioCompacto>Nenhuma proposta ainda.</VazioCompacto>;
+  if (entradas.length === 0) return <VazioCompacto acao={{ to: '/admin/propostas/novo', label: 'Criar proposta' }}>Nenhuma proposta ainda.</VazioCompacto>;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
       <div style={{ position: 'relative', width: 96, height: 96, flexShrink: 0 }}>
@@ -231,7 +292,7 @@ export function PropostasStatusWidget({ dados }) {
 export function SistemasVendidosWidget({ dados }) {
   const lista = (dados || []).slice(0, 5);
   const maior = Math.max(1, ...lista.map((d) => d.total));
-  if (lista.length === 0) return <VazioCompacto>Nenhuma assinatura ativa ainda.</VazioCompacto>;
+  if (lista.length === 0) return <VazioCompacto acao={{ to: '/admin/empresas', label: 'Ver empresas' }}>Nenhuma assinatura ativa ainda.</VazioCompacto>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
       {lista.map((d) => (
@@ -264,7 +325,11 @@ export function AcessosPorDiaWidget({ dados }) {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      interaction: INTERACAO_EIXO,
+      plugins: {
+        legend: { display: false },
+        tooltip: { ...TOOLTIP, callbacks: { label: (ctx) => `${ctx.parsed.y} acesso${ctx.parsed.y === 1 ? '' : 's'}` } },
+      },
       scales: {
         x: { grid: { display: false }, border: { display: false }, ticks: { color: MUTED, font: { size: 10 }, maxTicksLimit: 6 } },
         y: { grid: { color: GRADE }, border: { display: false }, ticks: { color: MUTED, font: { size: 10 }, maxTicksLimit: 4, precision: 0 }, beginAtZero: true },
@@ -276,7 +341,7 @@ export function AcessosPorDiaWidget({ dados }) {
 }
 
 export function FaturasPendentesWidget({ dados }) {
-  if (!dados?.length) return <VazioCompacto>Nenhuma fatura pendente.</VazioCompacto>;
+  if (!dados?.length) return <VazioCompacto acao={{ to: '/admin/faturas', label: 'Ver faturas' }}>Nenhuma fatura pendente.</VazioCompacto>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
       {dados.slice(0, 5).map((f) => (
@@ -338,7 +403,7 @@ export function AcessosRecentesWidget({ dados }) {
 }
 
 export function UsuariosRecentesWidget({ dados }) {
-  if (!dados?.length) return <VazioCompacto>Nenhum usuário ainda.</VazioCompacto>;
+  if (!dados?.length) return <VazioCompacto acao={{ to: '/admin/usuarios', label: 'Ver usuários' }}>Nenhum usuário ainda.</VazioCompacto>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
       {dados.slice(0, 5).map((u) => (
@@ -354,9 +419,11 @@ export function UsuariosRecentesWidget({ dados }) {
   );
 }
 
+// stopPropagation porque o card inteiro também é clicável — sem isso o
+// clique no link dispararia as duas navegações.
 function LinkRodape({ to, children }) {
   return (
-    <Link to={to} className="admin-widget-link">
+    <Link to={to} className="admin-widget-link" onClick={(e) => e.stopPropagation()}>
       {children}
       <Icon name="arrowRight" size={12} />
     </Link>

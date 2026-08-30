@@ -9,12 +9,26 @@
 // real — são só dados estáticos, não tem por que duplicar.
 
 import {
-  WIDGET_CATALOG, DEFAULT_LAYOUT, PERIODOS, TAMANHOS, SPAN_POR_TAMANHO, resumoDoWidget,
+  WIDGET_CATALOG, DEFAULT_LAYOUT, PERIODOS, PERIODO_PADRAO, TAMANHOS, SPAN_POR_TAMANHO, resumoDoWidget,
 } from '../src/lib/adminDashboard.js';
 
-export { WIDGET_CATALOG, DEFAULT_LAYOUT, PERIODOS, TAMANHOS, SPAN_POR_TAMANHO, resumoDoWidget };
+export {
+  WIDGET_CATALOG, DEFAULT_LAYOUT, PERIODOS, PERIODO_PADRAO, TAMANHOS, SPAN_POR_TAMANHO, resumoDoWidget,
+};
 
-let layoutSalvo = null; // null = ainda não personalizou, usa o padrão
+// sessionStorage em vez de uma variável de módulo: um reload da preview
+// zera o módulo, e sem isso não daria pra verificar que as preferências
+// sobrevivem — que é justamente o comportamento a testar. No app real quem
+// guarda é profiles.dashboard_layout.
+const CHAVE_PREFS = 'preview:dashboard-prefs';
+
+function lerPrefs() {
+  try {
+    return JSON.parse(sessionStorage.getItem(CHAVE_PREFS) || 'null');
+  } catch {
+    return null;
+  }
+}
 
 // ?dados=vazio na preview devolve uma conta recém-criada (sem histórico) —
 // é o único jeito de olhar os estados compactos dos gráficos, que na conta
@@ -105,13 +119,13 @@ export async function fetchDashboardData(periodoDias = 30) {
   };
 }
 
-export async function carregarLayout() {
-  return layoutSalvo || DEFAULT_LAYOUT;
+export async function carregarPreferencias() {
+  return lerPrefs() || { widgets: DEFAULT_LAYOUT, periodo: PERIODO_PADRAO };
 }
 
 // `userId` some no dublê (só existe um "usuário" aqui) — mantido na
-// assinatura pra bater com a posição real de `salvarLayout(user.id, layout)`
+// assinatura pra bater com a posição real de `salvarPreferencias(user.id, prefs)`
 // (a regra no-unused-vars só cobra argumentos DEPOIS do último usado).
-export async function salvarLayout(userId, widgets) {
-  layoutSalvo = widgets;
+export async function salvarPreferencias(userId, prefs) {
+  sessionStorage.setItem(CHAVE_PREFS, JSON.stringify(prefs));
 }

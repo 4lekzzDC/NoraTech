@@ -18,27 +18,65 @@
 // (pra não interromper uma edição de layout em andamento).
 
 import { useEffect, useRef, useState } from 'react';
-import AdminLayout, { Card, Spinner } from '../../components/AdminLayout';
+import { useNavigate } from 'react-router-dom';
+import AdminLayout, { Card, Modal, Spinner } from '../../components/AdminLayout';
 import { WidgetShell, WidgetConteudo } from '../../components/AdminDashboardWidgets';
 import { Icon } from '../../components/AdminIcons';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatBRL } from '../../lib/admin';
 import {
-  WIDGET_CATALOG, DEFAULT_LAYOUT, PERIODOS, SPAN_POR_TAMANHO,
-  carregarLayout, salvarLayout, fetchDashboardData, resumoDoWidget,
+  WIDGET_CATALOG, DEFAULT_LAYOUT, PERIODOS, PERIODO_PADRAO, SPAN_POR_TAMANHO,
+  carregarPreferencias, salvarPreferencias, fetchDashboardData, resumoDoWidget,
 } from '../../lib/adminDashboard';
 
 const MUTED = 'rgba(255,255,255,0.42)';
+
+// Cada KPI e para onde ele leva, já com o filtro que corresponde ao número
+// mostrado. "Propostas em aberto" usa `status=abertas`, um atalho que a
+// própria tela de propostas entende como "as três etapas antes da decisão".
+const KPIS = [
+  {
+    label: 'MRR', icon: 'dollar', destaque: true, destino: '/admin/empresas',
+    valor: (k) => formatBRL(k.mrr), trend: (k) => k.trendMrr, nota: () => 'Receita recorrente',
+  },
+  {
+    label: 'Assinaturas ativas', icon: 'users', destino: '/admin/empresas',
+    valor: (k) => k.assinaturasAtivas, trend: (k) => k.trendAssinaturas, nota: () => 'Sem base anterior',
+  },
+  {
+    label: 'Propostas em aberto', icon: 'file', destino: '/admin/propostas?status=abertas',
+    valor: (k) => k.propostasAbertas, nota: (k) => `${k.propostasCriadasPeriodo} criadas no período`,
+  },
+  {
+    label: 'Faturas pendentes', icon: 'card', destino: '/admin/faturas?status=pending',
+    valor: (k) => k.faturasPendentes, nota: (k) => `${formatBRL(k.faturasPendentesValor)} em aberto`,
+  },
+  {
+    label: 'Acessos', icon: 'trending', destino: '/admin/usuarios',
+    valor: (k) => k.acessosPeriodo, trend: (k) => k.trendAcessos, nota: () => 'Logins no período',
+  },
+];
 
 function pct(n) {
   return `${Math.abs(n).toFixed(1).replace('.', ',')}%`;
 }
 
-function Kpi({ label, value, icon, destaque, trendPct, nota }) {
+// Cada KPI leva para a área que o originou, já filtrada — clicar em
+// "Faturas pendentes" cai na lista de faturas com o filtro "pendente"
+// aplicado, não na lista crua.
+function Kpi({ label, value, icon, destaque, trendPct, nota, destino, onAbrir }) {
   const temTrend = trendPct !== null && trendPct !== undefined && Number.isFinite(trendPct);
   const positivo = temTrend && trendPct >= 0;
   return (
-    <div style={{ flex: '1 1 168px', minWidth: 0, padding: '4px 18px' }}>
+    <div
+      className={destino ? 'admin-kpi admin-kpi-navegavel' : 'admin-kpi'}
+      role={destino ? 'link' : undefined}
+      tabIndex={destino ? 0 : undefined}
+      aria-label={destino ? `${label}: ${value} — abrir área correspondente` : undefined}
+      onClick={destino ? onAbrir : undefined}
+      onKeyDown={destino ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(); } } : undefined}
+      style={{ flex: '1 1 168px', minWidth: 0, padding: '4px 18px' }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: MUTED, marginBottom: 7 }}>
         <Icon name={icon} size={13} />
         <span style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -77,8 +115,9 @@ function MenuAdicionarWidget({ disponiveis, onEscolher }) {
     return () => document.removeEventListener('mousedown', aoClicarFora);
   }, [aberto]);
 
-  if (disponiveis.length === 0) return null;
-
+  // O botão fica sempre visível na edição — some quando não há nada a
+  // adicionar era pior: o admin procurava um botão que existia antes. Com
+  // tudo já no painel, o menu abre explicando isso.
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button className="admin-btn" type="button" onClick={() => setAberto((v) => !v)}>
@@ -91,6 +130,11 @@ function MenuAdicionarWidget({ disponiveis, onEscolher }) {
           boxShadow: '0 16px 36px -10px rgba(0,0,0,0.6)',
         }}
         >
+          {disponiveis.length === 0 && (
+            <div style={{ padding: '10px 11px', fontSize: '0.78rem', color: MUTED, lineHeight: 1.5 }}>
+              Todos os widgets já estão no painel. Oculte um pelo menu <strong style={{ color: 'rgba(255,255,255,0.7)' }}>⋯</strong> para poder trazê-lo de volta aqui.
+            </div>
+          )}
           {disponiveis.map((id) => (
             <button
               key={id} type="button" onClick={() => { onEscolher(id); setAberto(false); }}
@@ -111,31 +155,41 @@ function MenuAdicionarWidget({ disponiveis, onEscolher }) {
 
 export default function AdminOverviewPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [dados, setDados] = useState(null);
-  const [periodo, setPeriodo] = useState(30);
+  const [periodo, setPeriodo] = useState(PERIODO_PADRAO);
   const primeiraCargaRef = useRef(true);
+  // Só depois das preferências carregarem é que uma troca de período pode
+  // ser gravada — senão a primeira renderização salvaria o padrão por cima
+  // do que o admin já tinha escolhido.
+  const prefsCarregadasRef = useRef(false);
 
   const [layout, setLayout] = useState(DEFAULT_LAYOUT);
   const [layoutSalvo, setLayoutSalvo] = useState(DEFAULT_LAYOUT);
   const [editando, setEditando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [arrastandoId, setArrastandoId] = useState(null);
+  const [confirmandoRestauro, setConfirmandoRestauro] = useState(false);
 
-  // Layout só depende do usuário — nunca recarrega ao trocar o período, pra
-  // não pisar numa edição de layout em andamento com o que está salvo.
+  // Preferências (layout + período) só dependem do usuário — nunca
+  // recarregam ao trocar o período, pra não pisar numa edição de layout em
+  // andamento com o que está salvo.
   useEffect(() => {
     if (!user) return undefined;
     let ativo = true;
     (async () => {
       try {
-        const layoutRes = await carregarLayout(user.id);
+        const prefs = await carregarPreferencias(user.id);
         if (!ativo) return;
-        setLayout(layoutRes);
-        setLayoutSalvo(layoutRes);
+        setLayout(prefs.widgets);
+        setLayoutSalvo(prefs.widgets);
+        setPeriodo(prefs.periodo);
       } catch (e) {
         if (ativo) setErro(e.message);
+      } finally {
+        if (ativo) prefsCarregadasRef.current = true;
       }
     })();
     return () => { ativo = false; };
@@ -158,6 +212,20 @@ export default function AdminOverviewPage() {
     })();
     return () => { ativo = false; };
   }, [periodo]);
+
+  // Trocar o período grava na hora (não espera "Concluir edição") — mas
+  // grava o layout JÁ SALVO, não o que está em edição, pra não persistir
+  // mudanças de blocos que o admin ainda não confirmou.
+  function handlePeriodo(dias) {
+    setPeriodo(dias);
+    if (!user || !prefsCarregadasRef.current) return;
+    salvarPreferencias(user.id, { widgets: layoutSalvo, periodo: dias })
+      .catch(() => { /* preferência de exibição: não vale interromper a tela por causa disso */ });
+  }
+
+  function handleAbrir(destino) {
+    return () => navigate(destino);
+  }
 
   function handleTamanho(id, size) {
     setLayout((atual) => atual.map((w) => (w.id === id ? { ...w, size } : w)));
@@ -195,7 +263,7 @@ export default function AdminOverviewPage() {
     setSalvando(true);
     setErro('');
     try {
-      await salvarLayout(user.id, layout);
+      await salvarPreferencias(user.id, { widgets: layout, periodo });
       setLayoutSalvo(layout);
       setEditando(false);
     } catch (e) {
@@ -220,7 +288,7 @@ export default function AdminOverviewPage() {
         <>
           <div className="admin-periodo">
             <Icon name="calendar" size={14} style={{ color: MUTED }} />
-            <select value={periodo} onChange={(e) => setPeriodo(Number(e.target.value))} aria-label="Período">
+            <select value={periodo} onChange={(e) => handlePeriodo(Number(e.target.value))} aria-label="Período">
               {PERIODOS.map((p) => <option key={p.dias} value={p.dias}>{p.label}</option>)}
             </select>
           </div>
@@ -242,11 +310,13 @@ export default function AdminOverviewPage() {
       {loading || !dados ? <Spinner /> : (
         <>
           <Card className="admin-kpi-strip" style={{ padding: '16px 4px', marginBottom: 20, border: '1px solid rgba(255,255,255,0.055)' }}>
-            <Kpi label="MRR" value={formatBRL(dados.kpis.mrr)} icon="dollar" destaque trendPct={dados.kpis.trendMrr} nota="Receita recorrente" />
-            <Kpi label="Assinaturas ativas" value={dados.kpis.assinaturasAtivas} icon="users" trendPct={dados.kpis.trendAssinaturas} nota="Sem base anterior" />
-            <Kpi label="Propostas em aberto" value={dados.kpis.propostasAbertas} icon="file" nota={`${dados.kpis.propostasCriadasPeriodo} criadas no período`} />
-            <Kpi label="Faturas pendentes" value={dados.kpis.faturasPendentes} icon="card" nota={`${formatBRL(dados.kpis.faturasPendentesValor)} em aberto`} />
-            <Kpi label="Acessos" value={dados.kpis.acessosPeriodo} icon="trending" trendPct={dados.kpis.trendAcessos} nota="Logins no período" />
+            {KPIS.map((k) => (
+              <Kpi
+                key={k.label} label={k.label} icon={k.icon} destaque={k.destaque}
+                value={k.valor(dados.kpis)} trendPct={k.trend?.(dados.kpis)} nota={k.nota?.(dados.kpis)}
+                destino={k.destino} onAbrir={handleAbrir(k.destino)}
+              />
+            ))}
           </Card>
 
           {layout.length === 0 ? (
@@ -272,6 +342,7 @@ export default function AdminOverviewPage() {
                       onHandleDragEnd={handleDragEnd}
                       onContainerDragOver={handleContainerDragOver(w.id)}
                       onContainerDrop={handleContainerDrop}
+                      onAbrir={WIDGET_CATALOG[w.id].destino ? handleAbrir(WIDGET_CATALOG[w.id].destino) : undefined}
                     >
                       <WidgetConteudo tipo={w.id} dados={dados} />
                     </WidgetShell>
@@ -299,7 +370,7 @@ export default function AdminOverviewPage() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="admin-btn" type="button" onClick={() => setLayout(DEFAULT_LAYOUT)}>Restaurar padrão</button>
+            <button className="admin-btn" type="button" onClick={() => setConfirmandoRestauro(true)}>Restaurar padrão</button>
             <button className="admin-btn" type="button" onClick={handleCancelar} disabled={salvando}>Cancelar</button>
             <button className="admin-btn primary" type="button" onClick={handleSalvarLayout} disabled={salvando}>
               {salvando ? 'Salvando...' : 'Concluir edição'}
@@ -308,14 +379,54 @@ export default function AdminOverviewPage() {
         </div>
       )}
 
+      <Modal
+        open={confirmandoRestauro}
+        onClose={() => setConfirmandoRestauro(false)}
+        title="Restaurar layout padrão"
+        footer={
+          <>
+            <button className="admin-btn" type="button" onClick={() => setConfirmandoRestauro(false)}>Cancelar</button>
+            <button
+              className="admin-btn primary" type="button"
+              onClick={() => { setLayout(DEFAULT_LAYOUT); setConfirmandoRestauro(false); }}
+            >
+              Restaurar padrão
+            </button>
+          </>
+        }
+      >
+        <p style={{ fontSize: '0.87rem', color: 'rgba(255,255,255,0.75)', lineHeight: 1.6, margin: 0 }}>
+          Isso descarta a organização atual dos blocos e volta ao layout padrão do NoraTech.
+          Nada é salvo até você clicar em <strong style={{ color: '#eeede9' }}>Concluir edição</strong> —
+          até lá dá pra desfazer em Cancelar.
+        </p>
+      </Modal>
+
       <style>{`
         /* Faixa de KPIs: uma superfície só, segmentos separados por filete. */
         .admin-kpi-strip { display: flex; flex-wrap: wrap; }
         .admin-kpi-strip > * + * { border-left: 1px solid rgba(255,255,255,0.06); }
 
+        .admin-kpi { border-radius: 10px; transition: background 120ms ease-out; }
+        .admin-kpi-navegavel { cursor: pointer; }
+        .admin-kpi-navegavel:hover { background: rgba(255,255,255,0.03); }
+        .admin-kpi-navegavel:focus-visible { outline: 2px solid #7C3AED; outline-offset: -2px; }
+
         /* Bloco silencioso: sem moldura em repouso; a borda só aparece na edição. */
-        .admin-widget { border-radius: 14px; transition: border-color 140ms ease-out, opacity 140ms ease-out; }
+        .admin-widget { border-radius: 14px; transition: border-color 140ms ease-out, background 140ms ease-out; }
         .admin-widget-editando:hover { border-color: rgba(124,58,237,0.5) !important; }
+        .admin-widget-navegavel { cursor: pointer; }
+        .admin-widget-navegavel:hover { background: rgba(255,255,255,0.042) !important; }
+        .admin-widget-navegavel:focus-visible { outline: 2px solid #7C3AED; outline-offset: 2px; }
+
+        /* Placeholder de posição: o bloco arrastado vira um contorno tracejado
+           no lugar onde vai cair, mantendo a altura pra grade não pular. */
+        .admin-widget-arrastando {
+          background: rgba(124,58,237,0.07) !important;
+          border-style: dashed !important;
+          border-color: rgba(124,58,237,0.6) !important;
+        }
+        .admin-widget-arrastando > * { opacity: 0; }
 
         .admin-widget-grip {
           cursor: grab; color: rgba(255,255,255,0.3); display: flex; flex-shrink: 0;

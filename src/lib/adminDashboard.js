@@ -27,15 +27,18 @@ import { fetchSystems } from './systems';
 // `tone: 'primary'` = bloco de destaque (superfície um pouco mais clara,
 // título maior). Só a Receita/MRR nasce assim — é a métrica que manda no
 // painel; o resto é leitura de apoio.
+// `destino` é pra onde o widget navega quando clicado fora do modo de
+// edição — sempre com o filtro que corresponde ao que o bloco mostra, pra
+// quem clica não cair numa lista crua e ter que refiltrar na mão.
 export const WIDGET_CATALOG = {
-  'receita-mensal': { title: 'Receita mensal', icon: 'trending', tone: 'primary', defaultSize: 'wide', desc: 'Faturas pagas, mês a mês.' },
-  'propostas-status': { title: 'Propostas por status', icon: 'pie', defaultSize: 'md', desc: 'Quantas propostas em cada etapa.' },
-  'sistemas-vendidos': { title: 'Sistemas mais vendidos', icon: 'layers', defaultSize: 'md', desc: 'Assinaturas ativas por sistema.' },
-  'acessos-por-dia': { title: 'Acessos por dia', icon: 'bars', defaultSize: 'md', desc: 'Logins no período, dia a dia.' },
-  'faturas-pendentes': { title: 'Faturas pendentes', icon: 'card', defaultSize: 'lg', desc: 'Aguardando pagamento, por vencimento.' },
+  'receita-mensal': { title: 'Receita mensal', icon: 'trending', tone: 'primary', defaultSize: 'wide', desc: 'Faturas pagas, mês a mês.', destino: '/admin/faturas?status=paid' },
+  'propostas-status': { title: 'Propostas por status', icon: 'pie', defaultSize: 'md', desc: 'Quantas propostas em cada etapa.', destino: '/admin/propostas' },
+  'sistemas-vendidos': { title: 'Sistemas mais vendidos', icon: 'layers', defaultSize: 'md', desc: 'Assinaturas ativas por sistema.', destino: '/admin/sistemas' },
+  'acessos-por-dia': { title: 'Acessos por dia', icon: 'bars', defaultSize: 'md', desc: 'Logins no período, dia a dia.', destino: '/admin/usuarios' },
+  'faturas-pendentes': { title: 'Faturas pendentes', icon: 'card', defaultSize: 'lg', desc: 'Aguardando pagamento, por vencimento.', destino: '/admin/faturas?status=pending' },
   'atividades-recentes': { title: 'Atividades recentes', icon: 'clock', defaultSize: 'lg', desc: 'Últimos eventos de propostas, faturas e assinaturas.' },
-  'acessos-recentes': { title: 'Acessos recentes', icon: 'shield', defaultSize: 'lg', desc: 'Últimos logins e ações no Admin.' },
-  'usuarios-recentes': { title: 'Usuários recentes', icon: 'userPlus', defaultSize: 'lg', desc: 'Últimos cadastros na plataforma.' },
+  'acessos-recentes': { title: 'Acessos recentes', icon: 'shield', defaultSize: 'lg', desc: 'Últimos logins e ações no Admin.', destino: '/admin/usuarios' },
+  'usuarios-recentes': { title: 'Usuários recentes', icon: 'userPlus', defaultSize: 'lg', desc: 'Últimos cadastros na plataforma.', destino: '/admin/usuarios' },
 };
 
 // Colunas de uma grade de 12. "Largo" ocupa a linha inteira; o padrão abaixo
@@ -67,15 +70,27 @@ export const PERIODOS = [
   { dias: 90, label: 'Últimos 90 dias' },
 ];
 
-export async function carregarLayout(userId) {
+export const PERIODO_PADRAO = 30;
+
+/**
+ * Preferências do dashboard daquele admin — quais blocos, em que ordem/
+ * tamanho, e o período escolhido. Tudo na mesma coluna JSONB
+ * (`profiles.dashboard_layout`), então o período não precisou de migration
+ * nova: entrou como uma chave ao lado de `widgets`.
+ */
+export async function carregarPreferencias(userId) {
   const { data, error } = await supabase.from('profiles').select('dashboard_layout').eq('id', userId).maybeSingle();
-  if (error || !data?.dashboard_layout?.widgets) return DEFAULT_LAYOUT;
-  // Filtra qualquer id de widget que não exista mais no catálogo (ex.: uma versão antiga salvou algo removido depois).
-  return data.dashboard_layout.widgets.filter((w) => WIDGET_CATALOG[w.id]);
+  const prefs = !error && data?.dashboard_layout ? data.dashboard_layout : null;
+  const periodoSalvo = Number(prefs?.periodo);
+  return {
+    // Filtra id de widget que não exista mais no catálogo (uma versão antiga pode ter salvo algo removido depois).
+    widgets: prefs?.widgets ? prefs.widgets.filter((w) => WIDGET_CATALOG[w.id]) : DEFAULT_LAYOUT,
+    periodo: PERIODOS.some((p) => p.dias === periodoSalvo) ? periodoSalvo : PERIODO_PADRAO,
+  };
 }
 
-export async function salvarLayout(userId, widgets) {
-  const { error } = await supabase.from('profiles').update({ dashboard_layout: { widgets } }).eq('id', userId);
+export async function salvarPreferencias(userId, { widgets, periodo }) {
+  const { error } = await supabase.from('profiles').update({ dashboard_layout: { widgets, periodo } }).eq('id', userId);
   if (error) throw new Error(error.message);
 }
 

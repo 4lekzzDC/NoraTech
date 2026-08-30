@@ -6,20 +6,26 @@
 // motivo que fez AdminSystemEditorPage virar tela própria).
 
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import AdminLayout, { Card, Modal, Spinner, EmptyState, StatusPill } from '../../components/AdminLayout';
 import { formatBRL, formatDate } from '../../lib/admin';
 import {
   listarPropostas, listarItensDeVariasPropostas, excluirProposta, linkPublico,
 } from '../../lib/proposals';
 
+// "abertas" = as etapas antes da decisão. Não é um status do banco: é o
+// atalho que a Visão geral usa ao mandar o admin pra cá pelo KPI
+// "Propostas em aberto", e tem que casar com a contagem daquele KPI.
+const STATUS_ABERTOS = ['rascunho', 'enviada', 'visualizada'];
+
 export default function AdminProposalsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [propostas, setPropostas] = useState([]);
   const [itensPorProposta, setItensPorProposta] = useState({});
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || '');
   const [error, setError] = useState('');
 
   const [deleting, setDeleting] = useState(null);
@@ -46,7 +52,9 @@ export default function AdminProposalsPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return propostas.filter((p) => {
-      if (statusFilter && p.status !== statusFilter) return false;
+      if (statusFilter === 'abertas') {
+        if (!STATUS_ABERTOS.includes(p.status)) return false;
+      } else if (statusFilter && p.status !== statusFilter) return false;
       if (!q) return true;
       const sistemas = (itensPorProposta[p.id] || []).join(' ');
       return [p.title, p.companies?.name, sistemas].some((v) => (v || '').toLowerCase().includes(q));
@@ -77,6 +85,7 @@ export default function AdminProposalsPage() {
           <input className="admin-input" style={{ maxWidth: 240 }} placeholder="Buscar por cliente, título, sistema..." value={search} onChange={(e) => setSearch(e.target.value)} />
           <select className="admin-select" style={{ maxWidth: 170 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="">Todos status</option>
+            <option value="abertas">Em aberto</option>
             <option value="rascunho">Rascunho</option>
             <option value="enviada">Enviada</option>
             <option value="visualizada">Visualizada</option>
