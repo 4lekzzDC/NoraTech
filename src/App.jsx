@@ -1,1623 +1,1068 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import MeetingScheduler from "./components/MeetingScheduler";
-import NoriRobot from "./components/NoriRobot";
 import ThemeToggle from "./components/ThemeToggle";
 import { useAuth } from "./contexts/AuthContext";
-import { useTheme } from "./contexts/ThemeContext";
 
 // ═══════════════════════════════════════════════════════════════
-// Noratech — Institutional website
-// Engenharia de software, automação e integrações para empresas.
+// Noratech — Home
+//
+// Uma tela só: 100dvh, sem rolagem e sem rodapé. A home não explica
+// o que a Noratech faz — ela apresenta a plataforma e abre a porta
+// (login). Tudo que era seção da landing virou ação da hero bar.
 // ═══════════════════════════════════════════════════════════════
 
-// Quatro frentes de serviço. `href` só nas que têm página própria — as outras
-// duas não têm rota ainda, e por isso o card delas não vira link (melhor não
-// oferecer um clique que não leva a lugar nenhum).
-const SERVICE_CARDS = [
-  {
-    id: "sistemas",
-    iconId: "code",
-    title: "Sistemas personalizados",
-    desc: "Aplicações web e mobile sob medida para o fluxo da sua empresa.",
-    tags: ["Web & Mobile", "APIs", "Escalável"],
-    href: "/servicos/sistemas-sob-medida",
-  },
-  {
-    id: "automacao",
-    iconId: "gear",
-    title: "Automação de processos",
-    desc: "Transformamos tarefas manuais em fluxos automáticos e inteligentes.",
-    tags: ["Workflows", "RPA", "Triggers"],
-    href: "/servicos/automacao-de-processos",
-  },
-  {
-    id: "dashboards",
-    iconId: "bars",
-    title: "Dashboards e indicadores",
-    desc: "Painéis em tempo real com KPIs claros para decisões rápidas e precisas.",
-    tags: ["BI & Analytics", "KPIs", "Relatórios"],
-  },
-  {
-    id: "integracoes",
-    iconId: "link",
-    title: "Integração entre sistemas",
-    desc: "Conectamos ERPs, CRMs, APIs e ferramentas em um fluxo único.",
-    tags: ["APIs", "Webhooks", "Integrações"],
-  },
-];
+const HEADLINE_PREFIX = "Ideias que se tornam ";
+const HEADLINE_ACCENT = "sistemas.";
+const HEADLINE_LENGTH = HEADLINE_PREFIX.length + HEADLINE_ACCENT.length;
 
-const PROCESS_STEPS = [
-  { num: "01", iconId: "search",  label: "Diagnóstico",     desc: "Entendemos seu processo e identificamos gargalos." },
-  { num: "02", iconId: "compass", label: "Planejamento",    desc: "Definimos escopo, arquitetura e estratégia de entrega." },
-  { num: "03", iconId: "code",    label: "Desenvolvimento", desc: "Construímos, testamos e validamos com você." },
-  { num: "04", iconId: "rocket",  label: "Deploy",          desc: "Colocamos em produção com segurança." },
-  { num: "05", iconId: "bars",    label: "Evolução",        desc: "Monitoramos, medimos e evoluímos continuamente." },
-];
-
-// O que a automação entrega, em uma linha cada — é a promessa do hero
-// traduzida em benefício concreto, logo abaixo da primeira dobra.
-const HERO_BENEFITS = [
-  {
-    title: "Mais rapidez",
-    desc: "Processos ágeis que economizam tempo.",
-    icon: <path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12z" />,
+// Menus da hero bar. Nada aqui cria conteúdo abaixo da dobra: cada item
+// abre um popover curto com as rotas/ações que já existem no site.
+const MENUS = {
+  servicos: {
+    label: "Serviços",
+    items: [
+      { label: "Sistemas sob medida", to: "/servicos/sistemas-sob-medida" },
+      { label: "Automação de processos", to: "/servicos/automacao-de-processos" },
+    ],
   },
-  {
-    title: "Menos erros",
-    desc: "Redução de falhas humanas e retrabalho.",
-    icon: <><path d="M12 3l7.5 3v6.2c0 4.6-3.1 8.2-7.5 9.3-4.4-1.1-7.5-4.7-7.5-9.3V6z" /><path d="M8.8 12.2l2.2 2.2 4.2-4.4" /></>,
+  produtos: {
+    label: "Produtos",
+    items: [
+      { label: "Soluções Contábeis", to: "/area-do-cliente" },
+      { label: "NoraDocs", to: "/area-do-cliente" },
+      { label: "WhatsApp Bot", href: "https://whatsapp-mu.vercel.app", external: true },
+    ],
   },
-  {
-    title: "Padronização",
-    desc: "Fluxos consistentes e dados confiáveis.",
-    icon: <><path d="M4 20h16" /><path d="M7.5 20v-7" /><path d="M12 20V6" /><path d="M16.5 20v-10" /></>,
+  sobre: {
+    label: "Sobre",
+    text: "Engenharia de software, automação e integrações para empresas que querem operar com eficiência.",
+    items: [
+      { label: "Termos de uso", to: "/termos" },
+      { label: "Política de privacidade", to: "/privacidade" },
+    ],
   },
-  {
-    title: "Escalabilidade",
-    desc: "Soluções que crescem com o seu negócio.",
-    icon: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5.3l3.4 2" /></>,
+  contato: {
+    label: "Contato",
+    items: [
+      { label: "contato@noratech.com.br", href: "mailto:contato@noratech.com.br" },
+      { label: "WhatsApp", href: "https://wa.me/5511932227752", external: true },
+      { label: "Agendar uma conversa", action: "scheduler" },
+    ],
   },
-];
-
-const HERO_STATS = [
-  ["50+", "Clientes"],
-  ["200+", "Automações"],
-  ["99.9%", "Uptime"],
-  ["24/7", "Suporte"],
-];
-
-// O balão do Nori "digita" essas duas frases em sequência — título primeiro,
-// depois o texto. Segmentado (não uma string única) porque "Nori!" precisa
-// continuar em negrito/itálico enquanto é revelado, não só depois de pronto.
-const NORI_TITLE_SEGMENTS = [
-  { text: "Eu sou o " },
-  { text: "Nori!", strong: true },
-  { text: " 👋" },
-];
-const NORI_BUBBLE_TEXT = "Automatizo seus processos para eliminar falhas humanas e entregar mais rapidez, padronização e precisão.";
-const NORI_TITLE_LENGTH = NORI_TITLE_SEGMENTS.reduce((n, s) => n + Array.from(s.text).length, 0);
-const NORI_BUBBLE_TEXT_LENGTH = Array.from(NORI_BUBBLE_TEXT).length;
-
-const DIFFERENTIALS = [
-  {
-    num: "01",
-    title: "Foco em resultado, não em hora trabalhada",
-    desc: "Contratamos por escopo e impacto. Medimos sucesso em processos automatizados, horas economizadas e redução de custo operacional — não em relatório de horas cobradas.",
-  },
-  {
-    num: "02",
-    title: "Sob medida, nunca template",
-    desc: "Cada sistema nasce do fluxo real da sua empresa. Código proprietário, arquitetura auditável e evolução guiada pelo seu negócio — sem amarração a ferramentas de terceiros.",
-  },
-  {
-    num: "03",
-    title: "Estratégia e execução no mesmo time",
-    desc: "Diagnóstico, arquitetura, desenvolvimento e operação conduzidos por uma equipe única. Sem repasse entre fornecedores, sem perda de contexto entre as fases do projeto.",
-  },
-  {
-    num: "04",
-    title: "Automação como princípio, não como plugin",
-    desc: "Antes de escrever uma linha de código, mapeamos e organizamos o processo. Automatizar o caos só gera caos mais rápido — entregamos fluxo simples antes de virar software.",
-  },
-  {
-    num: "05",
-    title: "Engenharia responsável, stack moderno",
-    desc: "Tecnologias atuais aplicadas com critério — priorizamos performance, segurança e custo operacional previsível. Nada de stack da moda sem justificativa técnica para o seu caso.",
-  },
-  {
-    num: "06",
-    title: "Suporte contínuo e SLA transparente",
-    desc: "Após o deploy, o sistema segue sob nosso monitoramento 24/7. SLA definido em contrato, relatórios mensais de saúde da operação e roadmap de melhorias compartilhado com o cliente.",
-  },
-];
-
-const PRODUCTS = [
-  { id: 5, icon: "📊", name: "Soluções Contábeis", desc: "Suíte completa para escritórios contábeis: gestão de clientes, conciliação de extratos, controle de prazos e apuração de impostos em um só lugar.", tags: ["Contabilidade", "Automação Fiscal", "Multiempresa"], color: "#7C3AED", featured: true, features: ["Gestão de clientes e regime tributário", "Conciliação automática de extratos", "Controle de prazos e obrigações", "Calculadora de IRPJ e CSLL", "Codificação e análise de demonstrações"] },
-  { id: 2, icon: "💬", name: "WhatsApp Bot", desc: "Sistema de atendimento via WhatsApp que categoriza conversas, realiza o pré-atendimento e organiza o fluxo antes da interação humana.", tags: ["Chatbot", "WhatsApp API", "NLP"], color: "#25D366", featured: true, features: ["Atendimento automatizado 24/7", "Categorização por intenção (NLP)", "Pré-atendimento e triagem inteligente", "Transferência fluida para humanos", "Relatórios de atendimento e métricas"] },
-];
-
-const TESTIMONIALS = [
-  { name: "Juliana Martins", role: "Empresária — Studio JM", text: "O site que criaram para minha empresa triplicou os contatos pelo WhatsApp no primeiro mês. Design incrível.", initials: "JM" },
-  { name: "Ana Ferreira", role: "Gerente — Clínica Vitale", text: "O WhatsApp Bot organiza todo nosso atendimento. O pré-atendimento filtra 70% das dúvidas antes de chegar na recepção.", initials: "AF" },
-  { name: "Carlos Mendes", role: "Sócio — Contabilidade Orion", text: "Migramos a conciliação de extratos e o controle de prazos das planilhas para o sistema. O tempo que a equipe gasta em tarefas repetitivas caiu demais.", initials: "CM" },
-];
-
-const FAQS = {
-  "Soluções Contábeis": [
-    { q: "O sistema calcula IRPJ e CSLL automaticamente?", a: "Sim. A Calculadora de IRPJ e CSLL identifica o regime da empresa (Lucro Real ou Presumido) e apura os impostos a partir de arquivos anexados ou de valores informados manualmente, aplicando as alíquotas corretas por atividade." },
-    { q: "Dá para gerenciar mais de uma empresa no mesmo login?", a: "Sim, o sistema é multiempresa. Cada cliente do escritório fica cadastrado com seu regime tributário e atividade, e você alterna entre eles sem perder o histórico de cada um." },
-    { q: "Como funciona a conciliação de extratos?", a: "Você importa o extrato bancário e o razão da empresa, e o sistema concilia automaticamente, sinalizando inconsistências e sugerindo lançamentos — sem precisar cruzar linha por linha manualmente." },
-    { q: "É possível controlar prazos e obrigações por empresa?", a: "Sim. O Controle de Prazos organiza tarefas e vencimentos por empresa, com alertas antes de cada obrigação vencer." },
-  ],
-  "WhatsApp Bot": [
-    { q: "O WhatsApp Bot precisa de número comercial?", a: "Sim, utilizamos a API oficial do WhatsApp Business. Configuramos tudo para você — desde a categorização automática de conversas até o fluxo de pré-atendimento antes da interação humana." },
-    { q: "O bot consegue atender fora do horário comercial?", a: "Sim, o atendimento automatizado funciona 24/7. O bot realiza a triagem, responde dúvidas frequentes e coleta informações do cliente. Quando necessário, agenda o contato humano para o próximo horário disponível." },
-    { q: "É possível personalizar as respostas do bot?", a: "Totalmente. O bot é treinado com o fluxo e a linguagem da sua empresa. Você define os temas, respostas e regras de encaminhamento para que o atendimento reflita a identidade do seu negócio." },
-  ],
 };
+const MENU_KEYS = Object.keys(MENUS);
 
-// ═══ Intersection Observer Hook ═══
-function useInView(options = {}) {
-  const ref = useRef(null);
-  const [isInView, setIsInView] = useState(false);
+// ═══ Campo de estrelas ═══
+// Gerado uma vez por montagem, com PRNG determinístico: a distribuição é
+// sempre a mesma entre renders (nada "pula" quando o React re-renderiza) e
+// mesmo assim não fica com cara de grade.
+function gerarEstrelas(quantidade, semente) {
+  let s = semente;
+  const rand = () => {
+    s = (s * 1664525 + 1013904223) % 4294967296;
+    return s / 4294967296;
+  };
+  return Array.from({ length: quantidade }, (_, i) => ({
+    id: i,
+    top: rand() * 100,
+    left: rand() * 100,
+    size: 0.8 + rand() * 1.6,
+    delay: rand() * 9,
+    duration: 4 + rand() * 7,
+    opacity: 0.25 + rand() * 0.55,
+  }));
+}
+
+const PREFERE_MENOS_MOVIMENTO = () =>
+  typeof window !== "undefined"
+  && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+// ═══ Digitação caractere a caractere ═══
+function useTypewriter(total, { speed = 55, startDelay = 500 } = {}) {
+  const reduzido = PREFERE_MENOS_MOVIMENTO();
+  const [count, setCount] = useState(() => (reduzido ? total : 0));
+
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) { setIsInView(true); obs.unobserve(el); }
-    }, { threshold: 0.1, rootMargin: "0px 0px -60px 0px", ...options });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-  return [ref, isInView];
+    if (reduzido) return undefined;
+    let timer;
+    let i = 0;
+    const tick = () => {
+      i += 1;
+      setCount(i);
+      if (i < total) timer = setTimeout(tick, speed);
+    };
+    timer = setTimeout(tick, startDelay);
+    return () => clearTimeout(timer);
+  }, [total, speed, startDelay, reduzido]);
+
+  return count;
 }
 
-// ═══ Typewriter Hook ═══
-// Revela por code point (Array.from, não string.slice) para o emoji nunca
-// aparecer "partido" no meio de um surrogate pair durante a digitação.
-// Respeita prefers-reduced-motion mostrando o texto inteiro já no primeiro
-// render, sem passar por nenhum frame vazio.
-function useTypewriter(totalLength, { active = true, speed = 30, startDelay = 0 } = {}) {
-  const prefersReduced = typeof window !== "undefined"
-    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const [count, setCount] = useState(() => (prefersReduced ? totalLength : 0));
-
-  useEffect(() => {
-    if (!active || prefersReduced) return undefined;
-    const timeouts = [];
-    const startTimer = setTimeout(() => {
-      let i = 0;
-      const tick = () => {
-        i += 1;
-        setCount(i);
-        if (i < totalLength) timeouts.push(setTimeout(tick, speed));
-      };
-      tick();
-    }, startDelay);
-    return () => { clearTimeout(startTimer); timeouts.forEach(clearTimeout); };
-  }, [active, totalLength, speed, startDelay, prefersReduced]);
-
-  return { count, done: count >= totalLength };
-}
-
-// Corta uma lista de segmentos { text, strong? } pelo total de code points já
-// "digitados", preservando qual trecho fica em negrito.
-function typedSegments(segments, count) {
-  let remaining = count;
-  const nodes = [];
-  segments.forEach((seg, i) => {
-    if (remaining <= 0) return;
-    const chars = Array.from(seg.text);
-    const slice = chars.slice(0, remaining).join("");
-    remaining -= chars.length;
-    if (!slice) return;
-    nodes.push(seg.strong ? <strong key={i}>{slice}</strong> : <span key={i}>{slice}</span>);
-  });
-  return nodes;
-}
-
-// ═══ Animated element wrapper ═══
-function Reveal({ children, type = "up", delay = 0, className = "", style = {} }) {
-  const [ref, inView] = useInView();
-  const transforms = { up: "translateY(70px)", left: "translateX(-70px)", right: "translateX(70px)", scale: "scale(0.92)", rotateL: "perspective(900px) rotateY(-6deg) translateX(-30px)", rotateR: "perspective(900px) rotateY(6deg) translateX(30px)" };
+function SetaIcon() {
   return (
-    <div ref={ref} className={className} style={{
-      opacity: inView ? 1 : 0,
-      transform: inView ? "none" : transforms[type],
-      transition: `all 1s cubic-bezier(0.16, 1, 0.3, 1) ${delay}s`,
-      ...style
-    }}>
-      {children}
-    </div>
-  );
-}
-
-// ═══ Decorative Star SVG ═══
-function Star({ size = 20, color = "#7C3AED", style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={{ flexShrink: 0, ...style }}>
-      <path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41Z" />
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12h13M13 6l6 6-6 6" />
     </svg>
   );
 }
 
-// ═══ Decorative Diamond ═══
-function Diamond({ size = 12, color = "rgba(124, 58, 237,0.3)", style = {} }) {
-  return <div style={{ width: size, height: size, background: color, transform: "rotate(45deg)", borderRadius: 2, flexShrink: 0, ...style }} />;
-}
-
-// ═══ Ícones de Serviços / Processo ═══
-// Traçado em vez de emoji: emoji muda de desenho conforme o sistema e não
-// aceita a cor do tema — aqui todos herdam currentColor.
-const LINE_ICONS = {
-  code:    <><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></>,
-  gear:    <><circle cx="12" cy="12" r="3.2" /><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z" /></>,
-  bars:    <><line x1="6" y1="20" x2="6" y2="13" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="18" y1="20" x2="18" y2="9" /></>,
-  link:    <><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" /><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" /></>,
-  search:  <><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.7" y2="16.7" /></>,
-  compass: <><circle cx="12" cy="12" r="9" /><polygon points="16.2 7.8 13.9 13.9 7.8 16.2 10.1 10.1" /></>,
-  rocket:  <><path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.9.7-2.2-.1-3a2.1 2.1 0 0 0-2.9 0z" /><path d="M12 15 9 12a13 13 0 0 1 4-8 11 11 0 0 1 7-3 11 11 0 0 1-3 7 13 13 0 0 1-5 7z" /><path d="M9 12H5s.4-2.4 1.5-3.5C7.7 7.3 10 8 10 8" /><path d="M12 15v4s2.4-.4 3.5-1.5C16.7 16.3 16 14 16 14" /></>,
-};
-
-function LineIcon({ id, size = 22, strokeWidth = 1.8 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-      {LINE_ICONS[id]}
+function OlhoIcon({ aberto }) {
+  return aberto ? (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
+      <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  ) : (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
 
-// ═══ Window Chrome (macOS style) ═══
-function WinBar({ title = "", dark = false }) {
+// Marca usada no topo da caixa de acesso — mesmo losango/raio da identidade.
+function MarcaNora() {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "11px 14px", background: dark ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-      <div style={{ width: 9, height: 9, borderRadius: "50%", background: "#ff5f57" }} />
-      <div style={{ width: 9, height: 9, borderRadius: "50%", background: "#febc2e" }} />
-      <div style={{ width: 9, height: 9, borderRadius: "50%", background: "#28c840" }} />
-      {title && <span style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.3)", fontFamily: "monospace", marginLeft: 6 }}>{title}</span>}
-    </div>
+    <span className="nrx-card-mark" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z" />
+      </svg>
+    </span>
   );
 }
 
-// ═══ PROCESSO — linha do tempo do método de trabalho ═══
-// Seção própria (e não JSX inline no App) porque precisa do próprio
-// useInView: o traço que liga as etapas só cresce quando a seção entra na
-// tela, e as bolinhas entram em cascata depois dele.
-function ProcessSection() {
-  const [ref, inView] = useInView({ threshold: 0.25 });
-
-  return (
-    <section id="processo" ref={ref} className="section-padding" style={{ padding: "120px 60px 140px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
-      <Reveal>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 14 }}>
-          <Star size={12} color="#b684ff" />
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#b684ff", textTransform: "uppercase", letterSpacing: 3 }}>Processo</span>
-        </div>
-      </Reveal>
-      <Reveal delay={0.1}>
-        <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, lineHeight: 1.08, marginBottom: 16, textAlign: "center" }}>
-          Do diagnóstico ao{" "}
-          <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>resultado</span>
-        </h2>
-      </Reveal>
-      <Reveal delay={0.15}>
-        <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 620, lineHeight: 1.6, margin: "0 auto 64px", textAlign: "center" }}>
-          Cinco etapas conduzidas pela mesma equipe, do primeiro levantamento à evolução contínua em produção.
-        </p>
-      </Reveal>
-
-      <div style={{ position: "relative" }}>
-        {/* Traço que liga as etapas. Fica atrás das bolinhas e cresce da
-            esquerda para a direita quando a seção aparece. */}
-        <div className="process-line" style={{
-          position: "absolute", top: 27, left: "10%", right: "10%", height: 1,
-          backgroundImage: "linear-gradient(90deg, rgba(124,58,237,0.5) 0 6px, transparent 6px 12px)",
-          backgroundSize: "12px 1px",
-          transformOrigin: "left center",
-          transform: inView ? "scaleX(1)" : "scaleX(0)",
-          transition: "transform 1.1s cubic-bezier(0.16,1,0.3,1) 0.15s",
-        }} />
-
-        <div className="process-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16, position: "relative" }}>
-          {PROCESS_STEPS.map((s, i) => (
-            <div
-              key={s.num}
-              style={{
-                textAlign: "center", padding: "0 6px",
-                opacity: inView ? 1 : 0,
-                transform: inView ? "none" : "translateY(18px)",
-                transition: `opacity 0.6s ease ${0.35 + i * 0.11}s, transform 0.6s cubic-bezier(0.16,1,0.3,1) ${0.35 + i * 0.11}s`,
-              }}
-            >
-              {/* fundo e anel ficam no CSS (.process-dot), não inline: o anel
-                  precisa virar claro no tema claro, e estilo inline venceria
-                  a regra de override. O anel existe pra "cortar" o traço
-                  pontilhado que passa atrás do círculo. */}
-              <div className="process-dot" style={{
-                width: 54, height: 54, borderRadius: "50%", margin: "0 auto 18px",
-                border: "1px solid rgba(124,58,237,0.34)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                position: "relative",
-                transition: "all 0.3s cubic-bezier(0.16,1,0.3,1)",
-              }}>
-                <LineIcon id={s.iconId} size={21} />
-              </div>
-
-              <div style={{ fontSize: "0.9rem", fontWeight: 700, marginBottom: 7, letterSpacing: -0.2 }}>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: "#b684ff", marginRight: 6 }}>{s.num}.</span>
-                {s.label}
-              </div>
-              <p style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.4)", lineHeight: 1.6, maxWidth: 190, margin: "0 auto" }}>
-                {s.desc}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ═══ STATUS BADGE ═══
-function StatusBadge({ status }) {
-  const config = { live: { bg: "rgba(0,212,138,0.1)", color: "#00d48a", border: "rgba(0,212,138,0.2)", label: "● Operacional" }, dev: { bg: "rgba(37, 99, 235,0.1)", color: "#2563EB", border: "rgba(37, 99, 235,0.2)", label: "● Em Dev" }, soon: { bg: "rgba(255,138,61,0.1)", color: "#ff8a3d", border: "rgba(255,138,61,0.2)", label: "● Em Breve" } };
-  const c = config[status];
-  return <span style={{ padding: "3px 10px", borderRadius: 100, fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, background: c.bg, color: c.color, border: `1px solid ${c.border}` }}>{c.label}</span>;
-}
-
-// ═══════════════════════════════════════
-// MAIN APP
-// ═══════════════════════════════════════
 export default function App() {
-  const { user } = useAuth();
+  const { user, login } = useAuth();
   const navigate = useNavigate();
-  const [scrollY, setScrollY] = useState(0);
-  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
-  const [navScrolled, setNavScrolled] = useState(false);
-  const [activeFaqTab, setActiveFaqTab] = useState(0);
-  const [openFaq, setOpenFaq] = useState(null);
-  const [formStep, setFormStep] = useState(0);
-  const [hoveredProduct, setHoveredProduct] = useState(null);
-  const [menuOpen, setMenuOpen] = useState(false);
+
+  const palcoRef = useRef(null);
+  const [menuAberto, setMenuAberto] = useState(null);
+  const [menuMobile, setMenuMobile] = useState(false);
   const [schedulerOpen, setSchedulerOpen] = useState(false);
-  const { theme } = useTheme();
 
-  // Título digita primeiro; o texto só começa depois que o título termina —
-  // startDelay de cada um soma o tempo de acomodação da entrada do balão.
-  const noriTitleTyping = useTypewriter(NORI_TITLE_LENGTH, { speed: 46, startDelay: 550 });
-  const noriTextTyping = useTypewriter(NORI_BUBBLE_TEXT_LENGTH, {
-    active: noriTitleTyping.done, speed: 15, startDelay: 200,
-  });
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [verSenha, setVerSenha] = useState(false);
+  const [erro, setErro] = useState("");
+  const [carregando, setCarregando] = useState(false);
 
+  const digitados = useTypewriter(HEADLINE_LENGTH, { speed: 52, startDelay: 420 });
+  const estrelas = useMemo(() => gerarEstrelas(78, 20240917), []);
+
+  const prefixoVisivel = HEADLINE_PREFIX.slice(0, digitados);
+  const acentoVisivel = HEADLINE_ACCENT.slice(0, Math.max(0, digitados - HEADLINE_PREFIX.length));
+
+  // Sem rolagem enquanto a home estiver montada — e devolvido ao sair,
+  // para não vazar `overflow: hidden` para as outras rotas.
   useEffect(() => {
-    const onScroll = () => { setScrollY(window.scrollY); setNavScrolled(window.scrollY > 60); };
-    const onMouse = (e) => setMousePos({ x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight });
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("mousemove", onMouse, { passive: true });
-    return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("mousemove", onMouse); };
+    const html = document.documentElement;
+    const body = document.body;
+    const anterior = [html.style.overflow, body.style.overflow];
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    return () => { html.style.overflow = anterior[0]; body.style.overflow = anterior[1]; };
   }, []);
 
-  // Rede de segurança: se o link de recuperação de senha cair aqui (porque
-  // a redirect_to configurada no Supabase ainda não bate exatamente com
-  // /redefinir-senha, e por isso ele volta pra Site URL), reencaminha
-  // preservando o "code" pra ResetPasswordPage terminar a troca de sessão.
+  // Parallax: escreve direto em custom properties, sem re-render por frame.
+  useEffect(() => {
+    if (PREFERE_MENOS_MOVIMENTO()) return undefined;
+    let frame = 0;
+    const onMove = (e) => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const el = palcoRef.current;
+        if (!el) return;
+        el.style.setProperty("--px", (e.clientX / window.innerWidth - 0.5).toFixed(4));
+        el.style.setProperty("--py", (e.clientY / window.innerHeight - 0.5).toFixed(4));
+      });
+    };
+    window.addEventListener("mousemove", onMove, { passive: true });
+    return () => { window.removeEventListener("mousemove", onMove); if (frame) cancelAnimationFrame(frame); };
+  }, []);
+
+  // Fecha popovers com Esc e com clique fora da hero bar.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      setMenuAberto(null);
+      setMenuMobile(false);
+    };
+    const onClick = (e) => {
+      if (!e.target.closest?.(".nrx-bar") && !e.target.closest?.(".nrx-sheet")) {
+        setMenuAberto(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("click", onClick);
+    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("click", onClick); };
+  }, []);
+
+  // Rede de segurança herdada: link de recuperação de senha que cai na raiz
+  // segue para /redefinir-senha preservando o "code".
   useEffect(() => {
     if (new URLSearchParams(window.location.search).has("code")) {
       navigate(`/redefinir-senha${window.location.search}`, { replace: true });
     }
   }, [navigate]);
 
-  const faqTabs = Object.keys(FAQS);
-  const faqsByTab = Object.values(FAQS);
-  const faqTabColors = ["#7C3AED", "#25D366"];
+  const abrirScheduler = useCallback(() => {
+    setMenuAberto(null);
+    setMenuMobile(false);
+    setSchedulerOpen(true);
+  }, []);
+
+  // Autenticação real — o mesmo `login` do AuthContext usado em /login.
+  const entrar = async (e) => {
+    e.preventDefault();
+    setErro("");
+    setCarregando(true);
+    const TIMEOUT_MS = 30000;
+    let estourou = false;
+    const timeout = setTimeout(() => {
+      estourou = true;
+      setCarregando(false);
+      setErro("A conexão demorou demais. Verifique sua internet e tente novamente.");
+    }, TIMEOUT_MS);
+    try {
+      await login(email, senha);
+      clearTimeout(timeout);
+      navigate("/area-do-cliente");
+    } catch (err) {
+      clearTimeout(timeout);
+      if (!estourou) setErro(err.message);
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  const renderItemMenu = (item, chave) => {
+    const classe = "nrx-pop-item";
+    if (item.action === "scheduler") {
+      return (
+        <button key={item.label} type="button" className={classe} onClick={abrirScheduler}>
+          {item.label}
+        </button>
+      );
+    }
+    if (item.to) {
+      return (
+        <Link key={item.label} to={item.to} className={classe} onClick={() => { setMenuAberto(null); setMenuMobile(false); }}>
+          {item.label}
+        </Link>
+      );
+    }
+    return (
+      <a
+        key={`${chave}-${item.label}`}
+        href={item.href}
+        className={classe}
+        target={item.external ? "_blank" : undefined}
+        rel={item.external ? "noreferrer" : undefined}
+        onClick={() => { setMenuAberto(null); setMenuMobile(false); }}
+      >
+        {item.label}
+      </a>
+    );
+  };
 
   return (
-    <div style={{ background: "#08080a", color: "#eeede9", fontFamily: "'Inter', sans-serif", overflowX: "hidden", minHeight: "100vh" }}>
+    <div className="nrx-home" ref={palcoRef}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
-        body { -webkit-font-smoothing: antialiased; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-        @keyframes float1 { 0%,100% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(12px,-18px) rotate(3deg); } }
-        @keyframes float2 { 0%,100% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(-15px,12px) rotate(-2deg); } }
-        @keyframes float3 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(8px,14px); } }
-        @keyframes pulse-ring { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(2.5); opacity: 0; } }
-        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-        @keyframes blink { 50% { opacity: 0; } }
-        @keyframes spin-slow { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes grain { 0%,100% { transform: translate(0,0); } 10% { transform: translate(-5%,-10%); } 30% { transform: translate(3%,-15%); } 50% { transform: translate(12%,9%); } 70% { transform: translate(9%,4%); } 90% { transform: translate(-1%,7%); } }
-        .nav-link { text-decoration: none; color: rgba(255,255,255,0.45); font-size: 0.78rem; font-weight: 500; padding: 7px 14px; border-radius: 100px; transition: all 0.3s; }
-        .nav-link:hover { color: #eeede9; background: rgba(255,255,255,0.06); }
-        .product-card { transition: all 0.5s cubic-bezier(0.16,1,0.3,1); cursor: pointer; }
-        .product-card:hover { transform: translateY(-8px); }
-        .startup-card { transition: all 0.5s cubic-bezier(0.16,1,0.3,1); cursor: pointer; }
-        .startup-card:hover { transform: translateY(-6px); }
-        .faq-item { transition: all 0.3s; cursor: pointer; }
-        .faq-item:hover { background: rgba(255,255,255,0.03) !important; }
-        .form-option { transition: all 0.3s; cursor: pointer; }
-        .form-option:hover { border-color: rgba(124, 58, 237,0.4) !important; background: rgba(124, 58, 237,0.04) !important; }
-        a { text-decoration: none; color: inherit; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-        /* ═══ HERO ═══ */
-        @keyframes hero-float-slow { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-16px); } }
-        @keyframes hero-chip { 0%,100% { transform: translateY(0) rotate(var(--r,0deg)); } 50% { transform: translateY(-14px) rotate(var(--r,0deg)); } }
-        @keyframes hero-mesh-drift { 0% { transform: translateX(0); } 100% { transform: translateX(-40px); } }
-        @keyframes hero-aura-breathe { 0%,100% { opacity: .75; transform: scale(1); } 50% { opacity: 1; transform: scale(1.08); } }
+        .nrx-home {
+          --nrx-violet: #7C3AED;
+          --nrx-violet-soft: #b684ff;
+          --nrx-bg: #050507;
+          --nrx-fg: #f2f1ee;
+          --nrx-muted: rgba(255,255,255,0.42);
+          --nrx-glass: rgba(16,16,22,0.55);
+          --nrx-glass-strong: rgba(13,13,18,0.72);
+          --nrx-line: rgba(255,255,255,0.09);
+          --nrx-input: rgba(255,255,255,0.035);
+          --nrx-star: rgba(255,255,255,0.9);
+          --nrx-star-opacity: 1;
+          --px: 0; --py: 0;
 
-        .hero-section {
-          position: relative; z-index: 1; max-width: 1440px; margin: 0 auto;
-          min-height: 100vh; padding: 132px 60px 46px;
-          display: grid; grid-template-columns: 1.04fr 0.96fr; grid-template-rows: 1fr auto;
-          align-items: center; gap: 34px 44px;
+          position: fixed;
+          inset: 0;
+          overflow: hidden;
+          background: var(--nrx-bg);
+          color: var(--nrx-fg);
+          font-family: 'Inter', sans-serif;
+          -webkit-font-smoothing: antialiased;
+        }
+        .nrx-home *, .nrx-home *::before, .nrx-home *::after { box-sizing: border-box; }
+
+        html[data-theme="light"] .nrx-home {
+          --nrx-bg: #0b0a12;
+          --nrx-glass: rgba(255,255,255,0.07);
+          --nrx-star-opacity: 0.75;
         }
 
-        /* fundo roxo restrito ao hero, dissolvendo no fundo do site */
-        /* 100vw + centralização: a seção é limitada a 1440px, mas o fundo
-           precisa sangrar até a borda da viewport em telas largas. */
-        .hero-aura { position: absolute; top: 0; bottom: 0; left: 50%; width: 100vw; transform: translateX(-50%);
-          z-index: -1; overflow: hidden; pointer-events: none;
+        /* ══════════ ATMOSFERA ══════════ */
+        .nrx-layer { position: absolute; inset: -12%; pointer-events: none; }
+
+        .nrx-neb {
+          position: absolute; border-radius: 50%; filter: blur(70px);
+          will-change: transform;
+        }
+        .nrx-neb.a {
+          width: 62vw; height: 62vw; max-width: 900px; max-height: 900px;
+          top: -22%; left: -12%;
+          background: radial-gradient(circle, rgba(124,58,237,0.24) 0%, rgba(124,58,237,0.05) 45%, transparent 70%);
+          animation: nrx-drift-a 46s ease-in-out infinite;
+        }
+        .nrx-neb.b {
+          width: 55vw; height: 55vw; max-width: 820px; max-height: 820px;
+          bottom: -26%; right: -10%;
+          background: radial-gradient(circle, rgba(91,33,182,0.22) 0%, rgba(124,58,237,0.05) 48%, transparent 72%);
+          animation: nrx-drift-b 58s ease-in-out infinite;
+        }
+        .nrx-neb.c {
+          width: 44vw; height: 44vw; max-width: 620px; max-height: 620px;
+          top: 32%; left: 42%;
+          background: radial-gradient(circle, rgba(56,24,120,0.22) 0%, transparent 68%);
+          animation: nrx-drift-c 72s ease-in-out infinite;
+        }
+        @keyframes nrx-drift-a {
+          0%,100% { transform: translate3d(0,0,0) scale(1); }
+          50%     { transform: translate3d(5vw, 4vh, 0) scale(1.12); }
+        }
+        @keyframes nrx-drift-b {
+          0%,100% { transform: translate3d(0,0,0) scale(1.05); }
+          50%     { transform: translate3d(-6vw,-5vh,0) scale(0.94); }
+        }
+        @keyframes nrx-drift-c {
+          0%,100% { transform: translate3d(0,0,0) scale(0.96); }
+          50%     { transform: translate3d(-4vw, 6vh, 0) scale(1.1); }
+        }
+
+        .nrx-grid {
+          background-image:
+            linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+          background-size: 76px 76px;
+          -webkit-mask-image: radial-gradient(ellipse 65% 55% at 50% 45%, #000 5%, transparent 72%);
+          mask-image: radial-gradient(ellipse 65% 55% at 50% 45%, #000 5%, transparent 72%);
+          opacity: 0.6;
+          animation: nrx-grid-pan 90s linear infinite;
+        }
+        @keyframes nrx-grid-pan {
+          from { background-position: 0 0, 0 0; }
+          to   { background-position: 76px 76px, 76px 76px; }
+        }
+
+        .nrx-star {
+          position: absolute; border-radius: 50%;
+          background: var(--nrx-star);
+          animation: nrx-twinkle var(--dur) ease-in-out infinite;
+          animation-delay: var(--delay);
+        }
+        @keyframes nrx-twinkle {
+          0%,100% { opacity: calc(var(--o) * 0.25); transform: scale(0.85); }
+          50%     { opacity: var(--o); transform: scale(1); }
+        }
+
+        /* Poeira luminosa: pontos maiores subindo devagar pela cena. */
+        .nrx-dust {
+          position: absolute; border-radius: 50%;
+          background: radial-gradient(circle, rgba(180,132,255,0.9) 0%, rgba(124,58,237,0.15) 60%, transparent 72%);
+          animation: nrx-float-up var(--dur) linear infinite;
+          animation-delay: var(--delay);
+        }
+        @keyframes nrx-float-up {
+          0%   { transform: translate3d(0, 14vh, 0); opacity: 0; }
+          12%  { opacity: 0.75; }
+          88%  { opacity: 0.5; }
+          100% { transform: translate3d(2vw, -22vh, 0); opacity: 0; }
+        }
+
+        .nrx-grain {
+          opacity: 0.028;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+          animation: nrx-grain 9s steps(8) infinite;
+        }
+        @keyframes nrx-grain {
+          0%,100% { transform: translate(0,0); }
+          20% { transform: translate(-2%,-3%); }
+          40% { transform: translate(2%,-2%); }
+          60% { transform: translate(3%,2%); }
+          80% { transform: translate(-1%,2%); }
+        }
+
+        .nrx-vignette {
+          position: absolute; inset: 0; pointer-events: none;
           background:
-            radial-gradient(115% 85% at 68% 18%, rgba(124,58,237,0.30) 0%, rgba(76,29,149,0.15) 38%, transparent 72%),
-            linear-gradient(180deg, #150c28 0%, #0d0718 52%, #08080a 100%);
+            radial-gradient(ellipse 90% 70% at 50% 50%, transparent 40%, rgba(0,0,0,0.55) 100%),
+            linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 22%, transparent 74%, rgba(0,0,0,0.55) 100%);
         }
-        .hero-aura-glow { position: absolute; border-radius: 50%; filter: blur(70px); animation: hero-aura-breathe 9s ease-in-out infinite; }
-        .hero-aura-glow.a { width: 520px; height: 520px; top: 4%; right: 6%; background: radial-gradient(circle, rgba(139,92,246,0.30), transparent 65%); }
-        .hero-aura-glow.b { width: 420px; height: 420px; bottom: 6%; left: -4%; background: radial-gradient(circle, rgba(37,99,235,0.18), transparent 65%); animation-delay: 2.5s; }
-        .hero-mesh { position: absolute; left: -40px; bottom: 0; width: calc(100% + 80px); height: 300px;
-          color: rgba(167,139,250,0.30); animation: hero-mesh-drift 14s linear infinite alternate;
-          mask-image: linear-gradient(180deg, transparent, #000 45%, transparent); }
 
-        .hero-badge {
-          display: inline-flex; align-items: center; gap: 9px; margin-bottom: 26px;
-          padding: 7px 17px 7px 13px; border-radius: 100px;
-          background: rgba(124,58,237,0.12); border: 1px solid rgba(167,139,250,0.26);
-          font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #c4b5fd;
+        /* Parallax — cada camada responde num fator diferente. */
+        .nrx-par-1 { transform: translate3d(calc(var(--px) * 26px), calc(var(--py) * 20px), 0); transition: transform 1.4s cubic-bezier(0.16,1,0.3,1); }
+        .nrx-par-2 { transform: translate3d(calc(var(--px) * -14px), calc(var(--py) * -11px), 0); transition: transform 1.6s cubic-bezier(0.16,1,0.3,1); }
+        .nrx-par-3 { transform: translate3d(calc(var(--px) * 9px), calc(var(--py) * 7px), 0); transition: transform 1.8s cubic-bezier(0.16,1,0.3,1); }
+
+        /* ══════════ HERO BAR ══════════ */
+        .nrx-bar-wrap {
+          position: absolute; top: clamp(14px, 2.2vh, 22px); left: 50%;
+          transform: translateX(-50%);
+          z-index: 40; max-width: calc(100vw - 24px);
         }
-        .hero-badge-dot { position: relative; width: 7px; height: 7px; border-radius: 50%; background: #a78bfa; flex-shrink: 0; }
-        .hero-badge-dot::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 1px solid #a78bfa; animation: pulse-ring 2s cubic-bezier(0,0,0.2,1) infinite; }
+        .nrx-bar {
+          display: flex; align-items: center; gap: 3px;
+          padding: 5px 5px 5px 20px;
+          background: rgba(12,12,16,0.72);
+          backdrop-filter: blur(26px) saturate(1.5);
+          -webkit-backdrop-filter: blur(26px) saturate(1.5);
+          border: 1px solid var(--nrx-line);
+          border-radius: 100px;
+          box-shadow: 0 14px 44px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .nrx-wordmark {
+          font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.82rem;
+          letter-spacing: -0.4px; color: var(--nrx-violet); margin-right: 14px;
+          text-decoration: none; white-space: nowrap;
+        }
+        .nrx-wordmark span { color: rgba(255,255,255,0.32); }
+        .nrx-home .nrx-wordmark { transition: opacity 0.3s ease; }
+        .nrx-home .nrx-wordmark:hover { opacity: 0.82; }
 
-        .hero-title { font-size: clamp(2.6rem, 5vw, 4.4rem); font-weight: 800; line-height: 1.03; letter-spacing: -2.4px; margin-bottom: 22px; color: #ffffff; }
-        .hero-title-accent { display: block; background: linear-gradient(100deg, #a78bfa 0%, #7C3AED 55%, #6d28d9 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: #a78bfa; }
-        .hero-sub { font-size: 1.05rem; line-height: 1.7; color: rgba(255,255,255,0.55); max-width: 470px; margin-bottom: 34px; }
+        .nrx-home .nrx-navitem {
+          position: relative; background: none; border: none; cursor: pointer;
+          font-family: inherit; font-size: 0.78rem; font-weight: 500;
+          color: rgba(255,255,255,0.48); padding: 8px 14px; border-radius: 100px;
+          white-space: nowrap;
+          transition: color 0.35s ease, background 0.35s ease;
+        }
+        .nrx-home .nrx-navitem::after {
+          content: ''; position: absolute; left: 50%; bottom: 4px;
+          width: 0; height: 1px; background: var(--nrx-violet-soft);
+          transform: translateX(-50%); opacity: 0;
+          transition: width 0.4s cubic-bezier(0.16,1,0.3,1), opacity 0.4s ease;
+        }
+        .nrx-home .nrx-navitem:hover,
+        .nrx-home .nrx-navitem[aria-expanded="true"] { color: var(--nrx-fg); background: rgba(255,255,255,0.05); }
+        .nrx-home .nrx-navitem:hover::after,
+        .nrx-home .nrx-navitem[aria-expanded="true"]::after { width: 16px; opacity: 0.9; }
 
-        .hero-buttons { display: flex; gap: 12px; flex-wrap: wrap; }
-        .hero-cta-primary, .hero-cta-ghost { display: inline-flex; align-items: center; gap: 8px; border-radius: 100px; font-size: 0.92rem; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); }
-        .hero-cta-primary { padding: 15px 30px; background: #7C3AED; color: #fff; font-weight: 700; box-shadow: 0 14px 40px -12px rgba(124,58,237,0.9); }
-        .hero-cta-primary:hover { background: #6d28d9; transform: translateY(-2px); box-shadow: 0 20px 50px -12px rgba(124,58,237,1); }
-        .hero-cta-ghost { padding: 15px 28px; border: 1px solid rgba(255,255,255,0.16); font-weight: 600; color: #eeede9; }
-        .hero-cta-ghost:hover { border-color: rgba(167,139,250,0.55); background: rgba(124,58,237,0.10); transform: translateY(-2px); }
+        .nrx-bar-actions { display: flex; align-items: center; gap: 4px; margin-left: 6px; }
 
-        /* ── Nori ── */
-        .hero-visual { position: relative; display: flex; justify-content: flex-end; align-items: flex-end; min-height: 500px; }
-        /* Largura própria do cluster (não a da coluna do grid, que em telas
-           largas fica bem maior que o robô): é o que ancora o balão perto
-           dele em vez de deixar sobrar espaço vazio entre os dois. */
-        .nori-cluster { position: relative; width: min(392px, 100%); }
-        /* A arte em PNG é quase quadrada (o vetor antigo era mais alto que
-           largo), então o mesmo padding-top calculado pro vetor deixava uma
-           sobra vazia embaixo do balão e o robô "afundado" perto do rodapé.
-           38px é só o necessário pra cabeça não encostar no bico do balão. */
-        .nori-stage { position: relative; width: 100%; padding-top: 38px; padding-bottom: 26px; transition: transform 0.5s cubic-bezier(0.16,1,0.3,1); }
-        .nori-figure { animation: hero-float-slow 6s ease-in-out infinite; }
+        .nrx-home .nrx-avatar {
+          display: flex; align-items: center; justify-content: center;
+          width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+          background: rgba(124,58,237,0.10); border: 1px solid rgba(124,58,237,0.22);
+          color: var(--nrx-violet-soft);
+          transition: background 0.35s ease, border-color 0.35s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        .nrx-home .nrx-avatar:hover { background: rgba(124,58,237,0.2); border-color: rgba(124,58,237,0.45); transform: translateY(-1px); }
+        .nrx-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-        /* O balão usa o MESMO vidro escuro do visor do Nori (nori-visor) —
-           é o que faz os dois lerem como a mesma peça de hardware, em vez de
-           um card solto ao lado de um boneco. Quase opaco de propósito: o bico
-           é um pseudo-elemento com a mesma cor, e com muita transparência ele
-           destoaria do corpo do balão. */
-        /* Balão em contorno neon: fio roxo aceso sobre vidro escuro, no mesmo
-           material do visor do Nori — é o que faz os dois lerem como a mesma
-           peça em vez de um card solto ao lado de um boneco. */
-        .nori-bubble {
-          /* top negativo sobe o balão inteiro (corpo + bico) pra mirar o
-             rosto do robô — em 0 o bico caía na altura do pescoço. */
-          position: absolute; top: -38px; left: -22%; z-index: 3; width: min(308px, 96%);
-          padding: 22px 24px 20px; border-radius: 26px;
-          background: linear-gradient(152deg, rgba(26,16,50,0.92) 0%, rgba(13,8,26,0.94) 100%);
-          border: 1.5px solid #a78bfa;
+        .nrx-home .nrx-burger {
+          display: none; align-items: center; justify-content: center;
+          width: 34px; height: 34px; border-radius: 50%; padding: 0; cursor: pointer;
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+          color: var(--nrx-fg);
+          transition: background 0.3s ease, border-color 0.3s ease;
+        }
+        .nrx-home .nrx-burger:hover { background: rgba(124,58,237,0.14); border-color: rgba(124,58,237,0.3); }
+
+        /* ══════════ POPOVERS ══════════ */
+        .nrx-pop {
+          position: absolute; top: calc(100% + 10px); left: 50%;
+          transform: translateX(-50%);
+          min-width: 232px; padding: 8px;
+          background: var(--nrx-glass-strong);
+          backdrop-filter: blur(26px) saturate(1.4);
+          -webkit-backdrop-filter: blur(26px) saturate(1.4);
+          border: 1px solid var(--nrx-line); border-radius: 18px;
+          box-shadow: 0 22px 60px rgba(0,0,0,0.55);
+          animation: nrx-pop-in 0.34s cubic-bezier(0.16,1,0.3,1) both;
+          z-index: 45;
+        }
+        @keyframes nrx-pop-in {
+          from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        .nrx-pop-text {
+          display: block; padding: 8px 12px 10px; font-size: 0.78rem; line-height: 1.55;
+          color: var(--nrx-muted); border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 6px;
+        }
+        .nrx-home .nrx-pop-item {
+          display: block; width: 100%; text-align: left;
+          padding: 9px 12px; border-radius: 11px; border: none; background: none;
+          font-family: inherit; font-size: 0.82rem; font-weight: 500;
+          color: rgba(255,255,255,0.66); text-decoration: none; cursor: pointer;
+          transition: color 0.28s ease, background 0.28s ease, padding-left 0.28s ease;
+        }
+        .nrx-home .nrx-pop-item:hover {
+          color: var(--nrx-fg); background: rgba(124,58,237,0.14); padding-left: 16px;
+        }
+
+        /* Folha do menu mobile — fica dentro da viewport, nunca cria rolagem. */
+        .nrx-sheet {
+          position: absolute; top: clamp(66px, 9vh, 78px); left: 12px; right: 12px;
+          z-index: 44; padding: 10px;
+          background: var(--nrx-glass-strong);
+          backdrop-filter: blur(26px) saturate(1.4);
+          -webkit-backdrop-filter: blur(26px) saturate(1.4);
+          border: 1px solid var(--nrx-line); border-radius: 22px;
+          box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+          animation: nrx-sheet-in 0.36s cubic-bezier(0.16,1,0.3,1) both;
+          max-height: min(70vh, 470px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+          -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 22px), transparent 100%);
+          mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 22px), transparent 100%);
+        }
+        .nrx-sheet::-webkit-scrollbar { display: none; }
+        @keyframes nrx-sheet-in {
+          from { opacity: 0; transform: translateY(-10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .nrx-sheet .nrx-pop-item { padding: 8px 12px; }
+        .nrx-sheet-group + .nrx-sheet-group { margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.06); }
+        .nrx-sheet-title {
+          display: block; padding: 5px 12px 3px; font-size: 0.62rem; font-weight: 700;
+          letter-spacing: 1.6px; text-transform: uppercase; color: rgba(255,255,255,0.28);
+        }
+
+        /* ══════════ PALCO ══════════ */
+        .nrx-stage {
+          position: relative; z-index: 10;
+          height: 100%; width: 100%;
+          display: grid;
+          grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+          align-items: center;
+          gap: clamp(28px, 5vw, 88px);
+          padding: clamp(96px, 13vh, 132px) clamp(24px, 6vw, 92px) clamp(40px, 7vh, 72px);
+          max-width: 1400px; margin: 0 auto;
+        }
+
+        /* ── Lado esquerdo ── */
+        .nrx-eyebrow {
+          display: inline-flex; align-items: center; gap: 10px;
+          font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; font-weight: 500;
+          letter-spacing: 2.6px; text-transform: uppercase;
+          color: rgba(255,255,255,0.38); margin-bottom: clamp(18px, 3vh, 28px);
+          animation: nrx-rise 0.9s cubic-bezier(0.16,1,0.3,1) both;
+        }
+        .nrx-eyebrow-dot {
+          width: 5px; height: 5px; border-radius: 50%; background: var(--nrx-violet);
+          box-shadow: 0 0 10px rgba(124,58,237,0.9);
+          animation: nrx-pulse 3.2s ease-in-out infinite;
+        }
+        @keyframes nrx-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+        @keyframes nrx-rise {
+          from { opacity: 0; transform: translateY(14px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .nrx-headline {
+          font-size: clamp(2.1rem, 5.2vw, 4.3rem);
+          line-height: 1.06; font-weight: 800; letter-spacing: -2px;
+          margin: 0 0 clamp(16px, 2.6vh, 26px);
+          max-width: 12ch;
+          text-wrap: balance;
+        }
+        .nrx-headline-accent {
+          color: var(--nrx-violet-soft);
+          text-shadow: 0 0 44px rgba(124,58,237,0.5);
+        }
+        .nrx-caret {
+          display: inline-block; width: 3px; height: 0.86em;
+          margin-left: 6px; vertical-align: -0.08em;
+          background: var(--nrx-violet);
+          box-shadow: 0 0 14px rgba(124,58,237,0.8);
+          animation: nrx-blink 1.05s step-end infinite;
+        }
+        @keyframes nrx-blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+        .nrx-sub {
+          font-size: clamp(0.9rem, 1.15vw, 1.02rem); line-height: 1.65;
+          color: var(--nrx-muted); max-width: 34ch; margin: 0;
+          animation: nrx-rise 1.1s cubic-bezier(0.16,1,0.3,1) 0.35s both;
+        }
+
+        /* ── Caixa de acesso ── */
+        /* O padding do wrap é a folga onde as órbitas vivem: elas ficam
+           dentro da caixa (<= 100%), então não geram overflow em lugar
+           nenhum — nem no palco, nem no documento. */
+        .nrx-auth-wrap {
+          position: relative; justify-self: center;
+          width: min(100%, 470px);
+          padding: clamp(22px, 3.4vh, 38px) clamp(16px, 2.6vw, 39px);
+          display: flex; align-items: center; justify-content: center;
+        }
+
+        /* Recorte das órbitas: a caixa de layout de uma elipse girando cresce
+           (é um retângulo rodando), e esse crescimento entraria na área
+           rolável. A elipse desenhada, porém, nunca passa do maior eixo — ou
+           seja, o que este overflow: hidden corta são só os cantos vazios. */
+        .nrx-orbits { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+        .nrx-orbits::before {
+          content: ''; position: absolute; left: 50%; top: 50%;
+          width: 108%; height: 108%; transform: translate(-50%,-50%);
+          background: radial-gradient(circle, rgba(124,58,237,0.22) 0%, rgba(124,58,237,0.06) 42%, transparent 68%);
+          filter: blur(28px);
+          animation: nrx-halo 12s ease-in-out infinite;
+        }
+        @keyframes nrx-halo {
+          0%,100% { opacity: 0.65; transform: translate(-50%,-50%) scale(0.97); }
+          50%     { opacity: 1; transform: translate(-50%,-50%) scale(1.04); }
+        }
+
+        .nrx-orbit {
+          position: absolute; top: 50%; left: 50%;
+          border: 1px solid rgba(124,58,237,0.34);
+          border-radius: 50%; pointer-events: none;
+        }
+        /* Medidas por largura + aspect-ratio (nunca por height): girando, a
+           caixa de uma elipse cresce até o seu maior eixo. Mantendo o maior
+           eixo <= 100% da largura do wrap, a órbita nunca escapa da caixa —
+           é isso que garante zero rolagem horizontal enquanto ela gira. */
+        .nrx-orbit.o1 { width: 100%; aspect-ratio: 1.16; animation: nrx-orbit-spin 34s linear infinite; }
+        .nrx-orbit.o2 { width: 84%; aspect-ratio: 0.87; border-color: rgba(180,132,255,0.26); animation: nrx-orbit-spin 52s linear infinite reverse; }
+        .nrx-orbit.o3 { width: 100%; aspect-ratio: 1.46; border-color: rgba(124,58,237,0.2); animation: nrx-orbit-spin 76s linear infinite; }
+        @keyframes nrx-orbit-spin {
+          from { transform: translate(-50%,-50%) rotate(0deg); }
+          to   { transform: translate(-50%,-50%) rotate(360deg); }
+        }
+        .nrx-orbit-dot {
+          position: absolute; top: -3px; left: 50%; margin-left: -3px;
+          width: 6px; height: 6px; border-radius: 50%;
+          background: var(--nrx-violet-soft);
+          box-shadow: 0 0 12px 2px rgba(180,132,255,0.75);
+        }
+        .nrx-orbit.o2 .nrx-orbit-dot { top: auto; bottom: -2.5px; width: 5px; height: 5px; background: #ffffff; box-shadow: 0 0 10px 2px rgba(255,255,255,0.55); }
+        .nrx-orbit.o3 .nrx-orbit-dot { left: 100%; top: 50%; margin: -2px 0 0 -2px; width: 4px; height: 4px; box-shadow: 0 0 9px 2px rgba(124,58,237,0.7); }
+
+        .nrx-card {
+          position: relative; width: 100%; z-index: 2; text-align: left;
+          padding: clamp(24px, 3.4vh, 34px) clamp(22px, 2.6vw, 32px);
+          border-radius: 26px;
+          background: linear-gradient(155deg, rgba(28,24,46,0.62) 0%, rgba(10,10,16,0.72) 55%, rgba(16,12,28,0.66) 100%);
+          backdrop-filter: blur(30px) saturate(1.5);
+          -webkit-backdrop-filter: blur(30px) saturate(1.5);
+          border: 1px solid rgba(255,255,255,0.10);
           box-shadow:
-            0 0 22px rgba(124,58,237,0.45),
-            0 0 60px -10px rgba(124,58,237,0.5),
-            inset 0 0 26px rgba(124,58,237,0.12);
-          transition: transform 0.5s cubic-bezier(0.16,1,0.3,1);
+            0 40px 90px -30px rgba(0,0,0,0.85),
+            0 0 70px -30px rgba(124,58,237,0.55),
+            inset 0 1px 0 rgba(255,255,255,0.08);
+          animation: nrx-card-in 1s cubic-bezier(0.16,1,0.3,1) 0.2s both;
         }
-        /* Bico em duas camadas: a de baixo é o fio neon, a de cima preenche e
-           avança 2px sobre a borda do balão para apagar a emenda — sem isso
-           fica um risco atravessando a base do bico. */
-        .nori-bubble::before, .nori-bubble::after {
-          content: ""; position: absolute;
-          clip-path: polygon(0 0, 100% 0, 66% 100%);
-        }
-        .nori-bubble::before {
-          right: 32px; bottom: -21px; width: 38px; height: 23px;
-          background: #a78bfa;
-          filter: drop-shadow(0 3px 9px rgba(124,58,237,0.7));
-        }
-        .nori-bubble::after {
-          right: 34px; bottom: -18px; width: 34px; height: 20px;
-          background: #100a20;
-        }
-        .nori-bubble-icon { display: inline-flex; color: #a78bfa; margin-bottom: 11px; }
-        .nori-bubble-title { font-size: 1.14rem; font-weight: 800; letter-spacing: -0.3px; color: #ffffff; line-height: 1.25; margin-bottom: 7px; }
-        .nori-bubble-title strong { color: #a78bfa; font-weight: 800; font-style: italic; }
-        .nori-bubble-text { font-size: 0.86rem; line-height: 1.62; color: rgba(255,255,255,0.68); }
-        .nori-caret {
-          display: inline-block; width: 2px; height: 0.95em; margin-left: 2px;
-          vertical-align: -0.14em; background: #a78bfa; animation: nori-caret-blink 0.85s steps(1) infinite;
-        }
-        @keyframes nori-caret-blink { 50% { opacity: 0; } }
-        @media (prefers-reduced-motion: reduce) { .nori-caret { display: none; } }
-
-        .nori-chip {
-          position: absolute; z-index: 1; display: flex; align-items: center; justify-content: center;
-          width: 52px; height: 52px; border-radius: 16px; color: #a78bfa;
-          background: rgba(124,58,237,0.14); border: 1px solid rgba(167,139,250,0.28);
-          backdrop-filter: blur(10px); animation: hero-chip 7s ease-in-out infinite;
-        }
-        .nori-chip.check { left: -6%; bottom: 30%; --r: -8deg; }
-        .nori-chip.gear { left: 8%; bottom: 8%; --r: 6deg; animation-delay: 1.2s; }
-        .nori-chip.chart { right: -4%; top: 42%; --r: 9deg; animation-delay: 2.4s; }
-        .nori-chip.bolt { right: 6%; top: 9%; --r: -7deg; animation-delay: 3.4s; }
-
-        /* ── Barra de benefícios + números ── */
-        .hero-bar-slot { grid-column: 1 / -1; }
-        .hero-bar {
-          display: flex; align-items: center; gap: 26px;
-          padding: 20px 26px; border-radius: 22px;
-          background: rgba(255,255,255,0.04); border: 1px solid rgba(167,139,250,0.18);
-          backdrop-filter: blur(18px); box-shadow: 0 26px 70px -40px rgba(124,58,237,0.9);
-        }
-        /* Os textos têm alturas diferentes (2 ou 3 linhas), então alinhar pelo
-           topo deixava a linha visualmente desalinhada — centralizar resolve. */
-        .hero-benefits { flex: 1 1 auto; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 20px; align-items: center; }
-        .hero-benefit { display: flex; align-items: center; gap: 11px; min-width: 0; }
-        .hero-benefit-icon { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex-shrink: 0;
-          border-radius: 11px; background: rgba(124,58,237,0.16); border: 1px solid rgba(167,139,250,0.24); color: #a78bfa; }
-        .hero-benefit-title { font-size: 0.85rem; font-weight: 700; color: #eeede9; margin-bottom: 3px; }
-        .hero-benefit-desc { font-size: 0.74rem; line-height: 1.45; color: rgba(255,255,255,0.42); }
-        .hero-bar-divider { width: 1px; flex-shrink: 0; align-self: stretch; background: linear-gradient(180deg, transparent, rgba(167,139,250,0.32), transparent); }
-        .hero-stats { flex: 0 0 auto; display: grid; grid-template-columns: repeat(2, auto); gap: 10px 26px; align-content: center; }
-        .hero-stat-value { font-family: 'JetBrains Mono', monospace; font-size: 1.18rem; font-weight: 700; color: #a78bfa; line-height: 1.15; }
-        .hero-stat-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-top: 1px; }
-
-        @media (prefers-reduced-motion: reduce) {
-          .nori-figure, .nori-chip, .hero-mesh, .hero-aura-glow { animation: none; }
+        @keyframes nrx-card-in {
+          from { opacity: 0; transform: translateY(18px) scale(0.985); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
         }
 
-        /* Faixa estreita em que a barra ainda tem 4 colunas + números: sem
-           apertar, uma das descrições quebra em 3 linhas e desalinha a fila. */
-        @media (max-width: 1200px) {
-          .hero-bar { gap: 18px; padding: 18px 20px; }
-          .hero-benefits { gap: 14px; }
-          .hero-benefit { gap: 9px; }
-          .hero-benefit-icon { width: 31px; height: 31px; border-radius: 10px; }
-          .hero-benefit-desc { font-size: 0.7rem; }
-          .hero-stats { gap: 9px 18px; }
-          .hero-stat-value { font-size: 1.05rem; }
-        }
-
-        /* ═══ SERVIÇOS / PROCESSO ═══ */
-        /* Cor em classe, não inline: no tema claro o roxo-claro do escuro
-           some sobre o card branco, e o override precisa de um seletor. */
-        .svc-icon, .svc-more, .process-dot { color: #b18aff; }
-        .svc-tag {
-          padding: 4px 10px; border-radius: 100px;
-          background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.18);
-          font-size: 0.66rem; font-weight: 600; font-family: 'JetBrains Mono', monospace;
-          color: rgba(216,200,255,0.75);
-        }
-        html[data-theme="light"] .svc-icon,
-        html[data-theme="light"] .svc-more,
-        html[data-theme="light"] .process-dot { color: #7c3aed; }
-        html[data-theme="light"] .svc-tag {
-          background: rgba(124,58,237,0.08); border-color: rgba(124,58,237,0.24); color: #6d28d9;
-        }
-        .process-dot { background: #0e0e12; box-shadow: 0 0 0 6px #08080a; }
-        html[data-theme="light"] .process-dot {
-          background: #ffffff; box-shadow: 0 0 0 6px #f6f5f1; animation: none;
-        }
-
-        .svc-card:hover .svc-icon { background: rgba(124,58,237,0.2); border-color: rgba(124,58,237,0.45); transform: translateY(-2px); }
-        .svc-card:hover .svc-more { gap: 11px; }
-        .process-dot { animation: process-pulse 4.5s ease-in-out infinite; }
-        .process-grid > div:nth-child(2) .process-dot { animation-delay: .5s; }
-        .process-grid > div:nth-child(3) .process-dot { animation-delay: 1s; }
-        .process-grid > div:nth-child(4) .process-dot { animation-delay: 1.5s; }
-        .process-grid > div:nth-child(5) .process-dot { animation-delay: 2s; }
-        @keyframes process-pulse {
-          0%, 100% { box-shadow: 0 0 0 6px #08080a, 0 0 0 0 rgba(124,58,237,0.28); }
-          50%      { box-shadow: 0 0 0 6px #08080a, 0 0 22px 3px rgba(124,58,237,0.22); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .process-dot { animation: none; }
-          .process-line { transition: none !important; }
-        }
-
-        /* ═══ TABLET ═══ */
-        @media (max-width: 1024px) {
-          .section-padding { padding: 100px 32px !important; }
-          .cta-section { padding: 100px 32px !important; }
-          .footer-section { padding: 60px 32px 40px !important; }
-          /* 4 cards não cabem legíveis abaixo de ~1024; e a linha do tempo
-             horizontal perde o sentido quando as etapas empilham, então o
-             traço some junto. */
-          .services-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          .process-grid { grid-template-columns: repeat(3, 1fr) !important; row-gap: 36px !important; }
-          .process-line { display: none !important; }
-          .hero-section {
-            grid-template-columns: 1fr !important;
-            grid-template-rows: auto auto auto !important;
-            padding: 118px 32px 48px !important;
-            gap: 30px !important;
-            justify-items: center; text-align: center;
+        /* Energia percorrendo o contorno: cônica girando, recortada na borda. */
+        @supports ((-webkit-mask-composite: xor) or (mask-composite: exclude)) {
+          .nrx-card-edge {
+            position: absolute; inset: 0; border-radius: inherit; overflow: hidden;
+            padding: 1px; pointer-events: none;
+            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor;
+            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask-composite: exclude;
           }
-          .hero-copy { max-width: 640px; }
-          .hero-sub { margin-left: auto; margin-right: auto; }
-          .hero-buttons { justify-content: center; }
-          /* Coluna única: o balão sai do posicionamento absoluto e entra em
-             fluxo acima do robô — em layout centralizado não há espaço
-             lateral pra ele flutuar sem cobrir alguma coisa. O cluster é
-             quem empilha os dois agora (o hero-visual só centraliza o
-             cluster inteiro). */
-          .hero-visual { flex-direction: column; align-items: center; justify-content: flex-start; min-height: 0; }
-          .nori-cluster {
-            display: flex; flex-direction: column; align-items: center; gap: 4px;
-            width: 100%; max-width: 460px;
+          .nrx-card-edge::after {
+            content: ''; position: absolute; left: 50%; top: 50%;
+            width: 190%; height: 190%; margin: -95% 0 0 -95%;
+            background: conic-gradient(from 0deg,
+              transparent 0deg, transparent 190deg,
+              rgba(124,58,237,0.35) 236deg,
+              rgba(180,132,255,0.95) 266deg,
+              rgba(255,255,255,0.95) 274deg,
+              rgba(124,58,237,0.4) 302deg,
+              transparent 344deg);
+            animation: nrx-edge-spin 7.5s linear infinite;
           }
-          .nori-stage { padding-top: 0; width: min(320px, 100%); }
-          .nori-bubble { position: relative; top: auto; left: auto; width: min(340px, 100%); text-align: left; }
-          /* coluna única: o Nori fica exatamente embaixo, então o bico aponta reto */
-          .nori-bubble::before, .nori-bubble::after { right: 50%; margin-right: -19px; clip-path: polygon(0 0, 100% 0, 50% 100%); }
-          .nori-chip.check { left: -8%; }
-          .nori-chip.chart { right: -8%; }
-          .nori-chip.bolt { right: 2%; }
+        }
+        @keyframes nrx-edge-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .nrx-card-mark {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 40px; height: 40px; border-radius: 13px;
+          background: linear-gradient(140deg, rgba(124,58,237,0.9), rgba(76,29,149,0.85));
+          border: 1px solid rgba(180,132,255,0.35);
+          color: #fff; box-shadow: 0 10px 26px -10px rgba(124,58,237,0.9);
+        }
+        .nrx-card-brand {
+          display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+        }
+        .nrx-card-name {
+          font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.92rem;
+          letter-spacing: -0.3px; color: var(--nrx-violet);
+        }
+        .nrx-card-name span { color: rgba(255,255,255,0.34); }
+        .nrx-card-tagline {
+          font-size: 0.86rem; color: rgba(255,255,255,0.52);
+          margin: 0 0 clamp(16px, 2.4vh, 24px);
         }
 
-        /* ═══ MOBILE RESPONSIVE ═══ */
-        @media (max-width: 768px) {
-          .nav-links { display: none !important; }
-          .nav-cta-desktop { display: none !important; }
-          .hamburger { display: flex !important; }
+        .nrx-field + .nrx-field { margin-top: 12px; }
+        .nrx-label {
+          display: block; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.3px;
+          color: rgba(255,255,255,0.55); margin-bottom: 7px;
+        }
+        .nrx-home .nrx-input {
+          width: 100%; height: clamp(42px, 5.4vh, 48px);
+          padding: 0 14px; border-radius: 13px;
+          background: var(--nrx-input); border: 1px solid rgba(255,255,255,0.12);
+          color: var(--nrx-fg); font-family: inherit; font-size: 0.9rem; outline: none;
+          transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+        }
+        .nrx-home .nrx-input::placeholder { color: rgba(255,255,255,0.28); }
+        .nrx-home .nrx-input:hover:not(:focus) { border-color: rgba(255,255,255,0.2); }
+        .nrx-home .nrx-input:focus {
+          border-color: rgba(124,58,237,0.75); background: rgba(124,58,237,0.09);
+          box-shadow: 0 0 0 4px rgba(124,58,237,0.16);
+        }
+        .nrx-home .nrx-eye {
+          position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+          width: 34px; height: 34px; border-radius: 9px; border: none; background: none;
+          color: rgba(255,255,255,0.42); cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          transition: color 0.25s ease, background 0.25s ease;
+        }
+        .nrx-home .nrx-eye:hover { color: var(--nrx-fg); background: rgba(255,255,255,0.07); }
 
-          .mobile-menu {
-            display: flex !important;
-            position: fixed;
-            inset: 0;
-            z-index: 999;
-            background: rgba(8,8,10,0.98);
-            backdrop-filter: blur(24px);
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-          }
-          .mobile-menu a {
-            font-size: 1.1rem !important;
-            padding: 14px 32px !important;
-            color: rgba(255,255,255,0.7) !important;
-            border-radius: 12px !important;
-            width: 240px;
+        .nrx-home .nrx-primary {
+          width: 100%; height: clamp(44px, 5.6vh, 50px); margin-top: clamp(16px, 2.4vh, 22px);
+          display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+          border: none; border-radius: 13px; cursor: pointer;
+          background: linear-gradient(120deg, #7C3AED 0%, #9257f5 55%, #6d28d9 100%);
+          color: #fff; font-family: inherit; font-size: 0.92rem; font-weight: 700;
+          box-shadow: 0 16px 34px -16px rgba(124,58,237,0.95);
+          transition: transform 0.28s cubic-bezier(0.16,1,0.3,1), box-shadow 0.28s ease, filter 0.28s ease;
+        }
+        .nrx-home .nrx-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 22px 44px -16px rgba(124,58,237,1); filter: brightness(1.06); }
+        .nrx-home .nrx-primary:active:not(:disabled) { transform: translateY(0); }
+        .nrx-home .nrx-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+        .nrx-home .nrx-primary svg { transition: transform 0.3s cubic-bezier(0.16,1,0.3,1); }
+        .nrx-home .nrx-primary:hover:not(:disabled) svg { transform: translateX(4px); }
+
+        .nrx-divider {
+          display: flex; align-items: center; justify-content: center; gap: 10px;
+          margin: clamp(14px, 2.2vh, 20px) 0 10px;
+          font-size: 0.78rem; color: rgba(255,255,255,0.35);
+        }
+        .nrx-divider::before, .nrx-divider::after {
+          content: ''; height: 1px; flex: 1; background: rgba(255,255,255,0.08);
+        }
+
+        .nrx-home .nrx-secondary {
+          width: 100%; height: clamp(40px, 5vh, 46px);
+          display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+          border-radius: 13px; cursor: pointer; text-decoration: none;
+          background: rgba(255,255,255,0.035); border: 1px solid rgba(180,132,255,0.26);
+          color: rgba(255,255,255,0.86); font-family: inherit; font-size: 0.88rem; font-weight: 600;
+          transition: background 0.28s ease, border-color 0.28s ease, transform 0.28s cubic-bezier(0.16,1,0.3,1);
+        }
+        .nrx-home .nrx-secondary:hover { background: rgba(124,58,237,0.16); border-color: rgba(180,132,255,0.55); transform: translateY(-2px); }
+        .nrx-home .nrx-secondary svg { transition: transform 0.3s cubic-bezier(0.16,1,0.3,1); }
+        .nrx-home .nrx-secondary:hover svg { transform: translateX(4px); }
+
+        .nrx-home .nrx-forgot {
+          font-size: 0.74rem; color: rgba(255,255,255,0.4); text-decoration: none;
+          transition: color 0.25s ease;
+        }
+        .nrx-home .nrx-forgot:hover { color: var(--nrx-violet-soft); }
+
+        .nrx-error {
+          display: flex; gap: 8px; margin-top: 14px; padding: 10px 12px;
+          background: rgba(255,80,80,0.09); border: 1px solid rgba(255,80,80,0.25);
+          border-radius: 11px; font-size: 0.8rem; line-height: 1.45; color: #ff9090;
+        }
+
+        /* ══════════ RESPONSIVO ══════════ */
+        @media (max-width: 1080px) {
+          .nrx-stage { gap: clamp(20px, 3vw, 44px); }
+          .nrx-headline { letter-spacing: -1.4px; }
+        }
+
+        @media (max-width: 900px) {
+          .nrx-bar { padding: 5px 5px 5px 16px; gap: 2px; }
+          .nrx-bar .nrx-navitem { display: none; }
+          .nrx-home .nrx-burger { display: flex; }
+
+          .nrx-stage {
+            grid-template-columns: minmax(0, 1fr);
+            align-content: center;
+            justify-items: center;
             text-align: center;
+            gap: clamp(18px, 3.4vh, 30px);
+            padding: clamp(82px, 12vh, 104px) 20px clamp(24px, 4vh, 40px);
+            overflow-x: hidden;
+            overflow-y: auto;
+            scrollbar-width: none;
           }
-          .mobile-menu a:hover { background: rgba(255,255,255,0.06); color: #eeede9 !important; }
-          .mobile-menu .mobile-cta {
-            margin-top: 16px;
-            background: #7C3AED !important;
-            color: #08080a !important;
-            font-weight: 700 !important;
+          .nrx-stage::-webkit-scrollbar { display: none; }
+          .nrx-copy { display: flex; flex-direction: column; align-items: center; }
+          .nrx-headline {
+            font-size: clamp(1.75rem, 7.4vw, 2.5rem);
+            max-width: 16ch; letter-spacing: -1px; margin-bottom: 10px;
           }
-
-          .hero-section {
-            padding: 104px 20px 44px !important;
-            min-height: auto !important;
-            gap: 26px !important;
-          }
-          .hero-title { letter-spacing: -1.4px; }
-          .nori-stage { width: min(270px, 82%); }
-          .nori-bubble { width: 100%; }
-          .nori-chip { width: 44px; height: 44px; border-radius: 13px; }
-          .hero-bar { flex-direction: column; gap: 20px; padding: 20px; }
-          .hero-benefits { grid-template-columns: repeat(2, minmax(0,1fr)); text-align: left; }
-          .hero-bar-divider { width: 100%; height: 1px; background: linear-gradient(90deg, transparent, rgba(167,139,250,0.3), transparent); }
-          .hero-stats { grid-template-columns: repeat(4, 1fr); justify-items: center; text-align: center; gap: 12px; }
-          .hero-buttons a { flex: 1; text-align: center; justify-content: center; min-width: 140px; }
-
-          .section-padding { padding: 72px 20px !important; }
-
-          .products-grid {
-            grid-template-columns: 1fr !important;
-          }
-          .featured-span { grid-column: span 1 !important; }
-          .featured-inner {
-            grid-template-columns: 1fr !important;
-          }
-          .featured-text { padding: 28px 22px !important; }
-          .featured-mockup { padding: 22px !important; max-width: 100% !important; }
-          .featured-code {
-            border-left: none !important;
-            border-top: 1px solid rgba(255,255,255,0.06) !important;
-            border-radius: 0 0 18px 18px !important;
-            min-height: 320px;
-          }
-          .mockup-stats-4 { grid-template-columns: 1fr 1fr !important; }
-
-          .process-grid { grid-template-columns: 1fr 1fr !important; }
-          .services-grid { grid-template-columns: 1fr !important; }
-          .differentials-grid { grid-template-columns: 1fr !important; }
-          .differentials-grid > div > div { border-right: none !important; }
-          .differentials-header { grid-template-columns: 1fr !important; gap: 20px !important; align-items: start !important; }
-
-          .footer-grid { grid-template-columns: 1fr 1fr !important; gap: 32px !important; }
-          .footer-bottom { flex-direction: column !important; gap: 12px !important; align-items: flex-start !important; }
-
-          .cta-buttons { flex-direction: column !important; align-items: center !important; width: 100%; }
-          .cta-buttons a { width: 100%; max-width: 280px; justify-content: center; text-align: center; }
-
-          .cta-section { padding: 80px 20px 100px !important; }
-          .footer-section { padding: 40px 20px !important; }
+          .nrx-sub { max-width: 30ch; font-size: 0.86rem; }
+          .nrx-eyebrow { margin-bottom: 12px; font-size: 0.6rem; letter-spacing: 2px; }
+          .nrx-auth-wrap { width: min(100%, 412px); padding: clamp(14px, 2.2vh, 24px) 22px; }
+          .nrx-orbit.o3 { display: none; }
+          .nrx-card { border-radius: 22px; }
         }
 
-        @media (max-width: 480px) {
-          .process-grid { grid-template-columns: 1fr !important; }
-          .footer-grid { grid-template-columns: 1fr !important; }
-          .hero-benefits { grid-template-columns: 1fr !important; }
-          .hero-stats { grid-template-columns: repeat(2, 1fr) !important; gap: 14px !important; }
-          .section-padding { padding: 56px 16px !important; }
-          .hero-section { padding: 96px 16px 40px !important; }
-          .cta-section { padding: 64px 16px 80px !important; }
-          .featured-text { padding: 24px 18px !important; }
-          .featured-mockup { padding: 18px !important; }
-          .mockup-stats-3 { grid-template-columns: 1fr 1fr !important; }
-          .mockup-stats-4 { grid-template-columns: 1fr 1fr !important; }
+        @media (max-width: 900px) and (max-height: 720px) {
+          .nrx-card-brand { margin-bottom: 10px; }
+          .nrx-card-tagline { margin-bottom: 14px; font-size: 0.8rem; }
+          .nrx-headline { font-size: clamp(1.5rem, 6.4vw, 2rem); }
+          .nrx-sub { display: none; }
         }
 
+        @media (max-width: 380px) {
+          .nrx-wordmark { margin-right: 8px; font-size: 0.76rem; }
+          .nrx-card { padding: 20px 18px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .nrx-home *,
+          .nrx-home *::before,
+          .nrx-home *::after {
+            animation-duration: 0.001ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.001ms !important;
+          }
+          .nrx-caret { animation: nrx-blink 1.05s step-end infinite !important; }
+        }
       `}</style>
 
-      {/* ═══ ATMOSPHERE ═══ */}
-      <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
-        <div style={{ position: "absolute", inset: 0, opacity: 0.02, backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")", animation: "grain 8s steps(10) infinite" }} />
-        <div style={{ position: "absolute", width: 800, height: 800, top: "-15%", right: "-10%", background: "radial-gradient(circle, rgba(124, 58, 237,0.035) 0%, transparent 55%)", filter: "blur(40px)" }} />
-        <div style={{ position: "absolute", width: 600, height: 600, bottom: "10%", left: "-10%", background: "radial-gradient(circle, rgba(37, 99, 235,0.025) 0%, transparent 55%)", filter: "blur(40px)" }} />
-        <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px)", backgroundSize: "40px 40px", maskImage: "radial-gradient(ellipse at 50% 30%, black 10%, transparent 60%)" }} />
+      {/* ═══ ATMOSFERA ═══ */}
+      <div className="nrx-layer nrx-par-1" aria-hidden="true">
+        <div className="nrx-neb a" />
+        <div className="nrx-neb b" />
+        <div className="nrx-neb c" />
       </div>
 
-      {/* ═══ FLOATING DECORATIVE ELEMENTS ═══ */}
-      <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}>
-        <Star size={14} color="rgba(124, 58, 237,0.15)" style={{ position: "absolute", top: "12%", left: "8%", animation: "float1 7s ease-in-out infinite" }} />
-        <Star size={10} color="rgba(37, 99, 235,0.12)" style={{ position: "absolute", top: "35%", right: "12%", animation: "float2 9s ease-in-out infinite" }} />
-        <Diamond size={10} color="rgba(255,107,157,0.15)" style={{ position: "absolute", top: "60%", left: "5%", animation: "float3 8s ease-in-out infinite" }} />
-        <Star size={8} color="rgba(124, 58, 237,0.1)" style={{ position: "absolute", top: "75%", right: "8%", animation: "float1 11s ease-in-out infinite" }} />
-        <Diamond size={8} color="rgba(255,138,61,0.12)" style={{ position: "absolute", top: "20%", right: "25%", animation: "float2 10s ease-in-out infinite" }} />
-      </div>
+      <div className="nrx-layer nrx-grid nrx-par-3" aria-hidden="true" />
 
-      {/* ═══ NAV ═══ */}
-      <div style={{ position: "fixed", top: 14, left: "50%", transform: "translateX(-50%)", zIndex: 1000, width: "auto", maxWidth: "calc(100% - 28px)" }}>
-        <nav style={{
-          display: "flex", alignItems: "center", gap: 4, padding: "5px 5px 5px 20px",
-          background: navScrolled ? "rgba(12,12,14,0.95)" : "rgba(16,16,18,0.8)",
-          backdropFilter: "blur(24px) saturate(1.4)", border: "1px solid rgba(255,255,255,0.06)",
-          borderRadius: 100, transition: "all 0.5s cubic-bezier(0.16,1,0.3,1)",
-          boxShadow: navScrolled ? "0 8px 40px rgba(0,0,0,0.5)" : "none"
-        }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: "0.82rem", color: "#7C3AED", marginRight: 12, letterSpacing: -0.5 }}>NORA<span style={{ color: "rgba(255,255,255,0.3)" }}>TECH</span></span>
-          <div className="nav-links" style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <a href="#servicos" className="nav-link">Serviços</a>
-            <a href="#processo" className="nav-link">Processo</a>
-            <a href="#produtos" className="nav-link">Projetos</a>
-
-            <a href="#contato" className="nav-link nav-cta-desktop" style={{ padding: "8px 18px", background: "#7C3AED", color: "#ffffff", fontWeight: 700, borderRadius: 100 }}>Contato</a>
-          </div>
-          <button
-            className="hamburger"
-            aria-label="Abrir menu"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen(true)}
+      <div className="nrx-layer nrx-par-2" aria-hidden="true">
+        {estrelas.map((e) => (
+          <span
+            key={e.id}
+            className="nrx-star"
             style={{
-              display: "none", alignItems: "center", justifyContent: "center",
-              width: 34, height: 34, borderRadius: "50%",
-              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-              cursor: "pointer", padding: 0, marginLeft: 2
+              top: `${e.top}%`,
+              left: `${e.left}%`,
+              width: e.size,
+              height: e.size,
+              opacity: "var(--nrx-star-opacity)",
+              "--o": e.opacity,
+              "--dur": `${e.duration}s`,
+              "--delay": `${e.delay}s`,
             }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eeede9" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
-          </button>
-          <ThemeToggle style={{ marginLeft: 2 }} />
-          <Link to={user ? "/area-do-cliente" : "/login"} title={user ? "Central de Controle" : "Área de membro"} className="member-badge" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: user ? "rgba(124, 58, 237,0.1)" : (theme === "light" ? "rgba(124, 58, 237,0.06)" : "rgba(255,255,255,0.04)"), border: `1px solid ${user ? "rgba(124, 58, 237,0.2)" : (theme === "light" ? "rgba(124, 58, 237,0.18)" : "rgba(255,255,255,0.08)")}`, marginLeft: 2, overflow: "hidden", flexShrink: 0 }}>
-            {user?.photoUrl
-              ? <img src={user.photoUrl} alt="perfil" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={user ? "#7C3AED" : (theme === "light" ? "#7C3AED" : "rgba(255,255,255,0.35)")} strokeWidth={theme === "light" ? "2.6" : "2"} strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" }}><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-            }
-          </Link>
+          />
+        ))}
+        {estrelas.slice(0, 9).map((e) => (
+          <span
+            key={`d-${e.id}`}
+            className="nrx-dust"
+            style={{
+              top: `${(e.top + 18) % 100}%`,
+              left: `${(e.left + 33) % 100}%`,
+              width: e.size * 2.6,
+              height: e.size * 2.6,
+              "--dur": `${28 + e.duration * 3}s`,
+              "--delay": `${e.delay * 2}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      <div className="nrx-layer nrx-grain" aria-hidden="true" />
+      <div className="nrx-vignette" aria-hidden="true" />
+
+      {/* ═══ HERO BAR ═══ */}
+      <div className="nrx-bar-wrap">
+        <nav className="nrx-bar" aria-label="Principal">
+          <Link to="/" className="nrx-wordmark">NORA<span>TECH</span></Link>
+
+          {MENU_KEYS.map((chave) => (
+            <div key={chave} style={{ position: "relative" }}>
+              <button
+                type="button"
+                className="nrx-navitem"
+                aria-haspopup="true"
+                aria-expanded={menuAberto === chave}
+                onClick={() => setMenuAberto((atual) => (atual === chave ? null : chave))}
+              >
+                {MENUS[chave].label}
+              </button>
+              {menuAberto === chave && (
+                <div className="nrx-pop" role="menu">
+                  {MENUS[chave].text && <span className="nrx-pop-text">{MENUS[chave].text}</span>}
+                  {MENUS[chave].items.map((item) => renderItemMenu(item, chave))}
+                </div>
+              )}
+            </div>
+          ))}
+
+          <div className="nrx-bar-actions">
+            <button
+              type="button"
+              className="nrx-burger"
+              aria-label="Abrir menu"
+              aria-expanded={menuMobile}
+              onClick={() => { setMenuAberto(null); setMenuMobile((v) => !v); }}
+            >
+              {menuMobile ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="6" y1="6" x2="18" y2="18" /><line x1="6" y1="18" x2="18" y2="6" /></svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" /></svg>
+              )}
+            </button>
+            <ThemeToggle />
+            <Link
+              to={user ? "/area-do-cliente" : "/login"}
+              className="nrx-avatar"
+              title={user ? "Central de Controle" : "Área de membro"}
+              aria-label={user ? "Central de Controle" : "Área de membro"}
+            >
+              {user?.photoUrl
+                ? <img src={user.photoUrl} alt="" />
+                : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                  </svg>
+                )}
+            </Link>
+          </div>
         </nav>
       </div>
 
-      {/* ═══ MOBILE MENU OVERLAY ═══ */}
-      {menuOpen && (
-        <div className="mobile-menu" style={{ display: "none" }}>
-          <button
-            aria-label="Fechar menu"
-            onClick={() => setMenuOpen(false)}
-            style={{
-              position: "absolute", top: 20, right: 20,
-              width: 40, height: 40, borderRadius: "50%",
-              background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
-              color: "#eeede9", cursor: "pointer", fontSize: "1.2rem",
-              display: "flex", alignItems: "center", justifyContent: "center"
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
-          </button>
-          <a href="#servicos" className="nav-link" onClick={() => setMenuOpen(false)}>Serviços</a>
-          <a href="#processo" className="nav-link" onClick={() => setMenuOpen(false)}>Processo</a>
-          <a href="#produtos" className="nav-link" onClick={() => setMenuOpen(false)}>Projetos</a>
-
-          <a href="#contato" className="nav-link mobile-cta" onClick={() => setMenuOpen(false)}>Contato</a>
+      {/* ═══ MENU MOBILE ═══ */}
+      {menuMobile && (
+        <div className="nrx-sheet">
+          {MENU_KEYS.map((chave) => (
+            <div className="nrx-sheet-group" key={chave}>
+              <span className="nrx-sheet-title">{MENUS[chave].label}</span>
+              {MENUS[chave].items.map((item) => renderItemMenu(item, chave))}
+            </div>
+          ))}
         </div>
       )}
 
-      {/* ═══ HERO ═══ */}
-      <section className="hero-section">
-        {/* Atmosfera própria do hero: o roxo fica concentrado na primeira
-            dobra e se dissolve no #08080a do resto do site. */}
-        <div className="hero-aura" aria-hidden="true">
-          <div className="hero-aura-glow a" />
-          <div className="hero-aura-glow b" />
-          <svg className="hero-mesh" viewBox="0 0 1440 340" preserveAspectRatio="none">
-            {Array.from({ length: 11 }, (_, i) => (
-              <path
-                key={i}
-                d={`M0 ${96 + i * 21} C 260 ${52 + i * 19}, 470 ${152 + i * 17}, 730 ${112 + i * 19} S 1210 ${64 + i * 21}, 1440 ${124 + i * 19}`}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1"
-                opacity={0.55 - i * 0.03}
-              />
-            ))}
-          </svg>
-        </div>
-
-        <div className="hero-copy">
-          <Reveal delay={0.05}>
-            <div className="hero-badge">
-              <span className="hero-badge-dot" />
-              Noratech · Software sob medida
-            </div>
-          </Reveal>
-
-          <Reveal delay={0.18}>
-            <h1 className="hero-title">
-              Automatizamos processos.
-              <span className="hero-title-accent">Potencializamos resultados.</span>
-            </h1>
-          </Reveal>
-
-          <Reveal delay={0.3}>
-            <p className="hero-sub">
-              Soluções de software sob medida que eliminam falhas humanas, aumentam a produtividade e aceleram o crescimento da sua empresa.
-            </p>
-          </Reveal>
-
-          <Reveal delay={0.42}>
-            <div className="hero-buttons">
-              <a className="hero-cta-primary" href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20solicitar%20um%20or%C3%A7amento%20com%20a%20Noratech." target="_blank" rel="noopener noreferrer">
-                Solicitar orçamento <span aria-hidden="true">↗</span>
-              </a>
-              <a className="hero-cta-ghost" href="#produtos">
-                Conhecer soluções
-              </a>
-            </div>
-          </Reveal>
-
-        </div>
-
-        {/* Nori + balão. Os dois vivem dentro de um cluster com largura
-            própria (não a da coluna do grid), então o balão fica sempre
-            ancorado ao robô — em telas largas a coluna cresce muito além do
-            robô, e um balão posicionado em % dela ficava perdido longe dele.
-            O parallax do mouse é sutil e em sentidos opostos entre o robô e
-            os cartões, o que dá sensação de profundidade. */}
-        <div className="hero-visual">
-          <div className="nori-cluster">
-            <div
-              className="nori-bubble"
-              style={{ transform: `translate(${(mousePos.x - 0.5) * -14}px, ${(mousePos.y - 0.5) * -10}px)` }}
-            >
-              <span className="nori-bubble-icon" aria-hidden="true">
-                <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2.6" y="4.2" width="18.8" height="13.6" rx="5" />
-                  <path d="M8.6 17.8 7.2 21.2l4-3.4" />
-                  <circle cx="8.2" cy="11" r="1.15" fill="currentColor" stroke="none" />
-                  <circle cx="12" cy="11" r="1.15" fill="currentColor" stroke="none" />
-                  <circle cx="15.8" cy="11" r="1.15" fill="currentColor" stroke="none" />
-                </svg>
-              </span>
-              {/* Texto duplicado: aria-label carrega a frase inteira e correta
-                  pra leitor de tela, o conteúdo visível (aria-hidden) é só a
-                  encenação da digitação — sem isso quem usa leitor de tela
-                  ouviria o texto sendo montado letra a letra. */}
-              <p className="nori-bubble-title" aria-label="Eu sou o Nori! 👋">
-                <span aria-hidden="true">
-                  {typedSegments(NORI_TITLE_SEGMENTS, noriTitleTyping.count)}
-                  {!noriTitleTyping.done && <span className="nori-caret" />}
-                </span>
-              </p>
-              <p className="nori-bubble-text" aria-label={NORI_BUBBLE_TEXT}>
-                <span aria-hidden="true">
-                  {Array.from(NORI_BUBBLE_TEXT).slice(0, noriTextTyping.count).join("")}
-                  {noriTitleTyping.done && !noriTextTyping.done && <span className="nori-caret" />}
-                </span>
-              </p>
-            </div>
-
-            <div
-              className="nori-stage"
-              style={{ transform: `translate(${(mousePos.x - 0.5) * 16}px, ${(mousePos.y - 0.5) * 10}px)` }}
-            >
-              <span className="nori-chip check" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-              </span>
-              <span className="nori-chip gear" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3.2" /><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z" /></svg>
-              </span>
-              <span className="nori-chip chart" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round"><path d="M5 19v-5" /><path d="M12 19V7" /><path d="M19 19v-9" /></svg>
-              </span>
-              <span className="nori-chip bolt" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12z" /></svg>
-              </span>
-
-              <NoriRobot className="nori-figure" />
-            </div>
+      {/* ═══ PALCO ═══ */}
+      <main className="nrx-stage">
+        <div className="nrx-copy">
+          <div className="nrx-eyebrow">
+            <span className="nrx-eyebrow-dot" />
+            Noratech • Digital Systems
           </div>
+
+          <h1 className="nrx-headline">
+            {prefixoVisivel}
+            <span className="nrx-headline-accent">{acentoVisivel}</span>
+            <span className="nrx-caret" aria-hidden="true" />
+          </h1>
+
+          <p className="nrx-sub">Tecnologia criada para simplificar o complexo.</p>
         </div>
 
-        <Reveal delay={0.55} className="hero-bar-slot">
-          <div className="hero-bar">
-            <div className="hero-benefits">
-              {HERO_BENEFITS.map((b) => (
-                <div className="hero-benefit" key={b.title}>
-                  <span className="hero-benefit-icon" aria-hidden="true">
-                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                      {b.icon}
-                    </svg>
-                  </span>
-                  <div>
-                    <div className="hero-benefit-title">{b.title}</div>
-                    <div className="hero-benefit-desc">{b.desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="hero-bar-divider" aria-hidden="true" />
-
-            <div className="hero-stats">
-              {HERO_STATS.map(([val, label]) => (
-                <div className="hero-stat" key={label}>
-                  <div className="hero-stat-value">{val}</div>
-                  <div className="hero-stat-label">{label}</div>
-                </div>
-              ))}
-            </div>
+        <div className="nrx-auth-wrap">
+          <div className="nrx-orbits" aria-hidden="true">
+            <div className="nrx-orbit o1"><span className="nrx-orbit-dot" /></div>
+            <div className="nrx-orbit o2"><span className="nrx-orbit-dot" /></div>
+            <div className="nrx-orbit o3"><span className="nrx-orbit-dot" /></div>
           </div>
-        </Reveal>
-      </section>
 
-      {/* ═══ MARQUEE ═══ */}
-      <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "20px 0", overflow: "hidden", position: "relative", zIndex: 1 }}>
-        <div style={{ display: "flex", gap: 48, animation: "marquee 30s linear infinite", width: "max-content" }}>
-          {[...Array(2)].flatMap((_, ri) =>
-            ["💰 Gestão Financeira", "💬 WhatsApp Bot", "🌐 Criação de Sites", "📊 Análise de Gastos", "🤖 Pré-Atendimento", "🎨 Design Profissional", "🔗 Open Finance"].map((t, i) =>
-              <span key={`${ri}-${i}`} style={{ fontSize: "0.82rem", fontWeight: 500, color: "rgba(255,255,255,0.2)", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
-                <Diamond size={5} color="rgba(124, 58, 237,0.3)" /> {t}
-              </span>
-            )
-          )}
-        </div>
-      </div>
+          <section className="nrx-card" aria-label="Acesso">
+            <div className="nrx-card-edge" aria-hidden="true" />
 
-      {/* ═══ SERVICES ═══ */}
-      <section id="servicos" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
-        <Reveal>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 14 }}>
-            <Star size={12} color="#b684ff" />
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#b684ff", textTransform: "uppercase", letterSpacing: 3 }}>Serviços</span>
-          </div>
-        </Reveal>
-        <Reveal delay={0.1}>
-          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, lineHeight: 1.08, marginBottom: 16, textAlign: "center" }}>
-            Tecnologia que resolve{" "}
-            <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>problemas reais</span>
-          </h2>
-        </Reveal>
-        <Reveal delay={0.15}>
-          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 620, lineHeight: 1.6, margin: "0 auto 56px", textAlign: "center" }}>
-            Quatro frentes que a Noratech entrega de ponta a ponta — do levantamento técnico ao deploy em produção, com suporte contínuo.
-          </p>
-        </Reveal>
+            <div className="nrx-card-brand">
+              <MarcaNora />
+              <span className="nrx-card-name">NORA<span>TECH</span></span>
+            </div>
+            <p className="nrx-card-tagline">Seu acesso ao próximo nível.</p>
 
-        <div className="services-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
-          {SERVICE_CARDS.map((s, i) => {
-            const inner = (
+            {user ? (
               <>
-                {/* brilho decorativo */}
-                <div style={{
-                  position: "absolute", width: 180, height: 180, borderRadius: "50%",
-                  background: "radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 60%)",
-                  top: -70, right: -50, filter: "blur(40px)", pointerEvents: "none"
-                }} />
-
-                <div className="svc-icon" style={{
-                  width: 52, height: 52, borderRadius: 14, marginBottom: 20,
-                  background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.22)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  position: "relative", transition: "all 0.35s cubic-bezier(0.16,1,0.3,1)"
-                }}>
-                  <LineIcon id={s.iconId} size={24} />
-                </div>
-
-                <h3 style={{ fontSize: "1.05rem", fontWeight: 700, lineHeight: 1.3, letterSpacing: -0.2, marginBottom: 10, position: "relative" }}>
-                  {s.title}
-                </h3>
-
-                <p style={{ fontSize: "0.88rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.65, marginBottom: 20, flex: 1, position: "relative" }}>
-                  {s.desc}
+                <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.6)", lineHeight: 1.6, margin: 0 }}>
+                  Você já está conectado como <strong style={{ color: "#b684ff", fontWeight: 600 }}>{user.email}</strong>.
                 </p>
-
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, position: "relative" }}>
-                  {s.tags.map(t => (
-                    <span key={t} className="svc-tag">{t}</span>
-                  ))}
-                </div>
-
-                {s.href && (
-                  <div className="svc-more" style={{
-                    marginTop: 16, display: "inline-flex", alignItems: "center", gap: 6,
-                    fontSize: "0.8rem", fontWeight: 700, position: "relative",
-                    transition: "gap 0.25s ease"
-                  }}>
-                    Saiba mais <span aria-hidden="true">→</span>
-                  </div>
-                )}
+                <Link to="/area-do-cliente" className="nrx-primary" style={{ textDecoration: "none" }}>
+                  Entrar na plataforma <SetaIcon />
+                </Link>
               </>
-            );
-
-            const cardStyle = {
-              position: "relative", height: "100%", background: "#111114",
-              border: "1px solid rgba(255,255,255,0.06)", borderRadius: 18,
-              padding: 26, overflow: "hidden", display: "flex", flexDirection: "column",
-              transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)", color: "inherit",
-            };
-            const onEnter = (e) => { e.currentTarget.style.borderColor = "rgba(124,58,237,0.3)"; e.currentTarget.style.transform = "translateY(-6px)"; e.currentTarget.style.boxShadow = "0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(124,58,237,0.12)"; };
-            const onLeave = (e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; };
-
-            return (
-              <Reveal key={s.id} delay={i * 0.09}>
-                {s.href ? (
-                  <Link to={s.href} className="svc-card" style={cardStyle} onMouseEnter={onEnter} onMouseLeave={onLeave}>
-                    {inner}
-                  </Link>
-                ) : (
-                  <div className="svc-card" style={cardStyle} onMouseEnter={onEnter} onMouseLeave={onLeave}>
-                    {inner}
+            ) : (
+              <>
+                <form onSubmit={entrar} noValidate>
+                  <div className="nrx-field">
+                    <label className="nrx-label" htmlFor="nrx-email">E-mail</label>
+                    <input
+                      id="nrx-email"
+                      className="nrx-input"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={email}
+                      onChange={(ev) => setEmail(ev.target.value)}
+                      autoComplete="email"
+                      required
+                    />
                   </div>
-                )}
-              </Reveal>
-            );
-          })}
-        </div>
 
-        {/* Faixa de CTA */}
-        <Reveal delay={0.3}>
-          <div style={{
-            marginTop: 28, padding: "22px 28px",
-            background: "linear-gradient(135deg, rgba(124,58,237,0.06), rgba(124,58,237,0.02))",
-            border: "1px solid rgba(124,58,237,0.14)", borderRadius: 18,
-            display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(124,58,237,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>✦</div>
-              <div>
-                <div style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: 2 }}>Precisa de um escopo específico?</div>
-                <div style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.4)" }}>Conte o desafio e montamos uma proposta técnica sob medida.</div>
-              </div>
-            </div>
-            <a href="https://wa.me/5511932227752?text=Ol%C3%A1%2C%20gostaria%20de%20conversar%20sobre%20um%20projeto%20com%20a%20Noratech." target="_blank" rel="noopener noreferrer" style={{
-              display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 22px",
-              background: "#7C3AED", color: "#ffffff", borderRadius: 100,
-              fontWeight: 700, fontSize: "0.86rem", whiteSpace: "nowrap"
-            }}>
-              Falar com especialista <span style={{ fontSize: "1rem" }}>↗</span>
-            </a>
-          </div>
-        </Reveal>
-      </section>
-
-      {/* ═══ PROCESSO ═══ */}
-      <ProcessSection />
-
-
-      {/* ═══ DIFFERENTIALS — editorial manifesto style ═══ */}
-      <section id="diferenciais" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
-        <Reveal>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <Star size={12} color="#b684ff" />
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#b684ff", textTransform: "uppercase", letterSpacing: 3 }}>Diferenciais</span>
-          </div>
-        </Reveal>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 48, alignItems: "end", marginBottom: 72 }} className="differentials-header">
-          <Reveal delay={0.1}>
-            <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, lineHeight: 1.08 }}>
-              Por que escolher a <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#b684ff" }}>Noratech</span>?
-            </h2>
-          </Reveal>
-          <Reveal delay={0.2}>
-            <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.7, maxWidth: 440 }}>
-              Somos uma empresa de engenharia de software focada em eficiência operacional. Construímos sistemas que devolvem tempo, clareza e previsibilidade para quem decide.
-            </p>
-          </Reveal>
-        </div>
-
-        <div className="differentials-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-          {DIFFERENTIALS.map((d, i) => (
-            <Reveal key={d.num} type="up" delay={(i % 3) * 0.08}>
-              <div style={{
-                position: "relative", height: "100%", padding: "40px 28px 36px",
-                borderRight: (i % 3 !== 2) ? "1px solid rgba(255,255,255,0.06)" : "none",
-                borderBottom: "1px solid rgba(255,255,255,0.06)",
-                transition: "background 0.4s ease",
-              }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(182,132,255,0.03)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-              >
-                {/* Large editorial number */}
-                <div style={{
-                  fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600,
-                  fontSize: "3.6rem", lineHeight: 1, color: "#b684ff", marginBottom: 20,
-                  letterSpacing: -2,
-                }}>
-                  {d.num}<span style={{ color: "rgba(182,132,255,0.35)" }}>.</span>
-                </div>
-
-                <h3 style={{
-                  fontSize: "1.08rem", fontWeight: 700, lineHeight: 1.35,
-                  letterSpacing: -0.3, marginBottom: 12, color: "#eeede9"
-                }}>
-                  {d.title}
-                </h3>
-
-                <p style={{
-                  fontSize: "0.88rem", color: "rgba(255,255,255,0.42)",
-                  lineHeight: 1.7, marginBottom: 0
-                }}>
-                  {d.desc}
-                </p>
-
-                {/* Corner accent on hover target */}
-                <Star size={7} color="rgba(182,132,255,0.2)" style={{ position: "absolute", top: 24, right: 24 }} />
-              </div>
-            </Reveal>
-          ))}
-        </div>
-
-        {/* Positioning statement */}
-        <Reveal delay={0.2}>
-          <div style={{
-            marginTop: 56, padding: "28px 32px",
-            background: "rgba(182,132,255,0.04)",
-            border: "1px solid rgba(182,132,255,0.12)", borderRadius: 18,
-            display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap"
-          }}>
-            <div style={{
-              fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600,
-              fontSize: "2.2rem", color: "#b684ff", lineHeight: 1, letterSpacing: -1
-            }}>
-              ✦
-            </div>
-            <p style={{
-              flex: 1, minWidth: 280, fontFamily: "'Cormorant Garamond', serif",
-              fontStyle: "italic", fontSize: "1.25rem", fontWeight: 500,
-              color: "rgba(255,255,255,0.78)", lineHeight: 1.45, letterSpacing: -0.2
-            }}>
-              "Tecnologia bem feita é aquela que deixa de aparecer. A Noratech existe para essa engenharia — a que sustenta a operação em silêncio e entrega resultado todo dia."
-            </p>
-          </div>
-        </Reveal>
-      </section>
-
-      {/* ═══ PRODUCTS ═══ */}
-      <section id="produtos" className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
-        <Reveal>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <Star size={12} color="#7C3AED" />
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#7C3AED", textTransform: "uppercase", letterSpacing: 3 }}>Sistemas</span>
-          </div>
-        </Reveal>
-        <Reveal delay={0.1}>
-          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 14 }}>
-            Sistemas em <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>destaque</span>
-          </h2>
-        </Reveal>
-        <Reveal delay={0.15}>
-          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 560, lineHeight: 1.6, marginBottom: 64 }}>
-            Cada projeto resolve um problema real — gestão financeira, atendimento, automação e presença digital.
-          </p>
-        </Reveal>
-
-        {/* Bento Grid */}
-        <div className="products-grid" style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14 }}>
-          {PRODUCTS.map((p, i) => (
-            <Reveal key={p.id} type={i % 2 === 0 ? "up" : "scale"} delay={i * 0.08}>
-              <div className={`product-card${p.featured ? " featured-inner" : ""}`}
-                onMouseEnter={() => setHoveredProduct(p.id)}
-                onMouseLeave={() => setHoveredProduct(null)}
-                style={{
-                  background: "#111114", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 18, padding: p.featured ? 0 : 28,
-                  position: "relative", overflow: "hidden", height: "100%",
-                  display: p.featured ? "grid" : "block", gridTemplateColumns: p.featured ? "1fr 1fr" : "none",
-                  boxShadow: hoveredProduct === p.id ? `0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px ${p.color}22, inset 0 1px 0 ${p.color}15` : "none",
-                  borderColor: hoveredProduct === p.id ? `${p.color}25` : "rgba(255,255,255,0.06)"
-                }}>
-                {/* Glow orb on hover — hen-ry style */}
-                <div style={{
-                  position: "absolute", width: 200, height: 200, borderRadius: "50%",
-                  background: `radial-gradient(circle, ${p.color}15 0%, transparent 60%)`,
-                  top: -60, right: -40, filter: "blur(30px)",
-                  opacity: hoveredProduct === p.id ? 1 : 0, transition: "opacity 0.4s",
-                  pointerEvents: "none"
-                }} />
-
-                {p.featured ? (
-                  <>
-                    <div className="featured-text" style={{ padding: 36, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem", background: `${p.color}12`, border: `1px solid ${p.color}18`, marginBottom: 18 }}>{p.icon}</div>
-                      <h3 style={{ fontSize: "1.55rem", fontWeight: 700, marginBottom: 12, letterSpacing: -0.5 }}>{p.name}</h3>
-                      <p style={{ fontSize: "0.9rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.65, marginBottom: 20 }}>{p.desc}</p>
-                      {p.features && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 22 }}>
-                          {p.features.map((f, idx) => (
-                            <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                              <div style={{ width: 18, height: 18, borderRadius: "50%", background: `${p.color}15`, border: `1px solid ${p.color}30`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                                <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke={p.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                              </div>
-                              <span style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.65)", lineHeight: 1.5 }}>{f}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                        {p.tags.map(t => <span key={t} style={{ padding: "4px 10px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 100, fontSize: "0.68rem", fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: "rgba(255,255,255,0.45)" }}>{t}</span>)}
-                      </div>
+                  <div className="nrx-field">
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 7 }}>
+                      <label className="nrx-label" htmlFor="nrx-senha" style={{ marginBottom: 0 }}>Senha</label>
+                      <Link to="/recuperar-senha" className="nrx-forgot">Esqueci minha senha</Link>
                     </div>
-                    <div className="featured-code" style={{ background: "#0c0c0e", borderLeft: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden", borderRadius: "0 18px 18px 0" }}>
-                      <div style={{ position: "absolute", width: 120, height: 120, borderRadius: "50%", background: `${p.color}15`, filter: "blur(40px)", top: "20%", left: "30%", animation: "float1 6s ease-in-out infinite" }} />
-                      <div style={{ position: "absolute", width: 90, height: 90, borderRadius: "50%", background: "rgba(37, 99, 235,0.1)", filter: "blur(40px)", bottom: "20%", right: "25%", animation: "float2 8s ease-in-out infinite" }} />
-
-                      {/* Soluções Contábeis */}
-                      {p.id === 5 && (
-                        <div className="featured-mockup" style={{ zIndex: 1, padding: 28, width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 14 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.55)", fontFamily: "'JetBrains Mono', monospace" }}>Painel do escritório</div>
-                            <div style={{ fontSize: "0.58rem", color: "rgba(124,58,237,0.8)", fontFamily: "'JetBrains Mono', monospace" }}>● 24 empresas ativas</div>
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                            <div style={{ padding: "10px 14px", background: "rgba(124,58,237,0.06)", border: "1px solid rgba(124,58,237,0.14)", borderRadius: 12 }}>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>Extratos do mês</div>
-                                <span style={{ padding: "2px 8px", background: "rgba(76,217,100,0.15)", borderRadius: 100, fontSize: "0.52rem", fontWeight: 600, color: "#4cd964" }}>Conciliado</span>
-                              </div>
-                              <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.35)" }}>18 empresas com extrato e razão batendo</div>
-                            </div>
-                            <div style={{ padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>DAS e obrigações</div>
-                                <span style={{ padding: "2px 8px", background: "rgba(255,180,0,0.15)", borderRadius: 100, fontSize: "0.52rem", fontWeight: 600, color: "#ffb400" }}>Vence em 3 dias</span>
-                              </div>
-                              <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.35)" }}>6 empresas com prazo próximo do vencimento</div>
-                            </div>
-                            <div style={{ padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>IRPJ e CSLL — 3º Trimestre</div>
-                                <span style={{ padding: "2px 8px", background: "rgba(124,58,237,0.15)", borderRadius: 100, fontSize: "0.52rem", fontWeight: 600, color: "#b18aff" }}>Em apuração</span>
-                              </div>
-                              <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.35)" }}>Lucro Real e Presumido calculados automaticamente</div>
-                            </div>
-                          </div>
-                          <div style={{ padding: "12px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12 }}>
-                            <div style={{ fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 10, fontFamily: "'JetBrains Mono', monospace" }}>Status por área</div>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                              {[
-                                { name: "Conciliação", pct: 88, color: "#7C3AED" },
-                                { name: "Prazos e obrigações", pct: 64, color: "#ffb400" },
-                                { name: "Apuração fiscal", pct: 42, color: "#25D366" },
-                              ].map((c, idx) => (
-                                <div key={idx}>
-                                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                                    <span style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.55)" }}>{c.name}</span>
-                                    <span style={{ fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>{c.pct}%</span>
-                                  </div>
-                                  <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 100, overflow: "hidden" }}>
-                                    <div style={{ height: "100%", width: `${c.pct}%`, background: c.color, borderRadius: 100 }} />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <div style={{ flex: 1, padding: "10px 12px", background: "rgba(124, 58, 237,0.05)", border: "1px solid rgba(124, 58, 237,0.1)", borderRadius: 10 }}>
-                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Empresas</div>
-                              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#7C3AED" }}>24</div>
-                            </div>
-                            <div style={{ flex: 1, padding: "10px 12px", background: "rgba(76,217,100,0.05)", border: "1px solid rgba(76,217,100,0.1)", borderRadius: 10 }}>
-                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Conciliados</div>
-                              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#4cd964" }}>18</div>
-                            </div>
-                            <div style={{ flex: 1, padding: "10px 12px", background: "rgba(255,180,0,0.05)", border: "1px solid rgba(255,180,0,0.1)", borderRadius: 10 }}>
-                              <div style={{ fontSize: "0.55rem", color: "rgba(255,255,255,0.3)", marginBottom: 3 }}>Prazos</div>
-                              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#ffb400" }}>6</div>
-                            </div>
-                          </div>
-                          <div style={{ fontSize: "0.6rem", color: "rgba(124,58,237,0.7)", fontFamily: "'JetBrains Mono', monospace", textAlign: "center" }}>● Atualizado em tempo real</div>
-                        </div>
-                      )}
-
-                      {/* WhatsApp Bot */}
-                      {p.id === 2 && (
-                        <div className="featured-mockup" style={{ zIndex: 1, padding: 28, width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 12 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.55)", fontFamily: "'JetBrains Mono', monospace" }}>Conversas recentes</div>
-                            <div style={{ fontSize: "0.58rem", color: "rgba(37,211,102,0.8)", fontFamily: "'JetBrains Mono', monospace" }}>● Online 24/7</div>
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                            <div style={{ padding: "10px 14px", background: "rgba(37,211,102,0.06)", border: "1px solid rgba(37,211,102,0.12)", borderRadius: 12 }}>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>Maria Silva</div>
-                                <span style={{ padding: "2px 8px", background: "rgba(37,211,102,0.15)", borderRadius: 100, fontSize: "0.52rem", fontWeight: 600, color: "#25D366" }}>Resolvido</span>
-                              </div>
-                              <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.35)" }}>Agendamento confirmado automaticamente</div>
-                            </div>
-                            <div style={{ padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>João Santos</div>
-                                <span style={{ padding: "2px 8px", background: "rgba(255,180,0,0.15)", borderRadius: 100, fontSize: "0.52rem", fontWeight: 600, color: "#ffb400" }}>Pré-atendimento</span>
-                              </div>
-                              <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.35)" }}>Coletando informações do cliente...</div>
-                            </div>
-                            <div style={{ padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12 }}>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>Ana Costa</div>
-                                <span style={{ padding: "2px 8px", background: "rgba(37, 99, 235,0.15)", borderRadius: 100, fontSize: "0.52rem", fontWeight: 600, color: "#2563EB" }}>Encaminhado</span>
-                              </div>
-                              <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.35)" }}>Transferido para atendente humano</div>
-                            </div>
-                          </div>
-                          <div style={{ padding: "12px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12 }}>
-                            <div style={{ fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 10, fontFamily: "'JetBrains Mono', monospace" }}>Intenções detectadas (NLP)</div>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                              {[
-                                { name: "Agendamento", pct: 42, color: "#25D366" },
-                                { name: "Dúvidas / Suporte", pct: 30, color: "#2563EB" },
-                                { name: "Vendas", pct: 18, color: "#ffb400" },
-                                { name: "Outros", pct: 10, color: "#ff6b9d" },
-                              ].map((c, idx) => (
-                                <div key={idx}>
-                                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                                    <span style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.55)" }}>{c.name}</span>
-                                    <span style={{ fontSize: "0.62rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>{c.pct}%</span>
-                                  </div>
-                                  <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 100, overflow: "hidden" }}>
-                                    <div style={{ height: "100%", width: `${c.pct}%`, background: c.color, borderRadius: 100 }} />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="mockup-stats-4" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
-                            <div style={{ padding: "8px 10px", background: "rgba(37,211,102,0.05)", border: "1px solid rgba(37,211,102,0.1)", borderRadius: 10, textAlign: "center" }}>
-                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Filtradas</div>
-                              <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#25D366" }}>70%</div>
-                            </div>
-                            <div style={{ padding: "8px 10px", background: "rgba(37, 99, 235,0.05)", border: "1px solid rgba(37, 99, 235,0.1)", borderRadius: 10, textAlign: "center" }}>
-                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Resolução</div>
-                              <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#2563EB" }}>92%</div>
-                            </div>
-                            <div style={{ padding: "8px 10px", background: "rgba(255,180,0,0.05)", border: "1px solid rgba(255,180,0,0.1)", borderRadius: 10, textAlign: "center" }}>
-                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Hoje</div>
-                              <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#ffb400" }}>247</div>
-                            </div>
-                            <div style={{ padding: "8px 10px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, textAlign: "center" }}>
-                              <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.3)", marginBottom: 2 }}>Tempo</div>
-                              <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "rgba(255,255,255,0.65)" }}>8s</div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                    <div style={{ position: "relative" }}>
+                      <input
+                        id="nrx-senha"
+                        className="nrx-input"
+                        type={verSenha ? "text" : "password"}
+                        placeholder="Sua senha"
+                        value={senha}
+                        onChange={(ev) => setSenha(ev.target.value)}
+                        autoComplete="current-password"
+                        required
+                        style={{ paddingRight: 44 }}
+                      />
+                      <button
+                        type="button"
+                        className="nrx-eye"
+                        onClick={() => setVerSenha((v) => !v)}
+                        aria-label={verSenha ? "Ocultar senha" : "Mostrar senha"}
+                      >
+                        <OlhoIcon aberto={verSenha} />
+                      </button>
                     </div>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ width: 44, height: 44, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem", background: `${p.color}12`, border: `1px solid ${p.color}18`, marginBottom: 18 }}>{p.icon}</div>
-                    <h3 style={{ fontSize: "1.15rem", fontWeight: 700, marginBottom: 8, letterSpacing: -0.3 }}>{p.name}</h3>
-                    <p style={{ fontSize: "0.84rem", color: "rgba(255,255,255,0.4)", lineHeight: 1.6, marginBottom: 16 }}>{p.desc}</p>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                      {p.tags.map(t => <span key={t} style={{ padding: "3px 9px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 100, fontSize: "0.65rem", fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: "rgba(255,255,255,0.4)" }}>{t}</span>)}
-                    </div>
-                  </>
-                )}
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
-
-      {/* ═══ FAQ — Tabbed (hen-ry style) ═══ */}
-      <section className="section-padding" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
-        <Reveal>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <Star size={12} color="#ff8a3d" />
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem", fontWeight: 600, color: "#ff8a3d", textTransform: "uppercase", letterSpacing: 3 }}>FAQ</span>
-          </div>
-        </Reveal>
-        <Reveal delay={0.1}>
-          <h2 style={{ fontSize: "clamp(2rem, 3.5vw, 3.2rem)", fontWeight: 800, letterSpacing: -1.5, marginBottom: 14 }}>
-            Perguntas <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600 }}>frequentes</span>
-          </h2>
-        </Reveal>
-        <Reveal delay={0.15}>
-          <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", maxWidth: 560, lineHeight: 1.6, marginBottom: 64 }}>
-            Respostas objetivas sobre contratação, entrega e operação dos nossos produtos.
-          </p>
-        </Reveal>
-
-        <Reveal delay={0.2}>
-          <div style={{ maxWidth: 700 }}>
-            {/* Tabs */}
-            <div style={{ display: "flex", gap: 4, marginBottom: 24 }}>
-              {faqTabs.map((tab, i) => (
-                <button key={i} onClick={() => { setActiveFaqTab(i); setOpenFaq(null); }} style={{
-                  padding: "8px 20px", borderRadius: 100, border: "1px solid", cursor: "pointer",
-                  fontFamily: "'Inter', sans-serif", fontSize: "0.78rem", fontWeight: 600, transition: "all 0.3s",
-                  background: activeFaqTab === i ? faqTabColors[i] : "transparent",
-                  color: activeFaqTab === i ? "#08080a" : "rgba(255,255,255,0.4)",
-                  borderColor: activeFaqTab === i ? faqTabColors[i] : "rgba(255,255,255,0.08)"
-                }}>{tab}</button>
-              ))}
-            </div>
-
-            {/* FAQ items */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {faqsByTab[activeFaqTab].map((faq, i) => (
-                <div key={`${activeFaqTab}-${i}`} className="faq-item" onClick={() => setOpenFaq(openFaq === i ? null : i)} style={{
-                  background: "#111114", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 18, padding: "18px 22px",
-                  cursor: "pointer"
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: "0.92rem", fontWeight: 600 }}>{faq.q}</span>
-                    <span style={{ fontSize: "1.2rem", color: "rgba(255,255,255,0.2)", transform: openFaq === i ? "rotate(45deg)" : "none", transition: "transform 0.3s" }}>+</span>
                   </div>
-                  <div style={{
-                    maxHeight: openFaq === i ? 200 : 0, overflow: "hidden",
-                    transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
-                    opacity: openFaq === i ? 1 : 0
-                  }}>
-                    <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.4)", lineHeight: 1.65, paddingTop: 14 }}>{faq.a}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Reveal>
-      </section>
 
-      {/* ═══ CTA — Big editorial statement ═══ */}
-      <section id="contato" className="cta-section" style={{ padding: "140px 60px", maxWidth: 1440, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
-        {/* Decorative elements — hen-ry style */}
-        <div style={{ position: "absolute", top: "40%", left: "50%", transform: "translate(-50%, -50%)", width: 400, height: 400, background: "radial-gradient(circle, rgba(124, 58, 237,0.04) 0%, transparent 55%)", filter: "blur(40px)", pointerEvents: "none" }} />
+                  {erro && (
+                    <div role="alert" className="nrx-error">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      <span>{erro}</span>
+                    </div>
+                  )}
 
-        <Reveal type="scale">
-          <div style={{ position: "relative" }}>
-            <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 32 }}>
-              <Star size={16} color="#7C3AED" style={{ animation: "float1 4s ease-in-out infinite" }} />
-              <Star size={12} color="#2563EB" style={{ animation: "float2 5s ease-in-out infinite" }} />
-              <Star size={14} color="#ff6b9d" style={{ animation: "float3 6s ease-in-out infinite" }} />
-            </div>
+                  <button type="submit" className="nrx-primary" disabled={carregando}>
+                    {carregando ? "Entrando..." : <>Entrar <SetaIcon /></>}
+                  </button>
+                </form>
 
-            <h2 style={{ fontSize: "clamp(2.5rem, 5vw, 4.5rem)", fontWeight: 800, letterSpacing: -2.5, lineHeight: 1.05, marginBottom: 20, maxWidth: 820, margin: "0 auto 20px" }}>
-              Pronto para construir a próxima fase da sua{" "}
-              <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontWeight: 600, color: "#7C3AED" }}>operação</span>?
-            </h2>
-            <p style={{ fontSize: "1.08rem", color: "rgba(255,255,255,0.45)", maxWidth: 520, margin: "0 auto 44px", lineHeight: 1.6 }}>
-              Agende uma conversa sem compromisso. Em 30 minutos mapeamos onde a Noratech pode gerar mais impacto na sua operação.
-            </p>
-            <div className="cta-buttons" style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-              <a href="#" onClick={(e) => { e.preventDefault(); setSchedulerOpen(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 30px", background: "#7C3AED", color: "#ffffff", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", cursor: "pointer", transition: "all 0.3s" }}>
-                Agendar reunião <span style={{ fontSize: "1.1rem" }}>↗</span>
-              </a>
-              <a href="https://wa.me/5511932227752" target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 28px", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, fontWeight: 700, fontSize: "0.92rem", transition: "all 0.3s" }}>
-                Falar no WhatsApp
-              </a>
-            </div>
-          </div>
-        </Reveal>
-      </section>
+                <div className="nrx-divider">Não tem conta?</div>
 
-      {/* ═══ FOOTER ═══ */}
-      <footer className="footer-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "80px 60px 48px", maxWidth: 1440, margin: "0 auto", position: "relative", zIndex: 1 }}>
-        <div className="footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 48, marginBottom: 48 }}>
-          <div>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: "0.9rem", color: "#7C3AED" }}>NORA<span style={{ color: "rgba(255,255,255,0.3)" }}>TECH</span></span>
-            <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.3)", lineHeight: 1.6, maxWidth: 300, marginTop: 12 }}>Engenharia de software, automação e integrações para empresas que querem operar com eficiência.</p>
-          </div>
-          {[
-            {
-              title: "Produtos",
-              links: [
-                { label: "Soluções Contábeis", href: "#produtos", external: false },
-                { label: "WhatsApp Bot", href: "https://whatsapp-mu.vercel.app", external: true },
-              ],
-            },
-            {
-              title: "Serviços",
-              links: [
-                { label: "Sistemas sob medida", href: "/servicos/sistemas-sob-medida", internal: true },
-                { label: "Automação de processos", href: "/servicos/automacao-de-processos", internal: true },
-                { label: "Dashboards & BI", href: "#servicos", external: false },
-                { label: "Integrações", href: "#servicos", external: false },
-              ],
-            },
-            {
-              title: "Contato",
-              links: [
-                { label: "contato@noratech.com.br", href: "mailto:contato@noratech.com.br", external: false },
-                { label: "LinkedIn", href: "#", external: false },
-                { label: "GitHub", href: "#", external: false },
-                { label: "WhatsApp", href: "https://wa.me/5511932227752", external: true },
-              ],
-            },
-          ].map((col, i) => (
-            <div key={i}>
-              <h5 style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, color: "rgba(255,255,255,0.2)", marginBottom: 16 }}>{col.title}</h5>
-              {col.links.map(link => {
-                const linkStyle = { display: "block", color: "rgba(255,255,255,0.35)", fontSize: "0.86rem", padding: "3px 0", transition: "color 0.2s" };
-                if (link.internal) {
-                  return (
-                    <Link key={link.label} to={link.href} style={linkStyle}>
-                      {link.label}
-                    </Link>
-                  );
-                }
-                return (
-                  <a
-                    key={link.label}
-                    href={link.href}
-                    target={link.external ? "_blank" : undefined}
-                    rel={link.external ? "noopener noreferrer" : undefined}
-                    style={linkStyle}
-                  >
-                    {link.label}
-                  </a>
-                );
-              })}
-            </div>
-          ))}
+                <Link to="/registro" className="nrx-secondary">
+                  Registre-se <SetaIcon />
+                </Link>
+              </>
+            )}
+          </section>
         </div>
-        <div className="footer-bottom" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 32, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)" }}>© 2026 Noratech — Todos os direitos reservados</span>
-          <div style={{ display: "flex", gap: 16 }}>
-            <Link to="/privacidade" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Privacidade</Link>
-            <Link to="/termos" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.2)", transition: "color 0.2s" }}>Termos</Link>
-          </div>
-        </div>
-      </footer>
+      </main>
 
-      {/* ═══ MEETING SCHEDULER MODAL ═══ */}
       <MeetingScheduler isOpen={schedulerOpen} onClose={() => setSchedulerOpen(false)} />
     </div>
   );
