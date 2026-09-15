@@ -598,19 +598,19 @@ export default function App() {
            nenhum — nem no palco, nem no documento. */
         .nrx-auth-wrap {
           position: relative; justify-self: center;
-          width: min(100%, clamp(470px, 33vw, 552px));
-          padding: clamp(22px, 3.4vh, 40px) clamp(16px, 2.4vw, 40px);
+          width: min(100%, clamp(356px, 25vw, 416px));
           display: flex; align-items: center; justify-content: center;
+          overflow: visible;
         }
 
-        /* Recorte das órbitas: a caixa de layout de uma elipse girando cresce
-           (é um retângulo rodando), e esse crescimento entraria na área
-           rolável. A elipse desenhada, porém, nunca passa do maior eixo — ou
-           seja, o que este overflow: hidden corta são só os cantos vazios. */
-        .nrx-orbits { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+        /* No desktop nada recorta as órbitas: o que elas transbordarem morre
+           no .nrx-home (fixed + overflow: hidden), então a página continua
+           sem rolagem. No mobile o palco é rolável, e lá a camada volta a
+           recortar (ver media query) para não inflar a área de rolagem. */
+        .nrx-orbits { position: absolute; inset: -18% -22%; overflow: visible; pointer-events: none; }
         .nrx-orbits::before {
           content: ''; position: absolute; left: 50%; top: 50%;
-          width: 108%; height: 108%; transform: translate(-50%,-50%);
+          width: 88%; height: 88%; transform: translate(-50%,-50%);
           background: radial-gradient(circle, rgba(124,58,237,0.22) 0%, rgba(124,58,237,0.06) 42%, transparent 68%);
           filter: blur(28px);
           animation: nrx-halo 12s ease-in-out infinite;
@@ -626,12 +626,12 @@ export default function App() {
           border-radius: 50%; pointer-events: none;
         }
         /* Medidas por largura + aspect-ratio (nunca por height): girando, a
-           caixa de uma elipse cresce até o seu maior eixo. Mantendo o maior
-           eixo <= 100% da largura do wrap, a órbita nunca escapa da caixa —
-           é isso que garante zero rolagem horizontal enquanto ela gira. */
-        .nrx-orbit.o1 { width: 100%; aspect-ratio: 1.16; animation: nrx-orbit-spin 34s linear infinite; }
-        .nrx-orbit.o2 { width: 84%; aspect-ratio: 0.87; border-color: rgba(180,132,255,0.26); animation: nrx-orbit-spin 52s linear infinite reverse; }
-        .nrx-orbit.o3 { width: 100%; aspect-ratio: 1.46; border-color: rgba(124,58,237,0.2); animation: nrx-orbit-spin 76s linear infinite; }
+           caixa de layout de uma elipse cresce até o seu maior eixo. Como a
+           camada é maior que o card e não recorta, a órbita aparece inteira
+           e passa livremente por cima dos limites dele. */
+        .nrx-orbit.o1 { width: 100%; aspect-ratio: 1.2; animation: nrx-orbit-spin 34s linear infinite; }
+        .nrx-orbit.o2 { width: 86%; aspect-ratio: 0.9; border-color: rgba(180,132,255,0.26); animation: nrx-orbit-spin 52s linear infinite reverse; }
+        .nrx-orbit.o3 { width: 100%; aspect-ratio: 1.62; border-color: rgba(124,58,237,0.2); animation: nrx-orbit-spin 76s linear infinite; }
         @keyframes nrx-orbit-spin {
           from { transform: translate(-50%,-50%) rotate(0deg); }
           to   { transform: translate(-50%,-50%) rotate(360deg); }
@@ -647,8 +647,8 @@ export default function App() {
 
         .nrx-card {
           position: relative; width: 100%; z-index: 2; text-align: left;
-          padding: clamp(24px, 3.4vh, 38px) clamp(22px, 2.6vw, 36px);
-          border-radius: 28px;
+          padding: clamp(21px, 3vh, 32px) clamp(20px, 2.2vw, 30px);
+          border-radius: 26px;
           background: linear-gradient(155deg, rgba(34,28,56,0.72) 0%, rgba(11,11,18,0.82) 55%, rgba(20,14,34,0.76) 100%);
           backdrop-filter: blur(30px) saturate(1.5);
           -webkit-backdrop-filter: blur(30px) saturate(1.5);
@@ -691,34 +691,34 @@ export default function App() {
 
         .nrx-card-mark {
           display: inline-flex; align-items: center; justify-content: center;
-          width: clamp(40px, 2.5vw, 46px); height: clamp(40px, 2.5vw, 46px); border-radius: 14px;
+          width: clamp(36px, 2.2vw, 42px); height: clamp(36px, 2.2vw, 42px); border-radius: 13px;
           background: linear-gradient(140deg, rgba(124,58,237,0.9), rgba(76,29,149,0.85));
           border: 1px solid rgba(180,132,255,0.35);
           color: #fff; box-shadow: 0 10px 26px -10px rgba(124,58,237,0.9);
         }
         .nrx-card-brand {
-          display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+          display: flex; align-items: center; gap: 11px; margin-bottom: 13px;
         }
         .nrx-card-name {
-          font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: clamp(0.92rem, 0.98vw, 1.04rem);
+          font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: clamp(0.86rem, 0.9vw, 0.96rem);
           letter-spacing: -0.3px; color: var(--nrx-violet);
         }
         .nrx-card-name span { color: rgba(255,255,255,0.34); }
         .nrx-card-tagline {
-          font-size: clamp(0.86rem, 0.92vw, 0.98rem); color: rgba(255,255,255,0.56);
-          margin: 0 0 clamp(16px, 2.4vh, 26px);
+          font-size: clamp(0.8rem, 0.86vw, 0.9rem); color: rgba(255,255,255,0.56);
+          margin: 0 0 clamp(14px, 2vh, 22px);
         }
 
-        .nrx-field + .nrx-field { margin-top: 12px; }
+        .nrx-field + .nrx-field { margin-top: 11px; }
         .nrx-label {
-          display: block; font-size: clamp(0.72rem, 0.76vw, 0.8rem); font-weight: 600; letter-spacing: 0.3px;
-          color: rgba(255,255,255,0.6); margin-bottom: 8px;
+          display: block; font-size: clamp(0.68rem, 0.72vw, 0.76rem); font-weight: 600; letter-spacing: 0.3px;
+          color: rgba(255,255,255,0.6); margin-bottom: 7px;
         }
         .nrx-home .nrx-input {
-          width: 100%; height: clamp(42px, 5.2vh, 54px);
-          padding: 0 16px; border-radius: 14px;
+          width: 100%; height: clamp(40px, 4.7vh, 48px);
+          padding: 0 14px; border-radius: 13px;
           background: var(--nrx-input); border: 1px solid rgba(255,255,255,0.14);
-          color: var(--nrx-fg); font-family: inherit; font-size: clamp(0.9rem, 0.94vw, 0.98rem); outline: none;
+          color: var(--nrx-fg); font-family: inherit; font-size: clamp(0.85rem, 0.88vw, 0.92rem); outline: none;
           transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
         }
         .nrx-home .nrx-input::placeholder { color: rgba(255,255,255,0.28); }
@@ -729,7 +729,7 @@ export default function App() {
         }
         .nrx-home .nrx-eye {
           position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
-          width: 34px; height: 34px; border-radius: 9px; border: none; background: none;
+          width: 32px; height: 32px; border-radius: 9px; border: none; background: none;
           color: rgba(255,255,255,0.42); cursor: pointer;
           display: flex; align-items: center; justify-content: center;
           transition: color 0.25s ease, background 0.25s ease;
@@ -737,11 +737,11 @@ export default function App() {
         .nrx-home .nrx-eye:hover { color: var(--nrx-fg); background: rgba(255,255,255,0.07); }
 
         .nrx-home .nrx-primary {
-          width: 100%; height: clamp(44px, 5.4vh, 56px); margin-top: clamp(16px, 2.4vh, 24px);
+          width: 100%; height: clamp(42px, 4.9vh, 50px); margin-top: clamp(14px, 2.1vh, 21px);
           display: inline-flex; align-items: center; justify-content: center; gap: 9px;
           border: none; border-radius: 14px; cursor: pointer;
           background: linear-gradient(120deg, #7C3AED 0%, #9257f5 55%, #6d28d9 100%);
-          color: #fff; font-family: inherit; font-size: clamp(0.92rem, 0.96vw, 1rem); font-weight: 700;
+          color: #fff; font-family: inherit; font-size: clamp(0.88rem, 0.9vw, 0.94rem); font-weight: 700;
           box-shadow: 0 16px 34px -16px rgba(124,58,237,0.95);
           transition: transform 0.28s cubic-bezier(0.16,1,0.3,1), box-shadow 0.28s ease, filter 0.28s ease;
         }
@@ -753,19 +753,19 @@ export default function App() {
 
         .nrx-divider {
           display: flex; align-items: center; justify-content: center; gap: 10px;
-          margin: clamp(14px, 2.2vh, 22px) 0 11px;
-          font-size: clamp(0.78rem, 0.82vw, 0.86rem); color: rgba(255,255,255,0.38);
+          margin: clamp(12px, 1.9vh, 19px) 0 10px;
+          font-size: clamp(0.74rem, 0.78vw, 0.82rem); color: rgba(255,255,255,0.38);
         }
         .nrx-divider::before, .nrx-divider::after {
           content: ''; height: 1px; flex: 1; background: rgba(255,255,255,0.08);
         }
 
         .nrx-home .nrx-secondary {
-          width: 100%; height: clamp(40px, 4.9vh, 52px);
+          width: 100%; height: clamp(38px, 4.4vh, 46px);
           display: inline-flex; align-items: center; justify-content: center; gap: 8px;
           border-radius: 14px; cursor: pointer; text-decoration: none;
           background: rgba(255,255,255,0.035); border: 1px solid rgba(180,132,255,0.26);
-          color: rgba(255,255,255,0.88); font-family: inherit; font-size: clamp(0.88rem, 0.92vw, 0.96rem); font-weight: 600;
+          color: rgba(255,255,255,0.88); font-family: inherit; font-size: clamp(0.84rem, 0.87vw, 0.9rem); font-weight: 600;
           transition: background 0.28s ease, border-color 0.28s ease, transform 0.28s cubic-bezier(0.16,1,0.3,1);
         }
         .nrx-home .nrx-secondary:hover { background: rgba(124,58,237,0.16); border-color: rgba(180,132,255,0.55); transform: translateY(-2px); }
@@ -773,13 +773,13 @@ export default function App() {
         .nrx-home .nrx-secondary:hover svg { transform: translateX(4px); }
 
         .nrx-home .nrx-forgot {
-          font-size: clamp(0.74rem, 0.78vw, 0.82rem); color: rgba(255,255,255,0.44); text-decoration: none;
+          font-size: clamp(0.7rem, 0.74vw, 0.78rem); color: rgba(255,255,255,0.44); text-decoration: none;
           transition: color 0.25s ease;
         }
         .nrx-home .nrx-forgot:hover { color: var(--nrx-violet-soft); }
 
         .nrx-connected {
-          font-size: clamp(0.86rem, 0.92vw, 0.98rem); line-height: 1.6;
+          font-size: clamp(0.82rem, 0.87vw, 0.92rem); line-height: 1.6;
           color: rgba(255,255,255,0.62); margin: 0;
         }
         .nrx-connected strong { color: var(--nrx-violet-soft); font-weight: 600; }
@@ -791,6 +791,13 @@ export default function App() {
         }
 
         /* ══════════ RESPONSIVO ══════════ */
+        /* Abaixo de ~1200px a órbita precisa caber na tela: o maior eixo dela
+           é o que aparece desenhado, e passar disso seria cortar na borda
+           do viewport — exatamente o que a camada solta veio resolver. */
+        @media (max-width: 1200px) {
+          .nrx-orbits { inset: -13% -15%; }
+        }
+
         @media (max-width: 1080px) {
           .nrx-stage { gap: clamp(20px, 3vw, 44px); }
           .nrx-headline { letter-spacing: -1.4px; }
@@ -820,7 +827,10 @@ export default function App() {
           }
           .nrx-sub { max-width: 30ch; font-size: 0.86rem; white-space: normal; }
           .nrx-eyebrow { margin-bottom: 12px; font-size: 0.6rem; letter-spacing: 2px; }
-          .nrx-auth-wrap { width: min(100%, 412px); padding: clamp(14px, 2.2vh, 24px) 22px; }
+          /* Mantém a caixa do mobile no tamanho já aprovado — a redução de
+             ~12% é da composição de desktop, onde ela estava grande demais. */
+          .nrx-auth-wrap { width: min(calc(100% - 44px), 368px); }
+          .nrx-orbits { inset: -9% -11%; overflow: hidden; }
           .nrx-orbit.o3 { display: none; }
           .nrx-card { border-radius: 22px; }
         }
