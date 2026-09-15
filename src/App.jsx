@@ -302,6 +302,10 @@ export default function App() {
           --nrx-glass: rgba(255,255,255,0.07);
           --nrx-star-opacity: 0.75;
         }
+        /* A home é escura nos dois temas, então as regras globais de tema
+           claro (index.css) escureceriam texto que aqui vive sobre preto. */
+        html[data-theme="light"] .nrx-home .nrx-input { color: var(--nrx-fg); }
+        html[data-theme="light"] .nrx-home strong { color: var(--nrx-violet-soft) !important; }
 
         /* ══════════ ATMOSFERA ══════════ */
         .nrx-layer { position: absolute; inset: -12%; pointer-events: none; }
@@ -343,12 +347,12 @@ export default function App() {
 
         .nrx-grid {
           background-image:
-            linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+            linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px);
           background-size: 76px 76px;
           -webkit-mask-image: radial-gradient(ellipse 65% 55% at 50% 45%, #000 5%, transparent 72%);
           mask-image: radial-gradient(ellipse 65% 55% at 50% 45%, #000 5%, transparent 72%);
-          opacity: 0.6;
+          opacity: 0.42;
           animation: nrx-grid-pan 90s linear infinite;
         }
         @keyframes nrx-grid-pan {
@@ -413,8 +417,8 @@ export default function App() {
           z-index: 40; max-width: calc(100vw - 24px);
         }
         .nrx-bar {
-          display: flex; align-items: center; gap: 3px;
-          padding: 5px 5px 5px 20px;
+          display: flex; align-items: center; gap: 4px;
+          padding: 7px 7px 7px 24px;
           background: rgba(12,12,16,0.72);
           backdrop-filter: blur(26px) saturate(1.5);
           -webkit-backdrop-filter: blur(26px) saturate(1.5);
@@ -423,8 +427,8 @@ export default function App() {
           box-shadow: 0 14px 44px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05);
         }
         .nrx-wordmark {
-          font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.82rem;
-          letter-spacing: -0.4px; color: var(--nrx-violet); margin-right: 14px;
+          font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.88rem;
+          letter-spacing: -0.4px; color: var(--nrx-violet); margin-right: 18px;
           text-decoration: none; white-space: nowrap;
         }
         .nrx-wordmark span { color: rgba(255,255,255,0.32); }
@@ -433,13 +437,13 @@ export default function App() {
 
         .nrx-home .nrx-navitem {
           position: relative; background: none; border: none; cursor: pointer;
-          font-family: inherit; font-size: 0.78rem; font-weight: 500;
-          color: rgba(255,255,255,0.48); padding: 8px 14px; border-radius: 100px;
+          font-family: inherit; font-size: 0.83rem; font-weight: 500;
+          color: rgba(255,255,255,0.55); padding: 10px 17px; border-radius: 100px;
           white-space: nowrap;
           transition: color 0.35s ease, background 0.35s ease;
         }
         .nrx-home .nrx-navitem::after {
-          content: ''; position: absolute; left: 50%; bottom: 4px;
+          content: ''; position: absolute; left: 50%; bottom: 5px;
           width: 0; height: 1px; background: var(--nrx-violet-soft);
           transform: translateX(-50%); opacity: 0;
           transition: width 0.4s cubic-bezier(0.16,1,0.3,1), opacity 0.4s ease;
@@ -449,11 +453,11 @@ export default function App() {
         .nrx-home .nrx-navitem:hover::after,
         .nrx-home .nrx-navitem[aria-expanded="true"]::after { width: 16px; opacity: 0.9; }
 
-        .nrx-bar-actions { display: flex; align-items: center; gap: 4px; margin-left: 6px; }
+        .nrx-bar-actions { display: flex; align-items: center; gap: 5px; margin-left: 9px; }
 
         .nrx-home .nrx-avatar {
           display: flex; align-items: center; justify-content: center;
-          width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+          width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
           background: rgba(124,58,237,0.10); border: 1px solid rgba(124,58,237,0.22);
           color: var(--nrx-violet-soft);
           transition: background 0.35s ease, border-color 0.35s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
@@ -463,7 +467,7 @@ export default function App() {
 
         .nrx-home .nrx-burger {
           display: none; align-items: center; justify-content: center;
-          width: 34px; height: 34px; border-radius: 50%; padding: 0; cursor: pointer;
+          width: 38px; height: 38px; border-radius: 50%; padding: 0; cursor: pointer;
           background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
           color: var(--nrx-fg);
           transition: background 0.3s ease, border-color 0.3s ease;
@@ -535,15 +539,17 @@ export default function App() {
           display: grid;
           grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
           align-items: center;
-          gap: clamp(28px, 5vw, 88px);
-          padding: clamp(96px, 13vh, 132px) clamp(24px, 6vw, 92px) clamp(40px, 7vh, 72px);
-          max-width: 1400px; margin: 0 auto;
+          gap: clamp(28px, 5vw, 96px);
+          /* Rodapé maior que o topo: com align-items: center isso sobe o
+             conjunto alguns pixels acima do meio óptico da tela. */
+          padding: clamp(92px, 12vh, 128px) clamp(24px, 6vw, 92px) clamp(72px, 16vh, 190px);
+          max-width: 1560px; margin: 0 auto;
         }
 
         /* ── Lado esquerdo ── */
         .nrx-eyebrow {
           display: inline-flex; align-items: center; gap: 10px;
-          font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; font-weight: 500;
+          font-family: 'JetBrains Mono', monospace; font-size: clamp(0.66rem, 0.72vw, 0.78rem); font-weight: 500;
           letter-spacing: 2.6px; text-transform: uppercase;
           color: rgba(255,255,255,0.38); margin-bottom: clamp(18px, 3vh, 28px);
           animation: nrx-rise 0.9s cubic-bezier(0.16,1,0.3,1) both;
@@ -560,7 +566,7 @@ export default function App() {
         }
 
         .nrx-headline {
-          font-size: clamp(2.1rem, 5.2vw, 4.3rem);
+          font-size: clamp(2.1rem, 5.3vw, 5.15rem);
           line-height: 1.06; font-weight: 800; letter-spacing: -2px;
           margin: 0 0 clamp(16px, 2.6vh, 26px);
           max-width: 12ch;
@@ -580,8 +586,9 @@ export default function App() {
         @keyframes nrx-blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
 
         .nrx-sub {
-          font-size: clamp(0.9rem, 1.15vw, 1.02rem); line-height: 1.65;
-          color: var(--nrx-muted); max-width: 34ch; margin: 0;
+          font-size: clamp(0.9rem, 1.12vw, 1.16rem); line-height: 1.65;
+          color: var(--nrx-muted); margin: 0;
+          white-space: nowrap; /* uma linha só no desktop */
           animation: nrx-rise 1.1s cubic-bezier(0.16,1,0.3,1) 0.35s both;
         }
 
@@ -591,8 +598,8 @@ export default function App() {
            nenhum — nem no palco, nem no documento. */
         .nrx-auth-wrap {
           position: relative; justify-self: center;
-          width: min(100%, 470px);
-          padding: clamp(22px, 3.4vh, 38px) clamp(16px, 2.6vw, 39px);
+          width: min(100%, clamp(470px, 33vw, 552px));
+          padding: clamp(22px, 3.4vh, 40px) clamp(16px, 2.4vw, 40px);
           display: flex; align-items: center; justify-content: center;
         }
 
@@ -640,16 +647,16 @@ export default function App() {
 
         .nrx-card {
           position: relative; width: 100%; z-index: 2; text-align: left;
-          padding: clamp(24px, 3.4vh, 34px) clamp(22px, 2.6vw, 32px);
-          border-radius: 26px;
-          background: linear-gradient(155deg, rgba(28,24,46,0.62) 0%, rgba(10,10,16,0.72) 55%, rgba(16,12,28,0.66) 100%);
+          padding: clamp(24px, 3.4vh, 38px) clamp(22px, 2.6vw, 36px);
+          border-radius: 28px;
+          background: linear-gradient(155deg, rgba(34,28,56,0.72) 0%, rgba(11,11,18,0.82) 55%, rgba(20,14,34,0.76) 100%);
           backdrop-filter: blur(30px) saturate(1.5);
           -webkit-backdrop-filter: blur(30px) saturate(1.5);
-          border: 1px solid rgba(255,255,255,0.10);
+          border: 1px solid rgba(255,255,255,0.14);
           box-shadow:
-            0 40px 90px -30px rgba(0,0,0,0.85),
-            0 0 70px -30px rgba(124,58,237,0.55),
-            inset 0 1px 0 rgba(255,255,255,0.08);
+            0 46px 100px -32px rgba(0,0,0,0.9),
+            0 0 74px -30px rgba(124,58,237,0.5),
+            inset 0 1px 0 rgba(255,255,255,0.12);
           animation: nrx-card-in 1s cubic-bezier(0.16,1,0.3,1) 0.2s both;
         }
         @keyframes nrx-card-in {
@@ -684,7 +691,7 @@ export default function App() {
 
         .nrx-card-mark {
           display: inline-flex; align-items: center; justify-content: center;
-          width: 40px; height: 40px; border-radius: 13px;
+          width: clamp(40px, 2.5vw, 46px); height: clamp(40px, 2.5vw, 46px); border-radius: 14px;
           background: linear-gradient(140deg, rgba(124,58,237,0.9), rgba(76,29,149,0.85));
           border: 1px solid rgba(180,132,255,0.35);
           color: #fff; box-shadow: 0 10px 26px -10px rgba(124,58,237,0.9);
@@ -693,25 +700,25 @@ export default function App() {
           display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
         }
         .nrx-card-name {
-          font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.92rem;
+          font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: clamp(0.92rem, 0.98vw, 1.04rem);
           letter-spacing: -0.3px; color: var(--nrx-violet);
         }
         .nrx-card-name span { color: rgba(255,255,255,0.34); }
         .nrx-card-tagline {
-          font-size: 0.86rem; color: rgba(255,255,255,0.52);
-          margin: 0 0 clamp(16px, 2.4vh, 24px);
+          font-size: clamp(0.86rem, 0.92vw, 0.98rem); color: rgba(255,255,255,0.56);
+          margin: 0 0 clamp(16px, 2.4vh, 26px);
         }
 
         .nrx-field + .nrx-field { margin-top: 12px; }
         .nrx-label {
-          display: block; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.3px;
-          color: rgba(255,255,255,0.55); margin-bottom: 7px;
+          display: block; font-size: clamp(0.72rem, 0.76vw, 0.8rem); font-weight: 600; letter-spacing: 0.3px;
+          color: rgba(255,255,255,0.6); margin-bottom: 8px;
         }
         .nrx-home .nrx-input {
-          width: 100%; height: clamp(42px, 5.4vh, 48px);
-          padding: 0 14px; border-radius: 13px;
-          background: var(--nrx-input); border: 1px solid rgba(255,255,255,0.12);
-          color: var(--nrx-fg); font-family: inherit; font-size: 0.9rem; outline: none;
+          width: 100%; height: clamp(42px, 5.2vh, 54px);
+          padding: 0 16px; border-radius: 14px;
+          background: var(--nrx-input); border: 1px solid rgba(255,255,255,0.14);
+          color: var(--nrx-fg); font-family: inherit; font-size: clamp(0.9rem, 0.94vw, 0.98rem); outline: none;
           transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
         }
         .nrx-home .nrx-input::placeholder { color: rgba(255,255,255,0.28); }
@@ -730,11 +737,11 @@ export default function App() {
         .nrx-home .nrx-eye:hover { color: var(--nrx-fg); background: rgba(255,255,255,0.07); }
 
         .nrx-home .nrx-primary {
-          width: 100%; height: clamp(44px, 5.6vh, 50px); margin-top: clamp(16px, 2.4vh, 22px);
+          width: 100%; height: clamp(44px, 5.4vh, 56px); margin-top: clamp(16px, 2.4vh, 24px);
           display: inline-flex; align-items: center; justify-content: center; gap: 9px;
-          border: none; border-radius: 13px; cursor: pointer;
+          border: none; border-radius: 14px; cursor: pointer;
           background: linear-gradient(120deg, #7C3AED 0%, #9257f5 55%, #6d28d9 100%);
-          color: #fff; font-family: inherit; font-size: 0.92rem; font-weight: 700;
+          color: #fff; font-family: inherit; font-size: clamp(0.92rem, 0.96vw, 1rem); font-weight: 700;
           box-shadow: 0 16px 34px -16px rgba(124,58,237,0.95);
           transition: transform 0.28s cubic-bezier(0.16,1,0.3,1), box-shadow 0.28s ease, filter 0.28s ease;
         }
@@ -746,19 +753,19 @@ export default function App() {
 
         .nrx-divider {
           display: flex; align-items: center; justify-content: center; gap: 10px;
-          margin: clamp(14px, 2.2vh, 20px) 0 10px;
-          font-size: 0.78rem; color: rgba(255,255,255,0.35);
+          margin: clamp(14px, 2.2vh, 22px) 0 11px;
+          font-size: clamp(0.78rem, 0.82vw, 0.86rem); color: rgba(255,255,255,0.38);
         }
         .nrx-divider::before, .nrx-divider::after {
           content: ''; height: 1px; flex: 1; background: rgba(255,255,255,0.08);
         }
 
         .nrx-home .nrx-secondary {
-          width: 100%; height: clamp(40px, 5vh, 46px);
+          width: 100%; height: clamp(40px, 4.9vh, 52px);
           display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-          border-radius: 13px; cursor: pointer; text-decoration: none;
+          border-radius: 14px; cursor: pointer; text-decoration: none;
           background: rgba(255,255,255,0.035); border: 1px solid rgba(180,132,255,0.26);
-          color: rgba(255,255,255,0.86); font-family: inherit; font-size: 0.88rem; font-weight: 600;
+          color: rgba(255,255,255,0.88); font-family: inherit; font-size: clamp(0.88rem, 0.92vw, 0.96rem); font-weight: 600;
           transition: background 0.28s ease, border-color 0.28s ease, transform 0.28s cubic-bezier(0.16,1,0.3,1);
         }
         .nrx-home .nrx-secondary:hover { background: rgba(124,58,237,0.16); border-color: rgba(180,132,255,0.55); transform: translateY(-2px); }
@@ -766,10 +773,16 @@ export default function App() {
         .nrx-home .nrx-secondary:hover svg { transform: translateX(4px); }
 
         .nrx-home .nrx-forgot {
-          font-size: 0.74rem; color: rgba(255,255,255,0.4); text-decoration: none;
+          font-size: clamp(0.74rem, 0.78vw, 0.82rem); color: rgba(255,255,255,0.44); text-decoration: none;
           transition: color 0.25s ease;
         }
         .nrx-home .nrx-forgot:hover { color: var(--nrx-violet-soft); }
+
+        .nrx-connected {
+          font-size: clamp(0.86rem, 0.92vw, 0.98rem); line-height: 1.6;
+          color: rgba(255,255,255,0.62); margin: 0;
+        }
+        .nrx-connected strong { color: var(--nrx-violet-soft); font-weight: 600; }
 
         .nrx-error {
           display: flex; gap: 8px; margin-top: 14px; padding: 10px 12px;
@@ -794,7 +807,7 @@ export default function App() {
             justify-items: center;
             text-align: center;
             gap: clamp(18px, 3.4vh, 30px);
-            padding: clamp(82px, 12vh, 104px) 20px clamp(24px, 4vh, 40px);
+            padding: clamp(86px, 12vh, 108px) 20px clamp(24px, 4vh, 40px);
             overflow-x: hidden;
             overflow-y: auto;
             scrollbar-width: none;
@@ -805,7 +818,7 @@ export default function App() {
             font-size: clamp(1.75rem, 7.4vw, 2.5rem);
             max-width: 16ch; letter-spacing: -1px; margin-bottom: 10px;
           }
-          .nrx-sub { max-width: 30ch; font-size: 0.86rem; }
+          .nrx-sub { max-width: 30ch; font-size: 0.86rem; white-space: normal; }
           .nrx-eyebrow { margin-bottom: 12px; font-size: 0.6rem; letter-spacing: 2px; }
           .nrx-auth-wrap { width: min(100%, 412px); padding: clamp(14px, 2.2vh, 24px) 22px; }
           .nrx-orbit.o3 { display: none; }
@@ -920,7 +933,7 @@ export default function App() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" /></svg>
               )}
             </button>
-            <ThemeToggle />
+            <ThemeToggle style={{ width: 38, height: 38 }} />
             <Link
               to={user ? "/area-do-cliente" : "/login"}
               className="nrx-avatar"
@@ -986,8 +999,8 @@ export default function App() {
 
             {user ? (
               <>
-                <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.6)", lineHeight: 1.6, margin: 0 }}>
-                  Você já está conectado como <strong style={{ color: "#b684ff", fontWeight: 600 }}>{user.email}</strong>.
+                <p className="nrx-connected">
+                  Você já está conectado como <strong>{user.email}</strong>.
                 </p>
                 <Link to="/area-do-cliente" className="nrx-primary" style={{ textDecoration: "none" }}>
                   Entrar na plataforma <SetaIcon />
