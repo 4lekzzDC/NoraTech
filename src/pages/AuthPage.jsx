@@ -201,6 +201,9 @@ export default function AuthPage() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
+        /* Toda a cor da tela passa por estes tokens — o tema claro é a
+           mesma folha com outros valores, então layout e animações não
+           sabem que o tema mudou. */
         .nrxr-page {
           --nrxr-violet: #7C3AED;
           --nrxr-violet-soft: #b684ff;
@@ -208,6 +211,49 @@ export default function AuthPage() {
           --nrxr-fg: #f2f1ee;
           --nrxr-muted: rgba(255,255,255,0.46);
           --nrxr-line: rgba(255,255,255,0.09);
+
+          --nrxr-card-bg: linear-gradient(150deg, rgba(16,15,24,0.94) 0%, rgba(9,9,14,0.96) 58%, rgba(15,11,26,0.94) 100%);
+          --nrxr-card-border: rgba(255,255,255,0.12);
+          --nrxr-card-shadow:
+            0 50px 110px -34px rgba(0,0,0,0.92),
+            0 0 80px -34px rgba(124,58,237,0.45),
+            inset 0 1px 0 rgba(255,255,255,0.1);
+          --nrxr-half-bg: #0b0a11;
+          --nrxr-divisor: rgba(255,255,255,0.07);
+          --nrxr-aside-bloom: rgba(124,58,237,0.18);
+          --nrxr-aside-veu: rgba(255,255,255,0.015);
+
+          --nrxr-input-bg: rgba(255,255,255,0.035);
+          --nrxr-input-border: rgba(255,255,255,0.13);
+          --nrxr-input-border-hover: rgba(255,255,255,0.22);
+          --nrxr-placeholder: rgba(255,255,255,0.3);
+          --nrxr-label: rgba(255,255,255,0.82);
+          --nrxr-icone: rgba(255,255,255,0.32);
+          --nrxr-icone-hover-bg: rgba(255,255,255,0.07);
+          --nrxr-chip-bg: rgba(255,255,255,0.045);
+          --nrxr-chip-border: rgba(255,255,255,0.1);
+          --nrxr-texto-2: rgba(255,255,255,0.62);
+          --nrxr-texto-3: rgba(255,255,255,0.46);
+          --nrxr-texto-4: rgba(255,255,255,0.42);
+          --nrxr-texto-5: rgba(255,255,255,0.35);
+          --nrxr-check-border: rgba(255,255,255,0.24);
+          --nrxr-check-bg: rgba(255,255,255,0.04);
+          --nrxr-erro-bg: rgba(255,80,80,0.09);
+          --nrxr-erro-border: rgba(255,80,80,0.26);
+          --nrxr-erro-fg: #ff9090;
+
+          --nrxr-estrela: #fff;
+          --nrxr-ponto-2: #fff;
+          --nrxr-ponto-2-glow: rgba(255,255,255,0.5);
+          --nrxr-grid-opacity: 0;
+          --nrxr-grid-cor: rgba(124,58,237,0.16);
+          --nrxr-neb-a: radial-gradient(circle, rgba(124,58,237,0.26) 0%, rgba(124,58,237,0.05) 46%, transparent 70%);
+          --nrxr-neb-b: radial-gradient(circle, rgba(91,33,182,0.24) 0%, transparent 70%);
+          --nrxr-orbita: rgba(124,58,237,0.3);
+          --nrxr-orbita-2: rgba(180,132,255,0.24);
+          --nrxr-horizonte: radial-gradient(circle at 38% 0%, rgba(84,52,142,0.5) 0%, rgba(24,17,42,0.8) 14%, rgba(8,7,14,0.96) 30%, #05050a 46%);
+          --nrxr-horizonte-rim: 0 -1px 0 0 rgba(206,176,255,0.6), 0 -12px 44px -6px rgba(180,132,255,0.42);
+          --nrxr-horizonte-luz: radial-gradient(ellipse 60% 50% at 50% 60%, rgba(196,158,255,0.3) 0%, rgba(124,58,237,0.12) 38%, transparent 70%);
 
           position: relative;
           min-height: 100vh;
@@ -221,13 +267,90 @@ export default function AuthPage() {
         }
         .nrxr-page *, .nrxr-page *::before, .nrxr-page *::after { box-sizing: border-box; }
 
-        /* A tela é escura nos dois temas, como a home. As regras globais de
-           tema claro (index.css) escureceriam texto que aqui vive no preto. */
-        html[data-theme="light"] .nrxr-page .nrxr-input { color: var(--nrxr-fg); }
-        html[data-theme="light"] .nrxr-page strong { color: var(--nrxr-violet-soft) !important; }
+        /* ══════════ TEMA CLARO ══════════
+           Base branca com fundo de leve tom lilás, grid discreto, órbitas e
+           partículas em roxo suave, card claro de pouca transparência. */
+        html[data-theme="light"] .nrxr-page {
+          --nrxr-violet-soft: #6d28d9;
+          --nrxr-bg: #f6f5fb;
+          --nrxr-fg: #14121c;
+          --nrxr-muted: rgba(20,18,28,0.58);
+          --nrxr-line: rgba(20,18,28,0.10);
+
+          --nrxr-card-bg: linear-gradient(150deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.95) 58%, rgba(250,248,255,0.92) 100%);
+          --nrxr-card-border: rgba(20,18,28,0.09);
+          --nrxr-card-shadow:
+            0 50px 110px -40px rgba(49,32,96,0.26),
+            0 0 80px -38px rgba(124,58,237,0.28),
+            inset 0 1px 0 rgba(255,255,255,0.9);
+          --nrxr-half-bg: #fcfbff;
+          --nrxr-divisor: rgba(20,18,28,0.08);
+          --nrxr-aside-bloom: rgba(124,58,237,0.10);
+          --nrxr-aside-veu: rgba(124,58,237,0.03);
+
+          --nrxr-input-bg: rgba(246,245,251,0.9);
+          --nrxr-input-border: rgba(20,18,28,0.12);
+          --nrxr-input-border-hover: rgba(20,18,28,0.22);
+          --nrxr-placeholder: rgba(20,18,28,0.36);
+          --nrxr-label: rgba(20,18,28,0.8);
+          --nrxr-icone: rgba(20,18,28,0.34);
+          --nrxr-icone-hover-bg: rgba(20,18,28,0.06);
+          --nrxr-chip-bg: rgba(124,58,237,0.08);
+          --nrxr-chip-border: rgba(124,58,237,0.14);
+          --nrxr-texto-2: rgba(20,18,28,0.62);
+          --nrxr-texto-3: rgba(20,18,28,0.5);
+          --nrxr-texto-4: rgba(20,18,28,0.48);
+          --nrxr-texto-5: rgba(20,18,28,0.42);
+          --nrxr-check-border: rgba(20,18,28,0.2);
+          --nrxr-check-bg: rgba(255,255,255,0.9);
+          --nrxr-erro-bg: rgba(220,38,38,0.07);
+          --nrxr-erro-border: rgba(220,38,38,0.22);
+          --nrxr-erro-fg: #b91c1c;
+
+          --nrxr-estrela: #7C3AED;
+          --nrxr-ponto-2: #a78bfa;
+          --nrxr-ponto-2-glow: rgba(167,139,250,0.55);
+          --nrxr-grid-opacity: 1;
+          --nrxr-grid-cor: rgba(124,58,237,0.1);
+          --nrxr-neb-a: radial-gradient(circle, rgba(124,58,237,0.16) 0%, rgba(124,58,237,0.04) 46%, transparent 70%);
+          --nrxr-neb-b: radial-gradient(circle, rgba(139,92,246,0.14) 0%, transparent 70%);
+          --nrxr-orbita: rgba(124,58,237,0.2);
+          --nrxr-orbita-2: rgba(124,58,237,0.14);
+          --nrxr-horizonte: radial-gradient(circle at 38% 0%, rgba(226,216,250,0.9) 0%, rgba(238,232,252,0.75) 16%, rgba(246,245,251,0.6) 34%, transparent 50%);
+          --nrxr-horizonte-rim: 0 -1px 0 0 rgba(124,58,237,0.16), 0 -14px 46px -10px rgba(124,58,237,0.16);
+          --nrxr-horizonte-luz: radial-gradient(ellipse 60% 50% at 50% 60%, rgba(167,139,250,0.22) 0%, rgba(124,58,237,0.08) 38%, transparent 70%);
+        }
+        /* O texto do tema claro é escuro em tudo, então as regras globais de
+           index.css já caem certas — menos no botão roxo, que continua com
+           texto branco, e no toggle, cujo estilo vem inline do componente. */
+        html[data-theme="light"] .nrxr-page .theme-toggle {
+          background: rgba(255,255,255,0.92) !important;
+          border-color: rgba(20,18,28,0.1) !important;
+          color: var(--nrxr-violet) !important;
+        }
+        html[data-theme="light"] .nrxr-page .theme-toggle:hover {
+          background: rgba(124,58,237,0.1) !important;
+          border-color: rgba(124,58,237,0.28) !important;
+        }
 
         /* ══════════ CENA ══════════ */
         .nrxr-scene { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+
+        .nrxr-grid {
+          position: absolute; inset: -10%;
+          background-image:
+            linear-gradient(var(--nrxr-grid-cor) 1px, transparent 1px),
+            linear-gradient(90deg, var(--nrxr-grid-cor) 1px, transparent 1px);
+          background-size: 68px 68px;
+          -webkit-mask-image: radial-gradient(ellipse 72% 62% at 50% 44%, #000 6%, transparent 76%);
+          mask-image: radial-gradient(ellipse 72% 62% at 50% 44%, #000 6%, transparent 76%);
+          opacity: var(--nrxr-grid-opacity);
+          animation: nrxr-grid-pan 110s linear infinite;
+        }
+        @keyframes nrxr-grid-pan {
+          from { background-position: 0 0, 0 0; }
+          to   { background-position: 68px 68px, 68px 68px; }
+        }
 
         .nrxr-neb {
           position: absolute; border-radius: 50%; filter: blur(80px);
@@ -235,13 +358,13 @@ export default function AuthPage() {
         .nrxr-neb.a {
           width: 58vw; height: 58vw; max-width: 860px; max-height: 860px;
           top: -24%; left: -14%;
-          background: radial-gradient(circle, rgba(124,58,237,0.26) 0%, rgba(124,58,237,0.05) 46%, transparent 70%);
+          background: var(--nrxr-neb-a);
           animation: nrxr-drift-a 52s ease-in-out infinite;
         }
         .nrxr-neb.b {
           width: 52vw; height: 52vw; max-width: 780px; max-height: 780px;
           bottom: -28%; right: -12%;
-          background: radial-gradient(circle, rgba(91,33,182,0.24) 0%, transparent 70%);
+          background: var(--nrxr-neb-b);
           animation: nrxr-drift-b 64s ease-in-out infinite;
         }
         @keyframes nrxr-drift-a {
@@ -261,22 +384,19 @@ export default function AuthPage() {
           position: absolute; top: 72vh; left: 50%;
           width: 220vw; height: 220vw; margin-left: -110vw;
           border-radius: 50%;
-          background:
-            radial-gradient(circle at 38% 0%, rgba(84,52,142,0.5) 0%, rgba(24,17,42,0.8) 14%, rgba(8,7,14,0.96) 30%, #05050a 46%);
-          box-shadow:
-            0 -1px 0 0 rgba(206,176,255,0.6),
-            0 -12px 44px -6px rgba(180,132,255,0.42);
+          background: var(--nrxr-horizonte);
+          box-shadow: var(--nrxr-horizonte-rim);
         }
         /* Bloom rasante acima da borda, do lado esquerdo — a luz da cena. */
         .nrxr-horizonte-luz {
           position: absolute; top: 72vh; left: 4%;
           width: 46vw; height: 26vh; transform: translateY(-62%);
-          background: radial-gradient(ellipse 60% 50% at 50% 60%, rgba(196,158,255,0.3) 0%, rgba(124,58,237,0.12) 38%, transparent 70%);
+          background: var(--nrxr-horizonte-luz);
           filter: blur(26px);
         }
 
         .nrxr-star {
-          position: absolute; border-radius: 50%; background: #fff;
+          position: absolute; border-radius: 50%; background: var(--nrxr-estrela);
           animation: nrxr-twinkle var(--dur) ease-in-out infinite;
           animation-delay: var(--delay);
         }
@@ -293,10 +413,10 @@ export default function AuthPage() {
         }
         .nrxr-orbit {
           position: absolute; top: 50%; left: 50%;
-          border: 1px solid rgba(124,58,237,0.3); border-radius: 50%;
+          border: 1px solid var(--nrxr-orbita); border-radius: 50%;
         }
         .nrxr-orbit.o1 { width: 100%; aspect-ratio: 1.12; animation: nrxr-spin 44s linear infinite; }
-        .nrxr-orbit.o2 { width: 84%; aspect-ratio: 0.9; border-color: rgba(180,132,255,0.24); animation: nrxr-spin 64s linear infinite reverse; }
+        .nrxr-orbit.o2 { width: 84%; aspect-ratio: 0.9; border-color: var(--nrxr-orbita-2); animation: nrxr-spin 64s linear infinite reverse; }
         @keyframes nrxr-spin {
           from { transform: translate(-50%,-50%) rotate(0deg); }
           to   { transform: translate(-50%,-50%) rotate(360deg); }
@@ -307,7 +427,7 @@ export default function AuthPage() {
           background: var(--nrxr-violet-soft);
           box-shadow: 0 0 12px 2px rgba(180,132,255,0.75);
         }
-        .nrxr-orbit.o2 .nrxr-orbit-dot { top: auto; bottom: -2.5px; background: #fff; box-shadow: 0 0 10px 2px rgba(255,255,255,0.5); }
+        .nrxr-orbit.o2 .nrxr-orbit-dot { top: auto; bottom: -2.5px; background: var(--nrxr-ponto-2); box-shadow: 0 0 10px 2px var(--nrxr-ponto-2-glow); }
 
         /* ══════════ TOPO ══════════ */
         .nrxr-top {
@@ -319,11 +439,11 @@ export default function AuthPage() {
           font-weight: 800; font-size: 1.05rem; letter-spacing: 0.4px;
           color: var(--nrxr-violet); text-decoration: none;
         }
-        .nrxr-wordmark span { color: rgba(255,255,255,0.46); }
+        .nrxr-wordmark span { color: var(--nrxr-texto-3); }
         .nrxr-top-right { display: flex; align-items: center; gap: 14px; }
         .nrxr-page .nrxr-back {
           display: inline-flex; align-items: center; gap: 8px;
-          color: rgba(255,255,255,0.6); text-decoration: none;
+          color: var(--nrxr-texto-2); text-decoration: none;
           font-size: 0.88rem; font-weight: 500;
           transition: color 0.25s ease;
         }
@@ -340,16 +460,13 @@ export default function AuthPage() {
              as duas metades são absolutas. */
           min-height: 520px;
           border-radius: 26px;
-          border: 1px solid rgba(255,255,255,0.12);
+          border: 1px solid var(--nrxr-card-border);
           /* Baixa transparência de propósito: mais corpo que um vidro comum,
              para o formulário não competir com as estrelas do fundo. */
-          background: linear-gradient(150deg, rgba(16,15,24,0.94) 0%, rgba(9,9,14,0.96) 58%, rgba(15,11,26,0.94) 100%);
+          background: var(--nrxr-card-bg);
           backdrop-filter: blur(26px) saturate(1.3);
           -webkit-backdrop-filter: blur(26px) saturate(1.3);
-          box-shadow:
-            0 50px 110px -34px rgba(0,0,0,0.92),
-            0 0 80px -34px rgba(124,58,237,0.45),
-            inset 0 1px 0 rgba(255,255,255,0.1);
+          box-shadow: var(--nrxr-card-shadow);
           overflow: hidden;
           animation: nrxr-in 0.8s cubic-bezier(0.16,1,0.3,1) both;
         }
@@ -369,7 +486,7 @@ export default function AuthPage() {
           /* Opacas de propósito: cruzando, uma precisa cobrir a outra —
              translúcidas, os dois textos se sobrepõem no meio do caminho.
              O tom é o do card, então em repouso o painel continua igual. */
-          background: #0b0a11;
+          background: var(--nrxr-half-bg);
         }
         /* Prefixadas com .nrxr-page de propósito: a regra global de tema em
            index.css (html[data-theme] *) tem mais especificidade que uma
@@ -386,7 +503,7 @@ export default function AuthPage() {
            junto com elas durante a troca. */
         .nrxr-divisor {
           position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
-          background: rgba(255,255,255,0.07); z-index: 3; pointer-events: none;
+          background: var(--nrxr-divisor); z-index: 3; pointer-events: none;
         }
 
         /* ── Conteúdo institucional ── */
@@ -399,13 +516,13 @@ export default function AuthPage() {
         .nrxr-half.lado-institucional::before {
           content: ''; position: absolute; inset: 0; pointer-events: none;
           background:
-            radial-gradient(ellipse 110% 80% at 50% 106%, rgba(124,58,237,0.18) 0%, transparent 62%),
-            linear-gradient(180deg, rgba(255,255,255,0.015) 0%, transparent 60%);
+            radial-gradient(ellipse 110% 80% at 50% 106%, var(--nrxr-aside-bloom) 0%, transparent 62%),
+            linear-gradient(180deg, var(--nrxr-aside-veu) 0%, transparent 60%);
         }
         .nrxr-eyebrow {
           font-family: 'JetBrains Mono', monospace;
           font-size: 0.68rem; font-weight: 500; letter-spacing: 2.8px;
-          text-transform: uppercase; color: rgba(255,255,255,0.4);
+          text-transform: uppercase; color: var(--nrxr-texto-5);
           margin-bottom: 20px;
         }
         .nrxr-title {
@@ -425,12 +542,12 @@ export default function AuthPage() {
           flex-shrink: 0;
           display: inline-flex; align-items: center; justify-content: center;
           width: 46px; height: 46px; border-radius: 14px;
-          background: rgba(255,255,255,0.045);
-          border: 1px solid rgba(255,255,255,0.1);
-          color: var(--nrxr-violet-soft);
+          background: var(--nrxr-chip-bg);
+          border: 1px solid var(--nrxr-chip-border);
+          color: var(--nrxr-violet);
         }
         .nrxr-benefit-title { font-size: 0.94rem; font-weight: 700; letter-spacing: -0.2px; }
-        .nrxr-benefit-desc { font-size: 0.86rem; color: rgba(255,255,255,0.42); margin-top: 2px; }
+        .nrxr-benefit-desc { font-size: 0.86rem; color: var(--nrxr-texto-4); margin-top: 2px; }
 
         /* ── Lado direito ── */
         .nrxr-form-side { width: 100%; padding: clamp(30px, 4vw, 52px); display: flex; flex-direction: column; }
@@ -442,8 +559,8 @@ export default function AuthPage() {
           border: 1px solid rgba(180,132,255,0.4); color: #fff;
           box-shadow: 0 12px 30px -12px rgba(124,58,237,0.95);
         }
-        .nrxr-brand-name { font-weight: 800; font-size: 1.05rem; letter-spacing: 0.4px; color: #fff; }
-        .nrxr-brand-sub { font-size: 0.88rem; color: rgba(255,255,255,0.46); margin-top: 3px; }
+        .nrxr-brand-name { font-weight: 800; font-size: 1.05rem; letter-spacing: 0.4px; color: var(--nrxr-fg); }
+        .nrxr-brand-sub { font-size: 0.88rem; color: var(--nrxr-texto-3); margin-top: 3px; }
 
         .nrxr-swap { animation: nrxr-swap-in 0.42s cubic-bezier(0.16,1,0.3,1) both; }
         @keyframes nrxr-swap-in {
@@ -454,33 +571,33 @@ export default function AuthPage() {
         .nrxr-field + .nrxr-field { margin-top: 14px; }
         .nrxr-label {
           display: block; font-size: 0.84rem; font-weight: 600;
-          color: rgba(255,255,255,0.82); margin-bottom: 8px;
+          color: var(--nrxr-label); margin-bottom: 8px;
         }
         .nrxr-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
         .nrxr-label-row .nrxr-label { margin-bottom: 8px; }
         .nrxr-page .nrxr-forgot {
           font-size: 0.82rem; font-weight: 500; text-decoration: none;
-          color: rgba(255,255,255,0.5); transition: color 0.25s ease;
+          color: var(--nrxr-texto-3); transition: color 0.25s ease;
         }
         .nrxr-page .nrxr-forgot:hover { color: var(--nrxr-violet-soft); }
 
         .nrxr-input-wrap { position: relative; display: flex; align-items: center; }
         .nrxr-input-icon {
           position: absolute; left: 15px; display: flex; pointer-events: none;
-          color: rgba(255,255,255,0.32);
+          color: var(--nrxr-icone);
           transition: color 0.25s ease;
         }
         .nrxr-input-wrap:focus-within .nrxr-input-icon { color: var(--nrxr-violet-soft); }
         .nrxr-page .nrxr-input {
           width: 100%; height: 52px; padding: 0 46px;
           border-radius: 14px;
-          background: rgba(255,255,255,0.035);
-          border: 1px solid rgba(255,255,255,0.13);
+          background: var(--nrxr-input-bg);
+          border: 1px solid var(--nrxr-input-border);
           color: var(--nrxr-fg); font-family: inherit; font-size: 0.94rem; outline: none;
           transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
         }
-        .nrxr-page .nrxr-input::placeholder { color: rgba(255,255,255,0.3); }
-        .nrxr-page .nrxr-input:hover:not(:focus) { border-color: rgba(255,255,255,0.22); }
+        .nrxr-page .nrxr-input::placeholder { color: var(--nrxr-placeholder); }
+        .nrxr-page .nrxr-input:hover:not(:focus) { border-color: var(--nrxr-input-border-hover); }
         .nrxr-page .nrxr-input:focus {
           border-color: rgba(124,58,237,0.75); background: rgba(124,58,237,0.09);
           box-shadow: 0 0 0 4px rgba(124,58,237,0.16);
@@ -489,23 +606,23 @@ export default function AuthPage() {
           position: absolute; right: 7px;
           width: 36px; height: 36px; border-radius: 10px;
           border: none; background: none; cursor: pointer;
-          color: rgba(255,255,255,0.42);
+          color: var(--nrxr-texto-4);
           display: flex; align-items: center; justify-content: center;
           transition: color 0.25s ease, background 0.25s ease;
         }
-        .nrxr-page .nrxr-eye:hover { color: var(--nrxr-fg); background: rgba(255,255,255,0.07); }
+        .nrxr-page .nrxr-eye:hover { color: var(--nrxr-fg); background: var(--nrxr-icone-hover-bg); }
 
         .nrxr-terms {
           display: flex; align-items: flex-start; gap: 11px;
           margin-top: clamp(18px, 2.6vh, 24px);
-          font-size: 0.86rem; line-height: 1.5; color: rgba(255,255,255,0.62);
+          font-size: 0.86rem; line-height: 1.5; color: var(--nrxr-texto-2);
         }
         .nrxr-page .nrxr-check {
           appearance: none; -webkit-appearance: none;
           flex-shrink: 0; width: 20px; height: 20px; margin: 1px 0 0;
           border-radius: 6px; cursor: pointer;
-          border: 1px solid rgba(255,255,255,0.24);
-          background: rgba(255,255,255,0.04);
+          border: 1px solid var(--nrxr-check-border);
+          background: var(--nrxr-check-bg);
           transition: background 0.22s ease, border-color 0.22s ease;
         }
         .nrxr-page .nrxr-check:checked {
@@ -515,7 +632,7 @@ export default function AuthPage() {
         }
         .nrxr-page .nrxr-check:focus-visible { outline: 2px solid var(--nrxr-violet-soft); outline-offset: 2px; }
         .nrxr-page .nrxr-terms a { color: var(--nrxr-violet-soft); text-decoration: none; transition: color 0.2s ease; }
-        .nrxr-page .nrxr-terms a:hover { color: #fff; text-decoration: underline; }
+        .nrxr-page .nrxr-terms a:hover { color: var(--nrxr-violet); text-decoration: underline; }
 
         .nrxr-page .nrxr-submit {
           width: 100%; height: 56px; margin-top: clamp(18px, 2.6vh, 24px);
@@ -535,11 +652,11 @@ export default function AuthPage() {
         .nrxr-or {
           display: flex; align-items: center; gap: 12px;
           margin: clamp(16px, 2.4vh, 22px) 0 14px;
-          font-size: 0.84rem; color: rgba(255,255,255,0.35);
+          font-size: 0.84rem; color: var(--nrxr-texto-5);
         }
-        .nrxr-or::before, .nrxr-or::after { content: ''; height: 1px; flex: 1; background: rgba(255,255,255,0.08); }
+        .nrxr-or::before, .nrxr-or::after { content: ''; height: 1px; flex: 1; background: var(--nrxr-line); }
 
-        .nrxr-switch { text-align: center; font-size: 0.9rem; color: rgba(255,255,255,0.58); }
+        .nrxr-switch { text-align: center; font-size: 0.9rem; color: var(--nrxr-texto-2); }
         .nrxr-page .nrxr-switch button {
           display: inline-flex; align-items: center; gap: 6px;
           border: none; background: none; padding: 0; cursor: pointer;
@@ -547,14 +664,14 @@ export default function AuthPage() {
           color: var(--nrxr-violet-soft); font-weight: 700;
           transition: color 0.25s ease;
         }
-        .nrxr-page .nrxr-switch button:hover { color: #fff; }
+        .nrxr-page .nrxr-switch button:hover { color: var(--nrxr-violet); }
         .nrxr-page .nrxr-switch button svg { transition: transform 0.3s cubic-bezier(0.16,1,0.3,1); }
         .nrxr-page .nrxr-switch button:hover svg { transform: translateX(4px); }
 
         .nrxr-error {
           display: flex; gap: 9px; margin-top: 16px; padding: 12px 14px;
-          background: rgba(255,80,80,0.09); border: 1px solid rgba(255,80,80,0.26);
-          border-radius: 12px; font-size: 0.86rem; line-height: 1.45; color: #ff9090;
+          background: var(--nrxr-erro-bg); border: 1px solid var(--nrxr-erro-border);
+          border-radius: 12px; font-size: 0.86rem; line-height: 1.45; color: var(--nrxr-erro-fg);
         }
 
         /* ══════════ RESPONSIVO ══════════ */
@@ -572,8 +689,8 @@ export default function AuthPage() {
           .nrxr-shell.is-login .lado-institucional { order: 2; }
           .nrxr-shell.is-login .lado-form { order: 1; }
           .nrxr-divisor { display: none; }
-          .nrxr-shell:not(.is-login) .lado-institucional { border-bottom: 1px solid rgba(255,255,255,0.07); }
-          .nrxr-shell.is-login .lado-form { border-bottom: 1px solid rgba(255,255,255,0.07); }
+          .nrxr-shell:not(.is-login) .lado-institucional { border-bottom: 1px solid var(--nrxr-divisor); }
+          .nrxr-shell.is-login .lado-form { border-bottom: 1px solid var(--nrxr-divisor); }
           .nrxr-aside {
             padding: clamp(30px, 7vw, 44px);
           }
@@ -602,6 +719,7 @@ export default function AuthPage() {
       `}</style>
 
       <div className="nrxr-scene" aria-hidden="true">
+        <div className="nrxr-grid" />
         <div className="nrxr-neb a" />
         <div className="nrxr-neb b" />
         {ESTRELAS.map((e) => (
