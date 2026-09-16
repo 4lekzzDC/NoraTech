@@ -273,6 +273,9 @@ export default function App() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
+        /* Toda a cor da cena passa por estes tokens — o tema claro é a mesma
+           folha com outros valores, então layout e animações não sabem que o
+           tema mudou. */
         .nrx-home {
           --nrx-violet: #7C3AED;
           --nrx-violet-soft: #b684ff;
@@ -287,6 +290,66 @@ export default function App() {
           --nrx-star-opacity: 1;
           --px: 0; --py: 0;
 
+          --nrx-neb-a: radial-gradient(circle, rgba(124,58,237,0.24) 0%, rgba(124,58,237,0.05) 45%, transparent 70%);
+          --nrx-neb-b: radial-gradient(circle, rgba(91,33,182,0.22) 0%, rgba(124,58,237,0.05) 48%, transparent 72%);
+          --nrx-neb-c: radial-gradient(circle, rgba(56,24,120,0.22) 0%, transparent 68%);
+          --nrx-grid-cor: rgba(255,255,255,0.028);
+          --nrx-grid-opacity: 0.42;
+          --nrx-poeira: radial-gradient(circle, rgba(180,132,255,0.9) 0%, rgba(124,58,237,0.15) 60%, transparent 72%);
+          --nrx-grain-opacity: 0.028;
+          --nrx-vinheta:
+            radial-gradient(ellipse 90% 70% at 50% 50%, transparent 40%, rgba(0,0,0,0.55) 100%),
+            linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 22%, transparent 74%, rgba(0,0,0,0.55) 100%);
+
+          --nrx-bar-bg: rgba(12,12,16,0.72);
+          --nrx-bar-shadow: 0 14px 44px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05);
+          --nrx-wordmark-span: rgba(255,255,255,0.32);
+          --nrx-navitem: rgba(255,255,255,0.55);
+          --nrx-navitem-hover-bg: rgba(255,255,255,0.05);
+          --nrx-btn-bg: rgba(255,255,255,0.04);
+          --nrx-btn-border: rgba(255,255,255,0.1);
+          --nrx-pop-shadow: 0 22px 60px rgba(0,0,0,0.55);
+          --nrx-pop-item: rgba(255,255,255,0.66);
+          --nrx-hairline: rgba(255,255,255,0.06);
+          --nrx-sheet-shadow: 0 24px 60px rgba(0,0,0,0.6);
+          --nrx-sheet-title: rgba(255,255,255,0.28);
+
+          --nrx-eyebrow: rgba(255,255,255,0.38);
+          --nrx-headline-glow: 0 0 44px rgba(124,58,237,0.5);
+
+          --nrx-orbita: rgba(124,58,237,0.34);
+          --nrx-orbita-2: rgba(180,132,255,0.26);
+          --nrx-orbita-3: rgba(124,58,237,0.2);
+          --nrx-halo: radial-gradient(circle, rgba(124,58,237,0.22) 0%, rgba(124,58,237,0.06) 42%, transparent 68%);
+          --nrx-ponto-2: #ffffff;
+          --nrx-ponto-2-glow: rgba(255,255,255,0.55);
+          --nrx-edge-1: rgba(180,132,255,0.95);
+          --nrx-edge-2: rgba(255,255,255,0.95);
+
+          --nrx-card-bg: linear-gradient(155deg, rgba(34,28,56,0.72) 0%, rgba(11,11,18,0.82) 55%, rgba(20,14,34,0.76) 100%);
+          --nrx-card-border: rgba(255,255,255,0.14);
+          --nrx-card-shadow:
+            0 46px 100px -32px rgba(0,0,0,0.9),
+            0 0 74px -30px rgba(124,58,237,0.5),
+            inset 0 1px 0 rgba(255,255,255,0.12);
+          --nrx-card-name-span: rgba(255,255,255,0.34);
+          --nrx-texto-2: rgba(255,255,255,0.62);
+          --nrx-texto-3: rgba(255,255,255,0.56);
+          --nrx-texto-4: rgba(255,255,255,0.44);
+          --nrx-texto-5: rgba(255,255,255,0.38);
+          --nrx-label: rgba(255,255,255,0.6);
+          --nrx-input-border: rgba(255,255,255,0.14);
+          --nrx-input-border-hover: rgba(255,255,255,0.2);
+          --nrx-placeholder: rgba(255,255,255,0.28);
+          --nrx-icone: rgba(255,255,255,0.42);
+          --nrx-icone-hover-bg: rgba(255,255,255,0.07);
+          --nrx-secondary-bg: rgba(255,255,255,0.035);
+          --nrx-secondary-border: rgba(180,132,255,0.26);
+          --nrx-secondary-fg: rgba(255,255,255,0.88);
+          --nrx-erro-bg: rgba(255,80,80,0.09);
+          --nrx-erro-border: rgba(255,80,80,0.25);
+          --nrx-erro-fg: #ff9090;
+
           position: fixed;
           inset: 0;
           overflow: hidden;
@@ -297,15 +360,93 @@ export default function App() {
         }
         .nrx-home *, .nrx-home *::before, .nrx-home *::after { box-sizing: border-box; }
 
+        /* ══════════ TEMA CLARO ══════════
+           Branco com leve tom lilás, grid quase invisível, partículas e
+           órbitas em roxo suave, card claro de pouca transparência. */
         html[data-theme="light"] .nrx-home {
-          --nrx-bg: #0b0a12;
-          --nrx-glass: rgba(255,255,255,0.07);
-          --nrx-star-opacity: 0.75;
+          --nrx-violet-soft: #6d28d9;
+          --nrx-bg: #f7f6fc;
+          --nrx-fg: #111017;
+          --nrx-muted: rgba(17,16,23,0.56);
+          --nrx-glass: rgba(255,255,255,0.7);
+          --nrx-glass-strong: rgba(255,255,255,0.88);
+          --nrx-line: rgba(17,16,23,0.09);
+          --nrx-input: rgba(247,246,252,0.9);
+          --nrx-star: #7C3AED;
+          --nrx-star-opacity: 0.5;
+
+          --nrx-neb-a: radial-gradient(circle, rgba(124,58,237,0.14) 0%, rgba(124,58,237,0.04) 45%, transparent 70%);
+          --nrx-neb-b: radial-gradient(circle, rgba(139,92,246,0.12) 0%, rgba(124,58,237,0.03) 48%, transparent 72%);
+          --nrx-neb-c: radial-gradient(circle, rgba(167,139,250,0.12) 0%, transparent 68%);
+          --nrx-grid-cor: rgba(124,58,237,0.09);
+          --nrx-grid-opacity: 0.7;
+          --nrx-poeira: radial-gradient(circle, rgba(124,58,237,0.5) 0%, rgba(124,58,237,0.1) 60%, transparent 72%);
+          --nrx-grain-opacity: 0.015;
+          --nrx-vinheta:
+            radial-gradient(ellipse 92% 72% at 50% 50%, transparent 42%, rgba(124,58,237,0.06) 100%),
+            linear-gradient(to bottom, rgba(255,255,255,0.5) 0%, transparent 24%, transparent 72%, rgba(237,233,250,0.55) 100%);
+
+          --nrx-bar-bg: rgba(255,255,255,0.82);
+          --nrx-bar-shadow: 0 14px 40px rgba(49,32,96,0.1), inset 0 1px 0 rgba(255,255,255,0.9);
+          --nrx-wordmark-span: rgba(17,16,23,0.4);
+          --nrx-navitem: rgba(17,16,23,0.62);
+          --nrx-navitem-hover-bg: rgba(124,58,237,0.07);
+          --nrx-btn-bg: rgba(255,255,255,0.9);
+          --nrx-btn-border: rgba(17,16,23,0.1);
+          --nrx-pop-shadow: 0 22px 56px rgba(49,32,96,0.16);
+          --nrx-pop-item: rgba(17,16,23,0.7);
+          --nrx-hairline: rgba(17,16,23,0.07);
+          --nrx-sheet-shadow: 0 24px 56px rgba(49,32,96,0.18);
+          --nrx-sheet-title: rgba(17,16,23,0.34);
+
+          --nrx-eyebrow: rgba(17,16,23,0.46);
+          --nrx-headline-glow: 0 0 40px rgba(124,58,237,0.18);
+
+          --nrx-orbita: rgba(124,58,237,0.22);
+          --nrx-orbita-2: rgba(124,58,237,0.16);
+          --nrx-orbita-3: rgba(124,58,237,0.12);
+          --nrx-halo: radial-gradient(circle, rgba(124,58,237,0.12) 0%, rgba(124,58,237,0.04) 42%, transparent 68%);
+          --nrx-ponto-2: #a78bfa;
+          --nrx-ponto-2-glow: rgba(167,139,250,0.55);
+          --nrx-edge-1: rgba(124,58,237,0.75);
+          --nrx-edge-2: rgba(167,139,250,0.95);
+
+          --nrx-card-bg: linear-gradient(155deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.96) 55%, rgba(250,248,255,0.93) 100%);
+          --nrx-card-border: rgba(17,16,23,0.09);
+          --nrx-card-shadow:
+            0 46px 100px -36px rgba(49,32,96,0.24),
+            0 0 74px -34px rgba(124,58,237,0.28),
+            inset 0 1px 0 rgba(255,255,255,0.9);
+          --nrx-card-name-span: rgba(17,16,23,0.4);
+          --nrx-texto-2: rgba(17,16,23,0.62);
+          --nrx-texto-3: rgba(17,16,23,0.56);
+          --nrx-texto-4: rgba(17,16,23,0.48);
+          --nrx-texto-5: rgba(17,16,23,0.42);
+          --nrx-label: rgba(17,16,23,0.66);
+          --nrx-input-border: rgba(17,16,23,0.12);
+          --nrx-input-border-hover: rgba(17,16,23,0.22);
+          --nrx-placeholder: rgba(17,16,23,0.34);
+          --nrx-icone: rgba(17,16,23,0.4);
+          --nrx-icone-hover-bg: rgba(17,16,23,0.06);
+          --nrx-secondary-bg: rgba(255,255,255,0.7);
+          --nrx-secondary-border: rgba(124,58,237,0.26);
+          --nrx-secondary-fg: rgba(17,16,23,0.82);
+          --nrx-erro-bg: rgba(220,38,38,0.07);
+          --nrx-erro-border: rgba(220,38,38,0.22);
+          --nrx-erro-fg: #b91c1c;
         }
-        /* A home é escura nos dois temas, então as regras globais de tema
-           claro (index.css) escureceriam texto que aqui vive sobre preto. */
         html[data-theme="light"] .nrx-home .nrx-input { color: var(--nrx-fg); }
         html[data-theme="light"] .nrx-home strong { color: var(--nrx-violet-soft) !important; }
+        /* O botão de tema tem estilo inline vindo do componente. */
+        html[data-theme="light"] .nrx-home .theme-toggle {
+          background: rgba(255,255,255,0.92) !important;
+          border-color: rgba(17,16,23,0.1) !important;
+          color: var(--nrx-violet) !important;
+        }
+        html[data-theme="light"] .nrx-home .theme-toggle:hover {
+          background: rgba(124,58,237,0.1) !important;
+          border-color: rgba(124,58,237,0.28) !important;
+        }
 
         /* ══════════ ATMOSFERA ══════════ */
         .nrx-layer { position: absolute; inset: -12%; pointer-events: none; }
@@ -317,19 +458,19 @@ export default function App() {
         .nrx-neb.a {
           width: 62vw; height: 62vw; max-width: 900px; max-height: 900px;
           top: -22%; left: -12%;
-          background: radial-gradient(circle, rgba(124,58,237,0.24) 0%, rgba(124,58,237,0.05) 45%, transparent 70%);
+          background: var(--nrx-neb-a);
           animation: nrx-drift-a 46s ease-in-out infinite;
         }
         .nrx-neb.b {
           width: 55vw; height: 55vw; max-width: 820px; max-height: 820px;
           bottom: -26%; right: -10%;
-          background: radial-gradient(circle, rgba(91,33,182,0.22) 0%, rgba(124,58,237,0.05) 48%, transparent 72%);
+          background: var(--nrx-neb-b);
           animation: nrx-drift-b 58s ease-in-out infinite;
         }
         .nrx-neb.c {
           width: 44vw; height: 44vw; max-width: 620px; max-height: 620px;
           top: 32%; left: 42%;
-          background: radial-gradient(circle, rgba(56,24,120,0.22) 0%, transparent 68%);
+          background: var(--nrx-neb-c);
           animation: nrx-drift-c 72s ease-in-out infinite;
         }
         @keyframes nrx-drift-a {
@@ -347,12 +488,12 @@ export default function App() {
 
         .nrx-grid {
           background-image:
-            linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px);
+            linear-gradient(var(--nrx-grid-cor) 1px, transparent 1px),
+            linear-gradient(90deg, var(--nrx-grid-cor) 1px, transparent 1px);
           background-size: 76px 76px;
           -webkit-mask-image: radial-gradient(ellipse 65% 55% at 50% 45%, #000 5%, transparent 72%);
           mask-image: radial-gradient(ellipse 65% 55% at 50% 45%, #000 5%, transparent 72%);
-          opacity: 0.42;
+          opacity: var(--nrx-grid-opacity);
           animation: nrx-grid-pan 90s linear infinite;
         }
         @keyframes nrx-grid-pan {
@@ -374,7 +515,7 @@ export default function App() {
         /* Poeira luminosa: pontos maiores subindo devagar pela cena. */
         .nrx-dust {
           position: absolute; border-radius: 50%;
-          background: radial-gradient(circle, rgba(180,132,255,0.9) 0%, rgba(124,58,237,0.15) 60%, transparent 72%);
+          background: var(--nrx-poeira);
           animation: nrx-float-up var(--dur) linear infinite;
           animation-delay: var(--delay);
         }
@@ -386,7 +527,7 @@ export default function App() {
         }
 
         .nrx-grain {
-          opacity: 0.028;
+          opacity: var(--nrx-grain-opacity);
           background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
           animation: nrx-grain 9s steps(8) infinite;
         }
@@ -400,9 +541,7 @@ export default function App() {
 
         .nrx-vignette {
           position: absolute; inset: 0; pointer-events: none;
-          background:
-            radial-gradient(ellipse 90% 70% at 50% 50%, transparent 40%, rgba(0,0,0,0.55) 100%),
-            linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 22%, transparent 74%, rgba(0,0,0,0.55) 100%);
+          background: var(--nrx-vinheta);
         }
 
         /* Parallax — cada camada responde num fator diferente. */
@@ -419,26 +558,26 @@ export default function App() {
         .nrx-bar {
           display: flex; align-items: center; gap: 4px;
           padding: 7px 7px 7px 24px;
-          background: rgba(12,12,16,0.72);
+          background: var(--nrx-bar-bg);
           backdrop-filter: blur(26px) saturate(1.5);
           -webkit-backdrop-filter: blur(26px) saturate(1.5);
           border: 1px solid var(--nrx-line);
           border-radius: 100px;
-          box-shadow: 0 14px 44px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05);
+          box-shadow: var(--nrx-bar-shadow);
         }
         .nrx-wordmark {
           font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.88rem;
           letter-spacing: -0.4px; color: var(--nrx-violet); margin-right: 18px;
           text-decoration: none; white-space: nowrap;
         }
-        .nrx-wordmark span { color: rgba(255,255,255,0.32); }
+        .nrx-wordmark span { color: var(--nrx-wordmark-span); }
         .nrx-home .nrx-wordmark { transition: opacity 0.3s ease; }
         .nrx-home .nrx-wordmark:hover { opacity: 0.82; }
 
         .nrx-home .nrx-navitem {
           position: relative; background: none; border: none; cursor: pointer;
           font-family: inherit; font-size: 0.83rem; font-weight: 500;
-          color: rgba(255,255,255,0.55); padding: 10px 17px; border-radius: 100px;
+          color: var(--nrx-navitem); padding: 10px 17px; border-radius: 100px;
           white-space: nowrap;
           transition: color 0.35s ease, background 0.35s ease;
         }
@@ -449,7 +588,7 @@ export default function App() {
           transition: width 0.4s cubic-bezier(0.16,1,0.3,1), opacity 0.4s ease;
         }
         .nrx-home .nrx-navitem:hover,
-        .nrx-home .nrx-navitem[aria-expanded="true"] { color: var(--nrx-fg); background: rgba(255,255,255,0.05); }
+        .nrx-home .nrx-navitem[aria-expanded="true"] { color: var(--nrx-fg); background: var(--nrx-navitem-hover-bg); }
         .nrx-home .nrx-navitem:hover::after,
         .nrx-home .nrx-navitem[aria-expanded="true"]::after { width: 16px; opacity: 0.9; }
 
@@ -468,7 +607,7 @@ export default function App() {
         .nrx-home .nrx-burger {
           display: none; align-items: center; justify-content: center;
           width: 38px; height: 38px; border-radius: 50%; padding: 0; cursor: pointer;
-          background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+          background: var(--nrx-btn-bg); border: 1px solid var(--nrx-btn-border);
           color: var(--nrx-fg);
           transition: background 0.3s ease, border-color 0.3s ease;
         }
@@ -483,7 +622,7 @@ export default function App() {
           backdrop-filter: blur(26px) saturate(1.4);
           -webkit-backdrop-filter: blur(26px) saturate(1.4);
           border: 1px solid var(--nrx-line); border-radius: 18px;
-          box-shadow: 0 22px 60px rgba(0,0,0,0.55);
+          box-shadow: var(--nrx-pop-shadow);
           animation: nrx-pop-in 0.34s cubic-bezier(0.16,1,0.3,1) both;
           z-index: 45;
         }
@@ -493,13 +632,13 @@ export default function App() {
         }
         .nrx-pop-text {
           display: block; padding: 8px 12px 10px; font-size: 0.78rem; line-height: 1.55;
-          color: var(--nrx-muted); border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 6px;
+          color: var(--nrx-muted); border-bottom: 1px solid var(--nrx-hairline); margin-bottom: 6px;
         }
         .nrx-home .nrx-pop-item {
           display: block; width: 100%; text-align: left;
           padding: 9px 12px; border-radius: 11px; border: none; background: none;
           font-family: inherit; font-size: 0.82rem; font-weight: 500;
-          color: rgba(255,255,255,0.66); text-decoration: none; cursor: pointer;
+          color: var(--nrx-pop-item); text-decoration: none; cursor: pointer;
           transition: color 0.28s ease, background 0.28s ease, padding-left 0.28s ease;
         }
         .nrx-home .nrx-pop-item:hover {
@@ -514,7 +653,7 @@ export default function App() {
           backdrop-filter: blur(26px) saturate(1.4);
           -webkit-backdrop-filter: blur(26px) saturate(1.4);
           border: 1px solid var(--nrx-line); border-radius: 22px;
-          box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+          box-shadow: var(--nrx-sheet-shadow);
           animation: nrx-sheet-in 0.36s cubic-bezier(0.16,1,0.3,1) both;
           max-height: min(70vh, 470px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
           -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 22px), transparent 100%);
@@ -526,10 +665,10 @@ export default function App() {
           to   { opacity: 1; transform: translateY(0); }
         }
         .nrx-sheet .nrx-pop-item { padding: 8px 12px; }
-        .nrx-sheet-group + .nrx-sheet-group { margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.06); }
+        .nrx-sheet-group + .nrx-sheet-group { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--nrx-hairline); }
         .nrx-sheet-title {
           display: block; padding: 5px 12px 3px; font-size: 0.62rem; font-weight: 700;
-          letter-spacing: 1.6px; text-transform: uppercase; color: rgba(255,255,255,0.28);
+          letter-spacing: 1.6px; text-transform: uppercase; color: var(--nrx-sheet-title);
         }
 
         /* ══════════ PALCO ══════════ */
@@ -551,7 +690,7 @@ export default function App() {
           display: inline-flex; align-items: center; gap: 10px;
           font-family: 'JetBrains Mono', monospace; font-size: clamp(0.66rem, 0.72vw, 0.78rem); font-weight: 500;
           letter-spacing: 2.6px; text-transform: uppercase;
-          color: rgba(255,255,255,0.38); margin-bottom: clamp(18px, 3vh, 28px);
+          color: var(--nrx-eyebrow); margin-bottom: clamp(18px, 3vh, 28px);
           animation: nrx-rise 0.9s cubic-bezier(0.16,1,0.3,1) both;
         }
         .nrx-eyebrow-dot {
@@ -574,7 +713,7 @@ export default function App() {
         }
         .nrx-headline-accent {
           color: var(--nrx-violet-soft);
-          text-shadow: 0 0 44px rgba(124,58,237,0.5);
+          text-shadow: var(--nrx-headline-glow);
         }
         .nrx-caret {
           display: inline-block; width: 3px; height: 0.86em;
@@ -611,7 +750,7 @@ export default function App() {
         .nrx-orbits::before {
           content: ''; position: absolute; left: 50%; top: 50%;
           width: 88%; height: 88%; transform: translate(-50%,-50%);
-          background: radial-gradient(circle, rgba(124,58,237,0.22) 0%, rgba(124,58,237,0.06) 42%, transparent 68%);
+          background: var(--nrx-halo);
           filter: blur(28px);
           animation: nrx-halo 12s ease-in-out infinite;
         }
@@ -622,7 +761,7 @@ export default function App() {
 
         .nrx-orbit {
           position: absolute; top: 50%; left: 50%;
-          border: 1px solid rgba(124,58,237,0.34);
+          border: 1px solid var(--nrx-orbita);
           border-radius: 50%; pointer-events: none;
         }
         /* Medidas por largura + aspect-ratio (nunca por height): girando, a
@@ -630,8 +769,8 @@ export default function App() {
            camada é maior que o card e não recorta, a órbita aparece inteira
            e passa livremente por cima dos limites dele. */
         .nrx-orbit.o1 { width: 100%; aspect-ratio: 1.2; animation: nrx-orbit-spin 34s linear infinite; }
-        .nrx-orbit.o2 { width: 86%; aspect-ratio: 0.9; border-color: rgba(180,132,255,0.26); animation: nrx-orbit-spin 52s linear infinite reverse; }
-        .nrx-orbit.o3 { width: 100%; aspect-ratio: 1.62; border-color: rgba(124,58,237,0.2); animation: nrx-orbit-spin 76s linear infinite; }
+        .nrx-orbit.o2 { width: 86%; aspect-ratio: 0.9; border-color: var(--nrx-orbita-2); animation: nrx-orbit-spin 52s linear infinite reverse; }
+        .nrx-orbit.o3 { width: 100%; aspect-ratio: 1.62; border-color: var(--nrx-orbita-3); animation: nrx-orbit-spin 76s linear infinite; }
         @keyframes nrx-orbit-spin {
           from { transform: translate(-50%,-50%) rotate(0deg); }
           to   { transform: translate(-50%,-50%) rotate(360deg); }
@@ -642,21 +781,18 @@ export default function App() {
           background: var(--nrx-violet-soft);
           box-shadow: 0 0 12px 2px rgba(180,132,255,0.75);
         }
-        .nrx-orbit.o2 .nrx-orbit-dot { top: auto; bottom: -2.5px; width: 5px; height: 5px; background: #ffffff; box-shadow: 0 0 10px 2px rgba(255,255,255,0.55); }
+        .nrx-orbit.o2 .nrx-orbit-dot { top: auto; bottom: -2.5px; width: 5px; height: 5px; background: var(--nrx-ponto-2); box-shadow: 0 0 10px 2px var(--nrx-ponto-2-glow); }
         .nrx-orbit.o3 .nrx-orbit-dot { left: 100%; top: 50%; margin: -2px 0 0 -2px; width: 4px; height: 4px; box-shadow: 0 0 9px 2px rgba(124,58,237,0.7); }
 
         .nrx-card {
           position: relative; width: 100%; z-index: 2; text-align: left;
           padding: clamp(21px, 3vh, 32px) clamp(20px, 2.2vw, 30px);
           border-radius: 26px;
-          background: linear-gradient(155deg, rgba(34,28,56,0.72) 0%, rgba(11,11,18,0.82) 55%, rgba(20,14,34,0.76) 100%);
+          background: var(--nrx-card-bg);
           backdrop-filter: blur(30px) saturate(1.5);
           -webkit-backdrop-filter: blur(30px) saturate(1.5);
-          border: 1px solid rgba(255,255,255,0.14);
-          box-shadow:
-            0 46px 100px -32px rgba(0,0,0,0.9),
-            0 0 74px -30px rgba(124,58,237,0.5),
-            inset 0 1px 0 rgba(255,255,255,0.12);
+          border: 1px solid var(--nrx-card-border);
+          box-shadow: var(--nrx-card-shadow);
           animation: nrx-card-in 1s cubic-bezier(0.16,1,0.3,1) 0.2s both;
         }
         @keyframes nrx-card-in {
@@ -680,8 +816,8 @@ export default function App() {
             background: conic-gradient(from 0deg,
               transparent 0deg, transparent 190deg,
               rgba(124,58,237,0.35) 236deg,
-              rgba(180,132,255,0.95) 266deg,
-              rgba(255,255,255,0.95) 274deg,
+              var(--nrx-edge-1) 266deg,
+              var(--nrx-edge-2) 274deg,
               rgba(124,58,237,0.4) 302deg,
               transparent 344deg);
             animation: nrx-edge-spin 7.5s linear infinite;
@@ -703,26 +839,26 @@ export default function App() {
           font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: clamp(0.86rem, 0.9vw, 0.96rem);
           letter-spacing: -0.3px; color: var(--nrx-violet);
         }
-        .nrx-card-name span { color: rgba(255,255,255,0.34); }
+        .nrx-card-name span { color: var(--nrx-card-name-span); }
         .nrx-card-tagline {
-          font-size: clamp(0.8rem, 0.86vw, 0.9rem); color: rgba(255,255,255,0.56);
+          font-size: clamp(0.8rem, 0.86vw, 0.9rem); color: var(--nrx-texto-3);
           margin: 0 0 clamp(14px, 2vh, 22px);
         }
 
         .nrx-field + .nrx-field { margin-top: 11px; }
         .nrx-label {
           display: block; font-size: clamp(0.68rem, 0.72vw, 0.76rem); font-weight: 600; letter-spacing: 0.3px;
-          color: rgba(255,255,255,0.6); margin-bottom: 7px;
+          color: var(--nrx-label); margin-bottom: 7px;
         }
         .nrx-home .nrx-input {
           width: 100%; height: clamp(40px, 4.7vh, 48px);
           padding: 0 14px; border-radius: 13px;
-          background: var(--nrx-input); border: 1px solid rgba(255,255,255,0.14);
+          background: var(--nrx-input); border: 1px solid var(--nrx-input-border);
           color: var(--nrx-fg); font-family: inherit; font-size: clamp(0.85rem, 0.88vw, 0.92rem); outline: none;
           transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
         }
-        .nrx-home .nrx-input::placeholder { color: rgba(255,255,255,0.28); }
-        .nrx-home .nrx-input:hover:not(:focus) { border-color: rgba(255,255,255,0.2); }
+        .nrx-home .nrx-input::placeholder { color: var(--nrx-placeholder); }
+        .nrx-home .nrx-input:hover:not(:focus) { border-color: var(--nrx-input-border-hover); }
         .nrx-home .nrx-input:focus {
           border-color: rgba(124,58,237,0.75); background: rgba(124,58,237,0.09);
           box-shadow: 0 0 0 4px rgba(124,58,237,0.16);
@@ -730,11 +866,11 @@ export default function App() {
         .nrx-home .nrx-eye {
           position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
           width: 32px; height: 32px; border-radius: 9px; border: none; background: none;
-          color: rgba(255,255,255,0.42); cursor: pointer;
+          color: var(--nrx-icone); cursor: pointer;
           display: flex; align-items: center; justify-content: center;
           transition: color 0.25s ease, background 0.25s ease;
         }
-        .nrx-home .nrx-eye:hover { color: var(--nrx-fg); background: rgba(255,255,255,0.07); }
+        .nrx-home .nrx-eye:hover { color: var(--nrx-fg); background: var(--nrx-icone-hover-bg); }
 
         .nrx-home .nrx-primary {
           width: 100%; height: clamp(42px, 4.9vh, 50px); margin-top: clamp(14px, 2.1vh, 21px);
@@ -754,40 +890,40 @@ export default function App() {
         .nrx-divider {
           display: flex; align-items: center; justify-content: center; gap: 10px;
           margin: clamp(12px, 1.9vh, 19px) 0 10px;
-          font-size: clamp(0.74rem, 0.78vw, 0.82rem); color: rgba(255,255,255,0.38);
+          font-size: clamp(0.74rem, 0.78vw, 0.82rem); color: var(--nrx-texto-5);
         }
         .nrx-divider::before, .nrx-divider::after {
-          content: ''; height: 1px; flex: 1; background: rgba(255,255,255,0.08);
+          content: ''; height: 1px; flex: 1; background: var(--nrx-line);
         }
 
         .nrx-home .nrx-secondary {
           width: 100%; height: clamp(38px, 4.4vh, 46px);
           display: inline-flex; align-items: center; justify-content: center; gap: 8px;
           border-radius: 14px; cursor: pointer; text-decoration: none;
-          background: rgba(255,255,255,0.035); border: 1px solid rgba(180,132,255,0.26);
-          color: rgba(255,255,255,0.88); font-family: inherit; font-size: clamp(0.84rem, 0.87vw, 0.9rem); font-weight: 600;
+          background: var(--nrx-secondary-bg); border: 1px solid var(--nrx-secondary-border);
+          color: var(--nrx-secondary-fg); font-family: inherit; font-size: clamp(0.84rem, 0.87vw, 0.9rem); font-weight: 600;
           transition: background 0.28s ease, border-color 0.28s ease, transform 0.28s cubic-bezier(0.16,1,0.3,1);
         }
-        .nrx-home .nrx-secondary:hover { background: rgba(124,58,237,0.16); border-color: rgba(180,132,255,0.55); transform: translateY(-2px); }
+        .nrx-home .nrx-secondary:hover { background: rgba(124,58,237,0.16); border-color: var(--nrx-violet-soft); transform: translateY(-2px); }
         .nrx-home .nrx-secondary svg { transition: transform 0.3s cubic-bezier(0.16,1,0.3,1); }
         .nrx-home .nrx-secondary:hover svg { transform: translateX(4px); }
 
         .nrx-home .nrx-forgot {
-          font-size: clamp(0.7rem, 0.74vw, 0.78rem); color: rgba(255,255,255,0.44); text-decoration: none;
+          font-size: clamp(0.7rem, 0.74vw, 0.78rem); color: var(--nrx-texto-4); text-decoration: none;
           transition: color 0.25s ease;
         }
         .nrx-home .nrx-forgot:hover { color: var(--nrx-violet-soft); }
 
         .nrx-connected {
           font-size: clamp(0.82rem, 0.87vw, 0.92rem); line-height: 1.6;
-          color: rgba(255,255,255,0.62); margin: 0;
+          color: var(--nrx-texto-2); margin: 0;
         }
         .nrx-connected strong { color: var(--nrx-violet-soft); font-weight: 600; }
 
         .nrx-error {
           display: flex; gap: 8px; margin-top: 14px; padding: 10px 12px;
-          background: rgba(255,80,80,0.09); border: 1px solid rgba(255,80,80,0.25);
-          border-radius: 11px; font-size: 0.8rem; line-height: 1.45; color: #ff9090;
+          background: var(--nrx-erro-bg); border: 1px solid var(--nrx-erro-border);
+          border-radius: 11px; font-size: 0.8rem; line-height: 1.45; color: var(--nrx-erro-fg);
         }
 
         /* ══════════ RESPONSIVO ══════════ */
