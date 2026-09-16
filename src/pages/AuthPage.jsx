@@ -7,10 +7,11 @@ import ThemeToggle from '../components/ThemeToggle';
 // Noratech — Acesso (login + cadastro)
 //
 // Duas áreas lado a lado num único painel escuro, sobre a cena espacial
-// da home. /login e /registro são a MESMA tela: só o conteúdo do painel
-// da direita troca, com um fade curto e a altura acompanhando — o fundo,
-// o lado esquerdo e o card ficam parados. A URL acompanha o modo por
-// `navigate(..., { replace: true })`, sem recarregar nada.
+// da home. /login e /registro são a MESMA tela: ao trocar de modo, as
+// duas metades DESLIZAM e trocam de lugar — no cadastro o institucional
+// fica à esquerda e o formulário à direita; no login, o contrário. O
+// fundo, a moldura e o glow do card não se mexem. A URL acompanha o modo
+// por `navigate(..., { replace: true })`, sem recarregar nada.
 //
 // A lógica de auth é a de sempre: `login` e `register` do AuthContext,
 // com as mesmas validações, mensagens e redirects.
@@ -114,18 +115,31 @@ export default function AuthPage() {
     navigate(proximo === 'login' ? '/login' : '/registro', { replace: true });
   }, [navigate]);
 
-  // A altura do painel é animada em vez de pular: sem isso, a troca entre
-  // um formulário de quatro campos e um de dois faria o card (e a cena
-  // atrás dele) saltar no meio do fade.
-  const corpoRef = useRef(null);
+  // No desktop as metades são absolutas (é o que permite elas deslizarem
+  // uma por cima da outra), então o card precisa de altura própria: a
+  // maior das duas, animada para não saltar quando o formulário troca de
+  // quatro campos para dois. Empilhado, quem manda é o fluxo normal.
+  const instRef = useRef(null);
+  const formRef = useRef(null);
   const [altura, setAltura] = useState(null);
+  const [empilhado, setEmpilhado] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 940px)').matches,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 940px)');
+    const aoMudar = () => setEmpilhado(mq.matches);
+    mq.addEventListener('change', aoMudar);
+    return () => mq.removeEventListener('change', aoMudar);
+  }, []);
+
   useLayoutEffect(() => {
-    const el = corpoRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return undefined;
-    const medir = () => setAltura(el.offsetHeight);
+    const els = [instRef.current, formRef.current].filter(Boolean);
+    if (!els.length || typeof ResizeObserver === 'undefined') return undefined;
+    const medir = () => setAltura(Math.max(...els.map((el) => el.offsetHeight)));
     medir();
     const ro = new ResizeObserver(medir);
-    ro.observe(el);
+    els.forEach((el) => ro.observe(el));
     return () => ro.disconnect();
   }, []);
 
@@ -321,7 +335,10 @@ export default function AuthPage() {
         .nrxr-shell {
           position: relative; z-index: 2;
           width: 100%; max-width: 1180px;
-          display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          /* min-height segura o card no primeiro layout, antes da medição
+             das metades — sem ela o card nasceria com altura zero, já que
+             as duas metades são absolutas. */
+          min-height: 520px;
           border-radius: 26px;
           border: 1px solid rgba(255,255,255,0.12);
           /* Baixa transparência de propósito: mais corpo que um vidro comum,
@@ -341,14 +358,48 @@ export default function AuthPage() {
           to   { opacity: 1; transform: translateY(0); }
         }
 
-        /* ── Lado esquerdo ── */
+        /* ── As duas metades ──
+           Absolutas e com meia largura cada: trocar de modo só inverte o
+           translateX das duas, e elas deslizam para o lugar uma da outra.
+           O recorte do card (overflow: hidden) segura a passagem. */
+        .nrxr-half {
+          position: absolute; top: 0; bottom: 0; width: 50%;
+          display: flex; align-items: center;
+          will-change: transform;
+          /* Opacas de propósito: cruzando, uma precisa cobrir a outra —
+             translúcidas, os dois textos se sobrepõem no meio do caminho.
+             O tom é o do card, então em repouso o painel continua igual. */
+          background: #0b0a11;
+        }
+        /* Prefixadas com .nrxr-page de propósito: a regra global de tema em
+           index.css (html[data-theme] *) tem mais especificidade que uma
+           classe sozinha e reescreve o shorthand transition inteiro — sem
+           transform nem height nela, a troca acontecia num piscar. */
+        .nrxr-page .nrxr-shell { transition: height 0.62s cubic-bezier(0.22,1,0.36,1); }
+        .nrxr-page .nrxr-half { transition: transform 0.62s cubic-bezier(0.22,1,0.36,1); }
+        .nrxr-half.lado-institucional { left: 0; }
+        .nrxr-half.lado-form { left: 50%; }
+        .nrxr-shell.is-login .lado-institucional { transform: translateX(100%); }
+        .nrxr-shell.is-login .lado-form { transform: translateX(-100%); }
+
+        /* O fio divisor fica no card, não nas metades: assim ele não anda
+           junto com elas durante a troca. */
+        .nrxr-divisor {
+          position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
+          background: rgba(255,255,255,0.07); z-index: 3; pointer-events: none;
+        }
+
+        /* ── Conteúdo institucional ── */
         .nrxr-aside {
-          position: relative;
+          position: relative; width: 100%;
           padding: clamp(34px, 4.6vw, 62px);
-          display: flex; flex-direction: column; justify-content: center;
-          border-right: 1px solid rgba(255,255,255,0.07);
+          display: flex; flex-direction: column;
+        }
+        /* Brilho centrado na base da metade: funciona igual dos dois lados. */
+        .nrxr-half.lado-institucional::before {
+          content: ''; position: absolute; inset: 0; pointer-events: none;
           background:
-            radial-gradient(ellipse 120% 80% at 10% 105%, rgba(124,58,237,0.18) 0%, transparent 62%),
+            radial-gradient(ellipse 110% 80% at 50% 106%, rgba(124,58,237,0.18) 0%, transparent 62%),
             linear-gradient(180deg, rgba(255,255,255,0.015) 0%, transparent 60%);
         }
         .nrxr-eyebrow {
@@ -382,7 +433,7 @@ export default function AuthPage() {
         .nrxr-benefit-desc { font-size: 0.86rem; color: rgba(255,255,255,0.42); margin-top: 2px; }
 
         /* ── Lado direito ── */
-        .nrxr-form-side { padding: clamp(30px, 4vw, 52px); display: flex; flex-direction: column; justify-content: center; }
+        .nrxr-form-side { width: 100%; padding: clamp(30px, 4vw, 52px); display: flex; flex-direction: column; }
         .nrxr-brand { display: flex; align-items: center; gap: 14px; margin-bottom: clamp(20px, 3vh, 30px); }
         .nrxr-mark {
           display: inline-flex; align-items: center; justify-content: center;
@@ -394,16 +445,6 @@ export default function AuthPage() {
         .nrxr-brand-name { font-weight: 800; font-size: 1.05rem; letter-spacing: 0.4px; color: #fff; }
         .nrxr-brand-sub { font-size: 0.88rem; color: rgba(255,255,255,0.46); margin-top: 3px; }
 
-        /* Caixa que segue a altura do formulário ativo. */
-        .nrxr-morph {
-          position: relative;
-          /* Recorta na altura enquanto ela anima. As margens negativas com
-             padding igual deixam o anel de foco dos campos respirar, em vez
-             de ele ser cortado rente à borda da caixa. */
-          overflow: hidden;
-          margin: 0 -10px; padding: 0 10px;
-          transition: height 0.5s cubic-bezier(0.16,1,0.3,1);
-        }
         .nrxr-swap { animation: nrxr-swap-in 0.42s cubic-bezier(0.16,1,0.3,1) both; }
         @keyframes nrxr-swap-in {
           from { opacity: 0; transform: translate3d(var(--dx, 10px), 8px, 0); }
@@ -518,9 +559,22 @@ export default function AuthPage() {
 
         /* ══════════ RESPONSIVO ══════════ */
         @media (max-width: 940px) {
-          .nrxr-shell { grid-template-columns: minmax(0, 1fr); max-width: 520px; }
+          .nrxr-shell {
+            display: flex; flex-direction: column;
+            max-width: 520px; min-height: 0; height: auto;
+          }
+          /* Empilhado não há para onde deslizar: as metades voltam ao fluxo
+             e só trocam de ordem, com o fade do conteúdo dando a transição. */
+          .nrxr-half,
+          .nrxr-shell.is-login .nrxr-half {
+            position: static; width: 100%; transform: none;
+          }
+          .nrxr-shell.is-login .lado-institucional { order: 2; }
+          .nrxr-shell.is-login .lado-form { order: 1; }
+          .nrxr-divisor { display: none; }
+          .nrxr-shell:not(.is-login) .lado-institucional { border-bottom: 1px solid rgba(255,255,255,0.07); }
+          .nrxr-shell.is-login .lado-form { border-bottom: 1px solid rgba(255,255,255,0.07); }
           .nrxr-aside {
-            border-right: none; border-bottom: 1px solid rgba(255,255,255,0.07);
             padding: clamp(30px, 7vw, 44px);
           }
           .nrxr-title { max-width: none; font-size: clamp(1.7rem, 6.4vw, 2.2rem); }
@@ -543,7 +597,7 @@ export default function AuthPage() {
             animation-iteration-count: 1 !important;
             transition-duration: 0.001ms !important;
           }
-          .nrxr-morph { transition: none !important; }
+          .nrxr-page .nrxr-shell, .nrxr-page .nrxr-half { transition: none !important; }
         }
       `}</style>
 
@@ -586,37 +640,56 @@ export default function AuthPage() {
         </div>
       </div>
 
-      <div className="nrxr-shell">
-        {/* ═══ Apresentação ═══ */}
-        <aside className="nrxr-aside">
-          <div className="nrxr-eyebrow">Tecnologia sem limites</div>
-          <h1 className="nrxr-title">Crie sua conta e <span>faça parte.</span></h1>
-          <p className="nrxr-lead">
-            Acesse todos os sistemas da NoraTech e transforme suas ideias em resultados.
-          </p>
+      <div
+        className={`nrxr-shell ${isLogin ? 'is-login' : ''}`}
+        style={!empilhado && altura ? { height: altura } : undefined}
+      >
+        <div className="nrxr-divisor" aria-hidden="true" />
 
-          <div>
-            {BENEFICIOS.map((b) => (
-              <div className="nrxr-benefit" key={b.titulo}>
-                <span className="nrxr-benefit-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    {b.icone}
-                  </svg>
-                </span>
-                <div>
-                  <div className="nrxr-benefit-title">{b.titulo}</div>
-                  <div className="nrxr-benefit-desc">{b.desc}</div>
-                </div>
+        {/* ═══ Institucional ═══ */}
+        <div className="nrxr-half lado-institucional">
+          <aside className="nrxr-aside" ref={instRef}>
+            <div className="nrxr-swap" key={`inst-${mode}`} style={{ '--dx': isLogin ? '12px' : '-12px' }}>
+              <div className="nrxr-eyebrow">Tecnologia sem limites</div>
+              {isLogin ? (
+                <>
+                  <h1 className="nrxr-title">Bem-vindo <span>de volta.</span></h1>
+                  <p className="nrxr-lead">
+                    Entre com suas credenciais e continue de onde parou.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h1 className="nrxr-title">Crie sua conta e <span>faça parte.</span></h1>
+                  <p className="nrxr-lead">
+                    Acesse todos os sistemas da NoraTech e transforme suas ideias em resultados.
+                  </p>
+                </>
+              )}
+
+              <div>
+                {BENEFICIOS.map((b) => (
+                  <div className="nrxr-benefit" key={b.titulo}>
+                    <span className="nrxr-benefit-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        {b.icone}
+                      </svg>
+                    </span>
+                    <div>
+                      <div className="nrxr-benefit-title">{b.titulo}</div>
+                      <div className="nrxr-benefit-desc">{b.desc}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </aside>
+            </div>
+          </aside>
+        </div>
 
         {/* ═══ Formulário ═══ */}
-        <div className="nrxr-form-side">
-          <div className="nrxr-morph" style={altura ? { height: altura } : undefined}>
-            <div ref={corpoRef}>
-              <div className="nrxr-swap" key={mode} style={{ '--dx': isLogin ? '-10px' : '10px' }}>
+        <div className="nrxr-half lado-form">
+          <div className="nrxr-form-side" ref={formRef}>
+            <div className="nrxr-swap" key={`form-${mode}`} style={{ '--dx': isLogin ? '-12px' : '12px' }}>
                 <div className="nrxr-brand">
                   <span className="nrxr-mark" aria-hidden="true">
                     <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -625,7 +698,7 @@ export default function AuthPage() {
                   </span>
                   <div>
                     <div className="nrxr-brand-name">NORATECH</div>
-                    <div className="nrxr-brand-sub">{isLogin ? 'Bem-vindo de volta.' : 'Crie seu acesso.'}</div>
+                    <div className="nrxr-brand-sub">{isLogin ? 'Acesse sua conta.' : 'Crie seu acesso.'}</div>
                   </div>
                 </div>
 
@@ -829,7 +902,6 @@ export default function AuthPage() {
                     </>
                   )}
                 </div>
-              </div>
             </div>
           </div>
         </div>
