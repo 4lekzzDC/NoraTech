@@ -59,12 +59,10 @@ function OverlayMark() {
 // register, timeout, validação) é a mesma que já existia em cada página
 // separada — só a apresentação virou uma só peça.
 //
-// /login e /registro apontam para este MESMO componente (ver main.jsx) —
-// de propósito: se cada rota tivesse seu próprio componente-wrapper, trocar
-// de URL faria o React desmontar e remontar tudo, cortando a animação de
-// troca de modo no meio (o "turn" nunca chegava a rodar). Com uma única
-// instância sobrevivendo à navegação, o modo inicial só precisa ser lido da
-// URL uma vez, no primeiro render.
+// /registro tem tela própria (RegisterPage) desde a reformulação do
+// cadastro, então aqui só vive o login: os botões "criar conta" navegam
+// para lá em vez de girar o overlay, que ficaria pela metade quando a
+// troca de rota desmontasse este componente.
 export default function AuthPage() {
   const { login, register } = useAuth();
   const { theme } = useTheme();
@@ -365,7 +363,7 @@ export default function AuthPage() {
             <div style={{ textAlign: 'center', marginTop: 22, display: 'none' }} className="authx-mobile-switch">
               <span style={{ color: P.mobileSwitch, fontSize: '0.88rem' }}>
                 Não tem uma conta?{' '}
-                <button type="button" onClick={() => switchTo('register')} style={{ background: 'none', border: 'none', color: '#b684ff', font: 'inherit', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Criar conta</button>
+                <button type="button" onClick={() => navigate('/registro')} style={{ background: 'none', border: 'none', color: '#b684ff', font: 'inherit', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Criar conta</button>
               </span>
             </div>
           </div>
@@ -476,7 +474,7 @@ export default function AuthPage() {
               <OverlayMark />
               <div className="authx-overlay-title">Novo por aqui?</div>
               <p className="authx-overlay-text">Crie sua conta e organize toda a operação da sua empresa em um só lugar.</p>
-              <button type="button" className="authx-overlay-btn" onClick={() => switchTo('register')}>Criar conta</button>
+              <button type="button" className="authx-overlay-btn" onClick={() => navigate('/registro')}>Criar conta</button>
             </div>
           </div>
         </div>

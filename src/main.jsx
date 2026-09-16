@@ -13,6 +13,7 @@ import TermsPage from './pages/TermsPage.jsx'
 import SistemasPage from './pages/SistemasPage.jsx'
 import AutomacaoPage from './pages/AutomacaoPage.jsx'
 import AuthPage from './pages/AuthPage.jsx'
+import RegisterPage from './pages/RegisterPage.jsx'
 import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx'
 import ResetPasswordPage from './pages/ResetPasswordPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
@@ -138,7 +139,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/servicos/sistemas-sob-medida" element={<SistemasPage />} />
           <Route path="/servicos/automacao-de-processos" element={<AutomacaoPage />} />
           <Route path="/login" element={<AuthPage />} />
-          <Route path="/registro" element={<AuthPage />} />
+          <Route path="/registro" element={<RegisterPage />} />
           <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
           <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
           <Route path="/perfil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
