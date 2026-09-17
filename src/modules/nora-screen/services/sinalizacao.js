@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import { participantesDoPresence } from '../domain/presenca.js';
 
 // ═══════════════════════════════════════════════════════════════
 // Sinalização da sala — Supabase Realtime.
@@ -14,6 +15,8 @@ import { supabase } from '../../../lib/supabase';
 // ═══════════════════════════════════════════════════════════════
 
 export const EVENTOS = {
+  // "Fulano saiu" dito na hora, sem esperar o presence.
+  SAIU: 'saiu',
   // Descrição de sessão (oferta ou resposta). Um evento só porque, com
   // várias pessoas transmitindo, qualquer lado pode ser quem oferece — e
   // os dois podem oferecer ao mesmo tempo. Quem trata resolve pelo tipo.
@@ -69,13 +72,7 @@ export function entrarNaSala({ codigo, eu, aoMudarParticipantes, aoReceber, aoMu
   });
 
   const listarParticipantes = () => {
-    const estado = canal.presenceState();
-    const lista = Object.values(estado)
-      .map((entradas) => entradas[0])
-      .filter(Boolean)
-      // Ordem estável por chegada — é ela que define quem é host.
-      .sort((a, b) => (a.entrouEm - b.entrouEm) || String(a.id).localeCompare(String(b.id)));
-    aoMudarParticipantes(lista);
+    aoMudarParticipantes(participantesDoPresence(canal.presenceState()));
   };
 
   canal
@@ -95,7 +92,7 @@ export function entrarNaSala({ codigo, eu, aoMudarParticipantes, aoReceber, aoMu
   canal.subscribe((status) => {
     if (status === 'SUBSCRIBED') {
       aoMudarStatus(STATUS.CONECTADO);
-      canal.track({ ...eu, ...PRESENCA_ZERADA });
+      canal.track({ ...eu, ...PRESENCA_ZERADA, anunciadoEm: Date.now() });
       return;
     }
     if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -111,7 +108,7 @@ export function entrarNaSala({ codigo, eu, aoMudarParticipantes, aoReceber, aoMu
       return canal.send({ type: 'broadcast', event: evento, payload: { ...payload, de: eu.id } });
     },
     anunciar(patch) {
-      return canal.track({ ...eu, ...PRESENCA_ZERADA, ...patch });
+      return canal.track({ ...eu, ...PRESENCA_ZERADA, ...patch, anunciadoEm: Date.now() });
     },
     sair() {
       try { canal.untrack(); } catch { /* o canal pode já ter caído */ }

@@ -4,7 +4,11 @@ import {
   ENTRADA,
   MOTIVOS_ENTRADA,
   REGRAS_PADRAO,
+  LIMITE_MAX,
+  LIMITE_MIN,
   decisaoDaEntrada,
+  limiteParaOBanco,
+  normalizarLimite,
   podeCompartilhar,
   regrasDaLinha,
   saidaObrigatoria,
@@ -200,4 +204,52 @@ test('host bloqueia, quem está dentro fica, quem chega é barrado, host libera,
 
   // E Ana nunca foi perturbada por nada disso.
   assert.equal(saidaObrigatoria({ regras }), null);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Limite de participantes pelo slider e pelo campo numérico.
+// ═══════════════════════════════════════════════════════════════
+
+test('o limite aceita a faixa de 0 a 99, e nada fora dela', () => {
+  assert.equal(normalizarLimite(0), 0);
+  assert.equal(normalizarLimite(50), 50);
+  assert.equal(normalizarLimite(99), 99);
+  assert.equal(normalizarLimite(-7), 0, 'abaixo do mínimo cola no 0');
+  assert.equal(normalizarLimite(1000), 99, 'acima do máximo cola no 99');
+  assert.equal(normalizarLimite(LIMITE_MAX + 1), LIMITE_MAX);
+  assert.equal(normalizarLimite(LIMITE_MIN - 1), LIMITE_MIN);
+});
+
+test('o campo numérico aceita qualquer coisa, e nada disso vira limite', () => {
+  // Texto colado, vazio, vírgula, notação científica: tudo cai no chão.
+  for (const lixo of ['', '   ', 'abc', null, undefined, NaN, Infinity, {}, []]) {
+    assert.equal(normalizarLimite(lixo), 0, `${JSON.stringify(lixo)} deveria virar 0`);
+  }
+  assert.equal(normalizarLimite('12'), 12, 'número em texto é número');
+  assert.equal(normalizarLimite(7.9), 7, 'fração é truncada, não arredondada para cima');
+  assert.equal(normalizarLimite(1e9), 99);
+});
+
+test('0 é sem limite, e o banco guarda isso como null', () => {
+  assert.equal(limiteParaOBanco(0), null);
+  assert.equal(limiteParaOBanco(''), null);
+  assert.equal(limiteParaOBanco(-3), null);
+});
+
+test('1 não existe como limite: vira 2', () => {
+  // Uma sala de 1 pessoa não é uma sala — para isso já existe
+  // "bloquear novas entradas". E o check do banco recusaria.
+  assert.equal(limiteParaOBanco(1), 2);
+  assert.equal(limiteParaOBanco(2), 2);
+  assert.equal(limiteParaOBanco(3), 3);
+});
+
+test('o que o slider produz sempre cabe no que o banco aceita', () => {
+  // O check do banco é: null, ou inteiro entre 2 e 99 — a mesma faixa
+  // do controle, para não existir valor que o slider oferece e o banco
+  // recusa.
+  for (let v = 0; v <= 99; v += 1) {
+    const b = limiteParaOBanco(v);
+    assert.ok(b === null || (Number.isInteger(b) && b >= 2 && b <= 99), `${v} -> ${b}`);
+  }
 });

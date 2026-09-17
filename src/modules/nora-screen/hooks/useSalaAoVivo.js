@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EVENTOS, PRESENCA_ZERADA, STATUS, entrarNaSala } from '../services/sinalizacao.js';
 import { ACOES, podeModerar } from '../domain/moderacao.js';
 import { papelDe } from '../domain/papeis.js';
+import { quemCompartilha } from '../domain/presenca.js';
 import {
   ENTRADA,
   REGRAS_PADRAO,
@@ -109,6 +110,11 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
   // `${peerId}|${streamId}` → { peerId, stream, tipo }
   const remotosRef = useRef(new Map());
   const participantesRef = useRef([]);
+  // Quem já saiu de vez. O `leave` do presence pode demorar ou se perder
+  // (aba morta, rede caída), e sem isto a pessoa removida continuava na
+  // lista de todo mundo. Aqui ela é riscada na hora e não volta, nem que
+  // um `sync` atrasado ainda a traga.
+  const expulsosRef = useRef(new Set());
   const bloqueadoRef = useRef(false);
   const regrasRef = useRef(REGRAS_PADRAO);
   const souDonoRef = useRef(false);
@@ -236,6 +242,19 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
     enviarMinhasFaixas(pc);
     return est;
   }, [enviarMinhasFaixas, publicarRemotos, registrarRemoto]);
+
+  /**
+   * Tira alguém da sala do meu lado: conexão, mídia e lista.
+   *
+   * É o mesmo caminho para quem foi removido pelo host e para quem
+   * fechou a aba — a diferença é só quem manda fazer.
+   */
+  const purgarParticipante = useCallback((id) => {
+    if (!id) return;
+    expulsosRef.current.add(id);
+    fecharConexao(id);
+    setParticipantes((lista) => lista.filter((p) => p.id !== id));
+  }, [fecharConexao]);
 
   // Renegocia com todo mundo — usado ao ligar/desligar tela e microfone.
   const reofertarParaTodos = useCallback(() => {
@@ -428,6 +447,22 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
       return;
     }
 
+    if (evento === EVENTOS.SAIU) {
+      // Só vale vindo de quem a sala reconhece como dono ou admin — e a
+      // própria pessoa pode anunciar a sua saída.
+      const alvo = payload.quem;
+      const doPróprio = alvo === de;
+      const daModeracao = podeModerar({
+        donoId: regrasRef.current.donoId,
+        admins: regrasRef.current.admins,
+        autorId: de,
+        alvoId: alvo,
+        acao: ACOES.REMOVER,
+      });
+      if (doPróprio || daModeracao) purgarParticipante(alvo);
+      return;
+    }
+
     if (evento === EVENTOS.MODERACAO) {
       // A interface do outro lado já filtrou, mas quem obedece confere: a
       // ordem só vale se vier de quem o BANCO reconhece como dono ou
@@ -459,11 +494,17 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
       if (payload.acao === ACOES.REMOVER) {
         // Sai do canal e derruba tudo aqui mesmo: a tela de aviso e o
         // redirect são da página, mas a sala já deixou de existir.
+        //
+        // Antes de sair, avisa a sala: o `leave` do presence pode demorar
+        // e, enquanto isso, eu ficava na lista dos outros como fantasma.
+        salaRef.current?.enviar(EVENTOS.SAIU, { quem: euRef.current?.id });
         retirarStream(telaRef.current);
         retirarStream(microfoneRef.current);
         telaRef.current = null;
         microfoneRef.current = null;
         fecharTudo();
+        setParticipantes([]);
+        setMidiaRemota([]);
         setTransmitindo(false);
         setComAudio(false);
         setMicrofoneAtivo(false);
@@ -474,7 +515,7 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
         setRemovido(true);
       }
     }
-  }, [anunciar, assegurarConexao, codigo, fecharTudo, retirarStream]);
+  }, [anunciar, assegurarConexao, codigo, fecharTudo, purgarParticipante, retirarStream]);
 
   // ── Regras da sala (estado autoritativo no Supabase) ──
   useEffect(() => {
@@ -542,8 +583,10 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
     const sala = entrarNaSala({
       codigo,
       eu: euRef.current,
-      aoMudarParticipantes: (lista) => {
+      aoMudarParticipantes: (listaCrua) => {
         const anteriores = participantesRef.current;
+        // Quem já foi removido não volta por um sync atrasado.
+        const lista = listaCrua.filter((p) => !expulsosRef.current.has(p.id));
         setParticipantes(lista);
 
         // Quem saiu leva junto a conexão e a mídia que vinha dele.
@@ -724,6 +767,19 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
     return lista;
   }, [transmitindo, comAudio, midiaRemota, participantes, eu]);
 
+  /**
+   * Quem está transmitindo AGORA, por id.
+   *
+   * Duas fontes, de propósito. A presença é o que a pessoa diz de si, e
+   * pode chegar atrasada ou fora de ordem; a mídia que está entrando é o
+   * que de fato acontece. Se um vídeo dela está na minha tela, ela está
+   * compartilhando — não importa o que a presença ainda não contou.
+   */
+  const transmitindoIds = useMemo(
+    () => quemCompartilha({ participantes, transmissoes }),
+    [transmissoes, participantes],
+  );
+
   // Só os microfones dos OUTROS: tocar o meu seria eco garantido.
   const microfonesRemotos = useMemo(
     () => midiaRemota.filter((m) => m.tipo === 'microfone'),
@@ -749,8 +805,19 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
     if (acao === ACOES.PROMOVER) return definirAdmin(alvoId, true);
     if (acao === ACOES.REBAIXAR) return definirAdmin(alvoId, false);
     salaRef.current?.enviar(EVENTOS.MODERACAO, { para: alvoId, acao });
+    if (acao === ACOES.REMOVER) {
+      // Não espera o `leave` do presence: avisa a sala e risca daqui na
+      // hora. Se a aba do removido morrer antes de se despedir, ninguém
+      // fica olhando para um fantasma.
+      salaRef.current?.enviar(EVENTOS.SAIU, { quem: alvoId });
+      purgarParticipante(alvoId);
+      // Com o token: liberar a vaga de OUTRA pessoa é do dono, e o
+      // banco confere. Assim a vaga abre na hora em vez de esperar a
+      // presença dela caducar.
+      largarVaga(codigo, alvoId, tokenRef.current).catch(() => {});
+    }
     return true;
-  }, [definirAdmin]);
+  }, [codigo, definirAdmin, purgarParticipante]);
 
   return {
     eu,
@@ -768,6 +835,7 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
     mudo,
     falando,
     transmissoes,
+    transmitindoIds,
     microfonesRemotos,
     bloqueado,
     removido,

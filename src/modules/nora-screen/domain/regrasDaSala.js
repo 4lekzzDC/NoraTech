@@ -111,6 +111,32 @@ export function podeCompartilhar({
   return { pode: true, motivo: null };
 }
 
+export const LIMITE_MIN = 0;
+export const LIMITE_MAX = 99;
+
+/**
+ * O limite que o controle aceita: inteiro de 0 a 99, onde 0 é "sem
+ * limite".
+ *
+ * Existe porque o campo numérico aceita qualquer coisa — texto colado,
+ * 1e9, vírgula, vazio — e nada disso pode virar limite da sala.
+ */
+export function normalizarLimite(valor) {
+  const n = Math.trunc(Number(valor));
+  if (!Number.isFinite(n)) return LIMITE_MIN;
+  return Math.min(LIMITE_MAX, Math.max(LIMITE_MIN, n));
+}
+
+/**
+ * O limite como o banco guarda: `null` é sem limite, e o mínimo real é
+ * 2 — uma sala de 1 pessoa não é uma sala, é uma porta fechada, e para
+ * isso já existe "bloquear novas entradas".
+ */
+export function limiteParaOBanco(valor) {
+  const n = normalizarLimite(valor);
+  return n === 0 ? null : Math.max(2, n);
+}
+
 /** O que a porta mostra para quem o servidor recusou. */
 export const MOTIVOS_ENTRADA = {
   'entradas-bloqueadas': 'Esta sala não está aceitando novas entradas no momento.',

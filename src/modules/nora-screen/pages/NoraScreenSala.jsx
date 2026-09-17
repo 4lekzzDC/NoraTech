@@ -16,6 +16,8 @@ import {
   ENTRADA,
   MOTIVOS,
   MOTIVOS_ENTRADA,
+  limiteParaOBanco,
+  normalizarLimite,
   podeCompartilhar,
   saidaObrigatoria,
 } from '../domain/regrasDaSala.js';
@@ -211,6 +213,10 @@ export default function NoraScreenSala() {
   // Uma transmissão em foco ocupa o palco; as outras seguem no ar.
   const [focoId, setFocoId] = useState(null);
   const [configAberta, setConfigAberta] = useState(false);
+  // Rascunho do limite: o slider e o campo mexem nele juntos, e só o
+  // "soltar" grava. Gravar a cada pixel arrastado seria uma chamada por
+  // quadro de animação.
+  const [limiteRascunho, setLimiteRascunho] = useState(0);
   const [menuAberto, setMenuAberto] = useState(null);
   const [posMenu, setPosMenu] = useState(null);
   const [confirmando, setConfirmando] = useState(null);
@@ -230,7 +236,7 @@ export default function NoraScreenSala() {
     eu, status, participantes,
     transmitindo, comAudio, erro, compartilharTela, pararDeTransmitir,
     microfoneAtivo, mudo: microfoneMudo, alternarMicrofone, desligarMicrofone,
-    transmissoes, microfonesRemotos, falando,
+    transmissoes, transmitindoIds, microfonesRemotos, falando,
     bloqueado, removido, moderar,
     regras, souDono, donoId, admins, meuPapel,
     entrada, barrado, definirRegrasDaSala, encerrarParaTodos,
@@ -427,6 +433,23 @@ export default function NoraScreenSala() {
     setConfirmando(null);
   }, [moderar, avisar]);
 
+  // O rascunho nasce quando o painel abre, e não por efeito: assim um
+  // `sync` do banco no meio do arrasto não puxa o controle da mão de
+  // quem está mexendo.
+  const abrirConfig = useCallback(() => {
+    setLimiteRascunho(regras.maxParticipantes || 0);
+    setConfigAberta(true);
+  }, [regras.maxParticipantes]);
+
+  const salvarLimite = useCallback(async (valor) => {
+    const paraOBanco = limiteParaOBanco(valor);
+    if ((paraOBanco || 0) === (regras.maxParticipantes || 0)) return;
+    if (await definirRegrasDaSala({ maxParticipantes: paraOBanco })) {
+      setLimiteRascunho(paraOBanco || 0);
+      avisar(paraOBanco ? `Limite de ${paraOBanco} participantes` : 'Limite removido', 'ok');
+    }
+  }, [avisar, definirRegrasDaSala, regras.maxParticipantes]);
+
   // Ampliar é tela cheia do quadro; focar é o palco inteiro para um só.
   // São coisas diferentes e o quadro oferece as duas.
   const ampliar = useCallback((id) => {
@@ -519,6 +542,16 @@ export default function NoraScreenSala() {
         }
         [data-dica]:hover::after, [data-dica]:focus-visible::after { opacity: 1; transform: translateX(-50%) translateY(0); }
         [data-dica-baixo]::after { bottom: auto; top: calc(100% + 10px); }
+        /* Dentro da lateral a dica só existe no hover.
+           Ela é absoluta e sem quebra de linha, então a caixa dela —
+           larga, mesmo invisível — entrava na largura rolável da lista e
+           criava barra horizontal. Aqui ela sai do layout quando não
+           está à vista; o custo é o fade, que só se perde na lateral. */
+        .nss-lateral [data-dica]::after { display: none; }
+        .nss-lateral [data-dica]:hover::after,
+        .nss-lateral [data-dica]:focus-visible::after {
+          display: block; opacity: 1; transform: translateX(-50%);
+        }
 
         /* ══════════ TOPO ══════════ */
         .nss-topo {
@@ -581,7 +614,11 @@ export default function NoraScreenSala() {
 
         /* ── Lateral ── */
         .nss-lateral {
-          min-height: 0; display: flex; flex-direction: column; gap: 16px;
+          min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 16px;
+          /* Nada aqui dentro pode empurrar a lateral para os lados: sem
+             isto, um nome comprido ou uma tag a mais criava barra de
+             rolagem horizontal. */
+          overflow-x: hidden;
           padding: 18px; border-radius: 20px;
           background: var(--nss-painel); border: 1px solid var(--nss-line);
           backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
@@ -622,7 +659,10 @@ export default function NoraScreenSala() {
         .nss-copiar.feito svg { transform: scale(1.15); }
 
         .nss-lista {
-          min-height: 0; overflow-y: auto; margin: 9px -6px 0; padding: 0 6px;
+          min-height: 0; min-width: 0;
+          /* Vertical quando precisa; horizontal, nunca. */
+          overflow-y: auto; overflow-x: hidden;
+          margin: 9px -6px 0; padding: 0 6px;
           scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.14) transparent;
         }
         .nss-lista::-webkit-scrollbar { width: 5px; }
@@ -630,10 +670,15 @@ export default function NoraScreenSala() {
 
         .nss-pessoa {
           display: flex; align-items: center; gap: 11px;
+          /* O min-width zero em toda a corrente é o que deixa o texto
+             encolher em vez de esticar o card para fora da lateral: um
+             item flex não encolhe abaixo do conteúdo sem ele. */
+          min-width: 0; max-width: 100%;
           padding: 9px 10px; border-radius: 13px;
           border: 1px solid transparent;
           animation: nss-entrou 0.4s cubic-bezier(0.16,1,0.3,1) both;
         }
+        .nss-pessoa > div { min-width: 0; }
         @keyframes nss-entrou {
           from { opacity: 0; transform: translateX(-8px); }
           to   { opacity: 1; transform: translateX(0); }
@@ -659,11 +704,16 @@ export default function NoraScreenSala() {
           width: 11px; height: 11px; border-radius: 50%;
           background: var(--nss-verde); border: 2.5px solid #0c0b14;
         }
+        /* Nome e tags podem quebrar para a linha de baixo em vez de
+           espremer o nome a ponto de virar reticências. */
         .nss-pessoa-nome {
-          display: flex; align-items: center; gap: 6px;
+          display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px;
           font-size: 0.88rem; font-weight: 600; min-width: 0;
         }
-        .nss-pessoa-nome b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+        .nss-pessoa-nome b {
+          min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+          font-weight: 600; max-width: 100%;
+        }
         .nss-voce {
           flex-shrink: 0; padding: 1px 6px; border-radius: 5px;
           background: rgba(255,255,255,0.1); font-size: 0.62rem; font-weight: 700;
@@ -680,15 +730,14 @@ export default function NoraScreenSala() {
 
         /* Estado abaixo do nome: o que a pessoa está FAZENDO agora. */
         .nss-pessoa-estado {
-          display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
-          font-size: 0.73rem; margin-top: 3px;
+          display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px;
+          min-width: 0; font-size: 0.73rem; line-height: 1.45; margin-top: 3px;
         }
-        .nss-estado { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+        /* Sem nowrap: em lateral estreita, "Compartilhando tela" cabe
+           quebrando, e espremê-lo numa linha só era o que deixava o
+           texto apertado e ilegível. */
+        .nss-estado { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
         .nss-estado.compartilhando { color: #86efac; font-weight: 600; }
-        .nss-estado.compartilhando .nss-onda { margin-left: 0; height: 11px; }
-        .nss-estado.compartilhando .nss-onda i:nth-child(2) { height: 10px; }
-        .nss-estado.compartilhando .nss-onda i:nth-child(1) { height: 5px; }
-        .nss-estado.compartilhando .nss-onda i:nth-child(3) { height: 7px; }
         .nss-estado.microfone { color: #9ff0b8; }
         .nss-estado.mudo { color: rgba(255,255,255,0.4); }
         .nss-estado.quieto { color: rgba(255,255,255,0.34); }
@@ -727,18 +776,30 @@ export default function NoraScreenSala() {
            O bloco grande saiu da lateral: ele ocupava espaço permanente
            para decisões que se tomam uma vez. Agora é um painel que se
            abre quando é preciso. */
+        /* A caixa não se mexe: quem gira é só o símbolo, dentro dela.
+           Antes a rotação estava no botão, e girar o botão arrastava
+           junto o tooltip e o alinhamento da linha inteira. */
         .nss-page .nss-engrenagem {
           flex-shrink: 0; cursor: pointer; font-family: inherit;
           display: inline-flex; align-items: center; justify-content: center;
           width: 26px; height: 26px; border-radius: 8px;
           background: transparent; border: 1px solid transparent;
           color: rgba(255,255,255,0.45);
-          transition: background 0.22s ease, color 0.22s ease, border-color 0.22s ease, transform 0.4s ease;
+          transform: none;
+          transition: background 0.22s ease, color 0.22s ease, border-color 0.22s ease;
         }
-        .nss-page .nss-engrenagem:hover {
+        .nss-page .nss-engrenagem:hover,
+        .nss-page .nss-engrenagem:focus-visible {
           background: rgba(167,139,250,0.14); border-color: rgba(167,139,250,0.3);
-          color: var(--nss-violet-soft); transform: rotate(45deg);
+          color: var(--nss-violet-soft);
+          transform: none;
         }
+        .nss-engrenagem svg {
+          display: block;
+          transition: transform 0.45s cubic-bezier(0.16,1,0.3,1);
+        }
+        .nss-page .nss-engrenagem:hover svg,
+        .nss-page .nss-engrenagem:focus-visible svg { transform: rotate(60deg); }
         .nss-config-fundo {
           position: fixed; inset: 0; z-index: 60;
           display: flex; align-items: center; justify-content: center; padding: 20px;
@@ -766,17 +827,47 @@ export default function NoraScreenSala() {
         }
         .nss-page .nss-config-fechar:hover { background: rgba(255,255,255,0.1); color: #fff; }
         .nss-regra.coluna { display: block; cursor: default; }
-        .nss-limites { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
-        .nss-page .nss-limite {
-          cursor: pointer; font-family: inherit;
-          padding: 7px 13px; border-radius: 9px;
-          font-size: 0.79rem; font-weight: 600; color: rgba(255,255,255,0.72);
-          background: rgba(255,255,255,0.045); border: 1px solid var(--nss-line);
-          transition: background 0.22s ease, border-color 0.22s ease, color 0.22s ease;
+        .nss-limite-valor {
+          display: block; margin-top: 3px;
+          font-size: 0.95rem; font-weight: 700; color: var(--nss-violet-soft);
         }
-        .nss-page .nss-limite:hover { background: rgba(255,255,255,0.09); color: #fff; }
-        .nss-page .nss-limite.ativo {
-          background: rgba(124,58,237,0.26); border-color: rgba(167,139,250,0.5); color: #eee7ff;
+        .nss-limite-controles { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+        .nss-page .nss-faixa {
+          flex: 1; min-width: 0; height: 22px; cursor: pointer;
+          appearance: none; -webkit-appearance: none; background: transparent;
+        }
+        .nss-page .nss-faixa::-webkit-slider-runnable-track {
+          height: 5px; border-radius: 100px;
+          background: rgba(255,255,255,0.12);
+        }
+        .nss-page .nss-faixa::-moz-range-track {
+          height: 5px; border-radius: 100px; background: rgba(255,255,255,0.12);
+        }
+        .nss-page .nss-faixa::-webkit-slider-thumb {
+          appearance: none; -webkit-appearance: none;
+          width: 17px; height: 17px; margin-top: -6px; border-radius: 50%;
+          background: linear-gradient(140deg, #a78bfa, #7C3AED);
+          border: 2px solid #12101c; box-shadow: 0 2px 10px -2px rgba(124,58,237,0.9);
+          transition: transform 0.18s ease;
+        }
+        .nss-page .nss-faixa::-moz-range-thumb {
+          width: 17px; height: 17px; border-radius: 50%; border: 2px solid #12101c;
+          background: linear-gradient(140deg, #a78bfa, #7C3AED);
+        }
+        .nss-page .nss-faixa:hover::-webkit-slider-thumb { transform: scale(1.12); }
+        .nss-page .nss-faixa:focus-visible { outline: none; }
+        .nss-page .nss-faixa:focus-visible::-webkit-slider-thumb {
+          box-shadow: 0 0 0 4px rgba(167,139,250,0.3);
+        }
+        .nss-page .nss-limite-campo {
+          flex-shrink: 0; width: 64px; height: 38px; text-align: center;
+          border-radius: 10px; font-family: 'JetBrains Mono', monospace;
+          font-size: 0.88rem; font-weight: 700; color: var(--nss-fg);
+          background: rgba(255,255,255,0.05); border: 1px solid var(--nss-line);
+          transition: border-color 0.22s ease, background 0.22s ease;
+        }
+        .nss-page .nss-limite-campo:focus {
+          outline: none; border-color: rgba(167,139,250,0.6); background: rgba(124,58,237,0.12);
         }
         .nss-regra {
           display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -1335,7 +1426,7 @@ export default function NoraScreenSala() {
                 <button
                   type="button"
                   className="nss-engrenagem"
-                  onClick={() => setConfigAberta(true)}
+                  onClick={abrirConfig}
                   data-dica="Configurações da sala"
                   aria-label="Configurações da sala"
                 >
@@ -1348,6 +1439,10 @@ export default function NoraScreenSala() {
                 const souEu = eu && p.id === eu.id;
                 const papel = papelDe({ id: p.id, donoId, admins });
                 const acoes = acoesDisponiveis({ alvo: p, euId: eu?.id, donoId, admins });
+                // Estado por pessoa, nunca global: quem compartilha sai de
+                // `transmitindoIds`, que junta o que a presença conta com a
+                // mídia que está de fato chegando dela.
+                const compartilhando = souEu ? transmitindo : transmitindoIds.includes(p.id);
                 const estaFalando = falando.includes(p.id) || (souEu && microfoneAtivo && !microfoneMudo);
                 // O microfone de quem está na sala: só conta se ele disse
                 // que tem um. Sem microfone não há estado a mostrar.
@@ -1355,10 +1450,10 @@ export default function NoraScreenSala() {
                 const micMudo = souEu ? microfoneMudo : p.mudo;
                 return (
                   <div
-                    className={`nss-pessoa ${souEu ? 'eu' : ''} ${p.transmitindo ? 'transmitindo' : ''} ${p.bloqueado ? 'bloqueada' : ''} ${estaFalando ? 'falando' : ''}`}
+                    className={`nss-pessoa ${souEu ? 'eu' : ''} ${compartilhando ? 'transmitindo' : ''} ${p.bloqueado ? 'bloqueada' : ''} ${estaFalando ? 'falando' : ''}`}
                     key={p.id}
                   >
-                    <span className={`nss-avatar ${p.transmitindo ? 'transmite' : ''} ${estaFalando ? 'falando' : ''}`}>
+                    <span className={`nss-avatar ${compartilhando ? 'transmite' : ''} ${estaFalando ? 'falando' : ''}`}>
                       {iniciaisDe(p.nickname) || '··'}
                     </span>
                     <div style={{ minWidth: 0 }}>
@@ -1375,11 +1470,8 @@ export default function NoraScreenSala() {
                       {/* Estado, abaixo do nome: o que essa pessoa está
                           fazendo agora, e não o que ela é. */}
                       <div className="nss-pessoa-estado">
-                        {p.transmitindo && (
-                          <span className="nss-estado compartilhando">
-                            <span className="nss-onda"><i /><i /><i /></span>
-                            Compartilhando tela
-                          </span>
+                        {compartilhando && (
+                          <span className="nss-estado compartilhando">Compartilhando tela</span>
                         )}
                         {micLigado && (
                           <span className={`nss-estado ${micMudo ? 'mudo' : 'microfone'}`}>
@@ -1387,7 +1479,7 @@ export default function NoraScreenSala() {
                             {micMudo ? 'Microfone mudo' : 'Microfone ativo'}
                           </span>
                         )}
-                        {!p.transmitindo && !micLigado && (
+                        {!compartilhando && !micLigado && (
                           <span className="nss-estado quieto">Só assistindo</span>
                         )}
                       </div>
@@ -1398,7 +1490,7 @@ export default function NoraScreenSala() {
                           <Icone d={ICONES.bloqueado} size={13} />
                         </span>
                       )}
-                      {p.transmitindo && p.comAudio && (
+                      {compartilhando && p.comAudio && (
                         <span className="nss-selo-audio" data-dica="Compartilhando com áudio">
                           <Icone d={ICONES.som} size={13} />
                         </span>
@@ -1705,28 +1797,38 @@ export default function NoraScreenSala() {
             <div className="nss-regra coluna">
               <span>
                 Limite de participantes
+                <strong className="nss-limite-valor">
+                  {limiteRascunho === 0 ? 'Sem limite' : `${limiteRascunho} pessoas`}
+                </strong>
                 <small>
-                  {regras.maxParticipantes
-                    ? `No máximo ${regras.maxParticipantes} pessoas ao mesmo tempo`
-                    : 'Sem limite'}
-                  {' · '}{participantes.length} agora
+                  {participantes.length} na sala agora · 0 desliga o limite
                 </small>
               </span>
-              <div className="nss-limites">
-                {[null, 4, 6, 8, 12, 20].map((n) => (
-                  <button
-                    type="button"
-                    key={String(n)}
-                    className={`nss-limite ${regras.maxParticipantes === n ? 'ativo' : ''}`}
-                    onClick={async () => {
-                      if (await definirRegrasDaSala({ maxParticipantes: n })) {
-                        avisar(n ? `Limite de ${n} participantes` : 'Limite removido', 'ok');
-                      }
-                    }}
-                  >
-                    {n || 'Sem limite'}
-                  </button>
-                ))}
+              <div className="nss-limite-controles">
+                <input
+                  type="range"
+                  className="nss-faixa"
+                  min={0}
+                  max={99}
+                  step={1}
+                  value={limiteRascunho}
+                  aria-label="Limite de participantes"
+                  onChange={(e) => setLimiteRascunho(normalizarLimite(e.target.value))}
+                  onPointerUp={() => salvarLimite(limiteRascunho)}
+                  onKeyUp={(e) => { if (e.key.startsWith('Arrow')) salvarLimite(limiteRascunho); }}
+                />
+                <input
+                  type="number"
+                  className="nss-limite-campo"
+                  min={0}
+                  max={99}
+                  step={1}
+                  value={limiteRascunho}
+                  aria-label="Limite de participantes, em número"
+                  onChange={(e) => setLimiteRascunho(normalizarLimite(e.target.value))}
+                  onBlur={() => salvarLimite(limiteRascunho)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+                />
               </div>
             </div>
 
