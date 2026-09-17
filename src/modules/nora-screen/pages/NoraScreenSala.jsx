@@ -1418,11 +1418,11 @@ export default function NoraScreenSala() {
           >
             <span className="nss-porta-icone"><Icone d={ICONES.tela} size={24} /></span>
             <h1 className="nss-porta-titulo">Entrar na sala {codigo}</h1>
-            <p className="nss-porta-texto">Escolha um nickname para se identificar para quem já está lá.</p>
+            <p className="nss-porta-texto">Escolha um apelido para se identificar para quem já está lá.</p>
             <input
               className="nss-input"
               type="text"
-              placeholder="Seu nickname"
+              placeholder="Seu apelido"
               value={rascunho}
               onChange={(e) => setRascunho(e.target.value.slice(0, 24))}
               maxLength={24}

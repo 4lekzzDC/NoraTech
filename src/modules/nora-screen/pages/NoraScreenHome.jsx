@@ -86,7 +86,7 @@ export default function NoraScreenHome() {
   // caminhos — criar e entrar. Sem ele não há quem apresentar aos outros.
   const exigirNickname = () => {
     if (nicknameOk) return true;
-    setErro(`Escolha um nickname com pelo menos ${NICKNAME_MIN} caracteres para se identificar na sala.`);
+    setErro(`Escolha um apelido com pelo menos ${NICKNAME_MIN} caracteres para se identificar na sala.`);
     campoNickname.current?.focus();
     return false;
   };
@@ -285,8 +285,10 @@ export default function NoraScreenHome() {
           border: 1px solid rgba(255,255,255,0.09);
           color: var(--nsc-violet-soft);
         }
-        .nsc-beneficio-titulo { font-size: 0.95rem; font-weight: 700; letter-spacing: -0.2px; }
-        .nsc-beneficio-desc { font-size: 0.86rem; color: rgba(255,255,255,0.44); margin-top: 2px; }
+        .nsc-beneficio-titulo { font-size: 0.95rem; font-weight: 700; letter-spacing: -0.2px; line-height: 1.35; }
+        .nsc-beneficio-desc {
+          font-size: 0.86rem; line-height: 1.45; color: rgba(255,255,255,0.52); margin-top: 3px;
+        }
 
         .nsc-acoes { display: flex; flex-wrap: wrap; gap: 12px; margin-top: clamp(24px, 4.4vh, 42px); }
         .nsc-page .nsc-acao {
@@ -351,12 +353,15 @@ export default function NoraScreenHome() {
         @keyframes nsc-giro { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
         .nsc-titulo { font-size: clamp(1.4rem, 1.7vw, 1.7rem); font-weight: 800; letter-spacing: -0.8px; margin: 0; }
-        .nsc-sub { font-size: 0.88rem; color: var(--nsc-muted); margin: 6px 0 clamp(18px, 2.8vh, 26px); }
+        .nsc-sub {
+          font-size: 0.88rem; line-height: 1.5; color: rgba(255,255,255,0.56);
+          margin: 7px 0 clamp(18px, 2.8vh, 26px);
+        }
 
         .nsc-rotulo {
           display: block; font-family: 'JetBrains Mono', monospace;
           font-size: 0.66rem; font-weight: 600; letter-spacing: 1.8px;
-          text-transform: uppercase; color: rgba(255,255,255,0.46); margin-bottom: 9px;
+          text-transform: uppercase; color: rgba(255,255,255,0.54); margin-bottom: 10px;
         }
 
         .nsc-nick-linha { display: flex; align-items: center; gap: 12px; }
@@ -403,12 +408,16 @@ export default function NoraScreenHome() {
         .nsc-contador {
           position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
           font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
-          color: rgba(255,255,255,0.32); pointer-events: none;
+          color: rgba(255,255,255,0.38); pointer-events: none;
         }
         .nsc-input.tem-contador { padding-right: 62px; }
 
         .nsc-page .nsc-primario {
+          position: relative;
           width: 100%; height: 54px; margin-top: 16px;
+          /* Espaço reservado nas laterais para a seta, que sai do fluxo: assim
+             o par "+ Criar sala" fica centrado de verdade e nunca encosta nela. */
+          padding: 0 46px;
           display: inline-flex; align-items: center; justify-content: center; gap: 10px;
           border: none; border-radius: 15px; cursor: pointer;
           background: linear-gradient(100deg, #7C3AED 0%, #6d5cf6 52%, #3b82f6 100%);
@@ -419,9 +428,14 @@ export default function NoraScreenHome() {
         .nsc-page .nsc-primario:hover { transform: translateY(-2px); box-shadow: 0 24px 46px -18px rgba(99,72,246,1); filter: brightness(1.07); }
         .nsc-page .nsc-primario:active { transform: translateY(0); }
         .nsc-primario .mais { font-size: 1.15rem; line-height: 1; margin-top: -2px; }
-        .nsc-primario .seta { margin-left: auto; transition: transform 0.3s cubic-bezier(0.16,1,0.3,1); }
-        .nsc-page .nsc-primario:hover .seta { transform: translateX(4px); }
-        .nsc-primario .rotulo { margin-right: auto; }
+        /* A seta é ornamento: fora do fluxo, ela não desloca o rótulo. */
+        .nsc-primario .seta {
+          position: absolute; right: 18px; top: 50%; margin-top: -8px;
+          display: flex; opacity: 0.85;
+          transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), opacity 0.28s ease;
+        }
+        .nsc-page .nsc-primario:hover .seta { transform: translateX(4px); opacity: 1; }
+        .nsc-primario .rotulo { letter-spacing: 0.1px; }
 
         .nsc-ou {
           display: flex; align-items: center; gap: 14px;
@@ -453,7 +467,7 @@ export default function NoraScreenHome() {
         .nsc-selo {
           display: flex; align-items: center; justify-content: center; gap: 8px;
           margin-top: clamp(16px, 2.6vh, 24px);
-          font-size: 0.78rem; color: rgba(255,255,255,0.4);
+          font-size: 0.78rem; line-height: 1.4; color: rgba(255,255,255,0.46);
         }
         .nsc-selo svg { color: var(--nsc-violet-soft); flex-shrink: 0; }
 
@@ -645,10 +659,10 @@ export default function NoraScreenHome() {
             <div className="nsc-borda" aria-hidden="true" />
 
             <h2 className="nsc-titulo">Entrar</h2>
-            <p className="nsc-sub">Escolha um nickname para se identificar na sala.</p>
+            <p className="nsc-sub">Escolha um apelido para se identificar na sala.</p>
 
             <form onSubmit={criarSala} noValidate>
-              <label className="nsc-rotulo" htmlFor="nsc-nickname">Nickname</label>
+              <label className="nsc-rotulo" htmlFor="nsc-nickname">Apelido</label>
               <div className="nsc-nick-linha">
                 <span className={`nsc-avatar ${iniciais ? '' : 'vazio'}`} aria-hidden="true">
                   {iniciais || '··'}
@@ -659,7 +673,7 @@ export default function NoraScreenHome() {
                     ref={campoNickname}
                     className="nsc-input tem-contador"
                     type="text"
-                    placeholder="Seu nickname"
+                    placeholder="Seu apelido"
                     value={nickname}
                     onChange={(e) => { setNickname(e.target.value.slice(0, NICKNAME_MAX)); setErro(''); }}
                     maxLength={NICKNAME_MAX}
