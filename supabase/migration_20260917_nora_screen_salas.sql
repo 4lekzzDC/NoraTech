@@ -28,9 +28,7 @@ create table if not exists public.nora_screen_salas (
 );
 
 comment on table public.nora_screen_salas is
-  'Regras autoritativas das salas do Nora Screen. Leitura pública (todo '
-  'participante precisa das regras); escrita só pelas RPCs abaixo, que exigem '
-  'o token do host. Linhas velhas são varridas oportunisticamente na abertura.';
+  'Regras autoritativas das salas do Nora Screen. Leitura publica (todo participante precisa das regras); escrita so pelas RPCs abaixo, que exigem o token do host. Linhas velhas sao varridas oportunisticamente na abertura.';
 
 create index if not exists nora_screen_salas_criada_em_idx
   on public.nora_screen_salas (criada_em);
@@ -85,7 +83,7 @@ declare
   v_sala public.nora_screen_salas;
 begin
   if p_codigo is null or p_token is null or length(p_token) < 16 then
-    raise exception 'parâmetros inválidos';
+    raise exception 'parametros invalidos';
   end if;
 
   -- Varredura oportunista: sala é efêmera, não há por que guardar as de
@@ -120,7 +118,7 @@ declare
 begin
   select * into v_sala from public.nora_screen_salas where codigo = upper(p_codigo);
   if v_sala.codigo is null then
-    raise exception 'sala não encontrada';
+    raise exception 'sala nao encontrada';
   end if;
   if v_sala.host_token_hash <> encode(digest(coalesce(p_token, ''), 'sha256'), 'hex') then
     raise exception 'apenas o host desta sala pode mudar as regras';
@@ -154,10 +152,10 @@ declare
 begin
   select * into v_sala from public.nora_screen_salas where codigo = upper(p_codigo);
   if v_sala.codigo is null then
-    raise exception 'sala não encontrada';
+    raise exception 'sala nao encontrada';
   end if;
   if v_sala.host_token_hash <> encode(digest(coalesce(p_token, ''), 'sha256'), 'hex') then
-    raise exception 'apenas o host desta sala pode encerrá-la';
+    raise exception 'apenas o host desta sala pode encerra-la';
   end if;
 
   update public.nora_screen_salas
