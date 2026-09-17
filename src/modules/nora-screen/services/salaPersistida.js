@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import { nomeDoCanal } from './sinalizacao.js';
 import { regrasDaLinha } from '../domain/regrasDaSala.js';
 
 // ═══════════════════════════════════════════════════════════════
@@ -90,4 +91,51 @@ export function assinarRegras(codigo, aoMudar) {
     )
     .subscribe();
   return () => supabase.removeChannel(canal);
+}
+
+/**
+ * Salas abertas agora.
+ *
+ * Só o que a listagem precisa ver: nunca o host_token_hash, que é o
+ * material da credencial do host. "Ativa" é não encerrada e criada
+ * dentro da janela que a varredura preserva — linha velha que ainda não
+ * foi varrida não é sala viva.
+ */
+export async function listarSalasAtivas({ limite = 24, janelaHoras = 24 } = {}) {
+  const desde = new Date(Date.now() - janelaHoras * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('nora_screen_salas')
+    .select('codigo, entradas_bloqueadas, somente_host_compartilha, criada_em')
+    .eq('encerrada', false)
+    .gte('criada_em', desde)
+    .order('criada_em', { ascending: false })
+    .limit(limite);
+  if (error) throw new Error(error.message);
+  return (data || []).map((linha) => ({
+    codigo: linha.codigo,
+    entradasBloqueadas: Boolean(linha.entradas_bloqueadas),
+    somenteHostCompartilha: Boolean(linha.somente_host_compartilha),
+    criadaEm: linha.criada_em,
+  }));
+}
+
+/**
+ * Conta quem está em cada sala, lendo a presença dos canais.
+ *
+ * Entra nos canais SEM `track`: a listagem observa, não participa — quem
+ * está só olhando a lista não pode aparecer como participante para quem
+ * está na sala.
+ */
+export function contarParticipantes(codigos, aoContar) {
+  const canais = codigos.map((codigo) => {
+    const canal = supabase.channel(nomeDoCanal(codigo), { config: { presence: { key: '' } } });
+    const contar = () => aoContar(codigo, Object.keys(canal.presenceState()).length);
+    canal
+      .on('presence', { event: 'sync' }, contar)
+      .on('presence', { event: 'join' }, contar)
+      .on('presence', { event: 'leave' }, contar)
+      .subscribe();
+    return canal;
+  });
+  return () => canais.forEach((canal) => supabase.removeChannel(canal));
 }

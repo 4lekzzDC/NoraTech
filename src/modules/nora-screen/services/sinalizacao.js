@@ -33,7 +33,9 @@ export const STATUS = {
   ERRO: 'erro',
 };
 
-function nomeDoCanal(codigo) {
+// Exportado para a listagem de salas ler a presença dos mesmos canais —
+// dois lugares montando o nome à mão divergiriam no primeiro rename.
+export function nomeDoCanal(codigo) {
   return `nora-screen:${String(codigo || '').toUpperCase()}`;
 }
 

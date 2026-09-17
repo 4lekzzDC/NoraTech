@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import SalasAtivas from '../components/SalasAtivas.jsx';
 import {
   NICKNAME_MAX,
   NICKNAME_MIN,
@@ -64,6 +65,7 @@ export default function NoraScreenHome() {
   const [nickname, setNickname] = useState('');
   const [codigo, setCodigo] = useState('');
   const [erro, setErro] = useState('');
+  const [salasAbertas, setSalasAbertas] = useState(false);
   const campoNickname = useRef(null);
 
   const iniciais = useMemo(() => iniciaisDe(nickname), [nickname]);
@@ -628,12 +630,12 @@ export default function NoraScreenHome() {
               </svg>
               Conhecer NoraTech
             </Link>
-            <Link to={noraScreenRoute('salas')} className="nsc-acao destaque">
+            <button type="button" className="nsc-acao destaque" onClick={() => setSalasAbertas(true)}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="9" cy="8" r="3.2" /><path d="M2.8 19c0-3.1 2.8-5.6 6.2-5.6s6.2 2.5 6.2 5.6" /><path d="M16.4 5.4a3.2 3.2 0 0 1 0 5.2M21.2 19c0-2-.7-3.7-2-4.9" />
               </svg>
               Ver salas
-            </Link>
+            </button>
           </div>
         </section>
 
@@ -718,6 +720,25 @@ export default function NoraScreenHome() {
           </section>
         </div>
       </main>
+
+      <SalasAtivas
+        aberto={salasAbertas}
+        aoFechar={() => setSalasAbertas(false)}
+        aoEntrar={(codigoDaSala) => {
+          setSalasAbertas(false);
+          // Sem nickname ainda? A sala pede na porta — não vale barrar aqui
+          // quem clicou em "Entrar" numa sala que já está na tela.
+          navigate(noraScreenRoute(`sala/${codigoDaSala}`), {
+            state: nicknameOk ? { nickname: nickname.trim() } : undefined,
+          });
+        }}
+        aoCriarSala={() => {
+          setSalasAbertas(false);
+          if (!exigirNickname()) return;
+          const novo = gerarCodigoDeSala();
+          navigate(noraScreenRoute(`sala/${novo}`), { state: { nickname: nickname.trim(), criador: true } });
+        }}
+      />
 
       <div className="nsc-rodape">NoraTech — Tecnologia que aproxima.</div>
     </div>
