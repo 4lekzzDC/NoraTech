@@ -4,11 +4,15 @@
 
 export { default as NoraScreenHome } from './pages/NoraScreenHome.jsx';
 export { default as NoraScreenSala } from './pages/NoraScreenSala.jsx';
+export { default as RotasDoSubdominio } from './RotasDoSubdominio.jsx';
 
 export {
   NORA_SCREEN_SLUG,
   NORA_SCREEN_NAME,
   NORA_SCREEN_ROUTE,
+  NO_SUBDOMINIO,
+  HOST_NORA_SCREEN,
+  ehHostDoNoraScreen,
   noraScreenRoute,
   gerarCodigoDeSala,
   normalizarCodigo,

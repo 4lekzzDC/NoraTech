@@ -47,6 +47,8 @@ import {
   NoraScreenHome,
   NoraScreenSala,
   NORA_SCREEN_ROUTE,
+  NO_SUBDOMINIO,
+  RotasDoSubdominio,
 } from './modules/nora-screen'
 import {
   NoraDocsInboxPage,
@@ -136,6 +138,7 @@ createRoot(document.getElementById('root')).render(
       <AuthProvider>
         <ForcePasswordResetGate>
         <MaintenanceGate>
+        {NO_SUBDOMINIO ? <RotasDoSubdominio /> : (
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/privacidade" element={<PrivacyPage />} />
@@ -258,6 +261,7 @@ createRoot(document.getElementById('root')).render(
             element={<Navigate to={`${SOLUCOES_CONTABEIS_ROUTE}/acompanhamento-contabil`} replace />}
           />
         </Routes>
+        )}
         </MaintenanceGate>
         </ForcePasswordResetGate>
       </AuthProvider>

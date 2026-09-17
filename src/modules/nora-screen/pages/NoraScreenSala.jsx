@@ -5,6 +5,7 @@ import {
   NICKNAME_MIN,
   NORA_SCREEN_ROUTE,
   codigoValido,
+  noraScreenRoute,
   iniciaisDe,
   normalizarCodigo,
 } from '../constants.js';
@@ -301,7 +302,11 @@ export default function NoraScreenSala() {
   }, []);
 
   const copiarConvite = useCallback(async () => {
-    const link = `${window.location.origin}${NORA_SCREEN_ROUTE}/sala/${codigo}`;
+    // Pelo helper, e não concatenando a base: no subdomínio a base é `/`
+    // e a concatenação daria `//sala/CODIGO`. O link sai sempre no host
+    // em que a pessoa está — quem convida de transmissao.noratech.com.br
+    // convida para lá.
+    const link = `${window.location.origin}${noraScreenRoute(`sala/${codigo}`)}`;
     try {
       await navigator.clipboard.writeText(link);
     } catch {

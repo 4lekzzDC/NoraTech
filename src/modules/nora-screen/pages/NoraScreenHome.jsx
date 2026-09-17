@@ -52,6 +52,19 @@ function MarcaNoraScreen() {
   );
 }
 
+// "Conhecer NoraTech" sai do produto e vai para o site.
+//
+// No domínio principal isso é navegação interna (`/`), e o Link do
+// roteador basta. No subdomínio é outro host: ali `/` é a home do
+// próprio Nora Screen, então o destino vira absoluto e precisa de uma
+// âncora de verdade — o Link trataria a URL como caminho interno.
+function LinkParaOSite({ className, children }) {
+  if (SITE_NORATECH.startsWith('http')) {
+    return <a href={SITE_NORATECH} className={className}>{children}</a>;
+  }
+  return <Link to={SITE_NORATECH} className={className}>{children}</Link>;
+}
+
 function Seta() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -638,12 +651,12 @@ export default function NoraScreenHome() {
           </div>
 
           <div className="nsc-acoes">
-            <Link to={SITE_NORATECH} className="nsc-acao">
+            <LinkParaOSite className="nsc-acao">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M14 4h6v6M20 4l-8.5 8.5" /><path d="M19 14.5V19a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19V6.5A1.5 1.5 0 0 1 5 5h4.5" />
               </svg>
               Conhecer NoraTech
-            </Link>
+            </LinkParaOSite>
             <button type="button" className="nsc-acao destaque" onClick={() => setSalasAbertas(true)}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="9" cy="8" r="3.2" /><path d="M2.8 19c0-3.1 2.8-5.6 6.2-5.6s6.2 2.5 6.2 5.6" /><path d="M16.4 5.4a3.2 3.2 0 0 1 0 5.2M21.2 19c0-2-.7-3.7-2-4.9" />

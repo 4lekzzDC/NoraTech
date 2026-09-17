@@ -1,23 +1,68 @@
 // Identidade e rotas do Nora Screen — compartilhamento de tela ao vivo pelo
 // navegador, produto da NoraTech.
 //
-// Vive em subdomínio próprio (transmissao.noratech.com.br), e por isso a
-// rota base é `/transmissao`: apontar o subdomínio para ela é só uma
-// reescrita no Vercel, sem mexer em código.
+// Endereço público: transmissao.noratech.com.br. O produto continua no
+// mesmo projeto, então as duas formas convivem:
+//
+//   subdomínio          →  /            e  /sala/CODIGO
+//   domínio principal   →  /transmissao e  /transmissao/sala/CODIGO
+//
+// Quem decide qual delas vale é o HOST, e a decisão é do navegador, não
+// do Vercel: num app de página única a reescrita do servidor só escolhe
+// qual arquivo servir (sempre o index.html), enquanto quem lê o caminho
+// e escolhe a tela é o roteador, aqui dentro. Por isso a base de rota é
+// calculada a partir do hostname e não de uma configuração de deploy.
 //
 // Diferente do NoraDocs e do hub Soluções Contábeis, a entrada não passa por
-// login da plataforma: quem entra numa sala se identifica por nickname.
+// login da plataforma: quem entra numa sala se identifica por apelido.
 
 export const NORA_SCREEN_SLUG = 'nora-screen';
 export const NORA_SCREEN_NAME = 'Nora Screen';
-export const NORA_SCREEN_ROUTE = '/transmissao';
 
-export function noraScreenRoute(path = '') {
-  return path ? `${NORA_SCREEN_ROUTE}/${path}` : NORA_SCREEN_ROUTE;
+/** Host público do produto. */
+export const HOST_NORA_SCREEN = 'transmissao.noratech.com.br';
+/** Base das rotas no domínio principal — mantida para compatibilidade. */
+export const BASE_NO_DOMINIO_PRINCIPAL = '/transmissao';
+/** Site institucional, para quando o Nora Screen está em outro host. */
+export const URL_SITE_NORATECH = 'https://noratech.com.br';
+
+/**
+ * Se este hostname é o do Nora Screen.
+ *
+ * Aceita qualquer `transmissao.*` para os ambientes de teste e preview
+ * (transmissao.localhost, transmissao.staging…) responderem igual ao de
+ * produção — validar num host e publicar noutro esconderia justamente o
+ * tipo de erro que só aparece no subdomínio.
+ */
+export function ehHostDoNoraScreen(hostname) {
+  const host = String(hostname || '').toLowerCase().split(':')[0];
+  return host === HOST_NORA_SCREEN || host.startsWith('transmissao.');
 }
 
-// Site institucional — destino do botão "Conhecer NoraTech".
-export const SITE_NORATECH = '/';
+// Resolvido uma vez, na carga do módulo: o host não muda durante a
+// navegação, e ler `location` durante o render seria impuro.
+export const NO_SUBDOMINIO = typeof window !== 'undefined'
+  && ehHostDoNoraScreen(window.location.hostname);
+
+/**
+ * Caminho de uma tela do Nora Screen no host atual.
+ *
+ * `noSubdominio` é parâmetro para os testes poderem checar as duas
+ * formas sem simular um navegador.
+ */
+export function noraScreenRoute(path = '', noSubdominio = NO_SUBDOMINIO) {
+  const base = noSubdominio ? '' : BASE_NO_DOMINIO_PRINCIPAL;
+  const limpo = String(path || '').replace(/^\/+/, '');
+  if (!limpo) return base || '/';
+  return `${base}/${limpo}`;
+}
+
+export const NORA_SCREEN_ROUTE = noraScreenRoute();
+
+// Site institucional — destino do botão "Conhecer NoraTech". No
+// subdomínio, `/` é a home do próprio Nora Screen: o link precisa
+// atravessar para o site, e por isso vira absoluto.
+export const SITE_NORATECH = NO_SUBDOMINIO ? `${URL_SITE_NORATECH}/` : '/';
 
 export const NICKNAME_MAX = 24;
 export const NICKNAME_MIN = 2;

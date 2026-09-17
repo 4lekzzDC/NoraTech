@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import {
   PADRAO_CODIGO,
   codigoValido,
+  ehHostDoNoraScreen,
   gerarCodigoDeSala,
   iniciaisDe,
+  noraScreenRoute,
   normalizarCodigo,
 } from './constants.js';
 
@@ -53,4 +55,55 @@ test('iniciais do avatar', () => {
   assert.equal(iniciaisDe(undefined), '');
   // Emoji conta como um caractere só — não pode sair partido ao meio.
   assert.equal(Array.from(iniciaisDe('🚀foguete')).length, 2);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Endereço público: transmissao.noratech.com.br
+// ═══════════════════════════════════════════════════════════════
+
+test('reconhece o host do Nora Screen, e só ele', () => {
+  assert.ok(ehHostDoNoraScreen('transmissao.noratech.com.br'));
+  assert.ok(ehHostDoNoraScreen('TRANSMISSAO.NORATECH.COM.BR'), 'host não diferencia maiúsculas');
+  assert.ok(ehHostDoNoraScreen('transmissao.localhost:5178'), 'porta não atrapalha');
+  assert.ok(ehHostDoNoraScreen('transmissao.staging.noratech.com.br'), 'preview responde igual');
+
+  assert.equal(ehHostDoNoraScreen('noratech.com.br'), false);
+  assert.equal(ehHostDoNoraScreen('www.noratech.com.br'), false);
+  assert.equal(ehHostDoNoraScreen('localhost'), false);
+  // Não basta conter a palavra: tem que ser o subdomínio.
+  assert.equal(ehHostDoNoraScreen('noratech.com.br/transmissao'), false);
+  assert.equal(ehHostDoNoraScreen(''), false);
+  assert.equal(ehHostDoNoraScreen(null), false);
+  assert.equal(ehHostDoNoraScreen(undefined), false);
+});
+
+test('no subdomínio o Nora Screen ocupa a raiz', () => {
+  assert.equal(noraScreenRoute('', true), '/');
+  assert.equal(noraScreenRoute('sala/KMPT-7R4X', true), '/sala/KMPT-7R4X');
+  assert.equal(noraScreenRoute('salas', true), '/salas');
+});
+
+test('no domínio principal continua sob /transmissao', () => {
+  assert.equal(noraScreenRoute('', false), '/transmissao');
+  assert.equal(noraScreenRoute('sala/KMPT-7R4X', false), '/transmissao/sala/KMPT-7R4X');
+  assert.equal(noraScreenRoute('salas', false), '/transmissao/salas');
+});
+
+test('caminho com barra na frente não vira barra dupla', () => {
+  // É daqui que sai o link de convite: `origin + rota`. Uma barra a mais
+  // deixaria o convite em //sala/CODIGO, que não abre a sala.
+  assert.equal(noraScreenRoute('/sala/KMPT-7R4X', true), '/sala/KMPT-7R4X');
+  assert.equal(noraScreenRoute('/sala/KMPT-7R4X', false), '/transmissao/sala/KMPT-7R4X');
+});
+
+test('o link de convite fica sempre no host de quem convida', () => {
+  const convite = (origem, noSubdominio) => `${origem}${noraScreenRoute('sala/KMPT-7R4X', noSubdominio)}`;
+  assert.equal(
+    convite('https://transmissao.noratech.com.br', true),
+    'https://transmissao.noratech.com.br/sala/KMPT-7R4X',
+  );
+  assert.equal(
+    convite('https://noratech.com.br', false),
+    'https://noratech.com.br/transmissao/sala/KMPT-7R4X',
+  );
 });
