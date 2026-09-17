@@ -21,6 +21,9 @@ export const EVENTOS = {
   // Pedido de retransmissão: quem entra depois avisa que chegou, e quem
   // está transmitindo abre uma conexão para o recém-chegado.
   QUERO_VER: 'quero-ver',
+  // Ordem do host para um participante (bloquear, liberar, parar, remover).
+  // Quem recebe confere se veio mesmo do host antes de obedecer.
+  MODERACAO: 'moderacao',
 };
 
 export const STATUS = {

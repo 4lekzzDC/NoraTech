@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EVENTOS, STATUS, entrarNaSala } from '../services/sinalizacao.js';
+import { ACOES, podeModerar } from '../domain/moderacao.js';
 
 // ═══════════════════════════════════════════════════════════════
 // Motor da sala — WebRTC sobre a sinalização do Realtime.
@@ -32,6 +33,9 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
   const [comAudio, setComAudio] = useState(false);
   const [streamRemoto, setStreamRemoto] = useState(null);
   const [erro, setErro] = useState('');
+  // Moderação: quem está impedido de transmitir e quem foi removido.
+  const [bloqueado, setBloqueado] = useState(false);
+  const [removido, setRemovido] = useState(false);
 
   // Identidade desta aba: chave de presence e endereço das mensagens de
   // sinalização. Nasce num efeito, não no render — `novoId` e `Date.now`
@@ -55,11 +59,17 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
   const icePendenteRef = useRef(new Map());
   const participantesRef = useRef([]);
   const transmitindoRef = useRef(false);
+  // O host precisa ser lido dentro do tratador de mensagens sem entrar nas
+  // dependências dele: se entrasse, cada mudança de participante recriaria
+  // o tratador e reassinaria o canal inteiro.
+  const hostRef = useRef(null);
+  const bloqueadoRef = useRef(false);
   const comAudioRef = useRef(false);
 
   useEffect(() => { participantesRef.current = participantes; }, [participantes]);
   useEffect(() => { transmitindoRef.current = transmitindo; }, [transmitindo]);
   useEffect(() => { comAudioRef.current = comAudio; }, [comAudio]);
+  useEffect(() => { bloqueadoRef.current = bloqueado; }, [bloqueado]);
 
   const fecharConexao = useCallback((id) => {
     const pc = conexoesRef.current.get(id);
@@ -124,6 +134,12 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
 
   const compartilharTela = useCallback(async () => {
     setErro('');
+    // Segunda barreira: o botão já vem desabilitado, mas quem chamar isto
+    // por outro caminho também não passa.
+    if (bloqueadoRef.current) {
+      setErro('O host desta sala impediu você de compartilhar a tela.');
+      return;
+    }
     if (!navigator.mediaDevices?.getDisplayMedia) {
       setErro('Este navegador não permite compartilhar a tela. Tente pelo Chrome, Edge ou Firefox no computador.');
       return;
@@ -230,8 +246,51 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
     if (evento === EVENTOS.PAROU) {
       fecharConexao(de);
       setStreamRemoto(null);
+      return;
     }
-  }, [aplicarIcePendente, fecharConexao, novaConexao, ofertarPara]);
+
+    if (evento === EVENTOS.MODERACAO) {
+      // A interface do outro lado já filtrou, mas quem obedece confere:
+      // a ordem só vale se vier de quem a sala inteira reconhece como host.
+      const autorizado = podeModerar({
+        hostId: hostRef.current?.id,
+        autorId: de,
+        alvoId: euRef.current?.id,
+        acao: payload.acao,
+      });
+      if (!autorizado) return;
+
+      if (payload.acao === ACOES.BLOQUEAR) {
+        setBloqueado(true);
+        salaRef.current?.anunciar({ bloqueado: true, transmitindo: false, comAudio: false });
+        // Bloquear quem já está no ar corta a transmissão na hora.
+        if (transmitindoRef.current) pararDeTransmitir();
+        return;
+      }
+      if (payload.acao === ACOES.LIBERAR) {
+        setBloqueado(false);
+        salaRef.current?.anunciar({ bloqueado: false });
+        return;
+      }
+      if (payload.acao === ACOES.PARAR) {
+        if (transmitindoRef.current) pararDeTransmitir();
+        return;
+      }
+      if (payload.acao === ACOES.REMOVER) {
+        // Sai do canal e derruba tudo aqui mesmo: a tela de aviso e o
+        // redirect são da página, mas a sala já deixou de existir.
+        streamLocalRef.current?.getTracks().forEach((t) => t.stop());
+        streamLocalRef.current = null;
+        fecharTudo();
+        setStreamRemoto(null);
+        setTransmitindo(false);
+        setComAudio(false);
+        salaRef.current?.sair();
+        salaRef.current = null;
+        setRemovido(true);
+      }
+    }
+  }, [aplicarIcePendente, fecharConexao, fecharTudo, novaConexao, ofertarPara, pararDeTransmitir]);
 
   // ── Ciclo de vida da sala ──
   useEffect(() => {
@@ -309,6 +368,21 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
   );
   const host = participantes[0] || null;
   const souHost = Boolean(host && eu && host.id === eu.id);
+  useEffect(() => { hostRef.current = host; }, [host]);
+
+  // Ação do host sobre outro participante. A mesma regra que o outro lado
+  // usa para decidir se obedece é conferida aqui antes de mandar.
+  const moderar = useCallback((alvoId, acao) => {
+    const autorizado = podeModerar({
+      hostId: hostRef.current?.id,
+      autorId: euRef.current?.id,
+      alvoId,
+      acao,
+    });
+    if (!autorizado) return false;
+    salaRef.current?.enviar(EVENTOS.MODERACAO, { para: alvoId, acao });
+    return true;
+  }, []);
   const outroTransmitindo = Boolean(quemTransmite && eu && quemTransmite.id !== eu.id);
 
   return {
@@ -319,6 +393,9 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
     souHost,
     transmitindo,
     comAudio,
+    bloqueado,
+    removido,
+    moderar,
     quemTransmite,
     outroTransmitindo,
     streamRemoto,
