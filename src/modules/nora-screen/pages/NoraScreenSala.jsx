@@ -9,7 +9,13 @@ import {
   normalizarCodigo,
 } from '../constants.js';
 import { ACOES, acoesDisponiveis } from '../domain/moderacao.js';
-import { MOTIVOS, podeCompartilhar } from '../domain/regrasDaSala.js';
+import {
+  ENTRADA,
+  MOTIVOS,
+  MOTIVOS_ENTRADA,
+  podeCompartilhar,
+  saidaObrigatoria,
+} from '../domain/regrasDaSala.js';
 import { STATUS } from '../services/sinalizacao.js';
 import { useSalaAoVivo } from '../hooks/useSalaAoVivo.js';
 
@@ -21,6 +27,14 @@ import { useSalaAoVivo } from '../hooks/useSalaAoVivo.js';
 // com os controles. A transmissão é real: WebRTC com sinalização pelo
 // Realtime do Supabase (ver hooks/useSalaAoVivo.js).
 // ═══════════════════════════════════════════════════════════════
+
+// Título curto acima da explicação, por motivo de recusa do servidor.
+const TITULO_DA_RECUSA = {
+  'entradas-bloqueadas': 'Entradas bloqueadas',
+  encerrada: 'A sala foi encerrada pelo host',
+  inexistente: 'Sala não encontrada',
+  indisponivel: 'Não foi possível entrar agora',
+};
 
 const ESTADO_CONEXAO = {
   [STATUS.CONECTANDO]: { rotulo: 'Conectando', tom: 'espera', dica: 'Entrando na sala…' },
@@ -119,8 +133,14 @@ export default function NoraScreenSala() {
     transmitindo, comAudio, quemTransmite, outroTransmitindo,
     streamRemoto, streamLocal, erro, compartilharTela, pararDeTransmitir,
     bloqueado, removido, moderar,
-    regras, souDono, barrado, definirRegrasDaSala, encerrarParaTodos,
+    regras, souDono, entrada, barrado, definirRegrasDaSala, encerrarParaTodos,
   } = sala;
+
+  // O servidor recusou a entrada: não há sala para mostrar. O motor já
+  // não abriu presence nem WebRTC; aqui a interface da sala também não
+  // é montada — só a porta com a explicação.
+  const entradaRecusada = entrada === ENTRADA.RECUSADA;
+  const naSala = entrada === ENTRADA.AUTORIZADA && !removido;
 
   const conexao = ESTADO_CONEXAO[status] || ESTADO_CONEXAO[STATUS.CONECTANDO];
   const temImagem = Boolean(transmitindo || streamRemoto);
@@ -350,11 +370,11 @@ export default function NoraScreenSala() {
   const motivoSemCompartilhar = permissao.motivo === 'ocupado'
     ? `${quemTransmite?.nickname} está compartilhando agora`
     : (MOTIVOS[permissao.motivo] || null);
-  // A sala encerrada e a entrada barrada usam a mesma porta de saída.
-  const saidaForcada = regras.encerrada
+  // A sala encerrada e a entrada recusada usam a mesma porta de saída.
+  const saidaForcada = saidaObrigatoria({ regras })
     ? { titulo: 'A sala foi encerrada pelo host', texto: 'Voltando ao Nora Screen…' }
-    : (barrado === 'entradas-bloqueadas'
-      ? { titulo: 'Entradas bloqueadas', texto: 'O host bloqueou novas entradas nesta sala. Peça para ele liberar e tente de novo.' }
+    : (entradaRecusada
+      ? { titulo: TITULO_DA_RECUSA[barrado] || 'Entrada não autorizada', texto: MOTIVOS_ENTRADA[barrado] || MOTIVOS_ENTRADA.indisponivel }
       : null);
 
   return (
@@ -990,6 +1010,7 @@ export default function NoraScreenSala() {
 
       <div className="nss-fundo" aria-hidden="true" />
 
+      {naSala && (<>
       {/* ═══ TOPO ═══ */}
       <header className="nss-topo">
         <div className="nss-marca">
@@ -1364,6 +1385,8 @@ export default function NoraScreenSala() {
           <span className="nss-controle-rotulo">Sair</span>
         </button>
       </div>
+
+      </>)}
 
       {/* ═══ PORTA ═══ */}
       {!codigoOk && (

@@ -49,6 +49,28 @@ export async function abrirSala(codigo, token) {
   return regrasDaLinha(Array.isArray(data) ? data[0] : data);
 }
 
+/**
+ * Pede ao servidor autorização para entrar na sala.
+ *
+ * É esta chamada — não a leitura da tabela — que decide a entrada. O
+ * banco confere se a sala existe, se não foi encerrada e se as entradas
+ * não estão bloqueadas, e só então autoriza. O token vai junto quando
+ * existe para o host atravessar o próprio bloqueio.
+ *
+ * Erro aqui é recusa, nunca liberação: quem chama trata a exceção como
+ * "não entra", e não como "entra com as regras padrão".
+ */
+export async function autorizarEntrada(codigo, token = null) {
+  const { data, error } = await supabase.rpc('nora_screen_entrar_na_sala', {
+    p_codigo: codigo,
+    p_token: token,
+  });
+  if (error) throw new Error(error.message);
+  const linha = Array.isArray(data) ? data[0] : data;
+  if (!linha) throw new Error('A sala não respondeu sobre a entrada.');
+  return linha;
+}
+
 /** Lê as regras atuais sem precisar de token. */
 export async function lerSala(codigo) {
   const { data, error } = await supabase

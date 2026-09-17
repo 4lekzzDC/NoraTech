@@ -26,20 +26,55 @@ export function regrasDaLinha(linha) {
   };
 }
 
+// Quem pode entrar é decidido pelo servidor, na RPC
+// nora_screen_entrar_na_sala. Não há cópia da regra aqui de propósito:
+// uma segunda implementação no cliente é uma que pode discordar da que
+// vale — e foi assim que a sala bloqueada deixou gente entrar.
+export const ENTRADA = {
+  VERIFICANDO: 'verificando',
+  AUTORIZADA: 'autorizada',
+  RECUSADA: 'recusada',
+};
+
 /**
- * Se esta pessoa pode entrar na sala agora.
+ * Traduz a resposta do servidor sobre a entrada.
  *
- * O host entra sempre: bloquear entradas não pode trancar quem abriu a
- * sala do lado de fora dela.
+ * Resposta ausente é recusa, não liberação: antes, qualquer falha ao
+ * consultar o estado da sala caía no padrão "tudo liberado" e a pessoa
+ * entrava apesar do bloqueio. Porta que não sabe se pode abrir fica
+ * fechada.
  */
-export function podeEntrar({ regras = REGRAS_PADRAO, souHost = false } = {}) {
-  if (regras.encerrada) {
-    return { pode: false, motivo: 'encerrada' };
+export function decisaoDaEntrada(resposta) {
+  if (!resposta || typeof resposta !== 'object') {
+    return {
+      estado: ENTRADA.RECUSADA,
+      motivo: 'indisponivel',
+      eHost: false,
+      regras: { ...REGRAS_PADRAO },
+    };
   }
-  if (regras.entradasBloqueadas && !souHost) {
-    return { pode: false, motivo: 'entradas-bloqueadas' };
+  const regras = regrasDaLinha({
+    entradas_bloqueadas: resposta.entradas_bloqueadas,
+    somente_host_compartilha: resposta.somente_host_compartilha,
+    encerrada: resposta.encerrada,
+  });
+  const eHost = Boolean(resposta.e_host);
+  if (resposta.autorizado) {
+    return { estado: ENTRADA.AUTORIZADA, motivo: null, eHost, regras };
   }
-  return { pode: true, motivo: null };
+  return { estado: ENTRADA.RECUSADA, motivo: resposta.motivo || 'indisponivel', eHost, regras };
+}
+
+/**
+ * Se quem JÁ ESTÁ na sala precisa sair por causa das regras atuais.
+ *
+ * Só o encerramento tira alguém de dentro. "Bloquear novas entradas" é
+ * uma porta, não uma expulsão: quem já estava conversando continua, e o
+ * host consegue fechar a sala para estranhos sem derrubar a reunião que
+ * está acontecendo.
+ */
+export function saidaObrigatoria({ regras = REGRAS_PADRAO } = {}) {
+  return regras.encerrada ? 'encerrada' : null;
 }
 
 /**
@@ -61,6 +96,14 @@ export function podeCompartilhar({
   if (outroTransmitindo) return { pode: false, motivo: 'ocupado' };
   return { pode: true, motivo: null };
 }
+
+/** O que a porta mostra para quem o servidor recusou. */
+export const MOTIVOS_ENTRADA = {
+  'entradas-bloqueadas': 'Esta sala não está aceitando novas entradas no momento.',
+  encerrada: 'Esta sala foi encerrada pelo host.',
+  inexistente: 'Esta sala não existe ou já expirou.',
+  indisponivel: 'Não foi possível confirmar o estado desta sala agora. Tente de novo em instantes.',
+};
 
 export const MOTIVOS = {
   encerrada: 'A sala foi encerrada pelo host',
