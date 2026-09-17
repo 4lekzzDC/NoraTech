@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
@@ -12,6 +12,7 @@ import {
 import { ACOES, acoesDisponiveis } from '../domain/moderacao.js';
 import { PAPEL, NOME_DO_PAPEL, papelDe } from '../domain/papeis.js';
 import { layoutDaGrade, transmissoesVisiveis } from '../domain/grade.js';
+import { aparelhoComPonteiroFino, posicaoDaDica } from '../domain/dica.js';
 import {
   ENTRADA,
   MOTIVOS,
@@ -122,6 +123,88 @@ function AudioRemoto({ stream, somLiberado, aoBloquearSom }) {
     el.play().catch(() => aoBloquearSom?.());
   }, [somLiberado, aoBloquearSom]);
   return <audio ref={ref} autoPlay playsInline muted={!somLiberado} />;
+}
+
+/**
+ * Botão da engrenagem, com a dica fora da lateral.
+ *
+ * A dica vive num portal no body, em `position: fixed`. Dentro da
+ * lateral ela era um `::after`, e o `overflow: hidden` de lá cortava o
+ * texto — a lateral é estreita e "Configurações da sala" não cabe.
+ *
+ * Como é fixed e está fora da árvore da lateral, nada aqui muda a
+ * largura ou a posição de coisa alguma: o botão continua ocupando os
+ * mesmos 26px, com ou sem dica aberta.
+ */
+// A media query como fonte externa, para o useSyncExternalStore.
+const CONSULTA_PONTEIRO = '(hover: hover) and (pointer: fine)';
+function assinarPonteiro(avisar) {
+  const mq = window.matchMedia?.(CONSULTA_PONTEIRO);
+  if (!mq?.addEventListener) return () => {};
+  mq.addEventListener('change', avisar);
+  return () => mq.removeEventListener('change', avisar);
+}
+function lerPonteiro() {
+  return aparelhoComPonteiroFino(window.matchMedia?.bind(window));
+}
+
+function BotaoDeConfiguracoes({ aoAbrir, texto = 'Configurações da sala' }) {
+  const ref = useRef(null);
+  const [dica, setDica] = useState(null);
+  // O tipo de ponteiro é estado de fora do React: lido direto da media
+  // query, sem cópia em useState para sincronizar. E ele pode mudar no
+  // meio da sessão — um tablet que ganha um mouse, por exemplo.
+  const comPonteiroFino = useSyncExternalStore(assinarPonteiro, lerPonteiro, () => false);
+
+  const mostrar = useCallback((e) => {
+    // Um toque também dispara pointerenter; ali a dica só atrapalharia.
+    if (e?.pointerType === 'touch') return;
+    if (!comPonteiroFino || !ref.current) return;
+    setDica(posicaoDaDica({
+      alvo: ref.current.getBoundingClientRect(),
+      larguraDaTela: window.innerWidth,
+      alturaDaTela: window.innerHeight,
+    }));
+  }, [comPonteiroFino]);
+  const esconder = useCallback(() => setDica(null), []);
+
+  // A lateral rola e a janela muda de tamanho: uma dica presa na posição
+  // antiga ficaria solta no meio da tela.
+  useEffect(() => {
+    if (!dica) return undefined;
+    window.addEventListener('scroll', esconder, true);
+    window.addEventListener('resize', esconder);
+    return () => {
+      window.removeEventListener('scroll', esconder, true);
+      window.removeEventListener('resize', esconder);
+    };
+  }, [dica, esconder]);
+
+  return (
+    <>
+      <button
+        ref={ref}
+        type="button"
+        className="nss-engrenagem"
+        onClick={aoAbrir}
+        onPointerEnter={mostrar}
+        onPointerLeave={esconder}
+        onFocus={mostrar}
+        onBlur={esconder}
+        aria-label={texto}
+        // No toque não existe passar o mouse: lá o rótulo nativo dá conta.
+        title={comPonteiroFino ? undefined : texto}
+      >
+        <Icone d={ICONES.engrenagem} size={15} />
+      </button>
+      {dica && createPortal(
+        <span className={`nss-dica-flutuante ${dica.lado}`} role="tooltip" style={dica.estilo}>
+          {texto}
+        </span>,
+        document.body,
+      )}
+    </>
+  );
 }
 
 const ESTADO_CONEXAO = {
@@ -776,6 +859,36 @@ export default function NoraScreenSala() {
            O bloco grande saiu da lateral: ele ocupava espaço permanente
            para decisões que se tomam uma vez. Agora é um painel que se
            abre quando é preciso. */
+        /* ── Dica flutuante (portal no body) ──
+           Fora da lateral de propósito: ali ela era um ::after e o
+           overflow da lateral cortava o texto. Sendo fixed e vivendo no
+           body, ela não entra na largura de nada — o botão continua
+           ocupando os mesmos 26px, com ou sem dica aberta. */
+        .nss-dica-flutuante {
+          position: fixed; z-index: 90;
+          transform: translateY(-50%);
+          max-width: min(260px, 60vw);
+          padding: 8px 12px; border-radius: 10px;
+          font-family: 'Inter', sans-serif; font-size: 0.78rem; font-weight: 500;
+          line-height: 1.35; color: rgba(255,255,255,0.9);
+          background: rgba(16,15,26,0.97);
+          border: 1px solid rgba(255,255,255,0.14);
+          box-shadow: 0 14px 34px rgba(0,0,0,0.55);
+          pointer-events: none;
+          animation: nss-dica-surge 0.16s ease both;
+        }
+        /* Nasce encostada no botão e desliza para fora, para o lado em
+           que de fato abriu. */
+        .nss-dica-flutuante.direita { transform-origin: left center; }
+        .nss-dica-flutuante.esquerda { transform-origin: right center; }
+        @keyframes nss-dica-surge {
+          from { opacity: 0; transform: translateY(-50%) scale(0.96); }
+          to   { opacity: 1; transform: translateY(-50%) scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .nss-dica-flutuante { animation: none; }
+        }
+
         /* A caixa não se mexe: quem gira é só o símbolo, dentro dela.
            Antes a rotação estava no botão, e girar o botão arrastava
            junto o tooltip e o alinhamento da linha inteira. */
@@ -1422,17 +1535,7 @@ export default function NoraScreenSala() {
                 {participantes.length}
                 {regras.maxParticipantes ? ` / ${regras.maxParticipantes}` : ''}
               </span>
-              {souDono && (
-                <button
-                  type="button"
-                  className="nss-engrenagem"
-                  onClick={abrirConfig}
-                  data-dica="Configurações da sala"
-                  aria-label="Configurações da sala"
-                >
-                  <Icone d={ICONES.engrenagem} size={15} />
-                </button>
-              )}
+              {souDono && <BotaoDeConfiguracoes aoAbrir={abrirConfig} />}
             </div>
             <div className="nss-lista">
               {participantes.map((p) => {
