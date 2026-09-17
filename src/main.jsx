@@ -44,6 +44,13 @@ import {
   ACOMPANHAMENTO_CONTABIL_LEGACY_ROUTE,
 } from './modules/solucoes-contabeis'
 import {
+  NoraScreenHome,
+  NoraScreenSala,
+  NORA_SCREEN_ROUTE,
+  NO_SUBDOMINIO,
+  RotasDoSubdominio,
+} from './modules/nora-screen'
+import {
   NoraDocsInboxPage,
   NoraDocsHistoricoPage,
   NoraDocsClientesPage,
@@ -131,6 +138,7 @@ createRoot(document.getElementById('root')).render(
       <AuthProvider>
         <ForcePasswordResetGate>
         <MaintenanceGate>
+        {NO_SUBDOMINIO ? <RotasDoSubdominio /> : (
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/privacidade" element={<PrivacyPage />} />
@@ -225,6 +233,14 @@ createRoot(document.getElementById('root')).render(
             path={`${SOLUCOES_CONTABEIS_ROUTE}/calculadora-difal/ajuste-fiscal`}
             element={<SolucoesContabeisRoute moduleSlug="calculadora-difal"><OrgManagerRoute><AjusteFiscalPage /></OrgManagerRoute></SolucoesContabeisRoute>}
           />
+          {/* Nora Screen — compartilhamento de tela ao vivo (transmissao.noratech.com.br).
+              Rotas públicas: a sala se identifica por nickname, não por login. */}
+          <Route path={NORA_SCREEN_ROUTE} element={<NoraScreenHome />} />
+          <Route path={`${NORA_SCREEN_ROUTE}/sala/:codigo`} element={<NoraScreenSala />} />
+          {/* Salas são canais efêmeros, sem registro em banco: não há diretório
+              público para listar. "Ver salas" devolve à entrada, onde se cria
+              uma sala ou se entra por código. */}
+          <Route path={`${NORA_SCREEN_ROUTE}/salas`} element={<Navigate to={NORA_SCREEN_ROUTE} replace />} />
           {/* NoraDocs — organização automática de documentos no Google Drive */}
           <Route path={NORADOCS_ROUTE} element={<NoraDocsRoute><NoraDocsInboxPage /></NoraDocsRoute>} />
           <Route path={`${NORADOCS_ROUTE}/historico`} element={<NoraDocsRoute><NoraDocsHistoricoPage /></NoraDocsRoute>} />
@@ -245,6 +261,7 @@ createRoot(document.getElementById('root')).render(
             element={<Navigate to={`${SOLUCOES_CONTABEIS_ROUTE}/acompanhamento-contabil`} replace />}
           />
         </Routes>
+        )}
         </MaintenanceGate>
         </ForcePasswordResetGate>
       </AuthProvider>
