@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
@@ -10,6 +10,8 @@ import {
   normalizarCodigo,
 } from '../constants.js';
 import { ACOES, acoesDisponiveis } from '../domain/moderacao.js';
+import { PAPEL, NOME_DO_PAPEL, papelDe } from '../domain/papeis.js';
+import { layoutDaGrade, transmissoesVisiveis } from '../domain/grade.js';
 import {
   ENTRADA,
   MOTIVOS,
@@ -36,6 +38,89 @@ const TITULO_DA_RECUSA = {
   inexistente: 'Sala não encontrada',
   indisponivel: 'Não foi possível entrar agora',
 };
+
+/**
+ * Um quadro do palco: a tela de uma pessoa.
+ *
+ * O stream é ligado por efeito, e não por atributo, porque `srcObject`
+ * não existe em JSX — e trocar de stream sem recriar o elemento evita
+ * que o vídeo pisque a cada renegociação.
+ */
+function Quadro({ transmissao, somLiberado, aoBloquearSom, focado, aoFocar, aoAmpliar, falando }) {
+  const ref = useRef(null);
+  const { stream, eu: souEu, nickname, comAudio } = transmissao;
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (el.srcObject !== stream) el.srcObject = stream || null;
+  }, [stream]);
+
+  // A minha própria tela vai sempre muda: ouvir o que eu mesmo mando é a
+  // definição de eco.
+  const mudo = souEu || !somLiberado;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || mudo) return;
+    el.play().catch(() => aoBloquearSom?.());
+  }, [mudo, aoBloquearSom]);
+
+  return (
+    <div
+      className={`nss-quadro ${focado ? 'focado' : ''} ${falando ? 'falando' : ''}`}
+      onClick={aoFocar}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); aoFocar?.(); } }}
+      aria-label={`Transmissão de ${nickname}${focado ? ', em foco' : ''}`}
+    >
+      <video ref={ref} autoPlay playsInline muted={mudo} />
+      <div className="nss-quadro-topo">
+        <span className="nss-quadro-aovivo">
+          <span className="nss-ponto" />
+          Ao vivo
+        </span>
+        <span className={`nss-quadro-audio ${comAudio ? 'com' : ''}`} data-dica={comAudio ? 'Transmitindo com áudio' : 'Esta fonte não tem áudio'} data-dica-baixo>
+          <Icone d={comAudio ? ICONES.som : ICONES.mudo} size={13} />
+        </span>
+      </div>
+      <div className="nss-quadro-rodape">
+        <span className="nss-quadro-nome">{souEu ? 'Você' : nickname}</span>
+        <button
+          type="button"
+          className="nss-quadro-botao"
+          onClick={(e) => { e.stopPropagation(); aoAmpliar?.(); }}
+          data-dica="Ver em tela cheia"
+          aria-label={`Ampliar a transmissão de ${nickname}`}
+        >
+          <Icone d={ICONES.tela_cheia} size={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * O microfone de outra pessoa.
+ *
+ * Sem imagem e sem controles: existe só para tocar. O meu próprio nunca
+ * chega aqui — o navegador só entrega as faixas dos outros, e é isso que
+ * impede o eco sem precisar de truque nenhum.
+ */
+function AudioRemoto({ stream, somLiberado, aoBloquearSom }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (el.srcObject !== stream) el.srcObject = stream || null;
+  }, [stream]);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !somLiberado) return;
+    el.play().catch(() => aoBloquearSom?.());
+  }, [somLiberado, aoBloquearSom]);
+  return <audio ref={ref} autoPlay playsInline muted={!somLiberado} />;
+}
 
 const ESTADO_CONEXAO = {
   [STATUS.CONECTANDO]: { rotulo: 'Conectando', tom: 'espera', dica: 'Entrando na sala…' },
@@ -67,6 +152,11 @@ const ICONES = {
   mais: <><circle cx="5" cy="12" r="1.3" /><circle cx="12" cy="12" r="1.3" /><circle cx="19" cy="12" r="1.3" /></>,
   bloqueado: <><rect x="4" y="10.5" width="16" height="10.5" rx="2.5" /><path d="M8 10.5V7.8a4 4 0 0 1 6.9-2.8" /></>,
   remover: <><circle cx="9" cy="8" r="3.2" /><path d="M2.8 19c0-3.1 2.8-5.6 6.2-5.6 1 0 2 .2 2.8.6" /><path d="m16 15 5 5M21 15l-5 5" /></>,
+  mic: <><rect x="9" y="2.5" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6" /></>,
+  mic_mudo: <><path d="M9 5.5a3 3 0 0 1 6 0v5M15 13.5a3 3 0 0 1-4.6.5" /><path d="M5.5 11a6.5 6.5 0 0 0 10.2 5.3M12 17.5V21M9 21h6" /><path d="m4 3 16 18" /></>,
+  engrenagem: <><circle cx="12" cy="12" r="3.2" /><path d="M19.4 14.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1v.3a2 2 0 1 1-4 0v-.2a1.6 1.6 0 0 0-2.8-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H3.2a2 2 0 1 1 0-4h.2a1.6 1.6 0 0 0 1.1-2.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 2.7-1.1V3.2a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 2.8 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7h.3a2 2 0 1 1 0 4h-.2a1.6 1.6 0 0 0-1.4 1z" /></>,
+  fechar: <path d="M18 6 6 18M6 6l12 12" />,
+  estrela: <path d="m12 3.5 2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z" />,
 };
 
 const ICONES_ACAO = {
@@ -74,6 +164,8 @@ const ICONES_ACAO = {
   [ACOES.LIBERAR]: <><rect x="4" y="10.5" width="16" height="10.5" rx="2.5" /><path d="M8 10.5V7.8a4 4 0 0 1 6.9-2.8" /></>,
   [ACOES.PARAR]: <><rect x="2.5" y="4" width="19" height="13" rx="2.5" /><path d="M9.5 9.5h5v5h-5z" /><path d="M8.5 21h7" /></>,
   [ACOES.REMOVER]: <><circle cx="9" cy="8" r="3.2" /><path d="M2.8 19c0-3.1 2.8-5.6 6.2-5.6 1 0 2 .2 2.8.6" /><path d="m16 15 5 5M21 15l-5 5" /></>,
+  [ACOES.PROMOVER]: <path d="m12 3.5 2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z" />,
+  [ACOES.REBAIXAR]: <><path d="m12 3.5 2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z" /><path d="m4 3 16 18" /></>,
 };
 
 const AVISO_ACAO = {
@@ -81,6 +173,8 @@ const AVISO_ACAO = {
   [ACOES.LIBERAR]: (nome) => `${nome} pode compartilhar de novo`,
   [ACOES.PARAR]: (nome) => `Transmissão de ${nome} encerrada`,
   [ACOES.REMOVER]: (nome) => `${nome} foi removido da sala`,
+  [ACOES.PROMOVER]: (nome) => `${nome} agora é admin da sala`,
+  [ACOES.REBAIXAR]: (nome) => `${nome} não é mais admin`,
 };
 
 // Avisos curtos no canto — copiar convite, alguém entrando, transmissão
@@ -111,15 +205,18 @@ export default function NoraScreenSala() {
   const [rascunho, setRascunho] = useState('');
   const [copiado, setCopiado] = useState(false);
   const [lateralAberta, setLateralAberta] = useState(false);
-  const [mudo, setMudo] = useState(true);
+  const [somLiberado, setSomLiberado] = useState(true);
+  const [somBloqueado, setSomBloqueado] = useState(false);
   const [emTelaCheia, setEmTelaCheia] = useState(false);
+  // Uma transmissão em foco ocupa o palco; as outras seguem no ar.
+  const [focoId, setFocoId] = useState(null);
+  const [configAberta, setConfigAberta] = useState(false);
   const [menuAberto, setMenuAberto] = useState(null);
   const [posMenu, setPosMenu] = useState(null);
   const [confirmando, setConfirmando] = useState(null);
   const [encerrando, setEncerrando] = useState(false);
   const botaoMenuRef = useRef(null);
 
-  const videoRef = useRef(null);
   const palcoRef = useRef(null);
   const { avisos, avisar } = useAvisos();
 
@@ -130,11 +227,13 @@ export default function NoraScreenSala() {
     ativo: codigoOk && Boolean(nickname),
   });
   const {
-    eu, status, participantes, host, souHost,
-    transmitindo, comAudio, quemTransmite, outroTransmitindo,
-    streamRemoto, streamLocal, erro, compartilharTela, pararDeTransmitir,
+    eu, status, participantes,
+    transmitindo, comAudio, erro, compartilharTela, pararDeTransmitir,
+    microfoneAtivo, mudo: microfoneMudo, alternarMicrofone, desligarMicrofone,
+    transmissoes, microfonesRemotos, falando,
     bloqueado, removido, moderar,
-    regras, souDono, entrada, barrado, definirRegrasDaSala, encerrarParaTodos,
+    regras, souDono, donoId, admins, meuPapel,
+    entrada, barrado, definirRegrasDaSala, encerrarParaTodos,
   } = sala;
 
   // O servidor recusou a entrada: não há sala para mostrar. O motor já
@@ -144,7 +243,12 @@ export default function NoraScreenSala() {
   const naSala = entrada === ENTRADA.AUTORIZADA && !removido;
 
   const conexao = ESTADO_CONEXAO[status] || ESTADO_CONEXAO[STATUS.CONECTANDO];
-  const temImagem = Boolean(transmitindo || streamRemoto);
+  const temImagem = transmissoes.length > 0;
+  // Foco: mostra uma transmissão sozinha SEM derrubar as outras — elas
+  // continuam recebendo, apenas fora de vista.
+  const emFoco = transmissoes.some((t) => t.id === focoId) ? focoId : null;
+  const noPalco = transmissoesVisiveis({ transmissoes, focoId: emFoco });
+  const grade = layoutDaGrade(noPalco.length);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -155,62 +259,17 @@ export default function NoraScreenSala() {
     return () => { html.style.overflow = anterior[0]; body.style.overflow = anterior[1]; };
   }, []);
 
-  // O vídeo mostra o que estou recebendo ou, se sou eu quem transmite, a
-  // minha própria captura — sem isso quem compartilha não vê o que enviou.
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el) return;
-    const fonte = transmitindo ? streamLocal.current : streamRemoto;
-    if (el.srcObject !== fonte) el.srcObject = fonte || null;
-  }, [transmitindo, streamRemoto, streamLocal, participantes]);
+  // Há som chegando de alguém? (tela com áudio ou microfone dos outros)
+  const temSomRemoto = microfonesRemotos.length > 0
+    || transmissoes.some((t) => !t.eu && t.comAudio);
 
-  // O áudio remoto é estado de fora do React: a faixa pode entrar depois do
-  // vídeo, ou sumir sozinha. Lido direto da stream, sem cópia em useState
-  // que precisaria ser sincronizada.
-  const temFaixaDeAudio = useSyncExternalStore(
-    useCallback((avisarMudanca) => {
-      if (!streamRemoto) return () => {};
-      streamRemoto.addEventListener('addtrack', avisarMudanca);
-      streamRemoto.addEventListener('removetrack', avisarMudanca);
-      return () => {
-        streamRemoto.removeEventListener('addtrack', avisarMudanca);
-        streamRemoto.removeEventListener('removetrack', avisarMudanca);
-      };
-    }, [streamRemoto]),
-    () => Boolean(streamRemoto && streamRemoto.getAudioTracks().length > 0),
-  );
-  // Quem transmite nunca ouve a própria captura — seria eco.
-  const remotoTemAudio = temFaixaDeAudio && !transmitindo;
-
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el || !remotoTemAudio || transmitindo) return;
-    let cancelado = false;
-    (async () => {
-      el.muted = false;
-      try {
-        await el.play();
-        if (!cancelado) setMudo(false);
-      } catch {
-        // Política de autoplay: só com um gesto da pessoa.
-        el.muted = true;
-        if (!cancelado) setMudo(true);
-      }
-    })();
-    return () => { cancelado = true; };
-  }, [remotoTemAudio, transmitindo]);
-
-  const ativarSom = useCallback(async () => {
-    const el = videoRef.current;
-    if (!el) return;
-    el.muted = false;
-    try {
-      await el.play();
-      setMudo(false);
-      avisar('Som ativado', 'ok');
-    } catch {
-      setMudo(true);
-    }
+  // O navegador só deixa tocar som sem gesto da pessoa em alguns casos.
+  // Quando barra, um botão só destrava tudo de uma vez — em vez de um
+  // "ativar som" por quadro, que seria um formulário de cliques.
+  const liberarSom = useCallback(() => {
+    setSomBloqueado(false);
+    setSomLiberado(true);
+    avisar('Som ativado', 'ok');
   }, [avisar]);
 
   // ── Avisos de movimento na sala ──
@@ -229,15 +288,24 @@ export default function NoraScreenSala() {
       .forEach((a) => avisar(`${a.nickname} saiu da sala`));
   }, [participantes, eu, avisar]);
 
-  const transmissorAnteriorRef = useRef(null);
+  // Vários podem transmitir ao mesmo tempo, então o aviso é por pessoa e
+  // não sobre "a transmissão" — que deixou de ser uma só.
+  const transmissoresRef = useRef(null);
   useEffect(() => {
-    const antes = transmissorAnteriorRef.current;
-    const agora = quemTransmite?.id || null;
-    transmissorAnteriorRef.current = agora;
-    if (antes === agora || !eu) return;
-    if (agora && agora !== eu.id) avisar(`${quemTransmite.nickname} começou a compartilhar`, 'ok');
-    if (!agora && antes && antes !== eu.id) avisar('A transmissão foi encerrada');
-  }, [quemTransmite, eu, avisar]);
+    const antes = transmissoresRef.current;
+    const agora = participantes.filter((p) => p.transmitindo).map((p) => p.id);
+    transmissoresRef.current = agora;
+    if (antes === null || !eu) return;
+    participantes
+      .filter((p) => p.id !== eu.id && p.transmitindo && !antes.includes(p.id))
+      .forEach((p) => avisar(`${p.nickname} começou a compartilhar`, 'ok'));
+    antes
+      .filter((id) => id !== eu.id && !agora.includes(id))
+      .forEach((id) => {
+        const quem = participantes.find((p) => p.id === id);
+        avisar(quem ? `${quem.nickname} parou de compartilhar` : 'Uma transmissão foi encerrada');
+      });
+  }, [participantes, eu, avisar]);
 
   const posicionarMenu = useCallback(() => {
     const el = botaoMenuRef.current;
@@ -359,22 +427,32 @@ export default function NoraScreenSala() {
     setConfirmando(null);
   }, [moderar, avisar]);
 
+  // Ampliar é tela cheia do quadro; focar é o palco inteiro para um só.
+  // São coisas diferentes e o quadro oferece as duas.
+  const ampliar = useCallback((id) => {
+    const alvo = palcoRef.current?.querySelector(`[aria-label*="${id}"]`);
+    const quadro = alvo || palcoRef.current?.querySelector('.nss-quadro.focado') || palcoRef.current;
+    if (!quadro) return;
+    if (document.fullscreenElement) { document.exitFullscreen?.(); return; }
+    setFocoId(id);
+    quadro.requestFullscreen?.().catch(() => {});
+  }, []);
+
   const sair = useCallback(() => {
     if (transmitindo) pararDeTransmitir();
     navigate(NORA_SCREEN_ROUTE);
   }, [navigate, pararDeTransmitir, transmitindo]);
 
-  const audioNoAr = transmitindo ? comAudio : (remotoTemAudio && !mudo);
+  const audioNoAr = (transmitindo && comAudio) || (microfoneAtivo && !microfoneMudo) || (temSomRemoto && somLiberado);
+  // Dono e admin atravessam o "somente host compartilha".
+  const privilegiado = meuPapel === PAPEL.DONO || meuPapel === PAPEL.ADMIN;
   const permissao = podeCompartilhar({
     regras,
-    souHost: souDono,
+    souHost: privilegiado,
     bloqueadoIndividualmente: bloqueado,
-    outroTransmitindo,
   });
   const naoPodeCompartilhar = !permissao.pode;
-  const motivoSemCompartilhar = permissao.motivo === 'ocupado'
-    ? `${quemTransmite?.nickname} está compartilhando agora`
-    : (MOTIVOS[permissao.motivo] || null);
+  const motivoSemCompartilhar = MOTIVOS[permissao.motivo] || null;
   // A sala encerrada e a entrada recusada usam a mesma porta de saída.
   const saidaForcada = saidaObrigatoria({ regras })
     ? { titulo: 'A sala foi encerrada pelo host', texto: 'Voltando ao Nora Screen…' }
@@ -591,11 +669,42 @@ export default function NoraScreenSala() {
           background: rgba(255,255,255,0.1); font-size: 0.62rem; font-weight: 700;
           letter-spacing: 0.4px; color: rgba(255,255,255,0.6);
         }
-        .nss-pessoa-papel {
-          display: flex; align-items: center; gap: 5px;
-          font-size: 0.73rem; color: rgba(255,255,255,0.42); margin-top: 2px;
+        /* Cargo ao lado do nome: o que a pessoa É na sala. */
+        .nss-cargo {
+          flex-shrink: 0; display: inline-flex; align-items: center; gap: 3px;
+          padding: 1px 6px; border-radius: 5px;
+          font-size: 0.62rem; font-weight: 700; letter-spacing: 0.3px;
         }
-        .nss-pessoa-papel.host { color: #e8c98a; }
+        .nss-cargo.dono { background: rgba(232,201,138,0.16); color: #e8c98a; }
+        .nss-cargo.admin { background: rgba(167,139,250,0.18); color: #c4b5fd; }
+
+        /* Estado abaixo do nome: o que a pessoa está FAZENDO agora. */
+        .nss-pessoa-estado {
+          display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
+          font-size: 0.73rem; margin-top: 3px;
+        }
+        .nss-estado { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+        .nss-estado.compartilhando { color: #86efac; font-weight: 600; }
+        .nss-estado.compartilhando .nss-onda { margin-left: 0; height: 11px; }
+        .nss-estado.compartilhando .nss-onda i:nth-child(2) { height: 10px; }
+        .nss-estado.compartilhando .nss-onda i:nth-child(1) { height: 5px; }
+        .nss-estado.compartilhando .nss-onda i:nth-child(3) { height: 7px; }
+        .nss-estado.microfone { color: #9ff0b8; }
+        .nss-estado.mudo { color: rgba(255,255,255,0.4); }
+        .nss-estado.quieto { color: rgba(255,255,255,0.34); }
+
+        /* Quem está falando: o anel acende no avatar e a linha respira.
+           É de propósito diferente do destaque de quem transmite — são
+           duas coisas distintas acontecendo ao mesmo tempo. */
+        .nss-pessoa.falando { background: rgba(34,197,94,0.07); border-color: rgba(34,197,94,0.28); }
+        .nss-avatar.falando {
+          box-shadow: 0 0 0 2px rgba(34,197,94,0.75), 0 0 18px -4px rgba(34,197,94,0.9);
+          animation: nss-pulsar-voz 1.4s ease-in-out infinite;
+        }
+        @keyframes nss-pulsar-voz {
+          0%,100% { box-shadow: 0 0 0 2px rgba(34,197,94,0.6), 0 0 14px -6px rgba(34,197,94,0.7); }
+          50%     { box-shadow: 0 0 0 3px rgba(34,197,94,0.9), 0 0 26px -4px rgba(34,197,94,1); }
+        }
         .nss-selo-audio {
           margin-left: auto; flex-shrink: 0;
           display: inline-flex; align-items: center; justify-content: center;
@@ -614,10 +723,60 @@ export default function NoraScreenSala() {
         .nss-onda i:nth-child(3) { height: 9px; }
         @keyframes nss-oscilar { 0%,100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }
 
-        /* ── Controles gerais da sala ── */
-        .nss-controles-sala {
-          padding: 14px; border-radius: 15px;
-          background: rgba(124,58,237,0.07); border: 1px solid rgba(167,139,250,0.2);
+        /* ── Configurações da sala (engrenagem, só o dono) ──
+           O bloco grande saiu da lateral: ele ocupava espaço permanente
+           para decisões que se tomam uma vez. Agora é um painel que se
+           abre quando é preciso. */
+        .nss-page .nss-engrenagem {
+          flex-shrink: 0; cursor: pointer; font-family: inherit;
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 26px; height: 26px; border-radius: 8px;
+          background: transparent; border: 1px solid transparent;
+          color: rgba(255,255,255,0.45);
+          transition: background 0.22s ease, color 0.22s ease, border-color 0.22s ease, transform 0.4s ease;
+        }
+        .nss-page .nss-engrenagem:hover {
+          background: rgba(167,139,250,0.14); border-color: rgba(167,139,250,0.3);
+          color: var(--nss-violet-soft); transform: rotate(45deg);
+        }
+        .nss-config-fundo {
+          position: fixed; inset: 0; z-index: 60;
+          display: flex; align-items: center; justify-content: center; padding: 20px;
+          background: rgba(4,4,10,0.72);
+          backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+          animation: nss-surgir 0.25s ease both;
+        }
+        .nss-config {
+          width: min(440px, 100%); max-height: 86vh; overflow-y: auto;
+          padding: 20px; border-radius: 20px;
+          background: linear-gradient(170deg, rgba(20,18,32,0.98), rgba(10,9,18,0.98));
+          border: 1px solid rgba(167,139,250,0.24);
+          box-shadow: 0 40px 100px -30px rgba(0,0,0,0.9);
+          animation: nss-subir 0.3s cubic-bezier(0.16,1,0.3,1) both;
+        }
+        @keyframes nss-subir { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .nss-config-topo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+        .nss-config-topo h2 { font-size: 1.02rem; font-weight: 700; letter-spacing: -0.3px; margin: 0; }
+        .nss-page .nss-config-fechar {
+          cursor: pointer; font-family: inherit;
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 30px; height: 30px; border-radius: 9px;
+          background: rgba(255,255,255,0.05); border: 1px solid var(--nss-line);
+          color: rgba(255,255,255,0.6); transition: background 0.22s ease, color 0.22s ease;
+        }
+        .nss-page .nss-config-fechar:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .nss-regra.coluna { display: block; cursor: default; }
+        .nss-limites { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+        .nss-page .nss-limite {
+          cursor: pointer; font-family: inherit;
+          padding: 7px 13px; border-radius: 9px;
+          font-size: 0.79rem; font-weight: 600; color: rgba(255,255,255,0.72);
+          background: rgba(255,255,255,0.045); border: 1px solid var(--nss-line);
+          transition: background 0.22s ease, border-color 0.22s ease, color 0.22s ease;
+        }
+        .nss-page .nss-limite:hover { background: rgba(255,255,255,0.09); color: #fff; }
+        .nss-page .nss-limite.ativo {
+          background: rgba(124,58,237,0.26); border-color: rgba(167,139,250,0.5); color: #eee7ff;
         }
         .nss-regra {
           display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -772,11 +931,99 @@ export default function NoraScreenSala() {
           box-shadow: 0 0 0 1px rgba(34,197,94,0.14), 0 0 70px -20px rgba(34,197,94,0.35), 0 30px 80px -40px rgba(0,0,0,0.9);
           background: #000;
         }
-        .nss-palco video {
-          width: 100%; height: 100%; object-fit: contain; background: #000; display: block;
-          animation: nss-surgir 0.6s cubic-bezier(0.16,1,0.3,1) both;
-        }
         @keyframes nss-surgir { from { opacity: 0; transform: scale(0.99); } to { opacity: 1; transform: scale(1); } }
+
+        /* ── Grade de transmissões ──
+           As colunas e linhas vêm do domínio (layoutDaGrade); a CSS só
+           obedece. O minmax(0,1fr) está aí porque um vídeo dentro de
+           uma célula de grid não encolhe abaixo do conteúdo sem ele —
+           e a grade estouraria o palco em vez de dividi-lo. */
+        .nss-grade {
+          width: 100%; height: 100%; display: grid; gap: 10px;
+          /* Folga embaixo para a barra flutuante de controles não cobrir a
+             última fileira de quadros. */
+          padding: 10px 10px 76px;
+          grid-template-columns: repeat(var(--nss-colunas, 1), minmax(0, 1fr));
+          grid-template-rows: repeat(var(--nss-linhas, 1), minmax(0, 1fr));
+        }
+        .nss-grade.solo, .nss-grade.em-foco { gap: 0; padding: 0; }
+        .nss-quadro {
+          position: relative; min-width: 0; min-height: 0; overflow: hidden;
+          border-radius: 14px; background: #000; cursor: pointer;
+          border: 1px solid rgba(255,255,255,0.08);
+          animation: nss-surgir 0.5s cubic-bezier(0.16,1,0.3,1) both;
+          transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s cubic-bezier(0.16,1,0.3,1);
+        }
+        .nss-grade.solo .nss-quadro, .nss-grade.em-foco .nss-quadro { border-radius: 19px; border-color: transparent; }
+        .nss-quadro:hover { border-color: rgba(167,139,250,0.4); }
+        .nss-quadro:focus-visible { outline: 2px solid var(--nss-violet-soft); outline-offset: 2px; }
+        .nss-quadro.focado { border-color: rgba(167,139,250,0.5); }
+        /* Quem está falando ganha o anel: é o destaque de voz, e é
+           diferente do destaque de quem está transmitindo. */
+        .nss-quadro.falando { border-color: rgba(34,197,94,0.75); box-shadow: 0 0 0 2px rgba(34,197,94,0.3), 0 0 40px -12px rgba(34,197,94,0.6); }
+        .nss-quadro video {
+          width: 100%; height: 100%; object-fit: contain; background: #000; display: block;
+        }
+        .nss-quadro-topo {
+          position: absolute; top: 9px; left: 9px; right: 9px; z-index: 2;
+          display: flex; align-items: center; gap: 7px; pointer-events: none;
+        }
+        .nss-quadro-topo > * { pointer-events: auto; }
+        .nss-quadro-aovivo {
+          display: inline-flex; align-items: center; gap: 7px;
+          padding: 5px 11px; border-radius: 100px;
+          background: rgba(8,8,14,0.78); border: 1px solid rgba(34,197,94,0.42);
+          backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+          font-size: 0.7rem; font-weight: 700; letter-spacing: 0.2px; color: #9ff0b8;
+        }
+        .nss-quadro-aovivo .nss-ponto { animation: nss-pulsar 1.8s ease-in-out infinite; }
+        .nss-quadro-audio {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 26px; height: 26px; border-radius: 100px;
+          background: rgba(8,8,14,0.78); border: 1px solid var(--nss-line);
+          backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+          color: rgba(255,255,255,0.5);
+        }
+        .nss-quadro-audio.com { border-color: rgba(34,197,94,0.4); color: #9ff0b8; }
+        /* O nome fica sempre visível: com vários quadros no ar, saber de
+           quem é cada tela é o que faz a grade ser lida. Só o botão de
+           ampliar espera o ponteiro. */
+        .nss-quadro-rodape {
+          position: absolute; left: 9px; right: 9px; bottom: 9px; z-index: 2;
+          display: flex; align-items: center; gap: 8px;
+        }
+        .nss-quadro-botao { opacity: 0; transition: opacity 0.25s ease; }
+        .nss-quadro:hover .nss-quadro-botao,
+        .nss-quadro:focus-within .nss-quadro-botao { opacity: 1; }
+        @media (hover: none) { .nss-quadro-botao { opacity: 1; } }
+        .nss-quadro-nome {
+          min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+          padding: 6px 12px; border-radius: 100px;
+          background: rgba(8,8,14,0.8); border: 1px solid var(--nss-line);
+          backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+          font-size: 0.76rem; font-weight: 700; color: rgba(255,255,255,0.9);
+        }
+        .nss-page .nss-quadro-botao {
+          margin-left: auto;
+          opacity: 0; flex-shrink: 0; cursor: pointer; font-family: inherit;
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 30px; height: 30px; border-radius: 100px;
+          background: rgba(8,8,14,0.8); border: 1px solid var(--nss-line);
+          backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+          color: rgba(255,255,255,0.78);
+          transition: background 0.22s ease, color 0.22s ease, transform 0.22s ease;
+        }
+        .nss-page .nss-quadro-botao:hover { background: rgba(124,58,237,0.36); color: #fff; transform: translateY(-1px); }
+        .nss-page .nss-sair-foco {
+          position: absolute; top: 14px; right: 14px; z-index: 3; cursor: pointer;
+          display: inline-flex; align-items: center; gap: 8px;
+          padding: 9px 15px; border-radius: 100px; font-family: inherit;
+          font-size: 0.78rem; font-weight: 600; color: #eee7ff;
+          background: rgba(124,58,237,0.3); border: 1px solid rgba(167,139,250,0.45);
+          backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+          transition: background 0.25s ease, transform 0.25s ease;
+        }
+        .nss-page .nss-sair-foco:hover { background: rgba(124,58,237,0.48); transform: translateY(-1px); }
 
         /* ── Estado vazio ── */
         .nss-vazio { text-align: center; padding: 30px; max-width: 460px; }
@@ -1077,91 +1324,72 @@ export default function NoraScreenSala() {
             </button>
           </div>
 
-          {souDono && (
-            <div className="nss-controles-sala">
-              <div className="nss-secao">
-                <span className="nss-rotulo">Controles da sala</span>
-              </div>
-
-              <label className="nss-regra">
-                <span>
-                  Bloquear novas entradas
-                  <small>Ninguém mais entra com o código</small>
-                </span>
-                <input
-                  type="checkbox"
-                  className="nss-chave"
-                  checked={regras.entradasBloqueadas}
-                  onChange={async (e) => {
-                    const valor = e.target.checked;
-                    if (await definirRegrasDaSala({ entradasBloqueadas: valor })) {
-                      avisar(valor ? 'Novas entradas bloqueadas' : 'Entradas liberadas', valor ? 'neutro' : 'ok');
-                    }
-                  }}
-                />
-              </label>
-
-              <label className="nss-regra">
-                <span>
-                  Somente host compartilha
-                  <small>Só você pode transmitir a tela</small>
-                </span>
-                <input
-                  type="checkbox"
-                  className="nss-chave"
-                  checked={regras.somenteHostCompartilha}
-                  onChange={async (e) => {
-                    const valor = e.target.checked;
-                    if (await definirRegrasDaSala({ somenteHostCompartilha: valor })) {
-                      avisar(valor ? 'Só você pode compartilhar agora' : 'Todos podem compartilhar', valor ? 'neutro' : 'ok');
-                    }
-                  }}
-                />
-              </label>
-
-              {encerrando ? (
-                <div className="nss-encerrar-confirma">
-                  <p>Encerrar a sala para todos? Todo mundo volta ao Nora Screen e o código deixa de valer.</p>
-                  <div className="nss-menu-botoes">
-                    <button type="button" className="nss-menu-botao" onClick={() => setEncerrando(false)}>Cancelar</button>
-                    <button type="button" className="nss-menu-botao perigo" onClick={() => encerrarParaTodos()}>Encerrar</button>
-                  </div>
-                </div>
-              ) : (
-                <button type="button" className="nss-encerrar" onClick={() => setEncerrando(true)}>
-                  <Icone d={ICONES.sair} size={16} />
-                  Encerrar sala para todos
-                </button>
-              )}
-            </div>
-          )}
-
           <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <div className="nss-secao">
               <span className="nss-rotulo">Na sala</span>
-              <span className="nss-contagem">{participantes.length}</span>
+              <span className="nss-contagem">
+                {participantes.length}
+                {regras.maxParticipantes ? ` / ${regras.maxParticipantes}` : ''}
+              </span>
+              {souDono && (
+                <button
+                  type="button"
+                  className="nss-engrenagem"
+                  onClick={() => setConfigAberta(true)}
+                  data-dica="Configurações da sala"
+                  aria-label="Configurações da sala"
+                >
+                  <Icone d={ICONES.engrenagem} size={15} />
+                </button>
+              )}
             </div>
             <div className="nss-lista">
               {participantes.map((p) => {
                 const souEu = eu && p.id === eu.id;
-                const ehHost = host && p.id === host.id;
-                const acoes = acoesDisponiveis({ alvo: p, souHost, euId: eu?.id });
+                const papel = papelDe({ id: p.id, donoId, admins });
+                const acoes = acoesDisponiveis({ alvo: p, euId: eu?.id, donoId, admins });
+                const estaFalando = falando.includes(p.id) || (souEu && microfoneAtivo && !microfoneMudo);
+                // O microfone de quem está na sala: só conta se ele disse
+                // que tem um. Sem microfone não há estado a mostrar.
+                const micLigado = souEu ? microfoneAtivo : p.microfoneAtivo;
+                const micMudo = souEu ? microfoneMudo : p.mudo;
                 return (
                   <div
-                    className={`nss-pessoa ${souEu ? 'eu' : ''} ${p.transmitindo ? 'transmitindo' : ''} ${p.bloqueado ? 'bloqueada' : ''}`}
+                    className={`nss-pessoa ${souEu ? 'eu' : ''} ${p.transmitindo ? 'transmitindo' : ''} ${p.bloqueado ? 'bloqueada' : ''} ${estaFalando ? 'falando' : ''}`}
                     key={p.id}
                   >
-                    <span className={`nss-avatar ${p.transmitindo ? 'transmite' : ''}`}>
+                    <span className={`nss-avatar ${p.transmitindo ? 'transmite' : ''} ${estaFalando ? 'falando' : ''}`}>
                       {iniciaisDe(p.nickname) || '··'}
                     </span>
                     <div style={{ minWidth: 0 }}>
                       <div className="nss-pessoa-nome">
                         <b>{p.nickname}</b>
                         {souEu && <span className="nss-voce">você</span>}
+                        {NOME_DO_PAPEL[papel] && (
+                          <span className={`nss-cargo ${papel}`}>
+                            {papel === PAPEL.DONO && <Icone d={ICONES.coroa} size={11} />}
+                            {NOME_DO_PAPEL[papel]}
+                          </span>
+                        )}
                       </div>
-                      <div className={`nss-pessoa-papel ${ehHost ? 'host' : ''}`}>
-                        {ehHost && <Icone d={ICONES.coroa} size={12} />}
-                        {ehHost ? 'Host da sala' : 'Convidado'}
+                      {/* Estado, abaixo do nome: o que essa pessoa está
+                          fazendo agora, e não o que ela é. */}
+                      <div className="nss-pessoa-estado">
+                        {p.transmitindo && (
+                          <span className="nss-estado compartilhando">
+                            <span className="nss-onda"><i /><i /><i /></span>
+                            Compartilhando tela
+                          </span>
+                        )}
+                        {micLigado && (
+                          <span className={`nss-estado ${micMudo ? 'mudo' : 'microfone'}`}>
+                            <Icone d={micMudo ? ICONES.mic_mudo : ICONES.mic} size={12} />
+                            {micMudo ? 'Microfone mudo' : 'Microfone ativo'}
+                          </span>
+                        )}
+                        {!p.transmitindo && !micLigado && (
+                          <span className="nss-estado quieto">Só assistindo</span>
+                        )}
                       </div>
                     </div>
                     <div className="nss-pessoa-acoes">
@@ -1174,9 +1402,6 @@ export default function NoraScreenSala() {
                         <span className="nss-selo-audio" data-dica="Compartilhando com áudio">
                           <Icone d={ICONES.som} size={13} />
                         </span>
-                      )}
-                      {p.transmitindo && !p.comAudio && (
-                        <span className="nss-onda" data-dica="Compartilhando a tela"><i /><i /><i /></span>
                       )}
                       {acoes.length > 0 && (
                         <button
@@ -1257,32 +1482,30 @@ export default function NoraScreenSala() {
         <section className={`nss-palco ${temImagem ? 'aovivo' : ''}`} ref={palcoRef}>
           {temImagem ? (
             <>
-              <video ref={videoRef} autoPlay playsInline muted={transmitindo || mudo} />
-              <div className="nss-palco-topo">
-                <span className="nss-aovivo">
-                  <span className="nss-ponto" />
-                  {transmitindo ? 'Você está compartilhando' : `${quemTransmite?.nickname || 'Alguém'} está compartilhando`}
-                </span>
-
-                {transmitindo && (
-                  <span className={`nss-selo-palco ${comAudio ? 'audio' : ''}`} data-dica={comAudio ? 'O áudio está indo junto' : 'Sua fonte não ofereceu áudio'} data-dica-baixo>
-                    <Icone d={comAudio ? ICONES.som : ICONES.mudo} size={14} />
-                    {comAudio ? 'Com áudio' : 'Sem áudio'}
-                  </span>
-                )}
-                {!transmitindo && remotoTemAudio && !mudo && (
-                  <span className="nss-selo-palco audio" data-dica="Você está ouvindo a transmissão" data-dica-baixo>
-                    <Icone d={ICONES.som} size={14} />
-                    Com áudio
-                  </span>
-                )}
-                {!transmitindo && remotoTemAudio && mudo && (
-                  <button type="button" className="nss-selo-palco nss-ativar-som" onClick={ativarSom}>
-                    <Icone d={ICONES.mudo} size={14} />
-                    Ativar som
-                  </button>
-                )}
+              <div
+                className={`nss-grade ${grade.nome} ${emFoco ? 'em-foco' : ''}`}
+                style={{ '--nss-colunas': grade.colunas, '--nss-linhas': grade.linhas }}
+              >
+                {noPalco.map((t) => (
+                  <Quadro
+                    key={t.id}
+                    transmissao={t}
+                    somLiberado={somLiberado}
+                    aoBloquearSom={() => setSomBloqueado(true)}
+                    focado={emFoco === t.id}
+                    falando={falando.includes(t.id)}
+                    aoFocar={() => setFocoId((atual) => (atual === t.id ? null : t.id))}
+                    aoAmpliar={() => ampliar(t.id)}
+                  />
+                ))}
               </div>
+
+              {emFoco && (
+                <button type="button" className="nss-sair-foco" onClick={() => setFocoId(null)}>
+                  <Icone d={ICONES.tela} size={15} />
+                  Ver todas ({transmissoes.length})
+                </button>
+              )}
             </>
           ) : (
             <div className="nss-vazio">
@@ -1292,9 +1515,9 @@ export default function NoraScreenSala() {
               <h2 className="nss-vazio-titulo">Ninguém está compartilhando ainda</h2>
               <p className="nss-vazio-texto">
                 {participantes.length > 1
-                  ? 'Vocês já estão na sala. Comece a compartilhar e a sua tela aparece aqui para todo mundo.'
-                  : souHost
-                    ? 'Você é o host desta sala. Chame alguém com o convite ou comece a compartilhar agora.'
+                  ? 'Vocês já estão na sala. Comece a compartilhar e a sua tela aparece aqui — mais de uma pessoa pode transmitir ao mesmo tempo.'
+                  : souDono
+                    ? 'Você é o dono desta sala. Chame alguém com o convite ou comece a compartilhar agora.'
                     : 'Quando alguém compartilhar a tela, ela aparece aqui. Você também pode começar.'}
               </p>
               <div className="nss-vazio-acoes">
@@ -1305,7 +1528,7 @@ export default function NoraScreenSala() {
                   disabled={naoPodeCompartilhar}
                   data-dica={motivoSemCompartilhar || undefined}
                 >
-                  <Icone d={naoPodeCompartilhar && permissao.motivo !== 'ocupado' ? ICONES.bloqueado : ICONES.tela} size={18} />
+                  <Icone d={naoPodeCompartilhar ? ICONES.bloqueado : ICONES.tela} size={18} />
                   Compartilhar tela
                 </button>
                 <button type="button" className={`nss-fantasma ${copiado ? 'feito' : ''}`} onClick={copiarConvite}>
@@ -1324,6 +1547,16 @@ export default function NoraScreenSala() {
               )}
             </div>
           )}
+
+          {/* Os microfones dos outros. Sem imagem: existem só para tocar. */}
+          {microfonesRemotos.map((m) => (
+            <AudioRemoto
+              key={`${m.peerId}|${m.stream.id}`}
+              stream={m.stream}
+              somLiberado={somLiberado}
+              aoBloquearSom={() => setSomBloqueado(true)}
+            />
+          ))}
         </section>
       </div>
 
@@ -1347,7 +1580,7 @@ export default function NoraScreenSala() {
       {/* ═══ CONTROLES ═══ */}
       <div className="nss-controles">
         {transmitindo ? (
-          <button type="button" className="nss-controle encerrar" onClick={encerrarTransmissao} data-dica="Encerra a transmissão para todos">
+          <button type="button" className="nss-controle encerrar" onClick={encerrarTransmissao} data-dica="Encerra a sua transmissão">
             <Icone d={ICONES.parar} />
             <span className="nss-controle-rotulo">Parar de compartilhar</span>
           </button>
@@ -1359,22 +1592,47 @@ export default function NoraScreenSala() {
             disabled={naoPodeCompartilhar}
             data-dica={motivoSemCompartilhar || 'Escolha uma tela, janela ou aba'}
           >
-            <Icone d={naoPodeCompartilhar && permissao.motivo !== 'ocupado' ? ICONES.bloqueado : ICONES.tela} />
+            <Icone d={naoPodeCompartilhar ? ICONES.bloqueado : ICONES.tela} />
             <span className="nss-controle-rotulo">Compartilhar tela</span>
           </button>
         )}
 
-        {transmitindo && (
-          <span className={`nss-controle ${comAudio ? 'ativo' : ''}`} data-dica={comAudio ? 'O áudio da fonte está sendo enviado' : 'A fonte escolhida não tem áudio'} style={{ cursor: 'default' }}>
-            {comAudio ? <span className="nss-onda"><i /><i /><i /></span> : <Icone d={ICONES.mudo} />}
-            <span className="nss-controle-rotulo">{comAudio ? 'Áudio' : 'Sem áudio'}</span>
+        {/* Microfone: o primeiro clique pede permissão; daí em diante é
+            só mudo e não-mudo, sem renegociar nada. */}
+        <button
+          type="button"
+          className={`nss-controle ${microfoneAtivo && !microfoneMudo ? 'ativo' : ''} ${microfoneAtivo && microfoneMudo ? 'mudo' : ''}`}
+          onClick={async () => {
+            const antes = microfoneAtivo;
+            await alternarMicrofone();
+            if (!antes) avisar('Microfone ligado', 'ok');
+          }}
+          data-dica={!microfoneAtivo
+            ? 'Ligar o microfone para falar na sala'
+            : (microfoneMudo ? 'Voltar a falar' : 'Ficar mudo')}
+        >
+          <Icone d={microfoneAtivo && !microfoneMudo ? ICONES.mic : ICONES.mic_mudo} />
+          <span className="nss-controle-rotulo">
+            {!microfoneAtivo ? 'Microfone' : (microfoneMudo ? 'Mudo' : 'Falando')}
           </span>
+        </button>
+
+        {microfoneAtivo && (
+          <button
+            type="button"
+            className="nss-controle"
+            onClick={() => { desligarMicrofone(); avisar('Microfone desligado'); }}
+            data-dica="Desligar o microfone e liberar o acesso"
+          >
+            <Icone d={ICONES.parar} />
+            <span className="nss-controle-rotulo">Desligar mic</span>
+          </button>
         )}
 
-        {!transmitindo && remotoTemAudio && (
-          <button type="button" className={`nss-controle ${mudo ? '' : 'ativo'}`} onClick={ativarSom} disabled={!mudo} data-dica={mudo ? 'Ouvir o áudio da transmissão' : 'Você está ouvindo'}>
-            {mudo ? <Icone d={ICONES.mudo} /> : <span className="nss-onda"><i /><i /><i /></span>}
-            <span className="nss-controle-rotulo">{mudo ? 'Ativar som' : 'Áudio'}</span>
+        {somBloqueado && temSomRemoto && (
+          <button type="button" className="nss-controle destaque" onClick={liberarSom} data-dica="O navegador bloqueou o som até você interagir">
+            <Icone d={ICONES.mudo} />
+            <span className="nss-controle-rotulo">Ativar som</span>
           </button>
         )}
 
@@ -1390,6 +1648,105 @@ export default function NoraScreenSala() {
           <span className="nss-controle-rotulo">Sair</span>
         </button>
       </div>
+
+      {/* ═══ CONFIGURAÇÕES DA SALA (só o dono) ═══ */}
+      {configAberta && souDono && (
+        <div className="nss-config-fundo" onClick={() => setConfigAberta(false)}>
+          <div
+            className="nss-config"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Configurações da sala"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="nss-config-topo">
+              <h2>Configurações da sala</h2>
+              <button type="button" className="nss-config-fechar" onClick={() => setConfigAberta(false)} aria-label="Fechar">
+                <Icone d={ICONES.fechar} size={16} />
+              </button>
+            </div>
+
+            <label className="nss-regra">
+              <span>
+                Bloquear novas entradas
+                <small>Ninguém mais entra com o código. Quem já está continua.</small>
+              </span>
+              <input
+                type="checkbox"
+                className="nss-chave"
+                checked={regras.entradasBloqueadas}
+                onChange={async (e) => {
+                  const valor = e.target.checked;
+                  if (await definirRegrasDaSala({ entradasBloqueadas: valor })) {
+                    avisar(valor ? 'Novas entradas bloqueadas' : 'Entradas liberadas', valor ? 'neutro' : 'ok');
+                  }
+                }}
+              />
+            </label>
+
+            <label className="nss-regra">
+              <span>
+                Somente dono e admins compartilham
+                <small>Os outros continuam vendo e ouvindo</small>
+              </span>
+              <input
+                type="checkbox"
+                className="nss-chave"
+                checked={regras.somenteHostCompartilha}
+                onChange={async (e) => {
+                  const valor = e.target.checked;
+                  if (await definirRegrasDaSala({ somenteHostCompartilha: valor })) {
+                    avisar(valor ? 'Só dono e admins compartilham agora' : 'Todos podem compartilhar', valor ? 'neutro' : 'ok');
+                  }
+                }}
+              />
+            </label>
+
+            <div className="nss-regra coluna">
+              <span>
+                Limite de participantes
+                <small>
+                  {regras.maxParticipantes
+                    ? `No máximo ${regras.maxParticipantes} pessoas ao mesmo tempo`
+                    : 'Sem limite'}
+                  {' · '}{participantes.length} agora
+                </small>
+              </span>
+              <div className="nss-limites">
+                {[null, 4, 6, 8, 12, 20].map((n) => (
+                  <button
+                    type="button"
+                    key={String(n)}
+                    className={`nss-limite ${regras.maxParticipantes === n ? 'ativo' : ''}`}
+                    onClick={async () => {
+                      if (await definirRegrasDaSala({ maxParticipantes: n })) {
+                        avisar(n ? `Limite de ${n} participantes` : 'Limite removido', 'ok');
+                      }
+                    }}
+                  >
+                    {n || 'Sem limite'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {encerrando ? (
+              <div className="nss-encerrar-confirma">
+                <p>Encerrar a sala para todos? Todo mundo volta ao Nora Screen e o código deixa de valer.</p>
+                <div className="nss-menu-botoes">
+                  <button type="button" className="nss-menu-botao" onClick={() => setEncerrando(false)}>Cancelar</button>
+                  <button type="button" className="nss-menu-botao perigo" onClick={() => encerrarParaTodos()}>Encerrar</button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" className="nss-encerrar" onClick={() => setEncerrando(true)}>
+                <Icone d={ICONES.sair} size={16} />
+                Encerrar sala para todos
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       </>)}
 

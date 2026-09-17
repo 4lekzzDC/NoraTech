@@ -14,15 +14,26 @@ export const REGRAS_PADRAO = {
   entradasBloqueadas: false,
   somenteHostCompartilha: false,
   encerrada: false,
+  // `null` é ausência de limite, e não zero: zero seria "sala que não
+  // aceita ninguém", que é outra coisa e já tem nome.
+  maxParticipantes: null,
+  admins: [],
+  // Quem é o dono, pelo id de participante. Vem do banco: é por ele que a
+  // sala sabe de quem aceitar ordens, sem depender do que cada um diz.
+  donoId: null,
 };
 
 // A linha do banco vem em snake_case; o resto do módulo fala camelCase.
 export function regrasDaLinha(linha) {
   if (!linha) return { ...REGRAS_PADRAO };
+  const max = Number(linha.max_participantes);
   return {
     entradasBloqueadas: Boolean(linha.entradas_bloqueadas),
     somenteHostCompartilha: Boolean(linha.somente_host_compartilha),
     encerrada: Boolean(linha.encerrada),
+    maxParticipantes: Number.isFinite(max) && max > 0 ? max : null,
+    admins: Array.isArray(linha.admins) ? linha.admins : [],
+    donoId: linha.dono_id || null,
   };
 }
 
@@ -57,6 +68,9 @@ export function decisaoDaEntrada(resposta) {
     entradas_bloqueadas: resposta.entradas_bloqueadas,
     somente_host_compartilha: resposta.somente_host_compartilha,
     encerrada: resposta.encerrada,
+    max_participantes: resposta.max_participantes,
+    admins: resposta.admins,
+    dono_id: resposta.dono_id,
   });
   const eHost = Boolean(resposta.e_host);
   if (resposta.autorizado) {
@@ -88,18 +102,19 @@ export function podeCompartilhar({
   regras = REGRAS_PADRAO,
   souHost = false,
   bloqueadoIndividualmente = false,
-  outroTransmitindo = false,
 } = {}) {
   if (regras.encerrada) return { pode: false, motivo: 'encerrada' };
   if (bloqueadoIndividualmente) return { pode: false, motivo: 'bloqueado' };
   if (regras.somenteHostCompartilha && !souHost) return { pode: false, motivo: 'somente-host' };
-  if (outroTransmitindo) return { pode: false, motivo: 'ocupado' };
+  // Não existe mais "ocupado": a sala aceita vários compartilhamentos ao
+  // mesmo tempo, e quem chega depois divide o palco em vez de esperar.
   return { pode: true, motivo: null };
 }
 
 /** O que a porta mostra para quem o servidor recusou. */
 export const MOTIVOS_ENTRADA = {
   'entradas-bloqueadas': 'Esta sala não está aceitando novas entradas no momento.',
+  lotada: 'Esta sala atingiu o limite de participantes.',
   encerrada: 'Esta sala foi encerrada pelo host.',
   inexistente: 'Esta sala não existe ou já expirou.',
   indisponivel: 'Não foi possível confirmar o estado desta sala agora. Tente de novo em instantes.',
@@ -109,5 +124,6 @@ export const MOTIVOS = {
   encerrada: 'A sala foi encerrada pelo host',
   'entradas-bloqueadas': 'O host bloqueou novas entradas nesta sala',
   bloqueado: 'O host impediu você de compartilhar nesta sala',
-  'somente-host': 'Só o host pode compartilhar nesta sala',
+  'somente-host': 'Só o dono e os admins podem compartilhar nesta sala',
+  lotada: 'Esta sala atingiu o limite de participantes',
 };
