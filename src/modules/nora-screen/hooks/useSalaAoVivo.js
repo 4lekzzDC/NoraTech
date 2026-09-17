@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EVENTOS, STATUS, entrarNaSala } from '../services/sinalizacao.js';
 import { ACOES, podeModerar } from '../domain/moderacao.js';
+import { REGRAS_PADRAO, podeCompartilhar, podeEntrar } from '../domain/regrasDaSala.js';
+import {
+  abrirSala,
+  assinarRegras,
+  definirRegras as gravarRegras,
+  encerrarSala as gravarEncerramento,
+  lerSala,
+  tokenDoHost,
+} from '../services/salaPersistida.js';
 
 // ═══════════════════════════════════════════════════════════════
 // Motor da sala — WebRTC sobre a sinalização do Realtime.
@@ -26,7 +35,7 @@ function novoId() {
   return `p-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
 }
 
-export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
+export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true }) {
   const [status, setStatus] = useState(STATUS.CONECTANDO);
   const [participantes, setParticipantes] = useState([]);
   const [transmitindo, setTransmitindo] = useState(false);
@@ -36,6 +45,15 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
   // Moderação: quem está impedido de transmitir e quem foi removido.
   const [bloqueado, setBloqueado] = useState(false);
   const [removido, setRemovido] = useState(false);
+  // Regras gerais da sala: vêm do banco, não daqui.
+  const [regras, setRegras] = useState(REGRAS_PADRAO);
+  const [regrasCarregadas, setRegrasCarregadas] = useState(false);
+  const [barrado, setBarrado] = useState(null);
+  // "Dono" é quem tem o token da sala — quem a abriu. É diferente do host
+  // por presença (o primeiro a chegar), que continua mandando na moderação
+  // individual: só o token autoriza mudar as regras no banco.
+  const tokenRef = useRef(null);
+  const [souDono, setSouDono] = useState(false);
 
   // Identidade desta aba: chave de presence e endereço das mensagens de
   // sinalização. Nasce num efeito, não no render — `novoId` e `Date.now`
@@ -64,12 +82,16 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
   // o tratador e reassinaria o canal inteiro.
   const hostRef = useRef(null);
   const bloqueadoRef = useRef(false);
+  const regrasRef = useRef(REGRAS_PADRAO);
+  const souDonoRef = useRef(false);
   const comAudioRef = useRef(false);
 
   useEffect(() => { participantesRef.current = participantes; }, [participantes]);
   useEffect(() => { transmitindoRef.current = transmitindo; }, [transmitindo]);
   useEffect(() => { comAudioRef.current = comAudio; }, [comAudio]);
   useEffect(() => { bloqueadoRef.current = bloqueado; }, [bloqueado]);
+  useEffect(() => { regrasRef.current = regras; }, [regras]);
+  useEffect(() => { souDonoRef.current = souDono; }, [souDono]);
 
   const fecharConexao = useCallback((id) => {
     const pc = conexoesRef.current.get(id);
@@ -136,8 +158,15 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
     setErro('');
     // Segunda barreira: o botão já vem desabilitado, mas quem chamar isto
     // por outro caminho também não passa.
-    if (bloqueadoRef.current) {
-      setErro('O host desta sala impediu você de compartilhar a tela.');
+    const permissao = podeCompartilhar({
+      regras: regrasRef.current,
+      souHost: souDonoRef.current,
+      bloqueadoIndividualmente: bloqueadoRef.current,
+    });
+    if (!permissao.pode) {
+      setErro(permissao.motivo === 'somente-host'
+        ? 'Só o host pode compartilhar nesta sala.'
+        : 'Você não pode compartilhar a tela nesta sala agora.');
       return;
     }
     if (!navigator.mediaDevices?.getDisplayMedia) {
@@ -292,9 +321,45 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
     }
   }, [aplicarIcePendente, fecharConexao, fecharTudo, novaConexao, ofertarPara, pararDeTransmitir]);
 
+  // ── Regras da sala (estado autoritativo no Supabase) ──
+  useEffect(() => {
+    if (!ativo || !codigo) return undefined;
+    let vivo = true;
+
+    // Só quem acabou de criar a sala cria token. Quem chega por link não
+    // pode "abrir" a sala de outra pessoa e virar dono dela.
+    const token = tokenDoHost(codigo, { criarSeFaltar: criador });
+    tokenRef.current = token;
+
+    (async () => {
+      try {
+        const atual = token && criador ? await abrirSala(codigo, token) : await lerSala(codigo);
+        if (!vivo) return;
+        setRegras(atual);
+        setSouDono(Boolean(token));
+        setRegrasCarregadas(true);
+      } catch {
+        // Banco indisponível não pode trancar a sala: sem regras conhecidas,
+        // vale o padrão (tudo liberado) e a sala segue funcionando.
+        if (!vivo) return;
+        setRegrasCarregadas(true);
+      }
+    })();
+
+    const desassinar = assinarRegras(codigo, (novas) => {
+      if (vivo) setRegras(novas);
+    });
+    return () => { vivo = false; desassinar(); };
+  }, [ativo, codigo, criador]);
+
   // ── Ciclo de vida da sala ──
   useEffect(() => {
     if (!ativo || !codigo || !nickname || !eu) return undefined;
+    // Espera as regras antes de entrar: entrar e ser expulso em seguida é
+    // pior do que esperar um instante.
+    if (!regrasCarregadas) return undefined;
+    const entrada = podeEntrar({ regras, souHost: souDono });
+    if (!entrada.pode) return undefined;
     euRef.current.nickname = nickname;
 
     const sala = entrarNaSala({
@@ -346,7 +411,22 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
     };
     // `aoReceber` e os fechadores são estáveis por useCallback; o efeito
     // só deve rodar de novo quando muda a sala ou a identidade.
-  }, [ativo, codigo, nickname, eu, aoReceber, fecharConexao, fecharTudo, ofertarPara]);
+    // `regras`/`souDono` de propósito fora das dependências: mudanças de
+    // regra não podem derrubar e refazer o canal de quem já está dentro.
+    // Quem reage a elas é o efeito de baixo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ativo, codigo, nickname, eu, regrasCarregadas, aoReceber, fecharConexao, fecharTudo, ofertarPara]);
+
+  // Regras que mudaram com a sala em andamento.
+  useEffect(() => {
+    if (!regrasCarregadas) return;
+    const entrada = podeEntrar({ regras, souHost: souDono });
+    if (!entrada.pode) setBarrado(entrada.motivo);
+    // Só o host compartilhando derruba quem já estava no ar sem ser ele.
+    if (regras.somenteHostCompartilha && !souDono && transmitindoRef.current) {
+      pararDeTransmitir();
+    }
+  }, [regras, souDono, regrasCarregadas, pararDeTransmitir]);
 
   // O que fazer ao (re)conectar mora num efeito, não no callback de status:
   // o callback pode disparar antes de `salaRef` receber o handle do canal,
@@ -361,6 +441,30 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
       salaRef.current.anunciar({ transmitindo: true, comAudio: comAudioRef.current });
     }
   }, [status]);
+
+  const definirRegrasDaSala = useCallback(async (patch) => {
+    if (!tokenRef.current) return false;
+    try {
+      setRegras(await gravarRegras(codigo, tokenRef.current, patch));
+      return true;
+    } catch (e) {
+      setErro(e.message || 'Não foi possível mudar as regras da sala.');
+      return false;
+    }
+  }, [codigo]);
+
+  const encerrarParaTodos = useCallback(async () => {
+    if (!tokenRef.current) return false;
+    try {
+      // Basta gravar: o encerramento chega a todos por postgres_changes, e
+      // cada cliente reage sozinho — inclusive quem entrar depois.
+      setRegras(await gravarEncerramento(codigo, tokenRef.current));
+      return true;
+    } catch (e) {
+      setErro(e.message || 'Não foi possível encerrar a sala.');
+      return false;
+    }
+  }, [codigo]);
 
   const quemTransmite = useMemo(
     () => participantes.find((p) => p.transmitindo) || null,
@@ -396,6 +500,11 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
     bloqueado,
     removido,
     moderar,
+    regras,
+    souDono,
+    barrado,
+    definirRegrasDaSala,
+    encerrarParaTodos,
     quemTransmite,
     outroTransmitindo,
     streamRemoto,

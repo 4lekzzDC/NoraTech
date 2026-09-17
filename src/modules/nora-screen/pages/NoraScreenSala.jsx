@@ -9,6 +9,7 @@ import {
   normalizarCodigo,
 } from '../constants.js';
 import { ACOES, acoesDisponiveis } from '../domain/moderacao.js';
+import { MOTIVOS, podeCompartilhar } from '../domain/regrasDaSala.js';
 import { STATUS } from '../services/sinalizacao.js';
 import { useSalaAoVivo } from '../hooks/useSalaAoVivo.js';
 
@@ -100,18 +101,25 @@ export default function NoraScreenSala() {
   const [menuAberto, setMenuAberto] = useState(null);
   const [posMenu, setPosMenu] = useState(null);
   const [confirmando, setConfirmando] = useState(null);
+  const [encerrando, setEncerrando] = useState(false);
   const botaoMenuRef = useRef(null);
 
   const videoRef = useRef(null);
   const palcoRef = useRef(null);
   const { avisos, avisar } = useAvisos();
 
-  const sala = useSalaAoVivo({ codigo, nickname, ativo: codigoOk && Boolean(nickname) });
+  const sala = useSalaAoVivo({
+    codigo,
+    nickname,
+    criador: Boolean(state?.criador),
+    ativo: codigoOk && Boolean(nickname),
+  });
   const {
     eu, status, participantes, host, souHost,
     transmitindo, comAudio, quemTransmite, outroTransmitindo,
     streamRemoto, streamLocal, erro, compartilharTela, pararDeTransmitir,
     bloqueado, removido, moderar,
+    regras, souDono, barrado, definirRegrasDaSala, encerrarParaTodos,
   } = sala;
 
   const conexao = ESTADO_CONEXAO[status] || ESTADO_CONEXAO[STATUS.CONECTANDO];
@@ -261,10 +269,10 @@ export default function NoraScreenSala() {
 
   // Removido pelo host: avisa e devolve à entrada.
   useEffect(() => {
-    if (!removido) return undefined;
+    if (!removido && !regras.encerrada) return undefined;
     const t = setTimeout(() => navigate(NORA_SCREEN_ROUTE), 3200);
     return () => clearTimeout(t);
-  }, [removido, navigate]);
+  }, [removido, regras.encerrada, navigate]);
 
   useEffect(() => {
     const aoTrocar = () => setEmTelaCheia(Boolean(document.fullscreenElement));
@@ -332,10 +340,22 @@ export default function NoraScreenSala() {
   }, [navigate, pararDeTransmitir, transmitindo]);
 
   const audioNoAr = transmitindo ? comAudio : (remotoTemAudio && !mudo);
-  const motivoSemCompartilhar = bloqueado
-    ? 'O host impediu você de compartilhar nesta sala'
-    : (outroTransmitindo ? `${quemTransmite?.nickname} está compartilhando agora` : null);
-  const naoPodeCompartilhar = bloqueado || outroTransmitindo;
+  const permissao = podeCompartilhar({
+    regras,
+    souHost: souDono,
+    bloqueadoIndividualmente: bloqueado,
+    outroTransmitindo,
+  });
+  const naoPodeCompartilhar = !permissao.pode;
+  const motivoSemCompartilhar = permissao.motivo === 'ocupado'
+    ? `${quemTransmite?.nickname} está compartilhando agora`
+    : (MOTIVOS[permissao.motivo] || null);
+  // A sala encerrada e a entrada barrada usam a mesma porta de saída.
+  const saidaForcada = regras.encerrada
+    ? { titulo: 'A sala foi encerrada pelo host', texto: 'Voltando ao Nora Screen…' }
+    : (barrado === 'entradas-bloqueadas'
+      ? { titulo: 'Entradas bloqueadas', texto: 'O host bloqueou novas entradas nesta sala. Peça para ele liberar e tente de novo.' }
+      : null);
 
   return (
     <div className="nss-page">
@@ -568,6 +588,64 @@ export default function NoraScreenSala() {
         .nss-onda i:nth-child(2) { height: 14px; animation-delay: -0.5s; }
         .nss-onda i:nth-child(3) { height: 9px; }
         @keyframes nss-oscilar { 0%,100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }
+
+        /* ── Controles gerais da sala ── */
+        .nss-controles-sala {
+          padding: 14px; border-radius: 15px;
+          background: rgba(124,58,237,0.07); border: 1px solid rgba(167,139,250,0.2);
+        }
+        .nss-regra {
+          display: flex; align-items: center; justify-content: space-between; gap: 12px;
+          padding: 9px 0; cursor: pointer;
+        }
+        .nss-regra + .nss-regra { border-top: 1px solid rgba(255,255,255,0.06); }
+        .nss-regra span { font-size: 0.83rem; font-weight: 600; color: rgba(255,255,255,0.84); }
+        .nss-regra small {
+          display: block; font-size: 0.72rem; font-weight: 400;
+          color: rgba(255,255,255,0.42); margin-top: 2px;
+        }
+        /* Chave: um checkbox desenhado, para não depender do visual do SO. */
+        .nss-page .nss-chave {
+          appearance: none; -webkit-appearance: none;
+          position: relative; flex-shrink: 0;
+          width: 40px; height: 23px; border-radius: 100px; cursor: pointer;
+          background: rgba(255,255,255,0.09); border: 1px solid rgba(255,255,255,0.14);
+          transition: background 0.26s ease, border-color 0.26s ease;
+        }
+        .nss-page .nss-chave::after {
+          content: ''; position: absolute; top: 2px; left: 2px;
+          width: 17px; height: 17px; border-radius: 50%;
+          background: rgba(255,255,255,0.72);
+          transition: transform 0.26s cubic-bezier(0.34,1.56,0.64,1), background 0.26s ease;
+        }
+        .nss-page .nss-chave:checked {
+          background: linear-gradient(100deg, #7C3AED, #3b82f6); border-color: rgba(167,139,250,0.55);
+        }
+        .nss-page .nss-chave:checked::after { transform: translateX(17px); background: #fff; }
+        .nss-page .nss-chave:focus-visible { outline: 2px solid var(--nss-violet-soft); outline-offset: 2px; }
+
+        .nss-page .nss-encerrar {
+          width: 100%; height: 42px; margin-top: 12px;
+          display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+          border-radius: 12px; cursor: pointer; font-family: inherit;
+          font-size: 0.83rem; font-weight: 600;
+          background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5;
+          transition: background 0.25s ease, border-color 0.25s ease;
+        }
+        .nss-page .nss-encerrar:hover { background: rgba(239,68,68,0.22); border-color: rgba(239,68,68,0.5); }
+        .nss-encerrar-confirma { margin-top: 12px; }
+        .nss-encerrar-confirma p {
+          margin: 0 0 10px; font-size: 0.78rem; line-height: 1.45; color: rgba(255,255,255,0.64);
+        }
+        .nss-encerrar-confirma .nss-menu-botoes { display: flex; gap: 7px; }
+        .nss-page .nss-encerrar-confirma .nss-menu-botao {
+          flex: 1; height: 34px; border-radius: 9px; cursor: pointer;
+          font-family: inherit; font-size: 0.8rem; font-weight: 700;
+          border: 1px solid rgba(255,255,255,0.13); background: rgba(255,255,255,0.05); color: var(--nss-fg);
+        }
+        .nss-page .nss-encerrar-confirma .nss-menu-botao.perigo {
+          background: rgba(239,68,68,0.18); border-color: rgba(239,68,68,0.4); color: #fecaca;
+        }
 
         /* ── Moderação ── */
         .nss-pessoa { position: relative; }
@@ -973,6 +1051,65 @@ export default function NoraScreenSala() {
             </button>
           </div>
 
+          {souDono && (
+            <div className="nss-controles-sala">
+              <div className="nss-secao">
+                <span className="nss-rotulo">Controles da sala</span>
+              </div>
+
+              <label className="nss-regra">
+                <span>
+                  Bloquear novas entradas
+                  <small>Ninguém mais entra com o código</small>
+                </span>
+                <input
+                  type="checkbox"
+                  className="nss-chave"
+                  checked={regras.entradasBloqueadas}
+                  onChange={async (e) => {
+                    const valor = e.target.checked;
+                    if (await definirRegrasDaSala({ entradasBloqueadas: valor })) {
+                      avisar(valor ? 'Novas entradas bloqueadas' : 'Entradas liberadas', valor ? 'neutro' : 'ok');
+                    }
+                  }}
+                />
+              </label>
+
+              <label className="nss-regra">
+                <span>
+                  Somente host compartilha
+                  <small>Só você pode transmitir a tela</small>
+                </span>
+                <input
+                  type="checkbox"
+                  className="nss-chave"
+                  checked={regras.somenteHostCompartilha}
+                  onChange={async (e) => {
+                    const valor = e.target.checked;
+                    if (await definirRegrasDaSala({ somenteHostCompartilha: valor })) {
+                      avisar(valor ? 'Só você pode compartilhar agora' : 'Todos podem compartilhar', valor ? 'neutro' : 'ok');
+                    }
+                  }}
+                />
+              </label>
+
+              {encerrando ? (
+                <div className="nss-encerrar-confirma">
+                  <p>Encerrar a sala para todos? Todo mundo volta ao Nora Screen e o código deixa de valer.</p>
+                  <div className="nss-menu-botoes">
+                    <button type="button" className="nss-menu-botao" onClick={() => setEncerrando(false)}>Cancelar</button>
+                    <button type="button" className="nss-menu-botao perigo" onClick={() => encerrarParaTodos()}>Encerrar</button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" className="nss-encerrar" onClick={() => setEncerrando(true)}>
+                  <Icone d={ICONES.sair} size={16} />
+                  Encerrar sala para todos
+                </button>
+              )}
+            </div>
+          )}
+
           <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <div className="nss-secao">
               <span className="nss-rotulo">Na sala</span>
@@ -1142,7 +1279,7 @@ export default function NoraScreenSala() {
                   disabled={naoPodeCompartilhar}
                   data-dica={motivoSemCompartilhar || undefined}
                 >
-                  <Icone d={bloqueado ? ICONES.bloqueado : ICONES.tela} size={18} />
+                  <Icone d={naoPodeCompartilhar && permissao.motivo !== 'ocupado' ? ICONES.bloqueado : ICONES.tela} size={18} />
                   Compartilhar tela
                 </button>
                 <button type="button" className={`nss-fantasma ${copiado ? 'feito' : ''}`} onClick={copiarConvite}>
@@ -1151,10 +1288,12 @@ export default function NoraScreenSala() {
                 </button>
               </div>
 
-              {bloqueado && (
+              {(permissao.motivo === 'bloqueado' || permissao.motivo === 'somente-host') && (
                 <div className="nss-aviso-bloqueio">
                   <Icone d={ICONES.bloqueado} size={17} />
-                  <span>O host desta sala impediu você de compartilhar a tela. Você continua vendo o que os outros transmitirem.</span>
+                  <span>
+                    {MOTIVOS[permissao.motivo]}. Você continua vendo o que os outros transmitirem.
+                  </span>
                 </div>
               )}
             </div>
@@ -1194,7 +1333,7 @@ export default function NoraScreenSala() {
             disabled={naoPodeCompartilhar}
             data-dica={motivoSemCompartilhar || 'Escolha uma tela, janela ou aba'}
           >
-            <Icone d={bloqueado ? ICONES.bloqueado : ICONES.tela} />
+            <Icone d={naoPodeCompartilhar && permissao.motivo !== 'ocupado' ? ICONES.bloqueado : ICONES.tela} />
             <span className="nss-controle-rotulo">Compartilhar tela</span>
           </button>
         )}
@@ -1240,6 +1379,19 @@ export default function NoraScreenSala() {
         </div>
       )}
 
+      {saidaForcada && !removido && (
+        <div className="nss-porta">
+          <div className="nss-porta-cartao">
+            <span className="nss-porta-icone" style={{ background: 'rgba(239,68,68,0.14)', borderColor: 'rgba(239,68,68,0.32)', color: '#fca5a5' }}>
+              <Icone d={regras.encerrada ? ICONES.sair : ICONES.bloqueado} size={24} />
+            </span>
+            <h1 className="nss-porta-titulo">{saidaForcada.titulo}</h1>
+            <p className="nss-porta-texto">{saidaForcada.texto}</p>
+            <Link to={NORA_SCREEN_ROUTE} className="nss-porta-voltar">Voltar ao Nora Screen</Link>
+          </div>
+        </div>
+      )}
+
       {removido && (
         <div className="nss-porta">
           <div className="nss-porta-cartao">
@@ -1255,7 +1407,7 @@ export default function NoraScreenSala() {
         </div>
       )}
 
-      {codigoOk && !nickname && !removido && (
+      {codigoOk && !nickname && !removido && !saidaForcada && (
         <div className="nss-porta">
           <form
             className="nss-porta-cartao"
