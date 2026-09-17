@@ -234,7 +234,10 @@ createRoot(document.getElementById('root')).render(
               Rotas públicas: a sala se identifica por nickname, não por login. */}
           <Route path={NORA_SCREEN_ROUTE} element={<NoraScreenHome />} />
           <Route path={`${NORA_SCREEN_ROUTE}/sala/:codigo`} element={<NoraScreenSala />} />
-          <Route path={`${NORA_SCREEN_ROUTE}/salas`} element={<NoraScreenSala />} />
+          {/* Salas são canais efêmeros, sem registro em banco: não há diretório
+              público para listar. "Ver salas" devolve à entrada, onde se cria
+              uma sala ou se entra por código. */}
+          <Route path={`${NORA_SCREEN_ROUTE}/salas`} element={<Navigate to={NORA_SCREEN_ROUTE} replace />} />
           {/* NoraDocs — organização automática de documentos no Google Drive */}
           <Route path={NORADOCS_ROUTE} element={<NoraDocsRoute><NoraDocsInboxPage /></NoraDocsRoute>} />
           <Route path={`${NORADOCS_ROUTE}/historico`} element={<NoraDocsRoute><NoraDocsHistoricoPage /></NoraDocsRoute>} />
