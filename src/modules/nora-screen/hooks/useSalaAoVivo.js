@@ -29,6 +29,7 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
   const [status, setStatus] = useState(STATUS.CONECTANDO);
   const [participantes, setParticipantes] = useState([]);
   const [transmitindo, setTransmitindo] = useState(false);
+  const [comAudio, setComAudio] = useState(false);
   const [streamRemoto, setStreamRemoto] = useState(null);
   const [erro, setErro] = useState('');
 
@@ -54,9 +55,11 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
   const icePendenteRef = useRef(new Map());
   const participantesRef = useRef([]);
   const transmitindoRef = useRef(false);
+  const comAudioRef = useRef(false);
 
   useEffect(() => { participantesRef.current = participantes; }, [participantes]);
   useEffect(() => { transmitindoRef.current = transmitindo; }, [transmitindo]);
+  useEffect(() => { comAudioRef.current = comAudio; }, [comAudio]);
 
   const fecharConexao = useCallback((id) => {
     const pc = conexoesRef.current.get(id);
@@ -114,7 +117,8 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
     streamLocalRef.current = null;
     fecharTudo();
     setTransmitindo(false);
-    salaRef.current?.anunciar({ transmitindo: false });
+    setComAudio(false);
+    salaRef.current?.anunciar({ transmitindo: false, comAudio: false });
     if (avisar) salaRef.current?.enviar(EVENTOS.PAROU, {});
   }, [fecharTudo]);
 
@@ -124,28 +128,44 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
       setErro('Este navegador não permite compartilhar a tela. Tente pelo Chrome, Edge ou Firefox no computador.');
       return;
     }
+    const video = { frameRate: { ideal: 15, max: 30 } };
     let stream;
     try {
-      stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: { ideal: 15, max: 30 } },
-        audio: false,
-      });
+      // Pede o áudio junto. Quem decide se ele existe é o navegador e a
+      // pessoa na hora de escolher a fonte: o Chrome oferece o áudio da aba
+      // ou do sistema, o Firefox e o Safari costumam não oferecer nada.
+      stream = await navigator.mediaDevices.getDisplayMedia({ video, audio: true });
     } catch (e) {
       // Cancelar no seletor do navegador não é erro — é uma decisão.
-      if (e?.name !== 'NotAllowedError' && e?.name !== 'AbortError') {
-        setErro('Não foi possível capturar a tela.');
+      if (e?.name === 'NotAllowedError' || e?.name === 'AbortError') return;
+      // Navegador que recusa a restrição de áudio não pode impedir a
+      // transmissão: tenta de novo só com vídeo.
+      try {
+        stream = await navigator.mediaDevices.getDisplayMedia({ video, audio: false });
+      } catch (e2) {
+        if (e2?.name !== 'NotAllowedError' && e2?.name !== 'AbortError') {
+          setErro('Não foi possível capturar a tela.');
+        }
+        return;
       }
-      return;
     }
 
+    const temAudio = stream.getAudioTracks().length > 0;
     streamLocalRef.current = stream;
     setTransmitindo(true);
+    setComAudio(temAudio);
     setStreamRemoto(null);
-    salaRef.current?.anunciar({ transmitindo: true });
+    salaRef.current?.anunciar({ transmitindo: true, comAudio: temAudio });
 
     // "Parar de compartilhar" do próprio navegador encerra a faixa sem
     // passar pela nossa interface — aqui isso vira o mesmo fim de tudo.
     stream.getVideoTracks()[0]?.addEventListener('ended', () => pararDeTransmitir());
+    // O áudio pode acabar antes do vídeo (a aba de origem foi fechada, por
+    // exemplo). O indicador tem de acompanhar, não ficar aceso à toa.
+    stream.getAudioTracks()[0]?.addEventListener('ended', () => {
+      setComAudio(false);
+      salaRef.current?.anunciar({ transmitindo: true, comAudio: false });
+    });
 
     participantesRef.current
       .filter((p) => p.id !== euRef.current?.id)
@@ -278,7 +298,9 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
     salaRef.current.enviar(EVENTOS.QUERO_VER, {});
     // Entrar no canal re-anuncia a presença zerada; se eu já estava
     // transmitindo, preciso dizer de novo que estou.
-    if (transmitindoRef.current) salaRef.current.anunciar({ transmitindo: true });
+    if (transmitindoRef.current) {
+      salaRef.current.anunciar({ transmitindo: true, comAudio: comAudioRef.current });
+    }
   }, [status]);
 
   const quemTransmite = useMemo(
@@ -296,6 +318,7 @@ export function useSalaAoVivo({ codigo, nickname, ativo = true }) {
     host,
     souHost,
     transmitindo,
+    comAudio,
     quemTransmite,
     outroTransmitindo,
     streamRemoto,
