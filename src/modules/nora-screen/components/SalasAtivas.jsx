@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { contarParticipantes, listarSalasAtivas } from '../services/salaPersistida.js';
+import { listarSalasAtivas } from '../services/salaPersistida.js';
 
 // ═══════════════════════════════════════════════════════════════
 // Salas ativas — overlay aberto pelo "Ver salas" da entrada.
 //
-// Lê a tabela nora_screen_salas (só as colunas públicas; o hash do token
-// do host nunca sai do banco) e completa com a contagem de gente, que
-// não mora no banco: vem da presença dos canais, observada sem entrar.
+// Uma RPC devolve tudo: as colunas públicas da sala (o hash do token do
+// dono nunca sai do banco) e quanta gente há em cada uma. Antes a
+// contagem vinha de entrar nos canais do Realtime para espiar a
+// presença, o que era lento, às vezes não respondia — a linha ficava em
+// "contando…" — e listava salas que já não tinham ninguém.
 // ═══════════════════════════════════════════════════════════════
 
 function Icone({ d, size = 18 }) {
@@ -41,7 +43,6 @@ function statusDaSala(sala) {
 
 export default function SalasAtivas({ aberto, aoFechar, aoEntrar, aoCriarSala }) {
   const [salas, setSalas] = useState([]);
-  const [contagens, setContagens] = useState({});
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
 
@@ -63,30 +64,6 @@ export default function SalasAtivas({ aberto, aoFechar, aoEntrar, aoCriarSala })
     (async () => { if (vivo) await carregar(); })();
     return () => { vivo = false; };
   }, [aberto, carregar]);
-
-  // Contagem de gente: observa a presença dos canais das salas listadas e
-  // solta todos ao fechar — a listagem não pode segurar conexão aberta.
-  useEffect(() => {
-    if (!aberto || !salas.length) return undefined;
-    const soltar = contarParticipantes(
-      salas.map((s) => s.codigo),
-      (codigo, quantos) => setContagens((atuais) => (
-        atuais[codigo] === quantos ? atuais : { ...atuais, [codigo]: quantos }
-      )),
-    );
-    // Se a presença não responder (rede ruim, canal fora do ar), a linha não
-    // pode ficar em "contando…" para sempre: assume desconhecido e segue.
-    const desistir = setTimeout(() => {
-      setContagens((atuais) => {
-        const faltantes = salas.filter((s) => atuais[s.codigo] === undefined);
-        if (!faltantes.length) return atuais;
-        const novo = { ...atuais };
-        faltantes.forEach((s) => { novo[s.codigo] = null; });
-        return novo;
-      });
-    }, 4000);
-    return () => { clearTimeout(desistir); soltar(); };
-  }, [aberto, salas]);
 
   useEffect(() => {
     if (!aberto) return undefined;
@@ -270,7 +247,7 @@ export default function SalasAtivas({ aberto, aoFechar, aoEntrar, aoCriarSala })
           <div className="nsl-lista">
             {salas.map((sala) => {
               const status = statusDaSala(sala);
-              const quantos = contagens[sala.codigo];
+              const quantos = sala.participantes;
               return (
                 <div className="nsl-sala" key={sala.codigo}>
                   <div style={{ minWidth: 0 }}>
@@ -278,9 +255,8 @@ export default function SalasAtivas({ aberto, aoFechar, aoEntrar, aoCriarSala })
                     <div className="nsl-meta">
                       <span className="nsl-pessoas">
                         <Icone d={ICONES.pessoas} size={14} />
-                        {quantos === undefined && 'contando…'}
-                        {quantos === null && 'sala aberta'}
-                        {typeof quantos === 'number' && `${quantos} ${quantos === 1 ? 'pessoa' : 'pessoas'}`}
+                        {quantos} {quantos === 1 ? 'pessoa' : 'pessoas'}
+                        {sala.maxParticipantes ? ` / ${sala.maxParticipantes}` : ''}
                       </span>
                       <span className={`nsl-status ${status.tom}`}>
                         <Icone d={status.icone} size={12} />

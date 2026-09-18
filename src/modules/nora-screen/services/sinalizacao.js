@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import { participantesDoPresence } from '../domain/presenca.js';
 
 // ═══════════════════════════════════════════════════════════════
 // Sinalização da sala — Supabase Realtime.
@@ -14,15 +15,15 @@ import { supabase } from '../../../lib/supabase';
 // ═══════════════════════════════════════════════════════════════
 
 export const EVENTOS = {
-  OFERTA: 'oferta',
-  RESPOSTA: 'resposta',
+  // "Fulano saiu" dito na hora, sem esperar o presence.
+  SAIU: 'saiu',
+  // Descrição de sessão (oferta ou resposta). Um evento só porque, com
+  // várias pessoas transmitindo, qualquer lado pode ser quem oferece — e
+  // os dois podem oferecer ao mesmo tempo. Quem trata resolve pelo tipo.
+  SDP: 'sdp',
   ICE: 'ice',
-  PAROU: 'parou',
-  // Pedido de retransmissão: quem entra depois avisa que chegou, e quem
-  // está transmitindo abre uma conexão para o recém-chegado.
-  QUERO_VER: 'quero-ver',
-  // Ordem do host para um participante (bloquear, liberar, parar, remover).
-  // Quem recebe confere se veio mesmo do host antes de obedecer.
+  // Ordem de moderação para um participante. Quem recebe confere se veio
+  // de alguém que a sala reconhece como dono ou admin antes de obedecer.
   MODERACAO: 'moderacao',
 };
 
@@ -38,6 +39,18 @@ export const STATUS = {
 export function nomeDoCanal(codigo) {
   return `nora-screen:${String(codigo || '').toUpperCase()}`;
 }
+
+// O que cada participante conta de si na presença. Entrar no canal
+// re-anuncia tudo do zero, então quem chama `anunciar` manda o estado
+// inteiro e não um pedaço — senão um "estou sem áudio" apagaria o "estou
+// transmitindo" dito antes.
+export const PRESENCA_ZERADA = {
+  transmitindo: false,
+  comAudio: false,
+  microfoneAtivo: false,
+  mudo: true,
+  bloqueado: false,
+};
 
 /**
  * Entra na sala e devolve o controle do canal.
@@ -59,13 +72,7 @@ export function entrarNaSala({ codigo, eu, aoMudarParticipantes, aoReceber, aoMu
   });
 
   const listarParticipantes = () => {
-    const estado = canal.presenceState();
-    const lista = Object.values(estado)
-      .map((entradas) => entradas[0])
-      .filter(Boolean)
-      // Ordem estável por chegada — é ela que define quem é host.
-      .sort((a, b) => (a.entrouEm - b.entrouEm) || String(a.id).localeCompare(String(b.id)));
-    aoMudarParticipantes(lista);
+    aoMudarParticipantes(participantesDoPresence(canal.presenceState()));
   };
 
   canal
@@ -85,7 +92,7 @@ export function entrarNaSala({ codigo, eu, aoMudarParticipantes, aoReceber, aoMu
   canal.subscribe((status) => {
     if (status === 'SUBSCRIBED') {
       aoMudarStatus(STATUS.CONECTADO);
-      canal.track({ ...eu, transmitindo: false });
+      canal.track({ ...eu, ...PRESENCA_ZERADA, anunciadoEm: Date.now() });
       return;
     }
     if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -101,7 +108,7 @@ export function entrarNaSala({ codigo, eu, aoMudarParticipantes, aoReceber, aoMu
       return canal.send({ type: 'broadcast', event: evento, payload: { ...payload, de: eu.id } });
     },
     anunciar(patch) {
-      return canal.track({ ...eu, transmitindo: false, ...patch });
+      return canal.track({ ...eu, ...PRESENCA_ZERADA, ...patch, anunciadoEm: Date.now() });
     },
     sair() {
       try { canal.untrack(); } catch { /* o canal pode já ter caído */ }

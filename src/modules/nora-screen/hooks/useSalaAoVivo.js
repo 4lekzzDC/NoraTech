@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { EVENTOS, STATUS, entrarNaSala } from '../services/sinalizacao.js';
+import { EVENTOS, PRESENCA_ZERADA, STATUS, entrarNaSala } from '../services/sinalizacao.js';
 import { ACOES, podeModerar } from '../domain/moderacao.js';
+import { papelDe } from '../domain/papeis.js';
+import { quemCompartilha } from '../domain/presenca.js';
 import {
   ENTRADA,
   REGRAS_PADRAO,
@@ -11,33 +13,62 @@ import {
   abrirSala,
   assinarRegras,
   autorizarEntrada,
+  baterPonto,
+  definirAdmin as gravarAdmin,
   definirRegras as gravarRegras,
   encerrarSala as gravarEncerramento,
+  largarVaga,
   tokenDoHost,
 } from '../services/salaPersistida.js';
 
 // ═══════════════════════════════════════════════════════════════
 // Motor da sala — WebRTC sobre a sinalização do Realtime.
 //
-// Topologia: quem transmite abre uma conexão para CADA espectador
-// (mesh a partir de um só ponto). Para uma sala de trabalho é o
-// suficiente e não exige servidor de mídia; o custo é a banda de subida
-// de quem compartilha, que cresce com o número de espectadores.
+// Topologia: malha completa. Cada par de participantes mantém UMA
+// conexão, e por ela passa o que cada lado estiver mandando — tela,
+// áudio da tela, microfone. Para uma sala de trabalho é o suficiente e
+// não exige servidor de mídia; o custo é a banda de subida de quem
+// transmite, que cresce com o número de pessoas na sala.
 //
-// Só uma pessoa transmite por vez. Isso simplifica a negociação — quem
-// transmite sempre oferece, quem assiste sempre responde — e evita o
-// caso em que dois lados oferecem ao mesmo tempo e a negociação colide.
+// A parte delicada é que agora os DOIS lados podem começar a negociar ao
+// mesmo tempo: ligar o microfone enquanto o outro compartilha a tela faz
+// as duas pontas quererem ofertar juntas. Isso é a colisão clássica do
+// WebRTC, e a saída é a "negociação perfeita": um dos lados é o polido e
+// desiste da própria oferta quando as duas se cruzam. Quem é o polido sai
+// da comparação dos ids, que os dois lados calculam igual sem combinar
+// nada.
+//
+// Sobre o áudio e o eco: ninguém toca o próprio som. O que sai do meu
+// microfone e do meu compartilhamento eu não escuto — o navegador só me
+// entrega as faixas dos OUTROS, e o meu vídeo local vai mudo na tela.
 // ═══════════════════════════════════════════════════════════════
 
 const SERVIDORES_ICE = [
   { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
 ];
 
-export const PAPEL = { HOST: 'host', CONVIDADO: 'convidado' };
+// De quanto em quanto tempo eu renovo minha vaga no Postgres. Bem abaixo
+// dos 90s em que a presença caduca, para uma batida perdida não me
+// derrubar da contagem.
+const INTERVALO_PONTO = 25000;
 
 function novoId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return `p-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
+}
+
+// A descrição de sessão vai como objeto simples, e não como o
+// RTCSessionDescription que o navegador devolve: esse é um objeto da API
+// do WebRTC, e transporte nenhum é obrigado a saber copiá-lo. Dois
+// campos é tudo o que a outra ponta precisa.
+function sdpSimples(descricao) {
+  return descricao ? { type: descricao.type, sdp: descricao.sdp } : null;
+}
+
+// Uma faixa de vídeo identifica o compartilhamento de tela; o áudio da
+// tela viaja no mesmo stream. Microfone chega sozinho, só com áudio.
+function tipoDoStream(stream) {
+  return stream.getVideoTracks().length > 0 ? 'tela' : 'microfone';
 }
 
 export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true }) {
@@ -45,28 +76,23 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
   const [participantes, setParticipantes] = useState([]);
   const [transmitindo, setTransmitindo] = useState(false);
   const [comAudio, setComAudio] = useState(false);
-  const [streamRemoto, setStreamRemoto] = useState(null);
+  // Microfone: `ativo` é ter a faixa; `mudo` é tê-la desligada. Separar os
+  // dois evita pedir permissão de novo a cada clique no mudo.
+  const [microfoneAtivo, setMicrofoneAtivo] = useState(false);
+  const [mudo, setMudo] = useState(true);
+  // Mídia dos outros: [{ peerId, stream, tipo }]. Uma lista e não um
+  // stream só, porque agora várias pessoas transmitem ao mesmo tempo.
+  const [midiaRemota, setMidiaRemota] = useState([]);
+  const [falando, setFalando] = useState([]);
   const [erro, setErro] = useState('');
-  // Moderação: quem está impedido de transmitir e quem foi removido.
   const [bloqueado, setBloqueado] = useState(false);
   const [removido, setRemovido] = useState(false);
-  // Regras gerais da sala: vêm do banco, não daqui.
   const [regras, setRegras] = useState(REGRAS_PADRAO);
-  // A entrada é decidida UMA vez, pelo servidor, antes de qualquer
-  // presença ou WebRTC. Depois de autorizada não se reavalia: mudar as
-  // regras fecha a porta para quem chega, não expulsa quem já está.
   const [entrada, setEntrada] = useState(ENTRADA.VERIFICANDO);
   const [barrado, setBarrado] = useState(null);
-  // "Dono" é quem tem o token da sala — quem a abriu. É diferente do host
-  // por presença (o primeiro a chegar), que continua mandando na moderação
-  // individual: só o token autoriza mudar as regras no banco.
   const tokenRef = useRef(null);
   const [souDono, setSouDono] = useState(false);
 
-  // Identidade desta aba: chave de presence e endereço das mensagens de
-  // sinalização. Nasce num efeito, não no render — `novoId` e `Date.now`
-  // são impuros, e o carimbo de chegada precisa ser o mesmo para sempre
-  // (é ele que decide quem é host).
   const euRef = useRef(null);
   const [eu, setEu] = useState(null);
   useEffect(() => {
@@ -76,110 +102,206 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
   }, [nickname]);
 
   const salaRef = useRef(null);
-  const streamLocalRef = useRef(null);
-  // Uma conexão por espectador quando eu transmito; uma só (do transmissor)
-  // quando eu assisto.
+  const telaRef = useRef(null);
+  const microfoneRef = useRef(null);
+  // id do par → { pc, polido, fazendoOferta, ignorando }
   const conexoesRef = useRef(new Map());
-  // ICE que chega antes da descrição remota não pode ser aplicado ainda:
-  // fica aqui até haver com o que casar.
   const icePendenteRef = useRef(new Map());
+  // `${peerId}|${streamId}` → { peerId, stream, tipo }
+  const remotosRef = useRef(new Map());
   const participantesRef = useRef([]);
-  const transmitindoRef = useRef(false);
-  // O host precisa ser lido dentro do tratador de mensagens sem entrar nas
-  // dependências dele: se entrasse, cada mudança de participante recriaria
-  // o tratador e reassinaria o canal inteiro.
-  const hostRef = useRef(null);
+  // Quem já saiu de vez. O `leave` do presence pode demorar ou se perder
+  // (aba morta, rede caída), e sem isto a pessoa removida continuava na
+  // lista de todo mundo. Aqui ela é riscada na hora e não volta, nem que
+  // um `sync` atrasado ainda a traga.
+  const expulsosRef = useRef(new Set());
   const bloqueadoRef = useRef(false);
   const regrasRef = useRef(REGRAS_PADRAO);
   const souDonoRef = useRef(false);
-  const comAudioRef = useRef(false);
+  const estadoPresencaRef = useRef({ ...PRESENCA_ZERADA });
 
   useEffect(() => { participantesRef.current = participantes; }, [participantes]);
-  useEffect(() => { transmitindoRef.current = transmitindo; }, [transmitindo]);
-  useEffect(() => { comAudioRef.current = comAudio; }, [comAudio]);
   useEffect(() => { bloqueadoRef.current = bloqueado; }, [bloqueado]);
   useEffect(() => { regrasRef.current = regras; }, [regras]);
   useEffect(() => { souDonoRef.current = souDono; }, [souDono]);
-  // Guardado em ref para o efeito das regras não depender da identidade
-  // desta função: uma dependência a mais ali refaria a assinatura e
-  // repetiria a consulta de entrada a cada render.
-  const pararRef = useRef(null);
 
+  // Anuncia o estado inteiro, sempre. Entrar no canal zera a presença, e
+  // mandar só um pedaço apagaria o resto do que eu já tinha dito.
+  const anunciar = useCallback((patch) => {
+    estadoPresencaRef.current = { ...estadoPresencaRef.current, ...patch };
+    salaRef.current?.anunciar(estadoPresencaRef.current);
+  }, []);
+
+  // ── Mídia dos outros ──
+  const publicarRemotos = useCallback(() => {
+    setMidiaRemota([...remotosRef.current.values()]);
+  }, []);
+
+  const registrarRemoto = useCallback((peerId, stream) => {
+    remotosRef.current.set(`${peerId}|${stream.id}`, {
+      peerId,
+      stream,
+      tipo: tipoDoStream(stream),
+    });
+    publicarRemotos();
+  }, [publicarRemotos]);
+
+  const esquecerRemotosDe = useCallback((peerId) => {
+    let mudou = false;
+    remotosRef.current.forEach((v, chave) => {
+      if (v.peerId === peerId) { remotosRef.current.delete(chave); mudou = true; }
+    });
+    if (mudou) publicarRemotos();
+  }, [publicarRemotos]);
+
+  // ── Conexões ──
   const fecharConexao = useCallback((id) => {
-    const pc = conexoesRef.current.get(id);
-    if (pc) {
+    const est = conexoesRef.current.get(id);
+    if (est) {
+      const { pc } = est;
       pc.onicecandidate = null;
       pc.ontrack = null;
+      pc.onnegotiationneeded = null;
       pc.onconnectionstatechange = null;
       try { pc.close(); } catch { /* já fechada */ }
       conexoesRef.current.delete(id);
     }
     icePendenteRef.current.delete(id);
-  }, []);
+    esquecerRemotosDe(id);
+  }, [esquecerRemotosDe]);
 
   const fecharTudo = useCallback(() => {
-    conexoesRef.current.forEach((_, id) => fecharConexao(id));
+    [...conexoesRef.current.keys()].forEach((id) => fecharConexao(id));
     conexoesRef.current.clear();
   }, [fecharConexao]);
 
-  const aplicarIcePendente = useCallback(async (id, pc) => {
-    const fila = icePendenteRef.current.get(id);
-    if (!fila?.length) return;
-    icePendenteRef.current.delete(id);
-    for (const candidate of fila) {
-      try { await pc.addIceCandidate(candidate); } catch { /* candidato obsoleto */ }
-    }
+  // Minhas faixas, na conexão com um par. Chamado ao criar a conexão e
+  // sempre que eu ligo tela ou microfone.
+  const enviarMinhasFaixas = useCallback((pc) => {
+    const jaEnviadas = new Set(pc.getSenders().map((s) => s.track).filter(Boolean));
+    [telaRef.current, microfoneRef.current].forEach((stream) => {
+      stream?.getTracks().forEach((faixa) => {
+        if (!jaEnviadas.has(faixa)) pc.addTrack(faixa, stream);
+      });
+    });
   }, []);
 
-  const novaConexao = useCallback((id) => {
+  const assegurarConexao = useCallback((id) => {
+    const existente = conexoesRef.current.get(id);
+    if (existente) return existente;
+
     const pc = new RTCPeerConnection({ iceServers: SERVIDORES_ICE });
+    // Quem é o polido sai da comparação dos ids: os dois lados chegam à
+    // mesma conclusão sem trocar mensagem sobre isso.
+    const est = { pc, polido: String(euRef.current?.id) > String(id), fazendoOferta: false, ignorando: false };
+    conexoesRef.current.set(id, est);
+
     pc.onicecandidate = (e) => {
       if (e.candidate) salaRef.current?.enviar(EVENTOS.ICE, { para: id, candidate: e.candidate.toJSON() });
     };
-    conexoesRef.current.set(id, pc);
-    return pc;
+    pc.ontrack = (e) => {
+      const stream = e.streams[0];
+      if (!stream) return;
+      registrarRemoto(id, stream);
+      // Uma faixa nova pode mudar o que o stream é: o áudio da tela chega
+      // separado do vídeo, e o stream só vira "tela" quando o vídeo entra.
+      stream.addEventListener('addtrack', () => registrarRemoto(id, stream));
+      stream.addEventListener('removetrack', () => {
+        if (stream.getTracks().length === 0) {
+          remotosRef.current.delete(`${id}|${stream.id}`);
+          publicarRemotos();
+        } else {
+          registrarRemoto(id, stream);
+        }
+      });
+      e.track.addEventListener('ended', () => {
+        if (stream.getTracks().every((t) => t.readyState === 'ended')) {
+          remotosRef.current.delete(`${id}|${stream.id}`);
+          publicarRemotos();
+        }
+      });
+    };
+    pc.onnegotiationneeded = async () => {
+      try {
+        est.fazendoOferta = true;
+        await pc.setLocalDescription();
+        salaRef.current?.enviar(EVENTOS.SDP, { para: id, sdp: sdpSimples(pc.localDescription) });
+      } catch {
+        // Negociação atropelada por outra; a próxima acerta.
+      } finally {
+        est.fazendoOferta = false;
+      }
+    };
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'failed') {
+        // Reinicia o ICE em vez de desistir: a rota pode ter mudado.
+        try { pc.restartIce(); } catch { /* navegador antigo */ }
+      }
+    };
+
+    enviarMinhasFaixas(pc);
+    return est;
+  }, [enviarMinhasFaixas, publicarRemotos, registrarRemoto]);
+
+  /**
+   * Tira alguém da sala do meu lado: conexão, mídia e lista.
+   *
+   * É o mesmo caminho para quem foi removido pelo host e para quem
+   * fechou a aba — a diferença é só quem manda fazer.
+   */
+  const purgarParticipante = useCallback((id) => {
+    if (!id) return;
+    expulsosRef.current.add(id);
+    fecharConexao(id);
+    setParticipantes((lista) => lista.filter((p) => p.id !== id));
+  }, [fecharConexao]);
+
+  // Renegocia com todo mundo — usado ao ligar/desligar tela e microfone.
+  const reofertarParaTodos = useCallback(() => {
+    participantesRef.current
+      .filter((p) => p.id !== euRef.current?.id)
+      .forEach((p) => {
+        const { pc } = assegurarConexao(p.id);
+        enviarMinhasFaixas(pc);
+      });
+  }, [assegurarConexao, enviarMinhasFaixas]);
+
+  const retirarStream = useCallback((stream) => {
+    if (!stream) return;
+    const faixas = new Set(stream.getTracks());
+    conexoesRef.current.forEach(({ pc }) => {
+      pc.getSenders()
+        .filter((s) => s.track && faixas.has(s.track))
+        .forEach((s) => { try { pc.removeTrack(s); } catch { /* conexão já fechada */ } });
+    });
+    stream.getTracks().forEach((t) => t.stop());
   }, []);
 
-  // ── Eu transmito: abre conexão e oferta para um espectador ──
-  const ofertarPara = useCallback(async (id) => {
-    const stream = streamLocalRef.current;
-    if (!stream) return;
-    fecharConexao(id);
-    const pc = novaConexao(id);
-    stream.getTracks().forEach((t) => pc.addTrack(t, stream));
-    try {
-      const oferta = await pc.createOffer();
-      await pc.setLocalDescription(oferta);
-      salaRef.current?.enviar(EVENTOS.OFERTA, { para: id, sdp: pc.localDescription });
-    } catch {
-      setErro('Não foi possível iniciar a conexão com um dos participantes.');
-    }
-  }, [fecharConexao, novaConexao]);
-
-  const pararDeTransmitir = useCallback(({ avisar = true } = {}) => {
-    streamLocalRef.current?.getTracks().forEach((t) => t.stop());
-    streamLocalRef.current = null;
-    fecharTudo();
+  // ── Compartilhar tela ──
+  const pararDeTransmitir = useCallback(() => {
+    retirarStream(telaRef.current);
+    telaRef.current = null;
     setTransmitindo(false);
     setComAudio(false);
-    salaRef.current?.anunciar({ transmitindo: false, comAudio: false });
-    if (avisar) salaRef.current?.enviar(EVENTOS.PAROU, {});
-  }, [fecharTudo]);
+    anunciar({ transmitindo: false, comAudio: false });
+  }, [anunciar, retirarStream]);
 
+  const pararRef = useRef(null);
   useEffect(() => { pararRef.current = pararDeTransmitir; }, [pararDeTransmitir]);
 
   const compartilharTela = useCallback(async () => {
     setErro('');
+    if (telaRef.current) return;
     // Segunda barreira: o botão já vem desabilitado, mas quem chamar isto
     // por outro caminho também não passa.
     const permissao = podeCompartilhar({
       regras: regrasRef.current,
-      souHost: souDonoRef.current,
+      souHost: souDonoRef.current || regrasRef.current.admins?.includes(euRef.current?.id),
       bloqueadoIndividualmente: bloqueadoRef.current,
     });
     if (!permissao.pode) {
       setErro(permissao.motivo === 'somente-host'
-        ? 'Só o host pode compartilhar nesta sala.'
+        ? 'Só o dono e os admins podem compartilhar nesta sala.'
         : 'Você não pode compartilhar a tela nesta sala agora.');
       return;
     }
@@ -197,8 +319,6 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
     } catch (e) {
       // Cancelar no seletor do navegador não é erro — é uma decisão.
       if (e?.name === 'NotAllowedError' || e?.name === 'AbortError') return;
-      // Navegador que recusa a restrição de áudio não pode impedir a
-      // transmissão: tenta de novo só com vídeo.
       try {
         stream = await navigator.mediaDevices.getDisplayMedia({ video, audio: false });
       } catch (e2) {
@@ -210,93 +330,146 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
     }
 
     const temAudio = stream.getAudioTracks().length > 0;
-    streamLocalRef.current = stream;
+    telaRef.current = stream;
     setTransmitindo(true);
     setComAudio(temAudio);
-    setStreamRemoto(null);
-    salaRef.current?.anunciar({ transmitindo: true, comAudio: temAudio });
+    anunciar({ transmitindo: true, comAudio: temAudio });
 
     // "Parar de compartilhar" do próprio navegador encerra a faixa sem
     // passar pela nossa interface — aqui isso vira o mesmo fim de tudo.
-    stream.getVideoTracks()[0]?.addEventListener('ended', () => pararDeTransmitir());
-    // O áudio pode acabar antes do vídeo (a aba de origem foi fechada, por
-    // exemplo). O indicador tem de acompanhar, não ficar aceso à toa.
+    stream.getVideoTracks()[0]?.addEventListener('ended', () => pararRef.current?.());
     stream.getAudioTracks()[0]?.addEventListener('ended', () => {
       setComAudio(false);
-      salaRef.current?.anunciar({ transmitindo: true, comAudio: false });
+      anunciar({ comAudio: false });
     });
 
-    participantesRef.current
-      .filter((p) => p.id !== euRef.current?.id)
-      .forEach((p) => ofertarPara(p.id));
-  }, [ofertarPara, pararDeTransmitir]);
+    reofertarParaTodos();
+  }, [anunciar, reofertarParaTodos]);
+
+  // ── Microfone ──
+  //
+  // Ligar pede permissão e acrescenta a faixa; o mudo só desliga a faixa
+  // que já está lá. Separar os dois evita renegociar a conexão a cada
+  // clique e evita pedir permissão de novo a quem só quer voltar a falar.
+  const alternarMicrofone = useCallback(async () => {
+    setErro('');
+    if (microfoneRef.current) {
+      const faixa = microfoneRef.current.getAudioTracks()[0];
+      if (!faixa) return;
+      const novoMudo = faixa.enabled;
+      faixa.enabled = !faixa.enabled;
+      setMudo(novoMudo);
+      anunciar({ microfoneAtivo: true, mudo: novoMudo });
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setErro('Este navegador não dá acesso ao microfone.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      microfoneRef.current = stream;
+      setMicrofoneAtivo(true);
+      setMudo(false);
+      anunciar({ microfoneAtivo: true, mudo: false });
+      stream.getAudioTracks()[0]?.addEventListener('ended', () => {
+        microfoneRef.current = null;
+        setMicrofoneAtivo(false);
+        setMudo(true);
+        anunciar({ microfoneAtivo: false, mudo: true });
+      });
+      reofertarParaTodos();
+    } catch (e) {
+      // Permissão negada não tira ninguém da sala: continua assistindo,
+      // compartilhando e conversando pelo áudio da tela.
+      setErro(e?.name === 'NotAllowedError'
+        ? 'Sem permissão para o microfone. Você continua na sala normalmente.'
+        : 'Não foi possível acessar o microfone. Você continua na sala normalmente.');
+    }
+  }, [anunciar, reofertarParaTodos]);
+
+  const desligarMicrofone = useCallback(() => {
+    retirarStream(microfoneRef.current);
+    microfoneRef.current = null;
+    setMicrofoneAtivo(false);
+    setMudo(true);
+    anunciar({ microfoneAtivo: false, mudo: true });
+  }, [anunciar, retirarStream]);
 
   // ── Recebimento de sinalização ──
   const aoReceber = useCallback(async (evento, payload) => {
     const de = payload?.de;
     if (!de) return;
 
-    if (evento === EVENTOS.QUERO_VER) {
-      if (transmitindoRef.current) ofertarPara(de);
-      return;
-    }
-
-    if (evento === EVENTOS.OFERTA) {
-      // Eu assisto: uma oferta chegando substitui qualquer conexão anterior.
-      fecharConexao(de);
-      const pc = novaConexao(de);
-      pc.ontrack = (e) => setStreamRemoto(e.streams[0]);
-      pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'failed') {
-          setErro('A conexão com quem está transmitindo caiu. Peça para recompartilhar.');
+    if (evento === EVENTOS.SDP) {
+      const est = assegurarConexao(de);
+      const { pc } = est;
+      const descricao = payload.sdp;
+      // Negociação perfeita: se as duas ofertas se cruzarem, o impolido
+      // ignora a do outro e o polido abre mão da sua.
+      const colisao = descricao.type === 'offer'
+        && (est.fazendoOferta || pc.signalingState !== 'stable');
+      est.ignorando = !est.polido && colisao;
+      if (est.ignorando) return;
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(descricao));
+        const fila = icePendenteRef.current.get(de);
+        if (fila?.length) {
+          icePendenteRef.current.delete(de);
+          for (const c of fila) {
+            try { await pc.addIceCandidate(c); } catch { /* candidato obsoleto */ }
+          }
         }
-      };
-      try {
-        await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-        await aplicarIcePendente(de, pc);
-        const resposta = await pc.createAnswer();
-        await pc.setLocalDescription(resposta);
-        salaRef.current?.enviar(EVENTOS.RESPOSTA, { para: de, sdp: pc.localDescription });
+        if (descricao.type === 'offer') {
+          await pc.setLocalDescription();
+          salaRef.current?.enviar(EVENTOS.SDP, { para: de, sdp: sdpSimples(pc.localDescription) });
+        }
       } catch {
-        setErro('Não foi possível conectar à transmissão.');
+        // Descrição fora de ordem; a renegociação seguinte acerta.
       }
-      return;
-    }
-
-    if (evento === EVENTOS.RESPOSTA) {
-      const pc = conexoesRef.current.get(de);
-      if (!pc) return;
-      try {
-        await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-        await aplicarIcePendente(de, pc);
-      } catch { /* resposta fora de ordem */ }
       return;
     }
 
     if (evento === EVENTOS.ICE) {
-      const pc = conexoesRef.current.get(de);
-      const candidate = new RTCIceCandidate(payload.candidate);
-      if (!pc || !pc.remoteDescription) {
+      const est = conexoesRef.current.get(de);
+      const candidato = new RTCIceCandidate(payload.candidate);
+      if (!est || !est.pc.remoteDescription) {
         const fila = icePendenteRef.current.get(de) || [];
-        fila.push(candidate);
+        fila.push(candidato);
         icePendenteRef.current.set(de, fila);
         return;
       }
-      try { await pc.addIceCandidate(candidate); } catch { /* candidato obsoleto */ }
+      try { await est.pc.addIceCandidate(candidato); } catch {
+        if (!est.ignorando) { /* candidato obsoleto */ }
+      }
       return;
     }
 
-    if (evento === EVENTOS.PAROU) {
-      fecharConexao(de);
-      setStreamRemoto(null);
+    if (evento === EVENTOS.SAIU) {
+      // Só vale vindo de quem a sala reconhece como dono ou admin — e a
+      // própria pessoa pode anunciar a sua saída.
+      const alvo = payload.quem;
+      const doPróprio = alvo === de;
+      const daModeracao = podeModerar({
+        donoId: regrasRef.current.donoId,
+        admins: regrasRef.current.admins,
+        autorId: de,
+        alvoId: alvo,
+        acao: ACOES.REMOVER,
+      });
+      if (doPróprio || daModeracao) purgarParticipante(alvo);
       return;
     }
 
     if (evento === EVENTOS.MODERACAO) {
-      // A interface do outro lado já filtrou, mas quem obedece confere:
-      // a ordem só vale se vier de quem a sala inteira reconhece como host.
+      // A interface do outro lado já filtrou, mas quem obedece confere: a
+      // ordem só vale se vier de quem o BANCO reconhece como dono ou
+      // admin — não de quem se diz uma coisa ou outra.
       const autorizado = podeModerar({
-        hostId: hostRef.current?.id,
+        donoId: regrasRef.current.donoId,
+        admins: regrasRef.current.admins,
         autorId: de,
         alvoId: euRef.current?.id,
         acao: payload.acao,
@@ -305,39 +478,48 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
 
       if (payload.acao === ACOES.BLOQUEAR) {
         setBloqueado(true);
-        salaRef.current?.anunciar({ bloqueado: true, transmitindo: false, comAudio: false });
-        // Bloquear quem já está no ar corta a transmissão na hora.
-        if (transmitindoRef.current) pararDeTransmitir();
+        if (telaRef.current) pararRef.current?.();
+        anunciar({ bloqueado: true });
         return;
       }
       if (payload.acao === ACOES.LIBERAR) {
         setBloqueado(false);
-        salaRef.current?.anunciar({ bloqueado: false });
+        anunciar({ bloqueado: false });
         return;
       }
       if (payload.acao === ACOES.PARAR) {
-        if (transmitindoRef.current) pararDeTransmitir();
+        if (telaRef.current) pararRef.current?.();
         return;
       }
       if (payload.acao === ACOES.REMOVER) {
         // Sai do canal e derruba tudo aqui mesmo: a tela de aviso e o
         // redirect são da página, mas a sala já deixou de existir.
-        streamLocalRef.current?.getTracks().forEach((t) => t.stop());
-        streamLocalRef.current = null;
+        //
+        // Antes de sair, avisa a sala: o `leave` do presence pode demorar
+        // e, enquanto isso, eu ficava na lista dos outros como fantasma.
+        salaRef.current?.enviar(EVENTOS.SAIU, { quem: euRef.current?.id });
+        retirarStream(telaRef.current);
+        retirarStream(microfoneRef.current);
+        telaRef.current = null;
+        microfoneRef.current = null;
         fecharTudo();
-        setStreamRemoto(null);
+        setParticipantes([]);
+        setMidiaRemota([]);
         setTransmitindo(false);
         setComAudio(false);
+        setMicrofoneAtivo(false);
+        setMudo(true);
+        if (euRef.current?.id) largarVaga(codigo, euRef.current.id).catch(() => {});
         salaRef.current?.sair();
         salaRef.current = null;
         setRemovido(true);
       }
     }
-  }, [aplicarIcePendente, fecharConexao, fecharTudo, novaConexao, ofertarPara, pararDeTransmitir]);
+  }, [anunciar, assegurarConexao, codigo, fecharTudo, purgarParticipante, retirarStream]);
 
   // ── Regras da sala (estado autoritativo no Supabase) ──
   useEffect(() => {
-    if (!ativo || !codigo) return undefined;
+    if (!ativo || !codigo || !eu) return undefined;
     let vivo = true;
 
     // Só quem acabou de criar a sala cria token. Quem chega por link não
@@ -347,19 +529,10 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
 
     (async () => {
       try {
-        if (token && criador) {
-          // Abrir a própria sala já é a autorização: quem cria, entra.
-          const atual = await abrirSala(codigo, token);
-          if (!vivo) return;
-          setRegras(atual);
-          setSouDono(true);
-          setEntrada(ENTRADA.AUTORIZADA);
-          return;
-        }
-        // Todo o resto pergunta ao servidor. O token vai junto quando
-        // existe (host que recarregou a página) para ele atravessar o
-        // próprio bloqueio de entradas.
-        const decisao = decisaoDaEntrada(await autorizarEntrada(codigo, token));
+        if (token && criador) await abrirSala(codigo, token);
+        // Mesmo quem acabou de criar passa pela autorização: é ela que
+        // registra a vaga na contagem e grava quem é o dono.
+        const decisao = decisaoDaEntrada(await autorizarEntrada(codigo, token, eu.id));
         if (!vivo) return;
         setRegras(decisao.regras);
         // Dono é quem o SERVIDOR reconheceu pelo token, não quem tem
@@ -384,58 +557,49 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
     const desassinar = assinarRegras(codigo, (novas) => {
       if (!vivo) return;
       setRegras(novas);
-      // "Só o host compartilha" tira do ar quem já estava transmitindo
-      // sem ser ele. Reagir aqui, no aviso do servidor, e não num efeito
-      // sobre o estado: é o servidor que manda, e é dele que a ordem vem.
+      // "Só o dono e os admins compartilham" tira do ar quem já estava
+      // transmitindo sem ser um deles. Reagir aqui, no aviso do servidor,
+      // e não num efeito sobre o estado: é o servidor que manda.
       //
       // "Bloquear novas entradas" de propósito não faz nada aqui: é uma
       // porta, não uma expulsão — quem já está na sala continua.
-      if (novas.somenteHostCompartilha && !souDonoRef.current && transmitindoRef.current) {
+      const meuId = euRef.current?.id;
+      const privilegiado = souDonoRef.current || novas.admins?.includes(meuId);
+      if (novas.somenteHostCompartilha && !privilegiado && telaRef.current) {
         pararRef.current?.();
       }
     });
     return () => { vivo = false; desassinar(); };
-  }, [ativo, codigo, criador]);
+  }, [ativo, codigo, criador, eu]);
 
   // ── Ciclo de vida da sala ──
   useEffect(() => {
     if (!ativo || !codigo || !nickname || !eu) return undefined;
     // Sem o "pode entrar" do servidor não se entra: nada de presence,
-    // nada de WebRTC, nada de sinalização. Enquanto a resposta não vem o
-    // estado é VERIFICANDO, que também não entra.
+    // nada de WebRTC, nada de sinalização.
     if (entrada !== ENTRADA.AUTORIZADA) return undefined;
     euRef.current.nickname = nickname;
 
     const sala = entrarNaSala({
       codigo,
       eu: euRef.current,
-      aoMudarParticipantes: (lista) => {
+      aoMudarParticipantes: (listaCrua) => {
         const anteriores = participantesRef.current;
+        // Quem já foi removido não volta por um sync atrasado.
+        const lista = listaCrua.filter((p) => !expulsosRef.current.has(p.id));
         setParticipantes(lista);
 
-        // Alguém saiu: derruba a conexão que existia com essa pessoa.
+        // Quem saiu leva junto a conexão e a mídia que vinha dele.
         anteriores
           .filter((a) => !lista.some((p) => p.id === a.id))
-          .forEach((a) => {
-            fecharConexao(a.id);
-            if (a.transmitindo) setStreamRemoto(null);
-          });
+          .forEach((a) => fecharConexao(a.id));
 
-        // Parou de transmitir sem o aviso chegar (aba fechada no meio, rede
-        // engasgada): a presença é a fonte de verdade e limpa o palco.
-        anteriores
-          .filter((a) => a.transmitindo && lista.some((p) => p.id === a.id && !p.transmitindo))
-          .forEach((a) => {
-            fecharConexao(a.id);
-            setStreamRemoto(null);
-          });
-
-        // Alguém entrou enquanto eu transmito: oferta para o recém-chegado.
-        if (transmitindoRef.current) {
-          lista
-            .filter((p) => p.id !== euRef.current.id && !anteriores.some((a) => a.id === p.id))
-            .forEach((p) => ofertarPara(p.id));
-        }
+        // Quem chegou ganha conexão na hora, já com as minhas faixas: é
+        // isso que faz um recém-chegado ver quem já estava transmitindo
+        // sem ninguém precisar pedir.
+        lista
+          .filter((p) => p.id !== euRef.current?.id && !conexoesRef.current.has(p.id))
+          .forEach((p) => assegurarConexao(p.id));
       },
       aoReceber,
       aoMudarStatus: setStatus,
@@ -447,33 +611,93 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
 
     return () => {
       window.removeEventListener('pagehide', aoFechar);
-      streamLocalRef.current?.getTracks().forEach((t) => t.stop());
-      streamLocalRef.current = null;
+      telaRef.current?.getTracks().forEach((t) => t.stop());
+      microfoneRef.current?.getTracks().forEach((t) => t.stop());
+      telaRef.current = null;
+      microfoneRef.current = null;
       fecharTudo();
       sala.sair();
       salaRef.current = null;
     };
     // `aoReceber` e os fechadores são estáveis por useCallback; o efeito
     // só deve rodar de novo quando muda a sala, a identidade ou a
-    // autorização. `regras` ficou fora porque não é mais consultada
-    // aqui: mudança de regra não derruba nem refaz o canal de quem já
-    // está dentro — quem reage a ela é o efeito de baixo.
-  }, [ativo, codigo, nickname, eu, entrada, aoReceber, fecharConexao, fecharTudo, ofertarPara]);
+    // autorização.
+  }, [ativo, codigo, nickname, eu, entrada, aoReceber, assegurarConexao, fecharConexao, fecharTudo]);
 
-  // O que fazer ao (re)conectar mora num efeito, não no callback de status:
-  // o callback pode disparar antes de `salaRef` receber o handle do canal,
-  // e aí o aviso se perderia em silêncio.
+  // ── A vaga na contagem do limite ──
+  //
+  // A autorização registrou a vaga; aqui ela é renovada enquanto a aba
+  // vive e largada quando ela morre. Sem isso a sala lotaria de fantasmas.
+  useEffect(() => {
+    if (entrada !== ENTRADA.AUTORIZADA || !codigo || !eu) return undefined;
+    const bater = () => { baterPonto(codigo, eu.id).catch(() => {}); };
+    const timer = setInterval(bater, INTERVALO_PONTO);
+    const aoFechar = () => { largarVaga(codigo, eu.id).catch(() => {}); };
+    window.addEventListener('pagehide', aoFechar);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('pagehide', aoFechar);
+      aoFechar();
+    };
+  }, [entrada, codigo, eu]);
+
+  // Reconectar zera a presença do canal: preciso dizer de novo o que
+  // estava dizendo, senão apareço mudo e sem transmitir para quem chegou.
   useEffect(() => {
     if (status !== STATUS.CONECTADO || !salaRef.current) return;
-    // "Cheguei": quem estiver transmitindo abre a conexão para mim.
-    salaRef.current.enviar(EVENTOS.QUERO_VER, {});
-    // Entrar no canal re-anuncia a presença zerada; se eu já estava
-    // transmitindo, preciso dizer de novo que estou.
-    if (transmitindoRef.current) {
-      salaRef.current.anunciar({ transmitindo: true, comAudio: comAudioRef.current });
-    }
+    salaRef.current.anunciar(estadoPresencaRef.current);
   }, [status]);
 
+  // ── Quem está falando ──
+  //
+  // Medido do sinal, não anunciado: quem fala não sabe que está falando,
+  // e mandar isso pelo canal encheria a sala de mensagens. Cada ponta
+  // mede o que recebe.
+  useEffect(() => {
+    const micsRemotos = midiaRemota.filter((m) => m.tipo === 'microfone');
+    if (!micsRemotos.length) {
+      setFalando([]);
+      return undefined;
+    }
+    const Contexto = window.AudioContext || window.webkitAudioContext;
+    if (!Contexto) return undefined;
+    const ctx = new Contexto();
+    const medidores = micsRemotos.map(({ peerId, stream }) => {
+      const analisador = ctx.createAnalyser();
+      analisador.fftSize = 512;
+      ctx.createMediaStreamSource(stream).connect(analisador);
+      return { peerId, analisador, dados: new Uint8Array(analisador.frequencyBinCount) };
+    });
+
+    let rodando = true;
+    let anterior = '';
+    const medir = () => {
+      if (!rodando) return;
+      const ativos = medidores.filter(({ analisador, dados }) => {
+        analisador.getByteTimeDomainData(dados);
+        let soma = 0;
+        for (let i = 0; i < dados.length; i += 1) {
+          const v = (dados[i] - 128) / 128;
+          soma += v * v;
+        }
+        return Math.sqrt(soma / dados.length) > 0.045;
+      }).map((m) => m.peerId);
+      const assinatura = ativos.join(',');
+      if (assinatura !== anterior) {
+        anterior = assinatura;
+        setFalando(ativos);
+      }
+      setTimeout(medir, 180);
+    };
+    medir();
+
+    return () => {
+      rodando = false;
+      ctx.close().catch(() => {});
+    };
+  }, [midiaRemota]);
+
+  // ── Comandos do dono ──
   const definirRegrasDaSala = useCallback(async (patch) => {
     if (!tokenRef.current) return false;
     try {
@@ -498,28 +722,102 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
     }
   }, [codigo]);
 
-  const quemTransmite = useMemo(
-    () => participantes.find((p) => p.transmitindo) || null,
-    [participantes],
-  );
-  const host = participantes[0] || null;
-  const souHost = Boolean(host && eu && host.id === eu.id);
-  useEffect(() => { hostRef.current = host; }, [host]);
+  const definirAdmin = useCallback(async (participanteId, admin) => {
+    if (!tokenRef.current) return false;
+    try {
+      setRegras(await gravarAdmin(codigo, tokenRef.current, participanteId, admin));
+      return true;
+    } catch (e) {
+      setErro(e.message || 'Não foi possível mudar os admins da sala.');
+      return false;
+    }
+  }, [codigo]);
 
-  // Ação do host sobre outro participante. A mesma regra que o outro lado
-  // usa para decidir se obedece é conferida aqui antes de mandar.
+  // ── Derivados ──
+  const donoId = regras.donoId;
+  const admins = useMemo(() => regras.admins || [], [regras.admins]);
+  const meuPapel = papelDe({ id: eu?.id, donoId, admins });
+
+  // O que o palco mostra: a minha tela e a de cada um que está
+  // transmitindo. A minha entra pelo stream local — não recebo de volta o
+  // que eu mesmo mando, e é isso que impede o eco.
+  const transmissoes = useMemo(() => {
+    const lista = [];
+    if (transmitindo && telaRef.current) {
+      lista.push({
+        id: eu?.id,
+        eu: true,
+        nickname: eu?.nickname || 'Você',
+        stream: telaRef.current,
+        comAudio,
+      });
+    }
+    midiaRemota
+      .filter((m) => m.tipo === 'tela')
+      .forEach((m) => {
+        const dono = participantes.find((p) => p.id === m.peerId);
+        lista.push({
+          id: m.peerId,
+          eu: false,
+          nickname: dono?.nickname || 'Participante',
+          stream: m.stream,
+          comAudio: m.stream.getAudioTracks().length > 0,
+        });
+      });
+    return lista;
+  }, [transmitindo, comAudio, midiaRemota, participantes, eu]);
+
+  /**
+   * Quem está transmitindo AGORA, por id.
+   *
+   * Duas fontes, de propósito. A presença é o que a pessoa diz de si, e
+   * pode chegar atrasada ou fora de ordem; a mídia que está entrando é o
+   * que de fato acontece. Se um vídeo dela está na minha tela, ela está
+   * compartilhando — não importa o que a presença ainda não contou.
+   */
+  const transmitindoIds = useMemo(
+    () => quemCompartilha({ participantes, transmissoes }),
+    [transmissoes, participantes],
+  );
+
+  // Só os microfones dos OUTROS: tocar o meu seria eco garantido.
+  const microfonesRemotos = useMemo(
+    () => midiaRemota.filter((m) => m.tipo === 'microfone'),
+    [midiaRemota],
+  );
+
+  const host = participantes.find((p) => p.id === donoId) || participantes[0] || null;
+  const souHost = souDono;
+
+  // Ação sobre outro participante. A mesma regra que o outro lado usa
+  // para decidir se obedece é conferida aqui antes de mandar.
   const moderar = useCallback((alvoId, acao) => {
     const autorizado = podeModerar({
-      hostId: hostRef.current?.id,
+      donoId: regrasRef.current.donoId,
+      admins: regrasRef.current.admins,
       autorId: euRef.current?.id,
       alvoId,
       acao,
     });
     if (!autorizado) return false;
+    // Promover e rebaixar são estado da sala, não ordem entre pares: vão
+    // ao banco, e chegam a todos por postgres_changes.
+    if (acao === ACOES.PROMOVER) return definirAdmin(alvoId, true);
+    if (acao === ACOES.REBAIXAR) return definirAdmin(alvoId, false);
     salaRef.current?.enviar(EVENTOS.MODERACAO, { para: alvoId, acao });
+    if (acao === ACOES.REMOVER) {
+      // Não espera o `leave` do presence: avisa a sala e risca daqui na
+      // hora. Se a aba do removido morrer antes de se despedir, ninguém
+      // fica olhando para um fantasma.
+      salaRef.current?.enviar(EVENTOS.SAIU, { quem: alvoId });
+      purgarParticipante(alvoId);
+      // Com o token: liberar a vaga de OUTRA pessoa é do dono, e o
+      // banco confere. Assim a vaga abre na hora em vez de esperar a
+      // presença dela caducar.
+      largarVaga(codigo, alvoId, tokenRef.current).catch(() => {});
+    }
     return true;
-  }, []);
-  const outroTransmitindo = Boolean(quemTransmite && eu && quemTransmite.id !== eu.id);
+  }, [codigo, definirAdmin, purgarParticipante]);
 
   return {
     eu,
@@ -527,24 +825,32 @@ export function useSalaAoVivo({ codigo, nickname, criador = false, ativo = true 
     participantes,
     host,
     souHost,
+    souDono,
+    donoId,
+    admins,
+    meuPapel,
     transmitindo,
     comAudio,
+    microfoneAtivo,
+    mudo,
+    falando,
+    transmissoes,
+    transmitindoIds,
+    microfonesRemotos,
     bloqueado,
     removido,
     moderar,
     regras,
-    souDono,
     entrada,
     barrado,
     definirRegrasDaSala,
+    definirAdmin,
     encerrarParaTodos,
-    quemTransmite,
-    outroTransmitindo,
-    streamRemoto,
-    streamLocal: streamLocalRef,
+    streamLocal: telaRef,
     erro,
-    limparErro: () => setErro(''),
     compartilharTela,
     pararDeTransmitir,
+    alternarMicrofone,
+    desligarMicrofone,
   };
 }

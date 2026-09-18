@@ -1,5 +1,4 @@
 import { supabase } from '../../../lib/supabase';
-import { nomeDoCanal } from './sinalizacao.js';
 import { regrasDaLinha } from '../domain/regrasDaSala.js';
 
 // ═══════════════════════════════════════════════════════════════
@@ -60,10 +59,11 @@ export async function abrirSala(codigo, token) {
  * Erro aqui é recusa, nunca liberação: quem chama trata a exceção como
  * "não entra", e não como "entra com as regras padrão".
  */
-export async function autorizarEntrada(codigo, token = null) {
+export async function autorizarEntrada(codigo, token = null, participanteId = null) {
   const { data, error } = await supabase.rpc('nora_screen_entrar_na_sala', {
     p_codigo: codigo,
     p_token: token,
+    p_participante_id: participanteId,
   });
   if (error) throw new Error(error.message);
   const linha = Array.isArray(data) ? data[0] : data;
@@ -75,22 +75,69 @@ export async function autorizarEntrada(codigo, token = null) {
 export async function lerSala(codigo) {
   const { data, error } = await supabase
     .from('nora_screen_salas')
-    .select('entradas_bloqueadas, somente_host_compartilha, encerrada')
+    .select('entradas_bloqueadas, somente_host_compartilha, encerrada, max_participantes, admins, dono_id')
     .eq('codigo', codigo)
     .maybeSingle();
   if (error) throw new Error(error.message);
   return regrasDaLinha(data);
 }
 
-export async function definirRegras(codigo, token, { entradasBloqueadas, somenteHostCompartilha }) {
+export async function definirRegras(codigo, token, {
+  entradasBloqueadas,
+  somenteHostCompartilha,
+  maxParticipantes,
+} = {}) {
+  // `null` em maxParticipantes é "não mexe"; tirar o limite precisa de
+  // bandeira própria, senão não haveria como voltar a "sem limite".
+  const limparMax = maxParticipantes === null;
   const { data, error } = await supabase.rpc('nora_screen_definir_regras', {
     p_codigo: codigo,
     p_token: token,
     p_entradas_bloqueadas: entradasBloqueadas ?? null,
     p_somente_host: somenteHostCompartilha ?? null,
+    p_max_participantes: typeof maxParticipantes === 'number' ? maxParticipantes : null,
+    p_limpar_max: limparMax,
   });
   if (error) throw new Error(error.message);
   return regrasDaLinha(Array.isArray(data) ? data[0] : data);
+}
+
+/** Promove ou rebaixa um admin. Só o dono, e o banco confere o token. */
+export async function definirAdmin(codigo, token, participanteId, admin) {
+  const { data, error } = await supabase.rpc('nora_screen_definir_admin', {
+    p_codigo: codigo,
+    p_token: token,
+    p_participante_id: participanteId,
+    p_admin: Boolean(admin),
+  });
+  if (error) throw new Error(error.message);
+  return regrasDaLinha(Array.isArray(data) ? data[0] : data);
+}
+
+/**
+ * Renova a vaga na sala.
+ *
+ * A contagem do limite mora no Postgres, que não sabe quem continua no
+ * canal do Realtime. Sem esta batida, uma aba fechada no meio seguraria
+ * a vaga até a linha caducar; com ela, quem está de fato presente se
+ * mantém e o resto caduca sozinho.
+ */
+export async function baterPonto(codigo, participanteId) {
+  const { error } = await supabase.rpc('nora_screen_bater_ponto', {
+    p_codigo: codigo,
+    p_participante_id: participanteId,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** Larga a vaga ao sair, sem esperar a presença caducar. */
+export async function largarVaga(codigo, participanteId, token = null) {
+  const { error } = await supabase.rpc('nora_screen_sair_da_sala', {
+    p_codigo: codigo,
+    p_participante_id: participanteId,
+    p_token: token,
+  });
+  if (error) throw new Error(error.message);
 }
 
 export async function encerrarSala(codigo, token) {
@@ -116,48 +163,24 @@ export function assinarRegras(codigo, aoMudar) {
 }
 
 /**
- * Salas abertas agora.
+ * Salas abertas agora, já com quanta gente tem em cada uma.
  *
- * Só o que a listagem precisa ver: nunca o host_token_hash, que é o
- * material da credencial do host. "Ativa" é não encerrada e criada
- * dentro da janela que a varredura preserva — linha velha que ainda não
- * foi varrida não é sala viva.
+ * A contagem vem do banco, e não de entrar nos canais do Realtime para
+ * espiar a presença: aquilo era lento, às vezes não respondia (e a
+ * listagem ficava em "contando…") e mostrava salas que já não tinham
+ * ninguém. A RPC também varre as vazias antes de responder.
+ *
+ * Nunca devolve o host_token_hash — é o material da credencial do dono.
  */
-export async function listarSalasAtivas({ limite = 24, janelaHoras = 24 } = {}) {
-  const desde = new Date(Date.now() - janelaHoras * 60 * 60 * 1000).toISOString();
-  const { data, error } = await supabase
-    .from('nora_screen_salas')
-    .select('codigo, entradas_bloqueadas, somente_host_compartilha, criada_em')
-    .eq('encerrada', false)
-    .gte('criada_em', desde)
-    .order('criada_em', { ascending: false })
-    .limit(limite);
+export async function listarSalasAtivas({ limite = 24 } = {}) {
+  const { data, error } = await supabase.rpc('nora_screen_salas_ativas', { p_limite: limite });
   if (error) throw new Error(error.message);
   return (data || []).map((linha) => ({
     codigo: linha.codigo,
     entradasBloqueadas: Boolean(linha.entradas_bloqueadas),
     somenteHostCompartilha: Boolean(linha.somente_host_compartilha),
+    maxParticipantes: linha.max_participantes || null,
+    participantes: Number(linha.participantes) || 0,
     criadaEm: linha.criada_em,
   }));
-}
-
-/**
- * Conta quem está em cada sala, lendo a presença dos canais.
- *
- * Entra nos canais SEM `track`: a listagem observa, não participa — quem
- * está só olhando a lista não pode aparecer como participante para quem
- * está na sala.
- */
-export function contarParticipantes(codigos, aoContar) {
-  const canais = codigos.map((codigo) => {
-    const canal = supabase.channel(nomeDoCanal(codigo), { config: { presence: { key: '' } } });
-    const contar = () => aoContar(codigo, Object.keys(canal.presenceState()).length);
-    canal
-      .on('presence', { event: 'sync' }, contar)
-      .on('presence', { event: 'join' }, contar)
-      .on('presence', { event: 'leave' }, contar)
-      .subscribe();
-    return canal;
-  });
-  return () => canais.forEach((canal) => supabase.removeChannel(canal));
 }

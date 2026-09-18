@@ -4,7 +4,11 @@ import {
   ENTRADA,
   MOTIVOS_ENTRADA,
   REGRAS_PADRAO,
+  LIMITE_MAX,
+  LIMITE_MIN,
   decisaoDaEntrada,
+  limiteParaOBanco,
+  normalizarLimite,
   podeCompartilhar,
   regrasDaLinha,
   saidaObrigatoria,
@@ -18,7 +22,14 @@ test('sala sem linha no banco usa as regras padrão', () => {
 test('linha do banco vira regras, tolerando nulos', () => {
   assert.deepEqual(
     regrasDaLinha({ entradas_bloqueadas: true, somente_host_compartilha: null, encerrada: false }),
-    { entradasBloqueadas: true, somenteHostCompartilha: false, encerrada: false },
+    {
+      entradasBloqueadas: true,
+      somenteHostCompartilha: false,
+      encerrada: false,
+      maxParticipantes: null,
+      admins: [],
+      donoId: null,
+    },
   );
 });
 
@@ -43,12 +54,37 @@ test('sala encerrada impede compartilhar até para o host', () => {
   assert.equal(podeCompartilhar({ regras, souHost: true }).motivo, 'encerrada');
 });
 
-test('alguém já transmitindo é o último motivo, não o primeiro', () => {
-  assert.equal(podeCompartilhar({ outroTransmitindo: true }).motivo, 'ocupado');
-  assert.equal(
-    podeCompartilhar({ outroTransmitindo: true, bloqueadoIndividualmente: true }).motivo,
-    'bloqueado',
-  );
+test('vários compartilham ao mesmo tempo: ninguém espera a vez', () => {
+  // A sala deixou de ter uma vaga só de transmissão; quem chega depois
+  // divide o palco em vez de ser recusado.
+  assert.ok(podeCompartilhar({}).pode);
+  assert.ok(podeCompartilhar({ souHost: false }).pode);
+});
+
+test('limite de participantes atravessa a linha do banco', () => {
+  assert.equal(regrasDaLinha({ max_participantes: 8 }).maxParticipantes, 8);
+  // Sem limite é null, e zero ou lixo também: "sala que não aceita
+  // ninguém" é outra coisa, e tem nome próprio.
+  assert.equal(regrasDaLinha({ max_participantes: null }).maxParticipantes, null);
+  assert.equal(regrasDaLinha({ max_participantes: 0 }).maxParticipantes, null);
+  assert.equal(regrasDaLinha({ max_participantes: 'abc' }).maxParticipantes, null);
+  assert.deepEqual(regrasDaLinha({ admins: ['a', 'b'] }).admins, ['a', 'b']);
+  assert.deepEqual(regrasDaLinha({ admins: null }).admins, []);
+  // Quem é o dono também vem do banco, e não de quem se diz dono.
+  assert.equal(regrasDaLinha({ dono_id: 'abc' }).donoId, 'abc');
+  assert.equal(regrasDaLinha({}).donoId, null);
+});
+
+test('sala lotada é recusa do servidor, com texto próprio', () => {
+  const d = decisaoDaEntrada({
+    autorizado: false, motivo: 'lotada', e_host: false,
+    entradas_bloqueadas: false, somente_host_compartilha: false, encerrada: false,
+    max_participantes: 4,
+  });
+  assert.equal(d.estado, ENTRADA.RECUSADA);
+  assert.equal(d.motivo, 'lotada');
+  assert.equal(d.regras.maxParticipantes, 4);
+  assert.equal(MOTIVOS_ENTRADA.lotada, 'Esta sala atingiu o limite de participantes.');
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -168,4 +204,52 @@ test('host bloqueia, quem está dentro fica, quem chega é barrado, host libera,
 
   // E Ana nunca foi perturbada por nada disso.
   assert.equal(saidaObrigatoria({ regras }), null);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Limite de participantes pelo slider e pelo campo numérico.
+// ═══════════════════════════════════════════════════════════════
+
+test('o limite aceita a faixa de 0 a 99, e nada fora dela', () => {
+  assert.equal(normalizarLimite(0), 0);
+  assert.equal(normalizarLimite(50), 50);
+  assert.equal(normalizarLimite(99), 99);
+  assert.equal(normalizarLimite(-7), 0, 'abaixo do mínimo cola no 0');
+  assert.equal(normalizarLimite(1000), 99, 'acima do máximo cola no 99');
+  assert.equal(normalizarLimite(LIMITE_MAX + 1), LIMITE_MAX);
+  assert.equal(normalizarLimite(LIMITE_MIN - 1), LIMITE_MIN);
+});
+
+test('o campo numérico aceita qualquer coisa, e nada disso vira limite', () => {
+  // Texto colado, vazio, vírgula, notação científica: tudo cai no chão.
+  for (const lixo of ['', '   ', 'abc', null, undefined, NaN, Infinity, {}, []]) {
+    assert.equal(normalizarLimite(lixo), 0, `${JSON.stringify(lixo)} deveria virar 0`);
+  }
+  assert.equal(normalizarLimite('12'), 12, 'número em texto é número');
+  assert.equal(normalizarLimite(7.9), 7, 'fração é truncada, não arredondada para cima');
+  assert.equal(normalizarLimite(1e9), 99);
+});
+
+test('0 é sem limite, e o banco guarda isso como null', () => {
+  assert.equal(limiteParaOBanco(0), null);
+  assert.equal(limiteParaOBanco(''), null);
+  assert.equal(limiteParaOBanco(-3), null);
+});
+
+test('1 não existe como limite: vira 2', () => {
+  // Uma sala de 1 pessoa não é uma sala — para isso já existe
+  // "bloquear novas entradas". E o check do banco recusaria.
+  assert.equal(limiteParaOBanco(1), 2);
+  assert.equal(limiteParaOBanco(2), 2);
+  assert.equal(limiteParaOBanco(3), 3);
+});
+
+test('o que o slider produz sempre cabe no que o banco aceita', () => {
+  // O check do banco é: null, ou inteiro entre 2 e 99 — a mesma faixa
+  // do controle, para não existir valor que o slider oferece e o banco
+  // recusa.
+  for (let v = 0; v <= 99; v += 1) {
+    const b = limiteParaOBanco(v);
+    assert.ok(b === null || (Number.isInteger(b) && b >= 2 && b <= 99), `${v} -> ${b}`);
+  }
 });
